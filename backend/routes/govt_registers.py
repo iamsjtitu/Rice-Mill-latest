@@ -75,9 +75,10 @@ def style_govt_excel(ws, title, headers, data_rows, col_widths, company_name="",
 
 @router.get("/govt-registers/form-a")
 async def get_form_a(kms_year: Optional[str] = None, season: Optional[str] = None,
-                     date_from: Optional[str] = None, date_to: Optional[str] = None):
-    """Form A - Daily paddy stock register (from OSCSC/State Procuring Agency).
-    Shows opening balance, received, total, milled, closing balance per day."""
+                     date_from: Optional[str] = None, date_to: Optional[str] = None,
+                     group_by: Optional[str] = "daily"):
+    """Form A - Paddy stock register (from OSCSC/State Procuring Agency).
+    group_by: daily (default) or weekly."""
     query = {}
     if kms_year:
         query["kms_year"] = kms_year
@@ -112,7 +113,7 @@ async def get_form_a(kms_year: Optional[str] = None, season: Optional[str] = Non
             continue
         if d not in daily_received:
             daily_received[d] = {"received_qntl": 0, "bags": 0, "count": 0}
-        final_w = float(e.get("final_w", 0) or 0)
+        final_w = float(e.get("final_w", 0) or 0) / 100  # final_w is stored in KG, convert to QNTL
         if final_w == 0:
             final_w = float(e.get("kg", 0) or 0) / 100
         daily_received[d]["received_qntl"] += final_w
@@ -158,6 +159,45 @@ async def get_form_a(kms_year: Optional[str] = None, season: Optional[str] = Non
         })
         opening_balance = closing_balance
 
+    # Weekly grouping if requested
+    if group_by == "weekly" and rows:
+        from datetime import datetime as _dt
+        weekly_rows = []
+        week_data = None
+        for r in rows:
+            try:
+                dt = _dt.strptime(r["date"], "%Y-%m-%d")
+                # Monday-based week
+                week_start = dt - __import__('datetime').timedelta(days=dt.weekday())
+                week_key = week_start.strftime("%Y-%m-%d")
+            except:
+                week_key = r["date"]
+            if week_data is None or week_data["_week_key"] != week_key:
+                if week_data:
+                    weekly_rows.append(week_data)
+                week_end = (week_start + __import__('datetime').timedelta(days=6)).strftime("%Y-%m-%d")
+                week_data = {
+                    "_week_key": week_key,
+                    "date": f"{fmt_date(week_key)} to {fmt_date(week_end)}",
+                    "date_from": week_key,
+                    "date_to": week_end,
+                    "opening_balance": r["opening_balance"],
+                    "received_qntl": 0, "bags": 0, "entries_count": 0,
+                    "total_paddy": 0, "milled_qntl": 0, "closing_balance": 0,
+                }
+            week_data["received_qntl"] = round(week_data["received_qntl"] + r["received_qntl"], 2)
+            week_data["bags"] += r["bags"]
+            week_data["entries_count"] += r["entries_count"]
+            week_data["milled_qntl"] = round(week_data["milled_qntl"] + r["milled_qntl"], 2)
+            week_data["total_paddy"] = round(week_data["opening_balance"] + week_data["received_qntl"], 2)
+            week_data["closing_balance"] = round(week_data["total_paddy"] - week_data["milled_qntl"], 2)
+        if week_data:
+            weekly_rows.append(week_data)
+        # Clean internal keys
+        for wr in weekly_rows:
+            wr.pop("_week_key", None)
+        rows = weekly_rows
+
     return {
         "rows": rows,
         "summary": {
@@ -171,8 +211,9 @@ async def get_form_a(kms_year: Optional[str] = None, season: Optional[str] = Non
 
 @router.get("/govt-registers/form-a/excel")
 async def export_form_a_excel(kms_year: Optional[str] = None, season: Optional[str] = None,
-                               date_from: Optional[str] = None, date_to: Optional[str] = None):
-    data = await get_form_a(kms_year, season, date_from, date_to)
+                               date_from: Optional[str] = None, date_to: Optional[str] = None,
+                               group_by: Optional[str] = "daily"):
+    data = await get_form_a(kms_year, season, date_from, date_to, group_by)
     company, _ = await get_company_name()
     wb = Workbook()
     ws = wb.active
@@ -803,7 +844,7 @@ async def get_transit_pass_register(kms_year: Optional[str] = None, season: Opti
         tp_no = str(e.get("tp_no", "")).strip()
         if not tp_no:
             continue
-        final_w = float(e.get("final_w", 0) or 0)
+        final_w = float(e.get("final_w", 0) or 0) / 100  # final_w stored in KG, convert to QNTL
         if final_w == 0:
             final_w = float(e.get("kg", 0) or 0) / 100
         bags = int(e.get("bag", 0) or 0)
@@ -817,7 +858,7 @@ async def get_transit_pass_register(kms_year: Optional[str] = None, season: Opti
             "agent_name": e.get("agent_name", ""),
             "mandi_name": e.get("mandi_name", ""),
             "qty_qntl": round(final_w, 2),
-            "tp_weight": float(e.get("tp_weight", 0) or 0),
+            "tp_weight": round(float(e.get("tp_weight", 0) or 0) / 100, 2),
             "bags": bags,
             "status": "Accepted",
             "remark": e.get("remark", ""),
@@ -901,7 +942,7 @@ async def get_cmr_deliveries(kms_year: Optional[str] = None, season: Optional[st
         {"$group": {"_id": None, "total_paddy": {"$sum": "$final_w"}}}
     ]
     paddy_result = await db.mill_entries.aggregate(paddy_pipeline).to_list(1)
-    total_paddy = paddy_result[0]["total_paddy"] if paddy_result else 0
+    total_paddy = (paddy_result[0]["total_paddy"] if paddy_result else 0) / 100  # final_w is KG, convert to QNTL
 
     total_cmr = sum(float(e.get("cmr_qty", 0) or 0) for e in entries)
     otr = round((total_cmr / total_paddy * 100), 2) if total_paddy > 0 else 0

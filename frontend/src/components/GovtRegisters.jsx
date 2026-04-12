@@ -39,6 +39,7 @@ function PaddyCustodyRegister({ filters }) {
   const [view, setView] = useState("register"); // "register" or "mandi"
   const [register, setRegister] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState("daily"); // "daily" or "weekly"
 
   const fetchRegister = useCallback(async () => {
     try { setLoading(true);
@@ -47,10 +48,11 @@ function PaddyCustodyRegister({ filters }) {
       if (filters.season) params.append('season', filters.season);
       if (filters.date_from) params.append('date_from', filters.date_from);
       if (filters.date_to) params.append('date_to', filters.date_to);
+      params.append('group_by', viewMode);
       const res = await axios.get(`${API}/paddy-custody-register?${params}`);
       setRegister(res.data);
     } catch { toast.error("Register load nahi hua"); } finally { setLoading(false); }
-  }, [filters]);
+  }, [filters, viewMode]);
 
   useEffect(() => { fetchRegister(); }, [fetchRegister]);
 
@@ -86,6 +88,10 @@ function PaddyCustodyRegister({ filters }) {
         </div>
         {view === "register" && (
           <div className="flex gap-2">
+            <div className="flex gap-1 bg-slate-800 rounded-lg p-0.5">
+              <button onClick={() => setViewMode("daily")} className={`px-3 py-1 rounded text-xs font-medium transition ${viewMode === "daily" ? "bg-amber-600 text-white" : "text-slate-400 hover:text-white"}`} data-testid="custody-daily-btn">Daily</button>
+              <button onClick={() => setViewMode("weekly")} className={`px-3 py-1 rounded text-xs font-medium transition ${viewMode === "weekly" ? "bg-amber-600 text-white" : "text-slate-400 hover:text-white"}`} data-testid="custody-weekly-btn">Weekly</button>
+            </div>
             <Button onClick={fetchRegister} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
             <Button onClick={exportExcel} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="custody-export-excel"><FileSpreadsheet className="w-4 h-4 mr-1" /> Excel</Button>
             <Button onClick={exportPdf} size="sm" className="bg-red-700 hover:bg-red-600" data-testid="custody-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
@@ -142,6 +148,7 @@ function PaddyCustodyRegister({ filters }) {
 function FormARegister({ filters }) {
   const [data, setData] = useState({ rows: [], summary: {} });
   const [loading, setLoading] = useState(false);
+  const [viewMode, setViewMode] = useState("daily"); // "daily" or "weekly"
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -151,11 +158,12 @@ function FormARegister({ filters }) {
       if (filters.season) params.append("season", filters.season);
       if (filters.date_from) params.append("date_from", filters.date_from);
       if (filters.date_to) params.append("date_to", filters.date_to);
+      params.append("group_by", viewMode);
       const res = await axios.get(`${API}/govt-registers/form-a?${params}`);
       setData(res.data);
     } catch { toast.error("Form A data load error"); }
     setLoading(false);
-  }, [filters]);
+  }, [filters, viewMode]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -165,6 +173,7 @@ function FormARegister({ filters }) {
     if (filters.season) params.append("season", filters.season);
     if (filters.date_from) params.append("date_from", filters.date_from);
     if (filters.date_to) params.append("date_to", filters.date_to);
+    params.append("group_by", viewMode);
     window.open(`${API}/govt-registers/form-a/excel?${params}`, "_blank");
   };
 
@@ -175,9 +184,15 @@ function FormARegister({ filters }) {
           <h3 className="text-lg font-bold text-amber-400">Form A - Paddy Stock Register</h3>
           <p className="text-xs text-slate-400">Paddy received from OSCSC/State Procuring Agency (Mill Entries se linked)</p>
         </div>
-        <Button onClick={handleExcel} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="form-a-excel-btn">
-          <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel Export
-        </Button>
+        <div className="flex gap-2">
+          <div className="flex gap-1 bg-slate-800 rounded-lg p-0.5">
+            <button onClick={() => setViewMode("daily")} className={`px-3 py-1 rounded text-xs font-medium transition ${viewMode === "daily" ? "bg-amber-600 text-white" : "text-slate-400 hover:text-white"}`} data-testid="form-a-daily-btn">Daily</button>
+            <button onClick={() => setViewMode("weekly")} className={`px-3 py-1 rounded text-xs font-medium transition ${viewMode === "weekly" ? "bg-amber-600 text-white" : "text-slate-400 hover:text-white"}`} data-testid="form-a-weekly-btn">Weekly</button>
+          </div>
+          <Button onClick={handleExcel} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="form-a-excel-btn">
+            <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel Export
+          </Button>
+        </div>
       </div>
       {loading ? <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-amber-400" /></div> : (
         <>
@@ -186,7 +201,7 @@ function FormARegister({ filters }) {
             <SummaryCard label="Total Received" value={`${data.summary?.total_received || 0} Qtl`} color="green" />
             <SummaryCard label="Total Milled" value={`${data.summary?.total_milled || 0} Qtl`} color="blue" />
             <SummaryCard label="Balance" value={`${data.summary?.final_balance || 0} Qtl`} color="amber" />
-            <SummaryCard label="Days" value={data.summary?.total_days || 0} color="purple" />
+            <SummaryCard label={viewMode === "weekly" ? "Weeks" : "Days"} value={data.summary?.total_days || 0} color="purple" />
           </div>
           {/* Table */}
           <div className="overflow-x-auto rounded-lg border border-slate-700">

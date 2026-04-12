@@ -29,7 +29,7 @@ module.exports = function(database) {
       const d = e.date || '';
       if (!d) continue;
       if (!dailyReceived[d]) dailyReceived[d] = { received_qntl: 0, bags: 0, count: 0 };
-      let finalW = parseFloat(e.final_w || 0);
+      let finalW = parseFloat(e.final_w || 0) / 100; // final_w is KG, convert to QNTL
       if (finalW === 0) finalW = parseFloat(e.kg || 0) / 100;
       dailyReceived[d].received_qntl += finalW;
       dailyReceived[d].bags += parseInt(e.bag || 0);
@@ -91,7 +91,7 @@ module.exports = function(database) {
       const d = e.date || '';
       if (!d) continue;
       if (!dailyReceived[d]) dailyReceived[d] = { received_qntl: 0, bags: 0 };
-      let finalW = parseFloat(e.final_w || 0);
+      let finalW = parseFloat(e.final_w || 0) / 100; // KG to QNTL
       if (finalW === 0) finalW = parseFloat(e.kg || 0) / 100;
       dailyReceived[d].received_qntl += finalW;
       dailyReceived[d].bags += parseInt(e.bag || 0);
@@ -518,11 +518,11 @@ module.exports = function(database) {
     const rows = [];
     let totalQty = 0, totalBags = 0;
     for (const e of entries) {
-      let finalW = parseFloat(e.final_w || 0);
+      let finalW = parseFloat(e.final_w || 0) / 100; // KG to QNTL
       if (finalW === 0) finalW = parseFloat(e.kg || 0) / 100;
       const bags = parseInt(e.bag || 0);
       totalQty += finalW; totalBags += bags;
-      rows.push({ date: e.date || '', tp_no: String(e.tp_no), rst_no: String(e.rst_no || ''), truck_no: e.truck_no || '', agent_name: e.agent_name || '', mandi_name: e.mandi_name || '', qty_qntl: Math.round(finalW * 100) / 100, tp_weight: parseFloat(e.tp_weight || 0), bags, status: 'Accepted', remark: e.remark || '' });
+      rows.push({ date: e.date || '', tp_no: String(e.tp_no), rst_no: String(e.rst_no || ''), truck_no: e.truck_no || '', agent_name: e.agent_name || '', mandi_name: e.mandi_name || '', qty_qntl: Math.round(finalW * 100) / 100, tp_weight: Math.round(parseFloat(e.tp_weight || 0) / 100 * 100) / 100, bags, status: 'Accepted', remark: e.remark || '' });
     }
     res.json({ rows, summary: { total_entries: rows.length, total_qty: Math.round(totalQty * 100) / 100, total_bags: totalBags } });
   }));
@@ -543,7 +543,7 @@ module.exports = function(database) {
     const hdr = ws.addRow(['Date', 'TP No.', 'RST No.', 'Vehicle No.', 'Agent/Society', 'Mandi/PPC', 'Qty (Qtl)', 'TP Weight', 'Bags', 'Status', 'Remarks']);
     hdr.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
     let tq = 0, tb = 0;
-    entries.forEach(e => { let fw = parseFloat(e.final_w || 0); if (fw === 0) fw = parseFloat(e.kg || 0) / 100; const bags = parseInt(e.bag || 0); tq += fw; tb += bags; ws.addRow([fmtDate(e.date), String(e.tp_no), String(e.rst_no || ''), e.truck_no || '', e.agent_name || '', e.mandi_name || '', Math.round(fw * 100) / 100, parseFloat(e.tp_weight || 0), bags, 'Accepted', e.remark || '']); });
+    entries.forEach(e => { let fw = parseFloat(e.final_w || 0) / 100; if (fw === 0) fw = parseFloat(e.kg || 0) / 100; const bags = parseInt(e.bag || 0); tq += fw; tb += bags; ws.addRow([fmtDate(e.date), String(e.tp_no), String(e.rst_no || ''), e.truck_no || '', e.agent_name || '', e.mandi_name || '', Math.round(fw * 100) / 100, Math.round(parseFloat(e.tp_weight || 0) / 100 * 100) / 100, bags, 'Accepted', e.remark || '']); });
     ws.addRow(['TOTAL', `${entries.length} entries`, '', '', '', '', Math.round(tq * 100) / 100, '', tb, '', '']);
     [14, 14, 12, 16, 22, 20, 14, 14, 10, 12, 20].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -565,7 +565,7 @@ module.exports = function(database) {
     let paddyEntries = [...(database.data.entries || [])];
     if (kms_year) paddyEntries = paddyEntries.filter(e => e.kms_year === kms_year);
     if (season) paddyEntries = paddyEntries.filter(e => e.season === season);
-    const totalPaddy = paddyEntries.reduce((s, e) => s + parseFloat(e.final_w || 0), 0);
+    const totalPaddy = paddyEntries.reduce((s, e) => s + parseFloat(e.final_w || 0), 0) / 100; // KG to QNTL
     const totalCmr = entries.reduce((s, e) => s + parseFloat(e.cmr_qty || 0), 0);
     const otr = totalPaddy > 0 ? Math.round(totalCmr / totalPaddy * 10000) / 100 : 0;
 

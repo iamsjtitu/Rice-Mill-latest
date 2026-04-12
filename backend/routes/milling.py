@@ -378,8 +378,9 @@ async def delete_byproduct_sale(sale_id: str, username: str = "", role: str = ""
 # ============ PADDY CUSTODY MAINTENANCE REGISTER ============
 
 @router.get("/paddy-custody-register")
-async def get_paddy_custody_register(kms_year: Optional[str] = None, season: Optional[str] = None):
-    """Paddy custody register - all movements: received (mill entries) and released (milling entries)"""
+async def get_paddy_custody_register(kms_year: Optional[str] = None, season: Optional[str] = None,
+                                      group_by: Optional[str] = "daily"):
+    """Paddy custody register - group_by: daily or weekly"""
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
@@ -418,9 +419,40 @@ async def get_paddy_custody_register(kms_year: Optional[str] = None, season: Opt
     for r in rows:
         balance += r['received_qntl'] - r['issued_qntl']
         r['balance_qntl'] = round(balance, 2)
+
+    total_received = round(sum(r['received_qntl'] for r in rows), 2)
+    total_issued = round(sum(r['issued_qntl'] for r in rows), 2)
+
+    # Weekly grouping
+    if group_by == "weekly" and rows:
+        from datetime import datetime as _dt, timedelta
+        from utils.date_format import fmt_date as _fmt
+        weekly_rows = []
+        week_data = None
+        for r in rows:
+            try:
+                dt = _dt.strptime(r["date"], "%Y-%m-%d")
+                week_start = dt - timedelta(days=dt.weekday())
+                week_key = week_start.strftime("%Y-%m-%d")
+            except:
+                week_key = r["date"]
+            if week_data is None or week_data["_wk"] != week_key:
+                if week_data:
+                    weekly_rows.append(week_data)
+                week_end = (week_start + timedelta(days=6)).strftime("%Y-%m-%d")
+                week_data = {"_wk": week_key, "date": f"{_fmt(week_key)} to {_fmt(week_end)}", "type": "summary",
+                    "description": f"Week: {_fmt(week_key)} - {_fmt(week_end)}", "received_qntl": 0, "issued_qntl": 0, "balance_qntl": 0}
+            week_data["received_qntl"] = round(week_data["received_qntl"] + r["received_qntl"], 2)
+            week_data["issued_qntl"] = round(week_data["issued_qntl"] + r["issued_qntl"], 2)
+            week_data["balance_qntl"] = r["balance_qntl"]
+        if week_data:
+            weekly_rows.append(week_data)
+        for wr in weekly_rows:
+            wr.pop("_wk", None)
+        rows = weekly_rows
     
-    return {"rows": rows, "total_received": round(sum(r['received_qntl'] for r in rows), 2),
-        "total_issued": round(sum(r['issued_qntl'] for r in rows), 2),
+    return {"rows": rows, "total_received": total_received,
+        "total_issued": total_issued,
         "final_balance": round(balance, 2)}
 
 
