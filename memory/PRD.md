@@ -3,13 +3,13 @@
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with React frontend, Python FastAPI web backend, and Electron/Express desktop app. Triple backend architecture with MongoDB (web) and SQLite/JSON (desktop/local). Requires double-entry accounting, advanced reporting, offline-first desktop, and cross-device sync.
 
-## Current Version: v88.99.0
+## Current Version: v89.1.0
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind
 - **Backend (Web)**: Python FastAPI + MongoDB
-- **Backend (Desktop)**: Electron + Express + SQLite
-- **Backend (Local)**: Express + SQLite
+- **Backend (Desktop)**: Electron + Express + SQLite/JSON
+- **Backend (Local)**: Express + SQLite/JSON
 
 ## What's Been Implemented
 
@@ -17,7 +17,7 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Mill Entry CRUD with full weight/cut/payment tracking
 - Cash Book (Jama/Nikasi) with double-entry accounting
 - Private Paddy Purchase with party ledgers
-- Sale & Purchase Vouchers
+- Sale & Purchase Vouchers (with Bill No, Destination, Bill Book, Oil %)
 - DC Tracker (Delivery Challans)
 - Milling Tracker (CMR)
 - Staff Management with salary/advance
@@ -33,7 +33,18 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Daily Report
 - Agent & Mandi reports
 - Weight Discrepancy report
-- **Mandi Wise Custody Register** (NEW - date-wise paddy procurement from different mandis)
+- Mandi Wise Custody Register (QNTL, professional Excel)
+- Paddy Custody Register (Final W)
+
+### Government Registers (NEW v89.1.0)
+- **Form A** - Paddy Stock Register (OSCSC paddy, linked from Mill Entries, daily running balance)
+- **Form B** - CMR Register (Custom Milled Rice produced & delivered, linked from Milling + Sale Book)
+- **Form E** - Miller's Own Paddy (Private paddy purchases, linked from Private Trading)
+- **Form F** - Miller's Own Rice Sale (linked from Sale Book)
+- **FRK Blending Register** - Fortified Rice Kernel batch tracking (CRUD with opening/closing balance)
+- **Gunny Bag Stock Register** - Bag type wise stock management (New/Old/Plastic, CRUD)
+- All registers have government-format Excel export
+- Odisha OSCSC KMS 2025-26 compliance ready
 
 ### Features
 - Quick Search with entry detail dialog
@@ -46,25 +57,9 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Camera integration
 - GST Ledger / Audit Log
 - Multi-user with role-based access
-
-### Recent Changes (Apr 2026)
-- **v88.96.0**: Paddy Custody + Mandi Wise Custody Register ab `final_w` use karte hain (`mill_w` ki jagah). Triple backend fixed.
-- **v88.95.0**: Fixed browser CORS issue - MandiCustodyRegister & MillEntryForm were using build-time API URL instead of runtime Electron-aware pattern
-- **v88.94.0**: Fixed Mandi Custody Register Desktop - was querying wrong collection `milling_entries` instead of `entries`
-- **v88.93.0**: Triple Backend Parity System - `check-parity.py` (route comparison) + `sync-js-routes.sh` (Desktop→Local sync)
-- **v88.92.0**: Negative weight validation - 2nd Weight > 1st Weight hone par entry reject (Triple backend + Frontend)
-- **v88.91.0**: Added Paddy Chalna Excel+PDF export routes to Desktop/Local JS backends (were missing - Triple parity fix)
-- **v88.90.0**: Fixed Desktop/Local Server Mandi Custody Register - was querying `mill_entries` instead of `milling_entries` (Triple parity fix)
-- Quick Search: Click opens specific entry detail dialog
-- WeightDiscrepancy: Fixed missing `Input` import and `mandiList.map` error
-- PDF Watermark: Tiled repeating pattern across full page + global coverage in all JS backends
-- Settings.jsx refactored: 3091 → 70 lines + 11 tab files
-- **Mandi Wise Custody Register**: Date-wise mandi procurement with dynamic columns, TOTAL, PROG.TOTAL, PDF/Excel export. Triple backend parity.
+- Bags mandatory validation on Mill Entry
 
 ## Prioritized Backlog
-
-### P1 (High)
-- Export Preview feature (Preview data before exporting to Excel/PDF)
 
 ### P2 (Medium)
 - Python backend service layer refactoring
@@ -73,18 +68,32 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 ### P3 (Low)
 - Payment logic centralized service layer
 
+### Future - Government Registers Phase 2
+- Transit Pass Tracking
+- CMR Delivery Tracker with OTR (Outturn Ratio)
+- Monthly Return Auto-generation (Collector ko 15th tak)
+
+### Future - Government Registers Phase 3
+- Security Deposit Management (Bank Guarantee)
+- Quality Test Report Register
+
 ## Key Technical Notes
 - Triple Backend: Any change to Python MUST be replicated in desktop-app and local-server JS routes
 - Desktop paths: Use `os.homedir()` not `Program Files` for dynamic files
 - Auth: Session-cookie based, no JWT
 - Watermark: Python uses reportlab monkey-patch, JS uses drawWatermark in addPdfHeader + createPdfDoc helper
+- Collection mapping: MongoDB `mill_entries` = JS `entries`, `milling_entries` = milling process data
+- Govt registers: `gunny_bag_register` (Python/MongoDB) = `govt_gunny_bag_register` (JS, to avoid conflict with existing `gunny_bags` collection)
 
 ## Deployment Notes
-- **Desktop App (.exe)**: GitHub Actions auto-builds on push to main. User creates release on GitHub.
-- **Web Server (mill.9x.design)**: User deploys Python FastAPI backend manually. After "Save to GitHub", user pulls latest code on server and restarts.
-- **IMPORTANT**: After every code change, user must deploy to BOTH desktop (new .exe build) AND web server (git pull + restart) for full coverage.
+- **Desktop App (.exe)**: GitHub Actions auto-builds on push to main
+- **Web Server (mill.9x.design)**: User deploys Python FastAPI backend manually
+- **IMPORTANT**: After every code change, user must deploy to BOTH desktop (new .exe build) AND web server (git pull + restart)
+
+## Permanent Rules
 1. **Version Bump + WhatsNew**: Har fix/feature ke baad version bump (3 package.json) + WhatsNew.jsx update MANDATORY
-2. **Parity Check**: Har fix/feature ke baad `python3 /app/scripts/check-parity.py` run karna MANDATORY. Agar issues aaye toh fix karo pehle
+2. **Parity Check**: Har fix/feature ke baad `python3 /app/scripts/check-parity.py` run karna MANDATORY
 3. **Route Sync**: JS routes change karne ke baad `bash /app/scripts/sync-js-routes.sh` run karna MANDATORY
-4. **Collection Name Mapping**: MongoDB `mill_entries` = JS `entries` (NOT `milling_entries`). `milling_entries` = milling process data
+4. **Collection Name Mapping**: MongoDB `mill_entries` = JS `entries` (NOT `milling_entries`)
 5. **Hindi/Hinglish**: User se SIRF Hindi/Hinglish mein baat karo
+6. **Frontend API Pattern**: Use Electron-aware relative path pattern, never hardcode `process.env.REACT_APP_BACKEND_URL`
