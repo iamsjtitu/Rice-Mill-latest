@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "89.1.0";
+const APP_VERSION = "89.2.0";
 
 const CHANGELOG = [
+  {
+    version: "89.2.0",
+    date: "Apr 2026",
+    title: "v89.2.0 - Paddy Custody Register Moved",
+    items: [
+      { type: "fix", text: "Paddy Custody Register + Mandi Wise Custody Register ab Government Registers section mein hai" },
+      { type: "new", text: "Government Registers ab default tab Paddy Custody se khulta hai" },
+    ]
+  },
   {
     version: "89.1.0",
     date: "Apr 2026",

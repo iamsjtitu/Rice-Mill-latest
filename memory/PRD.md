@@ -3,7 +3,7 @@
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with React frontend, Python FastAPI web backend, and Electron/Express desktop app. Triple backend architecture with MongoDB (web) and SQLite/JSON (desktop/local). Requires double-entry accounting, advanced reporting, offline-first desktop, and cross-device sync.
 
-## Current Version: v89.1.0
+## Current Version: v89.2.0
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind
@@ -36,7 +36,8 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Mandi Wise Custody Register (QNTL, professional Excel)
 - Paddy Custody Register (Final W)
 
-### Government Registers (NEW v89.1.0)
+### Government Registers (NEW v89.1.0, Updated v89.2.0)
+- **Paddy Custody Register** - Moved from Milling Tracker (includes Mandi Wise Custody Register toggle)
 - **Form A** - Paddy Stock Register (OSCSC paddy, linked from Mill Entries, daily running balance)
 - **Form B** - CMR Register (Custom Milled Rice produced & delivered, linked from Milling + Sale Book)
 - **Form E** - Miller's Own Paddy (Private paddy purchases, linked from Private Trading)

@@ -17,7 +17,6 @@ import {
 import { Label } from "@/components/ui/label";
 import { Trash2, Edit, Plus, RefreshCw, Filter, X, ShoppingCart, Package, Download, FileText, ClipboardList, Scissors } from "lucide-react";
 import { useConfirm } from "./ConfirmProvider";
-import MandiCustodyRegister from "./MandiCustodyRegister";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
@@ -546,102 +545,6 @@ const ByProductTab = ({ filters, user, onRefresh }) => {
 };
 
 
-// ===== Sub-tab: Paddy Custody Register (with Mandi Custody toggle) =====
-const PaddyCustodyTab = ({ filters }) => {
-  const [view, setView] = useState("register"); // "register" or "mandi"
-  const [register, setRegister] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  const fetchRegister = useCallback(async () => {
-    try { setLoading(true);
-      const params = new URLSearchParams();
-      if (filters.kms_year) params.append('kms_year', filters.kms_year);
-      if (filters.season) params.append('season', filters.season);
-      const res = await axios.get(`${API}/paddy-custody-register?${params}`);
-      setRegister(res.data);
-    } catch (e) { toast.error("Register load nahi hua"); } finally { setLoading(false); }
-  }, [filters.kms_year, filters.season]);
-
-  useEffect(() => { fetchRegister(); }, [fetchRegister]);
-
-  const exportExcel = async () => {
-    try {
-      const params = new URLSearchParams();
-      if (filters.kms_year) params.append('kms_year', filters.kms_year);
-      if (filters.season) params.append('season', filters.season);
-      const { downloadFile } = await import('../utils/download');
-      downloadFile(`/api/paddy-custody-register/excel?${params}`, 'paddy_custody_register.xlsx');
-      toast.success("Excel export ho gaya!");
-    } catch (e) { toast.error("Export failed"); }
-  };
-
-  return (
-    <div className="space-y-4">
-      {/* Toggle: Register / Mandi Wise */}
-      <div className="flex gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2">
-        <Button onClick={() => setView("register")} size="sm"
-          className={view === "register" ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}
-          data-testid="custody-view-register">
-          <ClipboardList className="w-3.5 h-3.5 mr-1.5" /> Paddy Custody Register
-        </Button>
-        <Button onClick={() => setView("mandi")} size="sm"
-          className={view === "mandi" ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}
-          data-testid="custody-view-mandi">
-          <Package className="w-3.5 h-3.5 mr-1.5" /> Mandi Wise Custody Register
-        </Button>
-      </div>
-
-      {view === "mandi" ? (
-        <MandiCustodyRegister filters={filters} />
-      ) : (
-        <>
-          {register && (
-            <div className="grid grid-cols-3 gap-3">
-              <Card className="bg-white border-slate-200 shadow-sm"><CardContent className="p-3 text-center">
-                <p className="text-xs text-slate-500">Total Received</p>
-                <p className="text-xl font-bold text-green-600">{register.total_received} Q</p>
-              </CardContent></Card>
-              <Card className="bg-white border-slate-200 shadow-sm"><CardContent className="p-3 text-center">
-                <p className="text-xs text-slate-500">Total Released</p>
-                <p className="text-xl font-bold text-orange-500">{register.total_issued} Q</p>
-              </CardContent></Card>
-              <Card className="bg-white border-slate-200 shadow-sm"><CardContent className="p-3 text-center">
-                <p className="text-xs text-slate-500">Current Balance</p>
-                <p className={`text-xl font-bold ${register.final_balance >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{register.final_balance} Q</p>
-              </CardContent></Card>
-            </div>
-          )}
-          <div className="flex gap-2">
-            <Button onClick={fetchRegister} variant="outline" size="sm" className="border-slate-300 text-slate-600 hover:bg-slate-100"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
-            <Button onClick={exportExcel} variant="outline" size="sm" className="border-green-300 text-green-600 hover:bg-green-50" data-testid="custody-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
-            <Button onClick={async () => { try { const params = new URLSearchParams(); if (filters.kms_year) params.append('kms_year', filters.kms_year); if (filters.season) params.append('season', filters.season); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/paddy-custody-register/pdf?${params}`, 'paddy_custody_register.pdf'); toast.success("PDF export!"); } catch(e) { toast.error("Export failed"); }}}
-              variant="outline" size="sm" className="border-red-300 text-red-600 hover:bg-red-50" data-testid="custody-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
-          </div>
-          <Card className="bg-white border-slate-200 shadow-sm"><CardContent className="p-0"><div className="overflow-x-auto">
-            <Table><TableHeader><TableRow className="border-slate-200 hover:bg-transparent bg-slate-50">
-              {['Date','Description','Received (Q)','Released (Q)','Balance (Q)'].map(h =>
-                <TableHead key={h} className={`text-slate-600 text-xs font-semibold ${['Received (Q)','Released (Q)','Balance (Q)'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
-            </TableRow></TableHeader>
-            <TableBody>
-              {loading ? <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-              : (!register || register.rows.length === 0) ? <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-8">Koi entry nahi</TableCell></TableRow>
-              : register.rows.map((r, i) => (
-                <TableRow key={i} className={`border-slate-100 ${r.type === 'received' ? 'bg-green-50/30' : 'bg-orange-50/30'}`}>
-                  <TableCell className="text-slate-700 text-xs">{fmtDate(r.date)}</TableCell>
-                  <TableCell className="text-slate-600 text-xs">{r.description}</TableCell>
-                  <TableCell className={`text-xs text-right font-medium ${r.received_qntl > 0 ? 'text-green-600' : 'text-slate-300'}`}>{r.received_qntl > 0 ? r.received_qntl : '-'}</TableCell>
-                  <TableCell className={`text-xs text-right font-medium ${r.issued_qntl > 0 ? 'text-orange-500' : 'text-slate-300'}`}>{r.issued_qntl > 0 ? r.issued_qntl : '-'}</TableCell>
-                  <TableCell className="text-slate-800 text-xs text-right font-bold">{r.balance_qntl}</TableCell>
-                </TableRow>))}
-            </TableBody></Table>
-          </div></CardContent></Card>
-        </>
-      )}
-    </div>
-  );
-};
-
-
 // ===== Sub-tab: Paddy Chalna (Cutting) =====
 const PaddyChalnaTab = ({ filters }) => {
   const showConfirm = useConfirm();
@@ -865,7 +768,6 @@ const MillingTracker = ({ filters, user }) => {
   const tabs = [
     { id: "milling", label: "Milling Entries" },
     { id: "chalna", label: "Paddy Chalna" },
-    { id: "custody", label: "Paddy Custody Register" },
   ];
 
   return (
@@ -883,7 +785,6 @@ const MillingTracker = ({ filters, user }) => {
       </div>
       {subTab === "milling" && <MillingEntriesTab filters={filters} user={user} paddyStock={paddyStock} frkStock={frkStock} onRefresh={fetchStocks} />}
       {subTab === "chalna" && <PaddyChalnaTab filters={filters} />}
-      {subTab === "custody" && <PaddyCustodyTab filters={filters} />}
     </div>
   );
 };
