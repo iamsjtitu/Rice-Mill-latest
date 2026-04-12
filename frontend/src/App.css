@@ -366,6 +366,55 @@ input:focus, button:focus {
 [data-theme="light"] .bg-purple-500 {
   color: #ffffff !important;
 }
+[data-theme="light"] .bg-amber-500\/20 {
+  background-color: rgba(245,158,11,0.12) !important;
+}
+[data-theme="light"] .border-amber-400 {
+  border-color: #f59e0b !important;
+}
+
+/* ---- Govt Registers light theme ---- */
+[data-theme="light"] .bg-slate-800\/30 {
+  background-color: rgba(248,250,252,0.6) !important;
+}
+[data-theme="light"] .bg-green-900\/50 {
+  background-color: rgba(220,252,231,0.6) !important;
+}
+[data-theme="light"] .bg-yellow-900\/50 {
+  background-color: rgba(254,249,195,0.6) !important;
+}
+[data-theme="light"] .bg-blue-900\/50 {
+  background-color: rgba(219,234,254,0.6) !important;
+}
+[data-theme="light"] .bg-green-900\/10 {
+  background-color: rgba(220,252,231,0.25) !important;
+}
+[data-theme="light"] .bg-orange-900\/10 {
+  background-color: rgba(255,237,213,0.25) !important;
+}
+[data-theme="light"] .border-green-700\/50 {
+  border-color: rgba(134,239,172,0.5) !important;
+}
+[data-theme="light"] .border-blue-700\/50 {
+  border-color: rgba(147,197,253,0.5) !important;
+}
+[data-theme="light"] .border-amber-700\/50 {
+  border-color: rgba(251,191,36,0.5) !important;
+}
+[data-theme="light"] .border-purple-700\/50 {
+  border-color: rgba(167,139,250,0.5) !important;
+}
+[data-theme="light"] .border-red-700\/50 {
+  border-color: rgba(252,165,165,0.5) !important;
+}
+
+/* Govt register input fields in light mode */
+[data-theme="light"] input.bg-slate-900,
+[data-theme="light"] select.bg-slate-900 {
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+  border-color: #cbd5e1 !important;
+}
 
 /* ---- Transition for smooth theme switch ---- */
 [data-theme="light"],

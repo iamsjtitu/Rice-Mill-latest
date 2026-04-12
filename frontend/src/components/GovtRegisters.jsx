@@ -942,7 +942,7 @@ function TransitPassRegister({ filters }) {
                     <td className="px-3 py-2 text-slate-400">{r.agent_name}</td>
                     <td className="px-3 py-2 text-slate-400">{r.mandi_name}</td>
                     <td className="px-3 py-2 text-right text-green-400 font-medium">{r.qty_qntl}</td>
-                    <td className="px-3 py-2 text-right text-slate-400">{r.tp_weight || '-'}</td>
+                    <td className="px-3 py-2 text-right text-cyan-400 font-medium">{r.tp_weight}</td>
                     <td className="px-3 py-2 text-right text-slate-300">{r.bags}</td>
                     <td className="px-3 py-2 text-center"><span className="px-2 py-0.5 rounded text-xs bg-green-900/50 text-green-400">Accepted</span></td>
                   </tr>

@@ -859,7 +859,7 @@ async def get_transit_pass_register(kms_year: Optional[str] = None, season: Opti
             "agent_name": e.get("agent_name", ""),
             "mandi_name": e.get("mandi_name", ""),
             "qty_qntl": round(final_w, 2),
-            "tp_weight": round(float(e.get("tp_weight", 0) or 0) / 100, 2),
+            "tp_weight": round(float(e.get("tp_weight", 0) or 0), 2),
             "bags": bags,
             "status": "Accepted",
             "remark": e.get("remark", ""),
