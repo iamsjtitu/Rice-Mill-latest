@@ -814,13 +814,18 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
 
 @router.get("/govt-registers/transit-pass")
 async def get_transit_pass_register(kms_year: Optional[str] = None, season: Optional[str] = None,
-                                     date_from: Optional[str] = None, date_to: Optional[str] = None):
-    """Transit Pass Register - auto-generated from mill_entries where tp_no exists."""
+                                     date_from: Optional[str] = None, date_to: Optional[str] = None,
+                                     mandi_name: Optional[str] = None, agent_name: Optional[str] = None):
+    """Transit Pass Register with mandi/agent filters."""
     query = {}
     if kms_year:
         query["kms_year"] = kms_year
     if season:
         query["season"] = season
+    if mandi_name:
+        query["mandi_name"] = {"$regex": f"^{mandi_name}$", "$options": "i"}
+    if agent_name:
+        query["agent_name"] = {"$regex": f"^{agent_name}$", "$options": "i"}
     date_q = {}
     if date_from:
         date_q["$gte"] = date_from
@@ -842,6 +847,8 @@ async def get_transit_pass_register(kms_year: Optional[str] = None, season: Opti
     total_qty = 0
     total_bags = 0
     total_tp_weight = 0
+    mandis = set()
+    agents = set()
     for e in entries:
         tp_no = str(e.get("tp_no", "")).strip()
         if not tp_no:
@@ -854,13 +861,19 @@ async def get_transit_pass_register(kms_year: Optional[str] = None, season: Opti
         total_qty += final_w
         total_bags += bags
         total_tp_weight += tp_wt
+        m_name = e.get("mandi_name", "")
+        a_name = e.get("agent_name", "")
+        if m_name:
+            mandis.add(m_name)
+        if a_name:
+            agents.add(a_name)
         rows.append({
             "date": e.get("date", ""),
             "tp_no": tp_no,
             "rst_no": str(e.get("rst_no", "")),
             "truck_no": e.get("truck_no", ""),
-            "agent_name": e.get("agent_name", ""),
-            "mandi_name": e.get("mandi_name", ""),
+            "agent_name": a_name,
+            "mandi_name": m_name,
             "qty_qntl": round(final_w, 2),
             "tp_weight": tp_wt,
             "bags": bags,
@@ -875,18 +888,29 @@ async def get_transit_pass_register(kms_year: Optional[str] = None, season: Opti
             "total_qty": round(total_qty, 2),
             "total_tp_weight": round(total_tp_weight, 2),
             "total_bags": total_bags,
+        },
+        "filter_options": {
+            "mandis": sorted(mandis),
+            "agents": sorted(agents),
         }
     }
 
 
 @router.get("/govt-registers/transit-pass/excel")
 async def export_transit_pass_excel(kms_year: Optional[str] = None, season: Optional[str] = None,
-                                     date_from: Optional[str] = None, date_to: Optional[str] = None):
-    data = await get_transit_pass_register(kms_year, season, date_from, date_to)
+                                     date_from: Optional[str] = None, date_to: Optional[str] = None,
+                                     mandi_name: Optional[str] = None, agent_name: Optional[str] = None):
+    data = await get_transit_pass_register(kms_year, season, date_from, date_to, mandi_name, agent_name)
     company, _ = await get_company_name()
     wb = Workbook()
     ws = wb.active
     ws.title = "Transit Pass"
+
+    filter_text = ""
+    if mandi_name:
+        filter_text += f" | Mandi: {mandi_name}"
+    if agent_name:
+        filter_text += f" | Agent: {agent_name}"
 
     headers = ["Date", "TP No.", "RST No.", "Vehicle No.", "Agent/Society", "Mandi/PPC", "Qty (Qtl)", "TP Weight", "Bags", "Status", "Remarks"]
     col_widths = [14, 14, 12, 16, 22, 20, 14, 14, 10, 12, 20]
@@ -898,10 +922,10 @@ async def export_transit_pass_excel(kms_year: Optional[str] = None, season: Opti
             r["bags"], r["status"], r["remark"]
         ])
     s = data["summary"]
-    data_rows.append(["TOTAL", f'{s["total_entries"]} entries', "", "", "", "", s["total_qty"], "", s["total_bags"], "", ""])
+    data_rows.append(["TOTAL", f'{s["total_entries"]} entries', "", "", "", "", s["total_qty"], s["total_tp_weight"], s["total_bags"], "", ""])
 
     style_govt_excel(ws, "Transit Pass Register", headers, data_rows, col_widths,
-                     company, f"Transit Pass-cum-Acceptance Register | {kms_year or 'All'} {season or ''}")
+                     company, f"Transit Pass-cum-Acceptance Register | {kms_year or 'All'} {season or ''}{filter_text}")
 
     total_row_num = len(data_rows) + 3
     for ci in range(1, len(headers) + 1):
@@ -914,6 +938,64 @@ async def export_transit_pass_excel(kms_year: Optional[str] = None, season: Opti
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                              headers={"Content-Disposition": f"attachment; filename=Transit_Pass_Register_{kms_year or 'all'}.xlsx"})
+
+
+@router.get("/govt-registers/transit-pass/pdf")
+async def export_transit_pass_pdf(kms_year: Optional[str] = None, season: Optional[str] = None,
+                                   date_from: Optional[str] = None, date_to: Optional[str] = None,
+                                   mandi_name: Optional[str] = None, agent_name: Optional[str] = None):
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+
+    data = await get_transit_pass_register(kms_year, season, date_from, date_to, mandi_name, agent_name)
+    company, _ = await get_company_name()
+    filter_text = ""
+    if mandi_name:
+        filter_text += f" | Mandi: {mandi_name}"
+    if agent_name:
+        filter_text += f" | Agent: {agent_name}"
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=15*mm, rightMargin=15*mm, topMargin=15*mm, bottomMargin=15*mm)
+    styles = getSampleStyleSheet()
+    elements = []
+    elements.append(Paragraph(f"<b>{company}</b>", styles['Title']))
+    elements.append(Paragraph(f"Transit Pass Register | {kms_year or 'All'} {season or ''}{filter_text}", styles['Normal']))
+    elements.append(Spacer(1, 8*mm))
+
+    headers = ["Date", "TP No.", "RST", "Vehicle", "Agent", "Mandi", "Qty(Q)", "TP Wt", "Bags", "Status"]
+    table_data = [headers]
+    for r in data["rows"]:
+        table_data.append([
+            fmt_date(r["date"]), r["tp_no"], r["rst_no"], r["truck_no"],
+            r["agent_name"][:15], r["mandi_name"][:15], r["qty_qntl"], r["tp_weight"],
+            r["bags"], "Accepted"
+        ])
+    s = data["summary"]
+    table_data.append(["TOTAL", f'{s["total_entries"]}', "", "", "", "", s["total_qty"], s["total_tp_weight"], s["total_bags"], ""])
+
+    col_widths = [22*mm, 20*mm, 18*mm, 22*mm, 30*mm, 30*mm, 20*mm, 20*mm, 15*mm, 20*mm]
+    t = RLTable(table_data, colWidths=col_widths, repeatRows=1)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E79')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('FONTSIZE', (0, 1), (-1, -1), 7),
+        ('ALIGN', (6, 0), (8, -1), 'RIGHT'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#F0F4F8')]),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#D6E4F0')),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+    ]))
+    elements.append(t)
+    doc.build(elements)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/pdf",
+                             headers={"Content-Disposition": f"attachment; filename=Transit_Pass_{kms_year or 'all'}.pdf"})
 
 
 # ============ CMR DELIVERY TRACKER WITH OTR ============

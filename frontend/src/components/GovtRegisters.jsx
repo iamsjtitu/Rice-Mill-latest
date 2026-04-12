@@ -868,8 +868,9 @@ function GunnyBagRegister({ filters, user }) {
 
 // ============ TRANSIT PASS REGISTER (Auto from Mill Entries) ============
 function TransitPassRegister({ filters }) {
-  const [data, setData] = useState({ rows: [], summary: {} });
+  const [data, setData] = useState({ rows: [], summary: {}, filter_options: { mandis: [], agents: [] } });
   const [loading, setLoading] = useState(false);
+  const [tpFilters, setTpFilters] = useState({ mandi_name: "", agent_name: "" });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -879,22 +880,40 @@ function TransitPassRegister({ filters }) {
       if (filters.season) params.append("season", filters.season);
       if (filters.date_from) params.append("date_from", filters.date_from);
       if (filters.date_to) params.append("date_to", filters.date_to);
+      if (tpFilters.mandi_name) params.append("mandi_name", tpFilters.mandi_name);
+      if (tpFilters.agent_name) params.append("agent_name", tpFilters.agent_name);
       const res = await axios.get(`${API}/govt-registers/transit-pass?${params}`);
       setData(res.data);
     } catch { toast.error("Transit Pass data load error"); }
     setLoading(false);
-  }, [filters]);
+  }, [filters, tpFilters]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleExcel = () => {
+  const buildExportParams = () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append("kms_year", filters.kms_year);
     if (filters.season) params.append("season", filters.season);
     if (filters.date_from) params.append("date_from", filters.date_from);
     if (filters.date_to) params.append("date_to", filters.date_to);
-    window.open(`${API}/govt-registers/transit-pass/excel?${params}`, "_blank");
+    if (tpFilters.mandi_name) params.append("mandi_name", tpFilters.mandi_name);
+    if (tpFilters.agent_name) params.append("agent_name", tpFilters.agent_name);
+    return params;
   };
+
+  // Fetch all options (without mandi/agent filter) for dropdowns
+  const [allOptions, setAllOptions] = useState({ mandis: [], agents: [] });
+  useEffect(() => {
+    (async () => {
+      try {
+        const params = new URLSearchParams();
+        if (filters.kms_year) params.append("kms_year", filters.kms_year);
+        if (filters.season) params.append("season", filters.season);
+        const res = await axios.get(`${API}/govt-registers/transit-pass?${params}`);
+        setAllOptions(res.data.filter_options || { mandis: [], agents: [] });
+      } catch {}
+    })();
+  }, [filters.kms_year, filters.season]);
 
   return (
     <div className="space-y-4" data-testid="transit-pass-register">
@@ -903,10 +922,41 @@ function TransitPassRegister({ filters }) {
           <h3 className="text-lg font-bold text-amber-400">Transit Pass Register</h3>
           <p className="text-xs text-slate-400">Mill Entries se auto-generated (jahan TP No. hai)</p>
         </div>
-        <Button onClick={handleExcel} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="tp-excel-btn">
-          <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel Export
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => window.open(`${API}/govt-registers/transit-pass/excel?${buildExportParams()}`, "_blank")} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="tp-excel-btn">
+            <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+          </Button>
+          <Button onClick={() => window.open(`${API}/govt-registers/transit-pass/pdf?${buildExportParams()}`, "_blank")} size="sm" className="bg-red-700 hover:bg-red-600" data-testid="tp-pdf-btn">
+            <FileText className="w-4 h-4 mr-1" /> PDF
+          </Button>
+        </div>
       </div>
+
+      {/* Mandi / Agent Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-1">
+          <label className="text-xs text-slate-400">Mandi:</label>
+          <select value={tpFilters.mandi_name} onChange={e => setTpFilters(p => ({ ...p, mandi_name: e.target.value }))}
+            className="bg-slate-900 border border-slate-600 text-white rounded h-8 text-xs px-2 min-w-[120px]" data-testid="tp-filter-mandi">
+            <option value="">All Mandis</option>
+            {allOptions.mandis.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+        <div className="flex items-center gap-1">
+          <label className="text-xs text-slate-400">Agent:</label>
+          <select value={tpFilters.agent_name} onChange={e => setTpFilters(p => ({ ...p, agent_name: e.target.value }))}
+            className="bg-slate-900 border border-slate-600 text-white rounded h-8 text-xs px-2 min-w-[120px]" data-testid="tp-filter-agent">
+            <option value="">All Agents</option>
+            {allOptions.agents.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </div>
+        {(tpFilters.mandi_name || tpFilters.agent_name) && (
+          <Button onClick={() => setTpFilters({ mandi_name: "", agent_name: "" })} variant="ghost" size="sm" className="text-slate-400 text-xs h-8">
+            Clear Filters
+          </Button>
+        )}
+      </div>
+
       {loading ? <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-amber-400" /></div> : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -933,7 +983,7 @@ function TransitPassRegister({ filters }) {
               </thead>
               <tbody>
                 {data.rows.length === 0 ? (
-                  <tr><td colSpan={10} className="text-center py-6 text-slate-500">Koi TP entry nahi mili - Mill Entries mein TP No. daalo</td></tr>
+                  <tr><td colSpan={10} className="text-center py-6 text-slate-500">Koi TP entry nahi mili</td></tr>
                 ) : data.rows.map((r, i) => (
                   <tr key={i} className={`border-t border-slate-700/50 ${i % 2 === 0 ? 'bg-slate-800/30' : ''}`}>
                     <td className="px-3 py-2 text-slate-300">{formatDate(r.date)}</td>
@@ -949,6 +999,22 @@ function TransitPassRegister({ filters }) {
                   </tr>
                 ))}
               </tbody>
+              {data.rows.length > 0 && (
+                <tfoot>
+                  <tr className="bg-slate-700/50 font-bold border-t-2 border-slate-600">
+                    <td className="px-3 py-2 text-amber-400">TOTAL</td>
+                    <td className="px-3 py-2 text-slate-300">{data.summary?.total_entries} entries</td>
+                    <td className="px-3 py-2"></td>
+                    <td className="px-3 py-2"></td>
+                    <td className="px-3 py-2"></td>
+                    <td className="px-3 py-2"></td>
+                    <td className="px-3 py-2 text-right text-green-400">{data.summary?.total_qty}</td>
+                    <td className="px-3 py-2 text-right text-cyan-400">{data.summary?.total_tp_weight}</td>
+                    <td className="px-3 py-2 text-right text-slate-300">{data.summary?.total_bags}</td>
+                    <td className="px-3 py-2"></td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         </>
