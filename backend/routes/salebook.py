@@ -152,17 +152,18 @@ async def get_stock_items(kms_year: Optional[str] = None, season: Optional[str] 
     # Dynamic by-product categories
     cats = await db.byproduct_categories.find({}, {"_id": 0}).sort("order", 1).to_list(100)
     if not cats:
-        cats = [{"id": "bran"}, {"id": "kunda"}, {"id": "broken"}, {"id": "kanki"}, {"id": "husk"}]
-    bp_ids = [c["id"] for c in cats]
-    bp_ob_map = {p: float(ob.get(p, 0)) for p in bp_ids}
-    for p in bp_ids:
+        cats = [{"id": "bran", "name": "Bran"}, {"id": "kunda", "name": "Kunda"}, {"id": "broken", "name": "Broken"}, {"id": "kanki", "name": "Kanki"}, {"id": "husk", "name": "Husk"}]
+    for cat in cats:
+        p = cat["id"]
+        display_name = cat.get("name", p.title())
         produced = bp_produced.get(p, 0)
-        purchased = pv_bought.get(p.title(), 0)
+        # Check multiple name variants for sale/purchase matching
+        purchased = pv_bought.get(display_name, 0) + pv_bought.get(p.title(), 0) + pv_bought.get(p, 0)
         sold_bp = round(bp_sold_map.get(p, 0), 2)
-        sold_sb = sb_sold.get(p.title(), 0)
-        item_ob = bp_ob_map.get(p, 0)
+        sold_sb = sb_sold.get(display_name, 0) + sb_sold.get(p.title(), 0) + sb_sold.get(p, 0)
+        item_ob = float(ob.get(p, 0))
         avail = round(item_ob + produced + purchased - sold_bp - sold_sb, 2)
-        items.append({"name": p.title(), "available_qntl": avail, "unit": "Qntl"})
+        items.append({"name": display_name, "available_qntl": avail, "unit": "Qntl"})
 
     frk_purchases = await db.frk_purchases.find(query, {"_id": 0}).to_list(10000) if await db.frk_purchases.count_documents(query) > 0 else []
     frk_in = calc_frk_in(frk_purchases)

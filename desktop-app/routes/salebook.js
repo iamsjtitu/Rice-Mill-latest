@@ -363,7 +363,6 @@ module.exports = function(database) {
     const obKanki = parseFloat(ob.kanki || 0);
     const obHusk = parseFloat(ob.husk || 0);
     const obFrk = parseFloat(ob.frk || 0);
-    const bpObMap = { bran: obBran, kunda: obKunda, broken: obBroken, kanki: obKanki, husk: obHusk };
 
     const milling = filter(database.data.milling_entries);
     const dc = filter(database.data.dc_entries);
@@ -384,7 +383,11 @@ module.exports = function(database) {
     const pvBought = {};
     purchaseVouchers.forEach(pv => (pv.items || []).forEach(i => { pvBought[i.item_name || ''] = (pvBought[i.item_name || ''] || 0) + (parseFloat(i.quantity) || 0); }));
 
-    const products = ['bran', 'kunda', 'broken', 'kanki', 'husk'];
+    // Dynamic by-product categories
+    const bpCats = database.data.byproduct_categories && database.data.byproduct_categories.length > 0
+      ? [...database.data.byproduct_categories].sort((a,b) => (a.order||0)-(b.order||0))
+      : [{id:'bran',name:'Bran'},{id:'kunda',name:'Kunda'},{id:'broken',name:'Broken'},{id:'kanki',name:'Kanki'},{id:'husk',name:'Husk'}];
+    const products = bpCats.map(c => c.id);
     const bpProduced = {};
     products.forEach(p => { bpProduced[p] = round2(milling.reduce((s, e) => s + (e[`${p}_qntl`] || 0), 0)); });
     const bpSoldMap = {};
@@ -393,17 +396,20 @@ module.exports = function(database) {
     const items = [];
     items.push({ name: 'Rice (Usna)', available_qntl: round2(obUsna + usnaProduced + (pvBought['Rice (Usna)'] || 0) - govtDelivered - pvtSoldUsna - (sbSold['Rice (Usna)'] || 0)), unit: 'Qntl' });
     items.push({ name: 'Rice (Raw)', available_qntl: round2(obRaw + rawProduced + (pvBought['Rice (Raw)'] || 0) - pvtSoldRaw - (sbSold['Rice (Raw)'] || 0)), unit: 'Qntl' });
-    products.forEach(p => {
+    bpCats.forEach(cat => {
+      const p = cat.id;
+      const displayName = cat.name || (p.charAt(0).toUpperCase() + p.slice(1));
       const produced = bpProduced[p] || 0;
-      const purchased = pvBought[p.charAt(0).toUpperCase() + p.slice(1)] || 0;
+      const purchased = (pvBought[displayName] || 0) + (pvBought[p.charAt(0).toUpperCase() + p.slice(1)] || 0) + (pvBought[p] || 0);
       const soldBp = round2(bpSoldMap[p] || 0);
-      const soldSb = sbSold[p.charAt(0).toUpperCase() + p.slice(1)] || 0;
-      items.push({ name: p.charAt(0).toUpperCase() + p.slice(1), available_qntl: round2(bpObMap[p] + produced + purchased - soldBp - soldSb), unit: 'Qntl' });
+      const soldSb = (sbSold[displayName] || 0) + (sbSold[p.charAt(0).toUpperCase() + p.slice(1)] || 0) + (sbSold[p] || 0);
+      const itemOb = parseFloat(ob[p] || 0);
+      items.push({ name: displayName, available_qntl: round2(itemOb + produced + purchased - soldBp - soldSb), unit: 'Qntl' });
     });
     const frkIn = round2((frkPurchases || []).reduce((s, e) => s + (e.quantity_qntl || e.quantity || 0), 0));
     items.push({ name: 'FRK', available_qntl: round2(obFrk + frkIn + (pvBought['FRK'] || 0) - (sbSold['FRK'] || 0)), unit: 'Qntl' });
 
-    const knownItems = new Set(['Rice (Usna)', 'Rice (Raw)', 'FRK', ...products.map(p => p.charAt(0).toUpperCase() + p.slice(1))]);
+    const knownItems = new Set(['Rice (Usna)', 'Rice (Raw)', 'FRK', ...bpCats.map(c => c.name || (c.id.charAt(0).toUpperCase() + c.id.slice(1)))]);
     for (const [name, qty] of Object.entries(pvBought)) {
       if (!knownItems.has(name) && name) {
         items.push({ name, available_qntl: round2(qty - (sbSold[name] || 0)), unit: 'Qntl' });
