@@ -766,3 +766,367 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                              headers={"Content-Disposition": f"attachment; filename=Gunny_Bag_Register_{kms_year or 'all'}.xlsx"})
+
+
+# ============ TRANSIT PASS REGISTER (Auto-generated from Mill Entries) ============
+
+@router.get("/govt-registers/transit-pass")
+async def get_transit_pass_register(kms_year: Optional[str] = None, season: Optional[str] = None,
+                                     date_from: Optional[str] = None, date_to: Optional[str] = None):
+    """Transit Pass Register - auto-generated from mill_entries where tp_no exists."""
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
+    date_q = {}
+    if date_from:
+        date_q["$gte"] = date_from
+    if date_to:
+        date_q["$lte"] = date_to
+    if date_q:
+        query["date"] = date_q
+
+    # Only entries with TP number
+    query["tp_no"] = {"$ne": "", "$exists": True}
+
+    entries = await db.mill_entries.find(query, {
+        "_id": 0, "date": 1, "tp_no": 1, "truck_no": 1, "agent_name": 1,
+        "mandi_name": 1, "kg": 1, "bag": 1, "final_w": 1, "rst_no": 1,
+        "tp_weight": 1, "remark": 1, "created_at": 1
+    }).sort("date", 1).to_list(50000)
+
+    rows = []
+    total_qty = 0
+    total_bags = 0
+    for e in entries:
+        tp_no = str(e.get("tp_no", "")).strip()
+        if not tp_no:
+            continue
+        final_w = float(e.get("final_w", 0) or 0)
+        if final_w == 0:
+            final_w = float(e.get("kg", 0) or 0) / 100
+        bags = int(e.get("bag", 0) or 0)
+        total_qty += final_w
+        total_bags += bags
+        rows.append({
+            "date": e.get("date", ""),
+            "tp_no": tp_no,
+            "rst_no": str(e.get("rst_no", "")),
+            "truck_no": e.get("truck_no", ""),
+            "agent_name": e.get("agent_name", ""),
+            "mandi_name": e.get("mandi_name", ""),
+            "qty_qntl": round(final_w, 2),
+            "tp_weight": float(e.get("tp_weight", 0) or 0),
+            "bags": bags,
+            "status": "Accepted",
+            "remark": e.get("remark", ""),
+        })
+
+    return {
+        "rows": rows,
+        "summary": {
+            "total_entries": len(rows),
+            "total_qty": round(total_qty, 2),
+            "total_bags": total_bags,
+        }
+    }
+
+
+@router.get("/govt-registers/transit-pass/excel")
+async def export_transit_pass_excel(kms_year: Optional[str] = None, season: Optional[str] = None,
+                                     date_from: Optional[str] = None, date_to: Optional[str] = None):
+    data = await get_transit_pass_register(kms_year, season, date_from, date_to)
+    company, _ = await get_company_name()
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Transit Pass"
+
+    headers = ["Date", "TP No.", "RST No.", "Vehicle No.", "Agent/Society", "Mandi/PPC", "Qty (Qtl)", "TP Weight", "Bags", "Status", "Remarks"]
+    col_widths = [14, 14, 12, 16, 22, 20, 14, 14, 10, 12, 20]
+    data_rows = []
+    for r in data["rows"]:
+        data_rows.append([
+            fmt_date(r["date"]), r["tp_no"], r["rst_no"], r["truck_no"],
+            r["agent_name"], r["mandi_name"], r["qty_qntl"], r["tp_weight"],
+            r["bags"], r["status"], r["remark"]
+        ])
+    s = data["summary"]
+    data_rows.append(["TOTAL", f'{s["total_entries"]} entries', "", "", "", "", s["total_qty"], "", s["total_bags"], "", ""])
+
+    style_govt_excel(ws, "Transit Pass Register", headers, data_rows, col_widths,
+                     company, f"Transit Pass-cum-Acceptance Register | {kms_year or 'All'} {season or ''}")
+
+    total_row_num = len(data_rows) + 3
+    for ci in range(1, len(headers) + 1):
+        cell = ws.cell(row=total_row_num, column=ci)
+        cell.font = total_font
+        cell.fill = total_fill
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": f"attachment; filename=Transit_Pass_Register_{kms_year or 'all'}.xlsx"})
+
+
+# ============ CMR DELIVERY TRACKER WITH OTR ============
+
+@router.get("/govt-registers/cmr-delivery")
+async def get_cmr_deliveries(kms_year: Optional[str] = None, season: Optional[str] = None,
+                              date_from: Optional[str] = None, date_to: Optional[str] = None):
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
+    date_q = {}
+    if date_from:
+        date_q["$gte"] = date_from
+    if date_to:
+        date_q["$lte"] = date_to
+    if date_q:
+        query["date"] = date_q
+
+    entries = await db.cmr_deliveries.find(query, {"_id": 0}).sort("date", 1).to_list(50000)
+
+    # Get total paddy received for OTR calculation
+    paddy_query = {}
+    if kms_year:
+        paddy_query["kms_year"] = kms_year
+    if season:
+        paddy_query["season"] = season
+    paddy_pipeline = [
+        {"$match": paddy_query},
+        {"$group": {"_id": None, "total_paddy": {"$sum": "$final_w"}}}
+    ]
+    paddy_result = await db.mill_entries.aggregate(paddy_pipeline).to_list(1)
+    total_paddy = paddy_result[0]["total_paddy"] if paddy_result else 0
+
+    total_cmr = sum(float(e.get("cmr_qty", 0) or 0) for e in entries)
+    otr = round((total_cmr / total_paddy * 100), 2) if total_paddy > 0 else 0
+
+    return {
+        "entries": entries,
+        "summary": {
+            "total_cmr_delivered": round(total_cmr, 2),
+            "total_paddy_received": round(total_paddy, 2),
+            "outturn_ratio": otr,
+            "total_deliveries": len(entries),
+            "total_bags": sum(int(e.get("bags", 0) or 0) for e in entries),
+        }
+    }
+
+
+@router.post("/govt-registers/cmr-delivery")
+async def create_cmr_delivery(data: dict, username: str = ""):
+    doc = {
+        "id": str(uuid.uuid4()),
+        "date": data.get("date", ""),
+        "kms_year": data.get("kms_year", ""),
+        "season": data.get("season", ""),
+        "delivery_no": data.get("delivery_no", ""),
+        "rrc_depot": data.get("rrc_depot", ""),
+        "rice_type": data.get("rice_type", "Parboiled"),
+        "cmr_qty": float(data.get("cmr_qty", 0) or 0),
+        "bags": int(data.get("bags", 0) or 0),
+        "vehicle_no": data.get("vehicle_no", ""),
+        "driver_name": data.get("driver_name", ""),
+        "fortified": data.get("fortified", True),
+        "gate_pass_no": data.get("gate_pass_no", ""),
+        "quality_grade": data.get("quality_grade", "FAQ"),
+        "remark": data.get("remark", ""),
+        "created_by": username,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.cmr_deliveries.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@router.put("/govt-registers/cmr-delivery/{entry_id}")
+async def update_cmr_delivery(entry_id: str, data: dict, username: str = ""):
+    existing = await db.cmr_deliveries.find_one({"id": entry_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="CMR delivery not found")
+    update_data = {
+        "date": data.get("date", existing.get("date", "")),
+        "delivery_no": data.get("delivery_no", existing.get("delivery_no", "")),
+        "rrc_depot": data.get("rrc_depot", existing.get("rrc_depot", "")),
+        "rice_type": data.get("rice_type", existing.get("rice_type", "")),
+        "cmr_qty": float(data.get("cmr_qty", existing.get("cmr_qty", 0)) or 0),
+        "bags": int(data.get("bags", existing.get("bags", 0)) or 0),
+        "vehicle_no": data.get("vehicle_no", existing.get("vehicle_no", "")),
+        "driver_name": data.get("driver_name", existing.get("driver_name", "")),
+        "fortified": data.get("fortified", existing.get("fortified", True)),
+        "gate_pass_no": data.get("gate_pass_no", existing.get("gate_pass_no", "")),
+        "quality_grade": data.get("quality_grade", existing.get("quality_grade", "")),
+        "remark": data.get("remark", existing.get("remark", "")),
+        "updated_by": username,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.cmr_deliveries.update_one({"id": entry_id}, {"$set": update_data})
+    return {"success": True}
+
+
+@router.delete("/govt-registers/cmr-delivery/{entry_id}")
+async def delete_cmr_delivery(entry_id: str, username: str = "", role: str = ""):
+    result = await db.cmr_deliveries.delete_one({"id": entry_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="CMR delivery not found")
+    return {"success": True}
+
+
+@router.get("/govt-registers/cmr-delivery/excel")
+async def export_cmr_delivery_excel(kms_year: Optional[str] = None, season: Optional[str] = None,
+                                     date_from: Optional[str] = None, date_to: Optional[str] = None):
+    data = await get_cmr_deliveries(kms_year, season, date_from, date_to)
+    company, _ = await get_company_name()
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "CMR Delivery"
+
+    headers = ["Date", "Delivery No.", "RRC/Depot", "Rice Type", "CMR Qty (Qtl)", "Bags", "Vehicle No.", "Fortified", "Grade", "Remarks"]
+    col_widths = [14, 16, 22, 16, 18, 10, 16, 12, 10, 20]
+    data_rows = []
+    for e in data["entries"]:
+        data_rows.append([
+            fmt_date(e.get("date", "")), e.get("delivery_no", ""), e.get("rrc_depot", ""),
+            e.get("rice_type", ""), e.get("cmr_qty", 0), e.get("bags", 0),
+            e.get("vehicle_no", ""), "Yes (+F)" if e.get("fortified") else "No",
+            e.get("quality_grade", ""), e.get("remark", "")
+        ])
+    s = data["summary"]
+    data_rows.append(["TOTAL", f'{s["total_deliveries"]} deliveries', "", "", s["total_cmr_delivered"], s["total_bags"], "", "", f'OTR: {s["outturn_ratio"]}%', ""])
+
+    style_govt_excel(ws, "CMR Delivery Tracker", headers, data_rows, col_widths,
+                     company, f"CMR Delivery Register with OTR | {kms_year or 'All'} {season or ''} | OTR: {s['outturn_ratio']}%")
+
+    total_row_num = len(data_rows) + 3
+    for ci in range(1, len(headers) + 1):
+        cell = ws.cell(row=total_row_num, column=ci)
+        cell.font = total_font
+        cell.fill = total_fill
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": f"attachment; filename=CMR_Delivery_{kms_year or 'all'}.xlsx"})
+
+
+# ============ SECURITY DEPOSIT MANAGEMENT ============
+
+@router.get("/govt-registers/security-deposit")
+async def get_security_deposits(kms_year: Optional[str] = None):
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    entries = await db.security_deposits.find(query, {"_id": 0}).sort("issue_date", -1).to_list(50000)
+    # Auto-check expiry status
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    for e in entries:
+        if e.get("status") == "active" and e.get("expiry_date", "") < today and e.get("expiry_date", ""):
+            e["status"] = "expired"
+    total_amount = sum(float(e.get("amount", 0) or 0) for e in entries if e.get("status") in ("active", None))
+    return {
+        "entries": entries,
+        "summary": {
+            "total_deposits": len(entries),
+            "active_count": sum(1 for e in entries if e.get("status") == "active"),
+            "total_active_amount": round(total_amount, 2),
+            "released_count": sum(1 for e in entries if e.get("status") == "released"),
+            "expired_count": sum(1 for e in entries if e.get("status") == "expired"),
+        }
+    }
+
+
+@router.post("/govt-registers/security-deposit")
+async def create_security_deposit(data: dict, username: str = ""):
+    doc = {
+        "id": str(uuid.uuid4()),
+        "kms_year": data.get("kms_year", ""),
+        "bg_number": data.get("bg_number", ""),
+        "bank_name": data.get("bank_name", ""),
+        "amount": float(data.get("amount", 0) or 0),
+        "sd_ratio": data.get("sd_ratio", "1:6"),
+        "milling_capacity_mt": float(data.get("milling_capacity_mt", 0) or 0),
+        "issue_date": data.get("issue_date", ""),
+        "expiry_date": data.get("expiry_date", ""),
+        "status": data.get("status", "active"),
+        "miller_type": data.get("miller_type", "regular"),
+        "remark": data.get("remark", ""),
+        "created_by": username,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.security_deposits.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@router.put("/govt-registers/security-deposit/{entry_id}")
+async def update_security_deposit(entry_id: str, data: dict, username: str = ""):
+    existing = await db.security_deposits.find_one({"id": entry_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Security deposit not found")
+    update_data = {
+        "bg_number": data.get("bg_number", existing.get("bg_number", "")),
+        "bank_name": data.get("bank_name", existing.get("bank_name", "")),
+        "amount": float(data.get("amount", existing.get("amount", 0)) or 0),
+        "sd_ratio": data.get("sd_ratio", existing.get("sd_ratio", "")),
+        "milling_capacity_mt": float(data.get("milling_capacity_mt", existing.get("milling_capacity_mt", 0)) or 0),
+        "issue_date": data.get("issue_date", existing.get("issue_date", "")),
+        "expiry_date": data.get("expiry_date", existing.get("expiry_date", "")),
+        "status": data.get("status", existing.get("status", "")),
+        "miller_type": data.get("miller_type", existing.get("miller_type", "")),
+        "remark": data.get("remark", existing.get("remark", "")),
+        "updated_by": username,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.security_deposits.update_one({"id": entry_id}, {"$set": update_data})
+    return {"success": True}
+
+
+@router.delete("/govt-registers/security-deposit/{entry_id}")
+async def delete_security_deposit(entry_id: str, username: str = "", role: str = ""):
+    result = await db.security_deposits.delete_one({"id": entry_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Security deposit not found")
+    return {"success": True}
+
+
+@router.get("/govt-registers/security-deposit/excel")
+async def export_security_deposit_excel(kms_year: Optional[str] = None):
+    data = await get_security_deposits(kms_year)
+    company, _ = await get_company_name()
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Security Deposit"
+
+    headers = ["BG Number", "Bank Name", "Amount (Rs)", "SD Ratio", "Capacity (MT)", "Issue Date", "Expiry Date", "Status", "Miller Type", "Remarks"]
+    col_widths = [18, 24, 18, 12, 16, 14, 14, 14, 16, 20]
+    data_rows = []
+    for e in data["entries"]:
+        data_rows.append([
+            e.get("bg_number", ""), e.get("bank_name", ""), e.get("amount", 0),
+            e.get("sd_ratio", ""), e.get("milling_capacity_mt", 0),
+            fmt_date(e.get("issue_date", "")), fmt_date(e.get("expiry_date", "")),
+            (e.get("status", "") or "").upper(), e.get("miller_type", ""), e.get("remark", "")
+        ])
+    s = data["summary"]
+    data_rows.append([f'{s["total_deposits"]} total', "", s["total_active_amount"], "", "", "", "", f'Active: {s["active_count"]}', "", ""])
+
+    style_govt_excel(ws, "Security Deposit Register", headers, data_rows, col_widths,
+                     company, f"Security Deposit (Bank Guarantee) Register | {kms_year or 'All'}")
+
+    total_row_num = len(data_rows) + 3
+    for ci in range(1, len(headers) + 1):
+        cell = ws.cell(row=total_row_num, column=ci)
+        cell.font = total_font
+        cell.fill = total_fill
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": f"attachment; filename=Security_Deposit_{kms_year or 'all'}.xlsx"})

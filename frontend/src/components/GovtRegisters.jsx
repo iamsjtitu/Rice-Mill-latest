@@ -12,7 +12,7 @@ import {
 import {
   FileSpreadsheet, Plus, Pencil, Trash2, Loader2,
   BookOpen, Package, FlaskConical, ShoppingBag, ClipboardList,
-  RefreshCw, Download, FileText, Search
+  RefreshCw, Download, FileText, Search, Truck, Shield, ArrowRightLeft
 } from "lucide-react";
 import MandiCustodyRegister from "./MandiCustodyRegister";
 
@@ -23,12 +23,15 @@ const API = `${BACKEND_URL}/api`;
 // ============ SUB TABS CONFIG ============
 const SUB_TABS = [
   { id: "paddy-custody", label: "Paddy Custody", desc: "Custody Register", icon: ClipboardList },
+  { id: "transit-pass", label: "Transit Pass", desc: "TP Register", icon: Truck },
+  { id: "cmr-delivery", label: "CMR Delivery", desc: "OTR Tracker", icon: ArrowRightLeft },
   { id: "form-a", label: "Form A", desc: "Paddy from OSCSC", icon: BookOpen },
   { id: "form-b", label: "Form B", desc: "CMR Delivery", icon: BookOpen },
   { id: "form-e", label: "Form E", desc: "Own Paddy", icon: ShoppingBag },
   { id: "form-f", label: "Form F", desc: "Own Rice Sale", icon: ShoppingBag },
   { id: "frk", label: "FRK Blending", desc: "Fortified Rice", icon: FlaskConical },
   { id: "gunny-bags", label: "Gunny Bags", desc: "Bag Stock", icon: Package },
+  { id: "security-deposit", label: "Security Deposit", desc: "Bank Guarantee", icon: Shield },
 ];
 
 // ============ PADDY CUSTODY REGISTER (Moved from Milling Tracker) ============
@@ -846,6 +849,436 @@ function GunnyBagRegister({ filters, user }) {
   );
 }
 
+// ============ TRANSIT PASS REGISTER (Auto from Mill Entries) ============
+function TransitPassRegister({ filters }) {
+  const [data, setData] = useState({ rows: [], summary: {} });
+  const [loading, setLoading] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filters.kms_year) params.append("kms_year", filters.kms_year);
+      if (filters.season) params.append("season", filters.season);
+      if (filters.date_from) params.append("date_from", filters.date_from);
+      if (filters.date_to) params.append("date_to", filters.date_to);
+      const res = await axios.get(`${API}/govt-registers/transit-pass?${params}`);
+      setData(res.data);
+    } catch { toast.error("Transit Pass data load error"); }
+    setLoading(false);
+  }, [filters]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleExcel = () => {
+    const params = new URLSearchParams();
+    if (filters.kms_year) params.append("kms_year", filters.kms_year);
+    if (filters.season) params.append("season", filters.season);
+    if (filters.date_from) params.append("date_from", filters.date_from);
+    if (filters.date_to) params.append("date_to", filters.date_to);
+    window.open(`${API}/govt-registers/transit-pass/excel?${params}`, "_blank");
+  };
+
+  return (
+    <div className="space-y-4" data-testid="transit-pass-register">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h3 className="text-lg font-bold text-amber-400">Transit Pass Register</h3>
+          <p className="text-xs text-slate-400">Mill Entries se auto-generated (jahan TP No. hai)</p>
+        </div>
+        <Button onClick={handleExcel} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="tp-excel-btn">
+          <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel Export
+        </Button>
+      </div>
+      {loading ? <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-amber-400" /></div> : (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <SummaryCard label="Total Entries" value={data.summary?.total_entries || 0} color="purple" />
+            <SummaryCard label="Total Qty" value={`${data.summary?.total_qty || 0} Qtl`} color="green" />
+            <SummaryCard label="Total Bags" value={data.summary?.total_bags || 0} color="blue" />
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-slate-700">
+            <table className="w-full text-sm" data-testid="tp-table">
+              <thead>
+                <tr className="bg-slate-800 text-slate-300">
+                  <th className="px-3 py-2 text-left">Date</th>
+                  <th className="px-3 py-2 text-left">TP No.</th>
+                  <th className="px-3 py-2 text-left">RST</th>
+                  <th className="px-3 py-2 text-left">Vehicle</th>
+                  <th className="px-3 py-2 text-left">Agent</th>
+                  <th className="px-3 py-2 text-left">Mandi/PPC</th>
+                  <th className="px-3 py-2 text-right">Qty (Qtl)</th>
+                  <th className="px-3 py-2 text-right">TP Wt</th>
+                  <th className="px-3 py-2 text-right">Bags</th>
+                  <th className="px-3 py-2 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.rows.length === 0 ? (
+                  <tr><td colSpan={10} className="text-center py-6 text-slate-500">Koi TP entry nahi mili - Mill Entries mein TP No. daalo</td></tr>
+                ) : data.rows.map((r, i) => (
+                  <tr key={i} className={`border-t border-slate-700/50 ${i % 2 === 0 ? 'bg-slate-800/30' : ''}`}>
+                    <td className="px-3 py-2 text-slate-300">{formatDate(r.date)}</td>
+                    <td className="px-3 py-2 text-amber-400 font-medium">{r.tp_no}</td>
+                    <td className="px-3 py-2 text-slate-400">{r.rst_no}</td>
+                    <td className="px-3 py-2 text-slate-300">{r.truck_no}</td>
+                    <td className="px-3 py-2 text-slate-400">{r.agent_name}</td>
+                    <td className="px-3 py-2 text-slate-400">{r.mandi_name}</td>
+                    <td className="px-3 py-2 text-right text-green-400 font-medium">{r.qty_qntl}</td>
+                    <td className="px-3 py-2 text-right text-slate-400">{r.tp_weight || '-'}</td>
+                    <td className="px-3 py-2 text-right text-slate-300">{r.bags}</td>
+                    <td className="px-3 py-2 text-center"><span className="px-2 py-0.5 rounded text-xs bg-green-900/50 text-green-400">Accepted</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============ CMR DELIVERY TRACKER WITH OTR ============
+function CmrDeliveryTracker({ filters, user }) {
+  const [data, setData] = useState({ entries: [], summary: {} });
+  const [loading, setLoading] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState({
+    date: new Date().toISOString().split("T")[0], delivery_no: "", rrc_depot: "",
+    rice_type: "Parboiled", cmr_qty: "", bags: "", vehicle_no: "",
+    driver_name: "", fortified: true, gate_pass_no: "", quality_grade: "FAQ", remark: ""
+  });
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filters.kms_year) params.append("kms_year", filters.kms_year);
+      if (filters.season) params.append("season", filters.season);
+      if (filters.date_from) params.append("date_from", filters.date_from);
+      if (filters.date_to) params.append("date_to", filters.date_to);
+      const res = await axios.get(`${API}/govt-registers/cmr-delivery?${params}`);
+      setData(res.data);
+    } catch { toast.error("CMR data load error"); }
+    setLoading(false);
+  }, [filters]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const resetForm = () => setForm({ date: new Date().toISOString().split("T")[0], delivery_no: "", rrc_depot: "", rice_type: "Parboiled", cmr_qty: "", bags: "", vehicle_no: "", driver_name: "", fortified: true, gate_pass_no: "", quality_grade: "FAQ", remark: "" });
+
+  const handleSave = async () => {
+    if (!form.cmr_qty || parseFloat(form.cmr_qty) <= 0) { toast.error("CMR Qty daalo!"); return; }
+    try {
+      const payload = { ...form, kms_year: filters.kms_year || "", season: filters.season || "", cmr_qty: parseFloat(form.cmr_qty) || 0, bags: parseInt(form.bags) || 0 };
+      if (editingId) {
+        await axios.put(`${API}/govt-registers/cmr-delivery/${editingId}?username=${user.username}`, payload);
+        toast.success("CMR delivery update ho gayi!");
+      } else {
+        await axios.post(`${API}/govt-registers/cmr-delivery?username=${user.username}`, payload);
+        toast.success("CMR delivery add ho gayi!");
+      }
+      setDialogOpen(false); setEditingId(null); resetForm(); fetchData();
+    } catch (e) { toast.error(e.response?.data?.detail || "Save error"); }
+  };
+
+  const handleEdit = (entry) => {
+    setForm({ date: entry.date || "", delivery_no: entry.delivery_no || "", rrc_depot: entry.rrc_depot || "", rice_type: entry.rice_type || "Parboiled", cmr_qty: String(entry.cmr_qty || ""), bags: String(entry.bags || ""), vehicle_no: entry.vehicle_no || "", driver_name: entry.driver_name || "", fortified: entry.fortified !== false, gate_pass_no: entry.gate_pass_no || "", quality_grade: entry.quality_grade || "FAQ", remark: entry.remark || "" });
+    setEditingId(entry.id); setDialogOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Kya aap sure hain?")) return;
+    try { await axios.delete(`${API}/govt-registers/cmr-delivery/${id}?username=${user.username}&role=${user.role}`); toast.success("Deleted!"); fetchData(); } catch { toast.error("Delete error"); }
+  };
+
+  const handleExcel = () => {
+    const params = new URLSearchParams();
+    if (filters.kms_year) params.append("kms_year", filters.kms_year);
+    if (filters.season) params.append("season", filters.season);
+    window.open(`${API}/govt-registers/cmr-delivery/excel?${params}`, "_blank");
+  };
+
+  const s = data.summary || {};
+
+  return (
+    <div className="space-y-4" data-testid="cmr-delivery-tracker">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h3 className="text-lg font-bold text-amber-400">CMR Delivery Tracker</h3>
+          <p className="text-xs text-slate-400">Custom Milled Rice delivery to OSCSC/RRC with Outturn Ratio</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={() => { setEditingId(null); resetForm(); setDialogOpen(true); }} size="sm" className="bg-amber-600 hover:bg-amber-500" data-testid="cmr-add-btn">
+            <Plus className="w-4 h-4 mr-1" /> Add Delivery
+          </Button>
+          <Button onClick={handleExcel} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="cmr-excel-btn">
+            <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+          </Button>
+        </div>
+      </div>
+      {loading ? <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-amber-400" /></div> : (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <SummaryCard label="CMR Delivered" value={`${s.total_cmr_delivered || 0} Qtl`} color="green" />
+            <SummaryCard label="Paddy Received" value={`${s.total_paddy_received || 0} Qtl`} color="blue" />
+            <SummaryCard label="Outturn Ratio" value={`${s.outturn_ratio || 0}%`} color="amber" />
+            <SummaryCard label="Deliveries" value={s.total_deliveries || 0} color="purple" />
+            <SummaryCard label="Total Bags" value={s.total_bags || 0} color="green" />
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-slate-700">
+            <table className="w-full text-sm" data-testid="cmr-table">
+              <thead>
+                <tr className="bg-slate-800 text-slate-300">
+                  <th className="px-3 py-2 text-left">Date</th>
+                  <th className="px-3 py-2 text-left">Del. No</th>
+                  <th className="px-3 py-2 text-left">RRC/Depot</th>
+                  <th className="px-3 py-2 text-left">Type</th>
+                  <th className="px-3 py-2 text-right">CMR (Qtl)</th>
+                  <th className="px-3 py-2 text-right">Bags</th>
+                  <th className="px-3 py-2 text-left">Vehicle</th>
+                  <th className="px-3 py-2 text-center">+F</th>
+                  <th className="px-3 py-2 text-center">Grade</th>
+                  <th className="px-3 py-2 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data.entries || []).length === 0 ? (
+                  <tr><td colSpan={10} className="text-center py-6 text-slate-500">Koi CMR delivery nahi hai</td></tr>
+                ) : data.entries.map((e, i) => (
+                  <tr key={e.id} className={`border-t border-slate-700/50 ${i % 2 === 0 ? 'bg-slate-800/30' : ''}`}>
+                    <td className="px-3 py-2 text-slate-300">{formatDate(e.date)}</td>
+                    <td className="px-3 py-2 text-amber-400">{e.delivery_no}</td>
+                    <td className="px-3 py-2 text-slate-300">{e.rrc_depot}</td>
+                    <td className="px-3 py-2"><span className={`px-2 py-0.5 rounded text-xs ${e.rice_type === 'Parboiled' ? 'bg-blue-900/50 text-blue-400' : 'bg-green-900/50 text-green-400'}`}>{e.rice_type}</span></td>
+                    <td className="px-3 py-2 text-right text-green-400 font-medium">{e.cmr_qty}</td>
+                    <td className="px-3 py-2 text-right text-slate-300">{e.bags}</td>
+                    <td className="px-3 py-2 text-slate-400">{e.vehicle_no}</td>
+                    <td className="px-3 py-2 text-center">{e.fortified ? <span className="text-blue-400 font-bold">+F</span> : <span className="text-slate-600">-</span>}</td>
+                    <td className="px-3 py-2 text-center text-slate-400">{e.quality_grade}</td>
+                    <td className="px-3 py-2 text-center">
+                      <div className="flex justify-center gap-1">
+                        <button onClick={() => handleEdit(e)} className="p-1 hover:bg-slate-700 rounded"><Pencil className="w-3.5 h-3.5 text-blue-400" /></button>
+                        <button onClick={() => handleDelete(e.id)} className="p-1 hover:bg-red-900/30 rounded"><Trash2 className="w-3.5 h-3.5 text-red-400" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 max-w-lg">
+          <DialogHeader><DialogTitle className="text-amber-400">{editingId ? "Edit" : "New"} CMR Delivery</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="text-xs text-slate-400">Date</label><Input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} className="bg-slate-900 border-slate-600 text-white" data-testid="cmr-date" /></div>
+            <div><label className="text-xs text-slate-400">Delivery No</label><Input value={form.delivery_no} onChange={e => setForm(p => ({ ...p, delivery_no: e.target.value }))} className="bg-slate-900 border-slate-600 text-white" data-testid="cmr-delivery-no" /></div>
+            <div><label className="text-xs text-slate-400">RRC/Depot</label><Input value={form.rrc_depot} onChange={e => setForm(p => ({ ...p, rrc_depot: e.target.value }))} className="bg-slate-900 border-slate-600 text-white" data-testid="cmr-rrc" /></div>
+            <div><label className="text-xs text-slate-400">Rice Type</label>
+              <Select value={form.rice_type} onValueChange={v => setForm(p => ({ ...p, rice_type: v }))}>
+                <SelectTrigger className="bg-slate-900 border-slate-600 text-white" data-testid="cmr-type"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600"><SelectItem value="Parboiled" className="text-white">Parboiled</SelectItem><SelectItem value="Raw" className="text-white">Raw</SelectItem></SelectContent>
+              </Select>
+            </div>
+            <div><label className="text-xs text-slate-400">CMR Qty (Qtl)</label><Input type="number" value={form.cmr_qty} onChange={e => setForm(p => ({ ...p, cmr_qty: e.target.value }))} className="bg-slate-900 border-slate-600 text-white" data-testid="cmr-qty" /></div>
+            <div><label className="text-xs text-slate-400">Bags</label><Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))} className="bg-slate-900 border-slate-600 text-white" data-testid="cmr-bags" /></div>
+            <div><label className="text-xs text-slate-400">Vehicle No</label><Input value={form.vehicle_no} onChange={e => setForm(p => ({ ...p, vehicle_no: e.target.value }))} className="bg-slate-900 border-slate-600 text-white" data-testid="cmr-vehicle" /></div>
+            <div><label className="text-xs text-slate-400">Quality Grade</label>
+              <Select value={form.quality_grade} onValueChange={v => setForm(p => ({ ...p, quality_grade: v }))}>
+                <SelectTrigger className="bg-slate-900 border-slate-600 text-white" data-testid="cmr-grade"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600"><SelectItem value="FAQ" className="text-white">FAQ</SelectItem><SelectItem value="URS" className="text-white">URS</SelectItem></SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2 flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={form.fortified} onChange={e => setForm(p => ({ ...p, fortified: e.target.checked }))} className="rounded" data-testid="cmr-fortified" />
+                <span className="text-sm text-slate-300">Fortified Rice (+F Logo)</span>
+              </label>
+            </div>
+            <div className="col-span-2"><label className="text-xs text-slate-400">Remark</label><Input value={form.remark} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))} className="bg-slate-900 border-slate-600 text-white" data-testid="cmr-remark" /></div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setDialogOpen(false)} variant="outline" className="border-slate-600 text-slate-300">Cancel</Button>
+            <Button onClick={handleSave} className="bg-amber-600 hover:bg-amber-500" data-testid="cmr-save-btn">{editingId ? "Update" : "Save"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ============ SECURITY DEPOSIT MANAGEMENT ============
+function SecurityDepositManager({ filters, user }) {
+  const [data, setData] = useState({ entries: [], summary: {} });
+  const [loading, setLoading] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState({
+    bg_number: "", bank_name: "", amount: "", sd_ratio: "1:6",
+    milling_capacity_mt: "", issue_date: "", expiry_date: "",
+    status: "active", miller_type: "regular", remark: ""
+  });
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filters.kms_year) params.append("kms_year", filters.kms_year);
+      const res = await axios.get(`${API}/govt-registers/security-deposit?${params}`);
+      setData(res.data);
+    } catch { toast.error("Security deposit data load error"); }
+    setLoading(false);
+  }, [filters.kms_year]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const resetForm = () => setForm({ bg_number: "", bank_name: "", amount: "", sd_ratio: "1:6", milling_capacity_mt: "", issue_date: "", expiry_date: "", status: "active", miller_type: "regular", remark: "" });
+
+  const handleSave = async () => {
+    if (!form.bg_number || !form.bank_name) { toast.error("BG Number aur Bank Name zaroori hai!"); return; }
+    try {
+      const payload = { ...form, kms_year: filters.kms_year || "", amount: parseFloat(form.amount) || 0, milling_capacity_mt: parseFloat(form.milling_capacity_mt) || 0 };
+      if (editingId) {
+        await axios.put(`${API}/govt-registers/security-deposit/${editingId}?username=${user.username}`, payload);
+        toast.success("Security deposit update ho gayi!");
+      } else {
+        await axios.post(`${API}/govt-registers/security-deposit?username=${user.username}`, payload);
+        toast.success("Security deposit add ho gayi!");
+      }
+      setDialogOpen(false); setEditingId(null); resetForm(); fetchData();
+    } catch (e) { toast.error(e.response?.data?.detail || "Save error"); }
+  };
+
+  const handleEdit = (entry) => {
+    setForm({ bg_number: entry.bg_number || "", bank_name: entry.bank_name || "", amount: String(entry.amount || ""), sd_ratio: entry.sd_ratio || "1:6", milling_capacity_mt: String(entry.milling_capacity_mt || ""), issue_date: entry.issue_date || "", expiry_date: entry.expiry_date || "", status: entry.status || "active", miller_type: entry.miller_type || "regular", remark: entry.remark || "" });
+    setEditingId(entry.id); setDialogOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Kya aap sure hain?")) return;
+    try { await axios.delete(`${API}/govt-registers/security-deposit/${id}?username=${user.username}&role=${user.role}`); toast.success("Deleted!"); fetchData(); } catch { toast.error("Delete error"); }
+  };
+
+  const handleExcel = () => {
+    const params = new URLSearchParams();
+    if (filters.kms_year) params.append("kms_year", filters.kms_year);
+    window.open(`${API}/govt-registers/security-deposit/excel?${params}`, "_blank");
+  };
+
+  const s = data.summary || {};
+  const statusColor = { active: "bg-green-900/50 text-green-400", released: "bg-blue-900/50 text-blue-400", expired: "bg-red-900/50 text-red-400" };
+
+  return (
+    <div className="space-y-4" data-testid="security-deposit-manager">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h3 className="text-lg font-bold text-amber-400">Security Deposit (Bank Guarantee)</h3>
+          <p className="text-xs text-slate-400">OSCSC Bank Guarantee tracking - SD ratio, validity, status</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={() => { setEditingId(null); resetForm(); setDialogOpen(true); }} size="sm" className="bg-amber-600 hover:bg-amber-500" data-testid="sd-add-btn">
+            <Plus className="w-4 h-4 mr-1" /> Add Deposit
+          </Button>
+          <Button onClick={handleExcel} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="sd-excel-btn">
+            <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+          </Button>
+        </div>
+      </div>
+      {loading ? <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-amber-400" /></div> : (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <SummaryCard label="Active Amount" value={`Rs ${(s.total_active_amount || 0).toLocaleString()}`} color="green" />
+            <SummaryCard label="Active" value={s.active_count || 0} color="green" />
+            <SummaryCard label="Released" value={s.released_count || 0} color="blue" />
+            <SummaryCard label="Expired" value={s.expired_count || 0} color="red" />
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-slate-700">
+            <table className="w-full text-sm" data-testid="sd-table">
+              <thead>
+                <tr className="bg-slate-800 text-slate-300">
+                  <th className="px-3 py-2 text-left">BG Number</th>
+                  <th className="px-3 py-2 text-left">Bank</th>
+                  <th className="px-3 py-2 text-right">Amount (Rs)</th>
+                  <th className="px-3 py-2 text-center">Ratio</th>
+                  <th className="px-3 py-2 text-right">Capacity (MT)</th>
+                  <th className="px-3 py-2 text-left">Issue Date</th>
+                  <th className="px-3 py-2 text-left">Expiry Date</th>
+                  <th className="px-3 py-2 text-center">Status</th>
+                  <th className="px-3 py-2 text-center">Type</th>
+                  <th className="px-3 py-2 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data.entries || []).length === 0 ? (
+                  <tr><td colSpan={10} className="text-center py-6 text-slate-500">Koi security deposit nahi hai</td></tr>
+                ) : data.entries.map((e, i) => (
+                  <tr key={e.id} className={`border-t border-slate-700/50 ${i % 2 === 0 ? 'bg-slate-800/30' : ''}`}>
+                    <td className="px-3 py-2 text-amber-400 font-medium">{e.bg_number}</td>
+                    <td className="px-3 py-2 text-slate-300">{e.bank_name}</td>
+                    <td className="px-3 py-2 text-right text-green-400 font-medium">{(e.amount || 0).toLocaleString()}</td>
+                    <td className="px-3 py-2 text-center text-slate-300">{e.sd_ratio}</td>
+                    <td className="px-3 py-2 text-right text-slate-400">{e.milling_capacity_mt || '-'}</td>
+                    <td className="px-3 py-2 text-slate-300">{formatDate(e.issue_date)}</td>
+                    <td className="px-3 py-2 text-slate-300">{formatDate(e.expiry_date)}</td>
+                    <td className="px-3 py-2 text-center"><span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColor[e.status] || 'bg-slate-700 text-slate-300'}`}>{(e.status || '').toUpperCase()}</span></td>
+                    <td className="px-3 py-2 text-center text-slate-400 text-xs">{e.miller_type}</td>
+                    <td className="px-3 py-2 text-center">
+                      <div className="flex justify-center gap-1">
+                        <button onClick={() => handleEdit(e)} className="p-1 hover:bg-slate-700 rounded"><Pencil className="w-3.5 h-3.5 text-blue-400" /></button>
+                        <button onClick={() => handleDelete(e.id)} className="p-1 hover:bg-red-900/30 rounded"><Trash2 className="w-3.5 h-3.5 text-red-400" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 max-w-lg">
+          <DialogHeader><DialogTitle className="text-amber-400">{editingId ? "Edit" : "New"} Security Deposit</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="text-xs text-slate-400">BG Number</label><Input value={form.bg_number} onChange={e => setForm(p => ({ ...p, bg_number: e.target.value }))} className="bg-slate-900 border-slate-600 text-white" placeholder="BG/2025/001" data-testid="sd-bg-number" /></div>
+            <div><label className="text-xs text-slate-400">Bank Name</label><Input value={form.bank_name} onChange={e => setForm(p => ({ ...p, bank_name: e.target.value }))} className="bg-slate-900 border-slate-600 text-white" placeholder="SBI / PNB" data-testid="sd-bank" /></div>
+            <div><label className="text-xs text-slate-400">Amount (Rs)</label><Input type="number" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} className="bg-slate-900 border-slate-600 text-white" data-testid="sd-amount" /></div>
+            <div><label className="text-xs text-slate-400">SD Ratio</label>
+              <Select value={form.sd_ratio} onValueChange={v => setForm(p => ({ ...p, sd_ratio: v }))}>
+                <SelectTrigger className="bg-slate-900 border-slate-600 text-white" data-testid="sd-ratio"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600"><SelectItem value="1:1" className="text-white">1:1 (New Mill)</SelectItem><SelectItem value="1:3" className="text-white">1:3 (1st Year)</SelectItem><SelectItem value="1:6" className="text-white">1:6 (Regular)</SelectItem></SelectContent>
+              </Select>
+            </div>
+            <div><label className="text-xs text-slate-400">Milling Capacity (MT/2 shifts)</label><Input type="number" value={form.milling_capacity_mt} onChange={e => setForm(p => ({ ...p, milling_capacity_mt: e.target.value }))} className="bg-slate-900 border-slate-600 text-white" data-testid="sd-capacity" /></div>
+            <div><label className="text-xs text-slate-400">Miller Type</label>
+              <Select value={form.miller_type} onValueChange={v => setForm(p => ({ ...p, miller_type: v }))}>
+                <SelectTrigger className="bg-slate-900 border-slate-600 text-white" data-testid="sd-miller-type"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600"><SelectItem value="regular" className="text-white">Regular</SelectItem><SelectItem value="new" className="text-white">New Mill</SelectItem><SelectItem value="hybrid" className="text-white">Hybrid</SelectItem></SelectContent>
+              </Select>
+            </div>
+            <div><label className="text-xs text-slate-400">Issue Date</label><Input type="date" value={form.issue_date} onChange={e => setForm(p => ({ ...p, issue_date: e.target.value }))} className="bg-slate-900 border-slate-600 text-white" data-testid="sd-issue-date" /></div>
+            <div><label className="text-xs text-slate-400">Expiry Date</label><Input type="date" value={form.expiry_date} onChange={e => setForm(p => ({ ...p, expiry_date: e.target.value }))} className="bg-slate-900 border-slate-600 text-white" data-testid="sd-expiry-date" /></div>
+            <div><label className="text-xs text-slate-400">Status</label>
+              <Select value={form.status} onValueChange={v => setForm(p => ({ ...p, status: v }))}>
+                <SelectTrigger className="bg-slate-900 border-slate-600 text-white" data-testid="sd-status"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600"><SelectItem value="active" className="text-white">Active</SelectItem><SelectItem value="released" className="text-white">Released</SelectItem><SelectItem value="expired" className="text-white">Expired</SelectItem></SelectContent>
+              </Select>
+            </div>
+            <div><label className="text-xs text-slate-400">Remark</label><Input value={form.remark} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))} className="bg-slate-900 border-slate-600 text-white" data-testid="sd-remark" /></div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setDialogOpen(false)} variant="outline" className="border-slate-600 text-slate-300">Cancel</Button>
+            <Button onClick={handleSave} className="bg-amber-600 hover:bg-amber-500" data-testid="sd-save-btn">{editingId ? "Update" : "Save"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // ============ HELPER COMPONENTS ============
 function SummaryCard({ label, value, color }) {
   const colors = {
@@ -943,12 +1376,15 @@ export default function GovtRegisters({ filters: parentFilters, user }) {
 
       {/* Content */}
       {activeTab === "paddy-custody" && <PaddyCustodyRegister filters={localFilters} />}
+      {activeTab === "transit-pass" && <TransitPassRegister filters={localFilters} />}
+      {activeTab === "cmr-delivery" && <CmrDeliveryTracker filters={localFilters} user={user} />}
       {activeTab === "form-a" && <FormARegister filters={localFilters} />}
       {activeTab === "form-b" && <FormBRegister filters={localFilters} />}
       {activeTab === "form-e" && <FormERegister filters={localFilters} />}
       {activeTab === "form-f" && <FormFRegister filters={localFilters} />}
       {activeTab === "frk" && <FrkRegister filters={localFilters} user={user} />}
       {activeTab === "gunny-bags" && <GunnyBagRegister filters={localFilters} user={user} />}
+      {activeTab === "security-deposit" && <SecurityDepositManager filters={localFilters} user={user} />}
     </div>
   );
 }

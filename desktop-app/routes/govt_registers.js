@@ -504,5 +504,174 @@ module.exports = function(database) {
     await wb.xlsx.write(res); res.end();
   }));
 
+  // ============ TRANSIT PASS REGISTER (Auto from entries) ============
+  router.get('/api/govt-registers/transit-pass', safeSync(async (req, res) => {
+    const { kms_year, season, date_from, date_to } = req.query;
+    let entries = [...(database.data.entries || [])];
+    if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
+    if (season) entries = entries.filter(e => e.season === season);
+    if (date_from) entries = entries.filter(e => (e.date || '') >= date_from);
+    if (date_to) entries = entries.filter(e => (e.date || '') <= date_to);
+    entries = entries.filter(e => e.tp_no && String(e.tp_no).trim());
+    entries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+    const rows = [];
+    let totalQty = 0, totalBags = 0;
+    for (const e of entries) {
+      let finalW = parseFloat(e.final_w || 0);
+      if (finalW === 0) finalW = parseFloat(e.kg || 0) / 100;
+      const bags = parseInt(e.bag || 0);
+      totalQty += finalW; totalBags += bags;
+      rows.push({ date: e.date || '', tp_no: String(e.tp_no), rst_no: String(e.rst_no || ''), truck_no: e.truck_no || '', agent_name: e.agent_name || '', mandi_name: e.mandi_name || '', qty_qntl: Math.round(finalW * 100) / 100, tp_weight: parseFloat(e.tp_weight || 0), bags, status: 'Accepted', remark: e.remark || '' });
+    }
+    res.json({ rows, summary: { total_entries: rows.length, total_qty: Math.round(totalQty * 100) / 100, total_bags: totalBags } });
+  }));
+
+  router.get('/api/govt-registers/transit-pass/excel', safeAsync(async (req, res) => {
+    const { kms_year, season, date_from, date_to } = req.query;
+    let entries = [...(database.data.entries || [])];
+    if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
+    if (season) entries = entries.filter(e => e.season === season);
+    if (date_from) entries = entries.filter(e => (e.date || '') >= date_from);
+    if (date_to) entries = entries.filter(e => (e.date || '') <= date_to);
+    entries = entries.filter(e => e.tp_no && String(e.tp_no).trim()).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+    const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Transit Pass');
+    const branding = database.getBranding ? database.getBranding() : { company_name: 'NAVKAR AGRO' };
+    ws.mergeCells('A1:K1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
+    ws.mergeCells('A2:K2'); ws.getCell('A2').value = `Transit Pass Register | ${kms_year || 'All'}`; ws.getCell('A2').font = { bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
+    const hdr = ws.addRow(['Date', 'TP No.', 'RST No.', 'Vehicle No.', 'Agent/Society', 'Mandi/PPC', 'Qty (Qtl)', 'TP Weight', 'Bags', 'Status', 'Remarks']);
+    hdr.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
+    let tq = 0, tb = 0;
+    entries.forEach(e => { let fw = parseFloat(e.final_w || 0); if (fw === 0) fw = parseFloat(e.kg || 0) / 100; const bags = parseInt(e.bag || 0); tq += fw; tb += bags; ws.addRow([fmtDate(e.date), String(e.tp_no), String(e.rst_no || ''), e.truck_no || '', e.agent_name || '', e.mandi_name || '', Math.round(fw * 100) / 100, parseFloat(e.tp_weight || 0), bags, 'Accepted', e.remark || '']); });
+    ws.addRow(['TOTAL', `${entries.length} entries`, '', '', '', '', Math.round(tq * 100) / 100, '', tb, '', '']);
+    [14, 14, 12, 16, 22, 20, 14, 14, 10, 12, 20].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=Transit_Pass_Register_${kms_year || 'all'}.xlsx`);
+    await wb.xlsx.write(res); res.end();
+  }));
+
+  // ============ CMR DELIVERY TRACKER ============
+  router.get('/api/govt-registers/cmr-delivery', safeSync(async (req, res) => {
+    if (!database.data.cmr_deliveries) database.data.cmr_deliveries = [];
+    const { kms_year, season, date_from, date_to } = req.query;
+    let entries = [...database.data.cmr_deliveries];
+    if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
+    if (season) entries = entries.filter(e => e.season === season);
+    if (date_from) entries = entries.filter(e => (e.date || '') >= date_from);
+    if (date_to) entries = entries.filter(e => (e.date || '') <= date_to);
+    entries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+    let paddyEntries = [...(database.data.entries || [])];
+    if (kms_year) paddyEntries = paddyEntries.filter(e => e.kms_year === kms_year);
+    if (season) paddyEntries = paddyEntries.filter(e => e.season === season);
+    const totalPaddy = paddyEntries.reduce((s, e) => s + parseFloat(e.final_w || 0), 0);
+    const totalCmr = entries.reduce((s, e) => s + parseFloat(e.cmr_qty || 0), 0);
+    const otr = totalPaddy > 0 ? Math.round(totalCmr / totalPaddy * 10000) / 100 : 0;
+
+    res.json({ entries, summary: { total_cmr_delivered: Math.round(totalCmr * 100) / 100, total_paddy_received: Math.round(totalPaddy * 100) / 100, outturn_ratio: otr, total_deliveries: entries.length, total_bags: entries.reduce((s, e) => s + parseInt(e.bags || 0), 0) } });
+  }));
+
+  router.post('/api/govt-registers/cmr-delivery', safeSync(async (req, res) => {
+    if (!database.data.cmr_deliveries) database.data.cmr_deliveries = [];
+    const d = req.body;
+    const doc = { id: uuidv4(), date: d.date || '', kms_year: d.kms_year || '', season: d.season || '', delivery_no: d.delivery_no || '', rrc_depot: d.rrc_depot || '', rice_type: d.rice_type || 'Parboiled', cmr_qty: parseFloat(d.cmr_qty || 0), bags: parseInt(d.bags || 0), vehicle_no: d.vehicle_no || '', driver_name: d.driver_name || '', fortified: d.fortified !== false, gate_pass_no: d.gate_pass_no || '', quality_grade: d.quality_grade || 'FAQ', remark: d.remark || '', created_by: req.query.username || '', created_at: new Date().toISOString() };
+    database.data.cmr_deliveries.push(doc);
+    database.save(); res.json(doc);
+  }));
+
+  router.put('/api/govt-registers/cmr-delivery/:id', safeSync(async (req, res) => {
+    if (!database.data.cmr_deliveries) return res.status(404).json({ detail: 'Not found' });
+    const idx = database.data.cmr_deliveries.findIndex(e => e.id === req.params.id);
+    if (idx < 0) return res.status(404).json({ detail: 'CMR delivery not found' });
+    const d = req.body; const ex = database.data.cmr_deliveries[idx];
+    database.data.cmr_deliveries[idx] = { ...ex, date: d.date || ex.date, delivery_no: d.delivery_no ?? ex.delivery_no, rrc_depot: d.rrc_depot ?? ex.rrc_depot, rice_type: d.rice_type || ex.rice_type, cmr_qty: parseFloat(d.cmr_qty ?? ex.cmr_qty), bags: parseInt(d.bags ?? ex.bags), vehicle_no: d.vehicle_no ?? ex.vehicle_no, driver_name: d.driver_name ?? ex.driver_name, fortified: d.fortified ?? ex.fortified, gate_pass_no: d.gate_pass_no ?? ex.gate_pass_no, quality_grade: d.quality_grade ?? ex.quality_grade, remark: d.remark ?? ex.remark, updated_at: new Date().toISOString() };
+    database.save(); res.json({ success: true });
+  }));
+
+  router.delete('/api/govt-registers/cmr-delivery/:id', safeSync(async (req, res) => {
+    if (!database.data.cmr_deliveries) return res.status(404).json({ detail: 'Not found' });
+    const len = database.data.cmr_deliveries.length;
+    database.data.cmr_deliveries = database.data.cmr_deliveries.filter(e => e.id !== req.params.id);
+    if (database.data.cmr_deliveries.length < len) { database.save(); return res.json({ success: true }); }
+    res.status(404).json({ detail: 'CMR delivery not found' });
+  }));
+
+  router.get('/api/govt-registers/cmr-delivery/excel', safeAsync(async (req, res) => {
+    if (!database.data.cmr_deliveries) database.data.cmr_deliveries = [];
+    const { kms_year, season } = req.query;
+    let entries = [...database.data.cmr_deliveries];
+    if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
+    if (season) entries = entries.filter(e => e.season === season);
+    entries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('CMR Delivery');
+    const branding = database.getBranding ? database.getBranding() : { company_name: 'NAVKAR AGRO' };
+    ws.mergeCells('A1:J1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
+    ws.mergeCells('A2:J2'); ws.getCell('A2').value = `CMR Delivery Register | ${kms_year || 'All'}`; ws.getCell('A2').font = { bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
+    const hdr = ws.addRow(['Date', 'Delivery No.', 'RRC/Depot', 'Rice Type', 'CMR Qty (Qtl)', 'Bags', 'Vehicle No.', 'Fortified', 'Grade', 'Remarks']);
+    hdr.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
+    entries.forEach(e => ws.addRow([fmtDate(e.date), e.delivery_no || '', e.rrc_depot || '', e.rice_type || '', e.cmr_qty || 0, e.bags || 0, e.vehicle_no || '', e.fortified ? 'Yes (+F)' : 'No', e.quality_grade || '', e.remark || '']));
+    [14, 16, 22, 16, 18, 10, 16, 12, 10, 20].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=CMR_Delivery_${kms_year || 'all'}.xlsx`);
+    await wb.xlsx.write(res); res.end();
+  }));
+
+  // ============ SECURITY DEPOSIT MANAGEMENT ============
+  router.get('/api/govt-registers/security-deposit', safeSync(async (req, res) => {
+    if (!database.data.security_deposits) database.data.security_deposits = [];
+    const { kms_year } = req.query;
+    let entries = [...database.data.security_deposits];
+    if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
+    entries.sort((a, b) => (b.issue_date || '').localeCompare(a.issue_date || ''));
+    const today = new Date().toISOString().split('T')[0];
+    entries.forEach(e => { if (e.status === 'active' && e.expiry_date && e.expiry_date < today) e.status = 'expired'; });
+    const totalAmount = entries.filter(e => e.status === 'active').reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+    res.json({ entries, summary: { total_deposits: entries.length, active_count: entries.filter(e => e.status === 'active').length, total_active_amount: Math.round(totalAmount * 100) / 100, released_count: entries.filter(e => e.status === 'released').length, expired_count: entries.filter(e => e.status === 'expired').length } });
+  }));
+
+  router.post('/api/govt-registers/security-deposit', safeSync(async (req, res) => {
+    if (!database.data.security_deposits) database.data.security_deposits = [];
+    const d = req.body;
+    const doc = { id: uuidv4(), kms_year: d.kms_year || '', bg_number: d.bg_number || '', bank_name: d.bank_name || '', amount: parseFloat(d.amount || 0), sd_ratio: d.sd_ratio || '1:6', milling_capacity_mt: parseFloat(d.milling_capacity_mt || 0), issue_date: d.issue_date || '', expiry_date: d.expiry_date || '', status: d.status || 'active', miller_type: d.miller_type || 'regular', remark: d.remark || '', created_by: req.query.username || '', created_at: new Date().toISOString() };
+    database.data.security_deposits.push(doc);
+    database.save(); res.json(doc);
+  }));
+
+  router.put('/api/govt-registers/security-deposit/:id', safeSync(async (req, res) => {
+    if (!database.data.security_deposits) return res.status(404).json({ detail: 'Not found' });
+    const idx = database.data.security_deposits.findIndex(e => e.id === req.params.id);
+    if (idx < 0) return res.status(404).json({ detail: 'Security deposit not found' });
+    const d = req.body; const ex = database.data.security_deposits[idx];
+    database.data.security_deposits[idx] = { ...ex, bg_number: d.bg_number ?? ex.bg_number, bank_name: d.bank_name ?? ex.bank_name, amount: parseFloat(d.amount ?? ex.amount), sd_ratio: d.sd_ratio ?? ex.sd_ratio, milling_capacity_mt: parseFloat(d.milling_capacity_mt ?? ex.milling_capacity_mt), issue_date: d.issue_date ?? ex.issue_date, expiry_date: d.expiry_date ?? ex.expiry_date, status: d.status ?? ex.status, miller_type: d.miller_type ?? ex.miller_type, remark: d.remark ?? ex.remark, updated_at: new Date().toISOString() };
+    database.save(); res.json({ success: true });
+  }));
+
+  router.delete('/api/govt-registers/security-deposit/:id', safeSync(async (req, res) => {
+    if (!database.data.security_deposits) return res.status(404).json({ detail: 'Not found' });
+    const len = database.data.security_deposits.length;
+    database.data.security_deposits = database.data.security_deposits.filter(e => e.id !== req.params.id);
+    if (database.data.security_deposits.length < len) { database.save(); return res.json({ success: true }); }
+    res.status(404).json({ detail: 'Security deposit not found' });
+  }));
+
+  router.get('/api/govt-registers/security-deposit/excel', safeAsync(async (req, res) => {
+    if (!database.data.security_deposits) database.data.security_deposits = [];
+    const { kms_year } = req.query;
+    let entries = [...database.data.security_deposits];
+    if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
+    const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Security Deposit');
+    const branding = database.getBranding ? database.getBranding() : { company_name: 'NAVKAR AGRO' };
+    ws.mergeCells('A1:J1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
+    ws.mergeCells('A2:J2'); ws.getCell('A2').value = `Security Deposit Register | ${kms_year || 'All'}`; ws.getCell('A2').font = { bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
+    const hdr = ws.addRow(['BG Number', 'Bank Name', 'Amount (Rs)', 'SD Ratio', 'Capacity (MT)', 'Issue Date', 'Expiry Date', 'Status', 'Miller Type', 'Remarks']);
+    hdr.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
+    entries.forEach(e => ws.addRow([e.bg_number || '', e.bank_name || '', e.amount || 0, e.sd_ratio || '', e.milling_capacity_mt || 0, fmtDate(e.issue_date), fmtDate(e.expiry_date), (e.status || '').toUpperCase(), e.miller_type || '', e.remark || '']));
+    [18, 24, 18, 12, 16, 14, 14, 14, 16, 20].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=Security_Deposit_${kms_year || 'all'}.xlsx`);
+    await wb.xlsx.write(res); res.end();
+  }));
+
   return router;
 };

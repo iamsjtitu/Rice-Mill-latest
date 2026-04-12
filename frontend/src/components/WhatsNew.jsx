@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "89.2.0";
+const APP_VERSION = "89.3.0";
 
 const CHANGELOG = [
+  {
+    version: "89.3.0",
+    date: "Apr 2026",
+    title: "v89.3.0 - Transit Pass, CMR Delivery & Security Deposit",
+    items: [
+      { type: "new", text: "Transit Pass Register - Mill Entries se auto-generate (jahan TP No. hai)" },
+      { type: "new", text: "CMR Delivery Tracker - OSCSC/RRC ko rice delivery ka record with Outturn Ratio (OTR)" },
+      { type: "new", text: "Security Deposit (Bank Guarantee) - SD ratio, validity tracking, auto-expiry check" },
+      { type: "new", text: "Government Registers ab 10 sub-tabs ke saath complete compliance system hai" },
+    ]
+  },
   {
     version: "89.2.0",
     date: "Apr 2026",
