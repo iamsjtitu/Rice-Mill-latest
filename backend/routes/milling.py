@@ -14,29 +14,131 @@ from openpyxl.utils import get_column_letter
 
 router = APIRouter()
 
+
+# ============ BY-PRODUCT CATEGORIES CRUD ============
+
+DEFAULT_BYPRODUCT_CATEGORIES = [
+    {"id": "bran", "name": "Bran", "name_hi": "भूसी", "is_auto": False, "order": 1},
+    {"id": "kunda", "name": "Kunda", "name_hi": "कुंडा", "is_auto": False, "order": 2},
+    {"id": "broken", "name": "Broken", "name_hi": "टूटा", "is_auto": False, "order": 3},
+    {"id": "kanki", "name": "Kanki", "name_hi": "कंकी", "is_auto": False, "order": 4},
+    {"id": "husk", "name": "Husk", "name_hi": "भूसा", "is_auto": True, "order": 5},
+]
+
+
+async def get_byproduct_categories_list():
+    """Get by-product categories from DB, seed defaults if empty."""
+    cats = await db.byproduct_categories.find({}, {"_id": 0}).sort("order", 1).to_list(100)
+    if not cats:
+        for c in DEFAULT_BYPRODUCT_CATEGORIES:
+            await db.byproduct_categories.insert_one({**c})
+        cats = [dict(c) for c in DEFAULT_BYPRODUCT_CATEGORIES]
+    return cats
+
+
+@router.get("/byproduct-categories")
+async def get_byproduct_categories():
+    return await get_byproduct_categories_list()
+
+
+@router.post("/byproduct-categories")
+async def create_byproduct_category(data: dict):
+    cats = await get_byproduct_categories_list()
+    cat_id = data.get("id", "").lower().strip().replace(" ", "_")
+    if not cat_id:
+        cat_id = data.get("name", "").lower().strip().replace(" ", "_")
+    if any(c["id"] == cat_id for c in cats):
+        raise HTTPException(status_code=400, detail="Category already exists")
+    new_cat = {
+        "id": cat_id,
+        "name": data.get("name", ""),
+        "name_hi": data.get("name_hi", ""),
+        "is_auto": data.get("is_auto", False),
+        "order": max((c["order"] for c in cats), default=0) + 1,
+    }
+    # If new one is auto, remove auto from others
+    if new_cat["is_auto"]:
+        await db.byproduct_categories.update_many({}, {"$set": {"is_auto": False}})
+    await db.byproduct_categories.insert_one(new_cat)
+    new_cat.pop("_id", None)
+    return new_cat
+
+
+@router.put("/byproduct-categories/{cat_id}")
+async def update_byproduct_category(cat_id: str, data: dict):
+    existing = await db.byproduct_categories.find_one({"id": cat_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Category not found")
+    update = {}
+    if "name" in data:
+        update["name"] = data["name"]
+    if "name_hi" in data:
+        update["name_hi"] = data["name_hi"]
+    if "is_auto" in data:
+        if data["is_auto"]:
+            await db.byproduct_categories.update_many({}, {"$set": {"is_auto": False}})
+        update["is_auto"] = data["is_auto"]
+    if "order" in data:
+        update["order"] = data["order"]
+    if update:
+        await db.byproduct_categories.update_one({"id": cat_id}, {"$set": update})
+    return {"success": True}
+
+
+@router.delete("/byproduct-categories/{cat_id}")
+async def delete_byproduct_category(cat_id: str):
+    result = await db.byproduct_categories.delete_one({"id": cat_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return {"success": True}
+
+
+@router.put("/byproduct-categories-reorder")
+async def reorder_byproduct_categories(data: dict):
+    """Reorder categories. data = {"order": ["bran", "kunda", ...]}"""
+    order_list = data.get("order", [])
+    for i, cat_id in enumerate(order_list):
+        await db.byproduct_categories.update_one({"id": cat_id}, {"$set": {"order": i + 1}})
+    return {"success": True}
+
+
 # ============ MILLING ENTRY CRUD APIs ============
 
-def calculate_milling_fields(data: dict) -> dict:
-    """Auto-calculate QNTL values from percentages and paddy input. FRK from stock."""
+def calculate_milling_fields(data: dict, categories=None) -> dict:
+    """Auto-calculate QNTL values from percentages and paddy input. Supports dynamic categories."""
     paddy = data.get('paddy_input_qntl', 0) or 0
-    
     rice_pct = data.get('rice_percent', 0) or 0
-    bran_pct = data.get('bran_percent', 0) or 0
-    kunda_pct = data.get('kunda_percent', 0) or 0
-    broken_pct = data.get('broken_percent', 0) or 0
-    kanki_pct = data.get('kanki_percent', 0) or 0
     
-    used_pct = rice_pct + bran_pct + kunda_pct + broken_pct + kanki_pct
-    husk_pct = max(0, round(100 - used_pct, 2))
+    used_pct = rice_pct
+    auto_cat_id = None
     
-    data['husk_percent'] = husk_pct
+    if categories:
+        for cat in categories:
+            if cat.get("is_auto"):
+                auto_cat_id = cat["id"]
+                continue
+            pct = float(data.get(f'{cat["id"]}_percent', 0) or 0)
+            used_pct += pct
+            data[f'{cat["id"]}_qntl'] = round(paddy * pct / 100, 2)
+        if auto_cat_id:
+            auto_pct = max(0, round(100 - used_pct, 2))
+            data[f'{auto_cat_id}_percent'] = auto_pct
+            data[f'{auto_cat_id}_qntl'] = round(paddy * auto_pct / 100, 2)
+    else:
+        bran_pct = data.get('bran_percent', 0) or 0
+        kunda_pct = data.get('kunda_percent', 0) or 0
+        broken_pct = data.get('broken_percent', 0) or 0
+        kanki_pct = data.get('kanki_percent', 0) or 0
+        used_pct = rice_pct + bran_pct + kunda_pct + broken_pct + kanki_pct
+        husk_pct = max(0, round(100 - used_pct, 2))
+        data['husk_percent'] = husk_pct
+        data['bran_qntl'] = round(paddy * bran_pct / 100, 2)
+        data['kunda_qntl'] = round(paddy * kunda_pct / 100, 2)
+        data['broken_qntl'] = round(paddy * broken_pct / 100, 2)
+        data['kanki_qntl'] = round(paddy * kanki_pct / 100, 2)
+        data['husk_qntl'] = round(paddy * husk_pct / 100, 2)
+    
     data['rice_qntl'] = round(paddy * rice_pct / 100, 2)
-    data['bran_qntl'] = round(paddy * bran_pct / 100, 2)
-    data['kunda_qntl'] = round(paddy * kunda_pct / 100, 2)
-    data['broken_qntl'] = round(paddy * broken_pct / 100, 2)
-    data['kanki_qntl'] = round(paddy * kanki_pct / 100, 2)
-    data['husk_qntl'] = round(paddy * husk_pct / 100, 2)
-    
     frk_used = data.get('frk_used_qntl', 0) or 0
     data['cmr_delivery_qntl'] = round(data['rice_qntl'] + frk_used, 2)
     data['outturn_ratio'] = round(data['cmr_delivery_qntl'] / paddy * 100, 2) if paddy > 0 else 0
@@ -47,7 +149,8 @@ def calculate_milling_fields(data: dict) -> dict:
 @router.post("/milling-entries")
 async def create_milling_entry(input: MillingEntryCreate, username: str = "", role: str = ""):
     entry_dict = input.model_dump()
-    entry_dict = calculate_milling_fields(entry_dict)
+    cats = await get_byproduct_categories_list()
+    entry_dict = calculate_milling_fields(entry_dict, cats)
     entry_dict['created_by'] = username
     entry_obj = MillingEntry(**entry_dict)
     doc = entry_obj.model_dump()
@@ -293,21 +396,21 @@ async def get_byproduct_stock(kms_year: Optional[str] = None, season: Optional[s
     if season: query["season"] = season
     milling_entries = await db.milling_entries.find(query, {"_id": 0}).to_list(1000)
     sales = await db.byproduct_sales.find(query, {"_id": 0}).to_list(1000)
-    # Also count Sale Book sales for by-products
     sale_vouchers = await db.sale_vouchers.find(query, {"_id": 0}).to_list(10000)
     sb_sold = {}
     for sv in sale_vouchers:
         for item in sv.get('items', []):
             name = item.get('item_name', '').lower()
             sb_sold[name] = sb_sold.get(name, 0) + (item.get('quantity', 0) or 0)
-    # Purchase Voucher bought quantities
     purchase_vouchers = await db.purchase_vouchers.find(query, {"_id": 0}).to_list(10000)
     pv_bought = {}
     for pv in purchase_vouchers:
         for item in pv.get('items', []):
             name = item.get('item_name', '').lower()
             pv_bought[name] = pv_bought.get(name, 0) + (item.get('quantity', 0) or 0)
-    products = ["bran", "kunda", "broken", "kanki", "husk"]
+    # Dynamic categories
+    cats = await get_byproduct_categories_list()
+    products = [c["id"] for c in cats]
     stock = {}
     for p in products:
         produced = round(sum(e.get(f'{p}_qntl', 0) for e in milling_entries), 2)

@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "89.6.3";
+const APP_VERSION = "90.0.0";
 
 const CHANGELOG = [
+  {
+    version: "90.0.0",
+    date: "Apr 2026",
+    title: "v90.0.0 - Dynamic By-Product Categories",
+    items: [
+      { type: "new", text: "Settings mein 'By-Products' tab add hua - custom categories banao (add/edit/delete/reorder)" },
+      { type: "new", text: "Jo categories banao wo Milling Form, Stock Summary, Sale Voucher - sab jagah automatically aayengi" },
+      { type: "new", text: "Koi bhi category ko 'Auto' mark kar sakte ho (100% - others = auto%)" },
+      { type: "new", text: "Default categories: Bran, Kunda, Broken, Kanki, Husk (Auto) - sab edit/delete ho sakte hain" },
+    ]
+  },
   {
     version: "89.6.0",
     date: "Apr 2026",

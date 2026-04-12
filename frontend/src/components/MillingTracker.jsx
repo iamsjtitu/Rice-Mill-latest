@@ -38,10 +38,10 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
   const [entries, setEntries] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [bpCategories, setBpCategories] = useState([]);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0], rice_type: "parboiled", paddy_input_qntl: "",
-    rice_percent: "", bran_percent: "", kunda_percent: "", broken_percent: "", kanki_percent: "",
-    frk_used_qntl: "", kms_year: CURRENT_KMS_YEAR, season: "Kharif", note: "",
+    rice_percent: "", frk_used_qntl: "", kms_year: CURRENT_KMS_YEAR, season: "Kharif", note: "",
   });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -57,12 +57,14 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
       if (millingFilters.rice_type) params.append('rice_type', millingFilters.rice_type);
       if (millingFilters.date_from) params.append('date_from', millingFilters.date_from);
       if (millingFilters.date_to) params.append('date_to', millingFilters.date_to);
-      const [entriesRes, summaryRes] = await Promise.all([
+      const [entriesRes, summaryRes, catsRes] = await Promise.all([
         axios.get(`${API}/milling-entries?${params.toString()}`),
-        axios.get(`${API}/milling-summary?${params.toString()}`)
+        axios.get(`${API}/milling-summary?${params.toString()}`),
+        axios.get(`${API}/byproduct-categories`),
       ]);
       setEntries(entriesRes.data);
       setSummary(summaryRes.data);
+      setBpCategories(catsRes.data || []);
     } catch (error) {
       toast.error("Milling data load nahi hua");
     } finally { setLoading(false); }
@@ -70,14 +72,13 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
 
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
 
+  const nonAutoCats = bpCategories.filter(c => !c.is_auto);
+  const autoCat = bpCategories.find(c => c.is_auto);
+
   const paddy = parseFloat(formData.paddy_input_qntl) || 0;
   const ricePct = parseFloat(formData.rice_percent) || 0;
-  const branPct = parseFloat(formData.bran_percent) || 0;
-  const kundaPct = parseFloat(formData.kunda_percent) || 0;
-  const brokenPct = parseFloat(formData.broken_percent) || 0;
-  const kankiPct = parseFloat(formData.kanki_percent) || 0;
-  const usedPct = ricePct + branPct + kundaPct + brokenPct + kankiPct;
-  const huskPct = Math.max(0, 100 - usedPct);
+  const manualPcts = nonAutoCats.reduce((sum, c) => sum + (parseFloat(formData[`${c.id}_percent`]) || 0), 0);
+  const autoPct = Math.max(0, 100 - ricePct - manualPcts);
   const riceQntl = paddy * ricePct / 100;
   const frkUsed = parseFloat(formData.frk_used_qntl) || 0;
   const cmrQntl = riceQntl + frkUsed;
@@ -86,8 +87,8 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const payload = { ...formData, paddy_input_qntl: paddy, rice_percent: ricePct, bran_percent: branPct,
-        kunda_percent: kundaPct, broken_percent: brokenPct, kanki_percent: kankiPct, frk_used_qntl: frkUsed };
+      const payload = { ...formData, paddy_input_qntl: paddy, rice_percent: ricePct, frk_used_qntl: frkUsed };
+      nonAutoCats.forEach(c => { payload[`${c.id}_percent`] = parseFloat(formData[`${c.id}_percent`]) || 0; });
       if (editingId) {
         await axios.put(`${API}/milling-entries/${editingId}?username=${user.username}&role=${user.role}`, payload);
         toast.success("Milling entry update ho gayi!");
@@ -97,18 +98,17 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
       }
       setIsDialogOpen(false); setEditingId(null);
       setFormData({ date: new Date().toISOString().split('T')[0], rice_type: "parboiled", paddy_input_qntl: "",
-        rice_percent: "", bran_percent: "", kunda_percent: "", broken_percent: "", kanki_percent: "",
-        frk_used_qntl: "", kms_year: CURRENT_KMS_YEAR, season: "Kharif", note: "" });
+        rice_percent: "", frk_used_qntl: "", kms_year: CURRENT_KMS_YEAR, season: "Kharif", note: "" });
       fetchEntries(); onRefresh();
     } catch (error) { toast.error("Error: " + (error.response?.data?.detail || error.message)); }
   };
 
   const handleEdit = (entry) => {
-    setFormData({ date: entry.date, rice_type: entry.rice_type, paddy_input_qntl: entry.paddy_input_qntl.toString(),
-      rice_percent: entry.rice_percent.toString(), bran_percent: entry.bran_percent.toString(),
-      kunda_percent: entry.kunda_percent.toString(), broken_percent: entry.broken_percent.toString(),
-      kanki_percent: entry.kanki_percent.toString(), frk_used_qntl: (entry.frk_used_qntl || 0).toString(),
-      kms_year: entry.kms_year, season: entry.season, note: entry.note || "" });
+    const fd = { date: entry.date, rice_type: entry.rice_type, paddy_input_qntl: entry.paddy_input_qntl.toString(),
+      rice_percent: entry.rice_percent.toString(), frk_used_qntl: (entry.frk_used_qntl || 0).toString(),
+      kms_year: entry.kms_year, season: entry.season, note: entry.note || "" };
+    bpCategories.forEach(c => { fd[`${c.id}_percent`] = (entry[`${c.id}_percent`] || 0).toString(); });
+    setFormData(fd);
     setEditingId(entry.id); setIsDialogOpen(true);
   };
 
@@ -185,8 +185,7 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
       {/* Actions */}
       <div className="flex gap-2 flex-wrap">
         <Button onClick={() => { setFormData({ date: new Date().toISOString().split('T')[0], rice_type: "parboiled", paddy_input_qntl: "",
-          rice_percent: "", bran_percent: "", kunda_percent: "", broken_percent: "", kanki_percent: "",
-          frk_used_qntl: "", kms_year: filters.kms_year || CURRENT_KMS_YEAR, season: filters.season || "Kharif", note: "" });
+          rice_percent: "", frk_used_qntl: "", kms_year: filters.kms_year || CURRENT_KMS_YEAR, season: filters.season || "Kharif", note: "" });
           setEditingId(null); setIsDialogOpen(true); }} className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm" data-testid="milling-add-btn">
           <Plus className="w-4 h-4 mr-1" /> New Milling Entry
         </Button>
@@ -281,15 +280,17 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
             <div className="border border-slate-600 rounded p-3 space-y-2">
               <p className="text-xs text-amber-400 font-medium">Paddy Output % / धान से निकला</p>
               <div className="grid grid-cols-3 gap-2">
-                {[{k:'rice_percent',l:'Rice%',p:'52'},{k:'bran_percent',l:'Bran%',p:'5'},{k:'kunda_percent',l:'Kunda%',p:'3'},
-                  {k:'broken_percent',l:'Broken%',p:'2'},{k:'kanki_percent',l:'Kanki%',p:'1'}].map(f => (
-                  <div key={f.k}><Label className="text-[10px] text-slate-400">{f.l}</Label>
-                    <Input type="number" step="0.01" value={formData[f.k]} onChange={(e) => setFormData(p => ({ ...p, [f.k]: e.target.value }))}
-                      placeholder={f.p} className="bg-slate-700 border-slate-600 text-white h-7 text-xs" data-testid={`milling-form-${f.k.replace('_percent','')}-pct`} /></div>))}
-                <div><Label className="text-[10px] text-slate-400">Husk% (Auto)</Label>
-                  <div className="bg-slate-900 border border-slate-600 rounded h-7 flex items-center px-2 text-xs text-yellow-300">{huskPct.toFixed(2)}%</div></div>
+                <div><Label className="text-[10px] text-slate-400">Rice%</Label>
+                  <Input type="number" step="0.01" value={formData.rice_percent} onChange={(e) => setFormData(p => ({ ...p, rice_percent: e.target.value }))}
+                    placeholder="52" className="bg-slate-700 border-slate-600 text-white h-7 text-xs" data-testid="milling-form-rice-pct" /></div>
+                {nonAutoCats.map(c => (
+                  <div key={c.id}><Label className="text-[10px] text-slate-400">{c.name}%</Label>
+                    <Input type="number" step="0.01" value={formData[`${c.id}_percent`] || ""} onChange={(e) => setFormData(p => ({ ...p, [`${c.id}_percent`]: e.target.value }))}
+                      placeholder="0" className="bg-slate-700 border-slate-600 text-white h-7 text-xs" data-testid={`milling-form-${c.id}-pct`} /></div>))}
+                {autoCat && <div><Label className="text-[10px] text-slate-400">{autoCat.name}% (Auto)</Label>
+                  <div className="bg-slate-900 border border-slate-600 rounded h-7 flex items-center px-2 text-xs text-yellow-300">{autoPct.toFixed(2)}%</div></div>}
               </div>
-              {usedPct > 100 && <p className="text-red-400 text-xs">100% se zyada! ({usedPct.toFixed(2)}%)</p>}
+              {(ricePct + manualPcts) > 100 && <p className="text-red-400 text-xs">100% se zyada! ({(ricePct + manualPcts).toFixed(2)}%)</p>}
             </div>
             <div className="border border-cyan-800/40 rounded p-3">
               <p className="text-xs text-cyan-400 font-medium mb-1">FRK from Stock / स्टॉक से FRK {frkStock && <span className="text-green-400">(Avl: {frkStock.available_qntl} Q)</span>}</p>
@@ -302,9 +303,10 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
               <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs">
                 <div className="flex justify-between"><span className="text-slate-400">Rice:</span><span>{riceQntl.toFixed(2)} Q</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">FRK:</span><span className="text-cyan-300">{frkUsed.toFixed(2)} Q</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Bran:</span><span>{(paddy*branPct/100).toFixed(2)} Q</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Kunda:</span><span>{(paddy*kundaPct/100).toFixed(2)} Q</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Husk:</span><span className="text-yellow-300">{(paddy*huskPct/100).toFixed(2)} Q</span></div>
+                {nonAutoCats.map(c => (
+                  <div key={c.id} className="flex justify-between"><span className="text-slate-400">{c.name}:</span><span>{(paddy * (parseFloat(formData[`${c.id}_percent`]) || 0) / 100).toFixed(2)} Q</span></div>
+                ))}
+                {autoCat && <div className="flex justify-between"><span className="text-slate-400">{autoCat.name}:</span><span className="text-yellow-300">{(paddy * autoPct / 100).toFixed(2)} Q</span></div>}
                 <div className="flex justify-between"><span className="text-slate-400">CMR:</span><span className="text-emerald-400 font-bold">{cmrQntl.toFixed(2)} Q</span></div>
                 <div className="flex justify-between col-span-3"><span className="text-slate-400">Outturn:</span><span className={`font-bold ${outturnRatio >= 67 ? 'text-green-400' : outturnRatio >= 60 ? 'text-amber-400' : 'text-red-400'}`}>{outturnRatio.toFixed(2)}%</span></div>
               </div>

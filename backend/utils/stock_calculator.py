@@ -6,6 +6,13 @@ All stock-related computations live HERE. Routes only fetch data and call these.
 BY_PRODUCTS = ["bran", "kunda", "broken", "kanki", "husk"]
 
 
+def get_dynamic_byproducts(categories=None):
+    """Return list of by-product IDs from dynamic categories or fallback to default."""
+    if categories:
+        return [c["id"] for c in categories]
+    return BY_PRODUCTS
+
+
 def calc_cmr_paddy_in(mill_entries: list) -> float:
     """CMR (govt) paddy received = qntl - bag deduction - pkt cut"""
     return round(sum(
@@ -70,10 +77,11 @@ def calc_purchase_voucher_items(purchase_vouchers: list) -> dict:
     return pv_bought
 
 
-def calc_byproduct_produced(milling: list) -> dict:
+def calc_byproduct_produced(milling: list, categories=None) -> dict:
     """By-product quantities produced from milling: {product: total_qntl}"""
     bp = {}
-    for p in BY_PRODUCTS:
+    products = get_dynamic_byproducts(categories)
+    for p in products:
         bp[p] = round(sum(e.get(f'{p}_qntl', 0) for e in milling), 2)
     return bp
 

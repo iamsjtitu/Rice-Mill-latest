@@ -149,8 +149,13 @@ async def get_stock_items(kms_year: Optional[str] = None, season: Optional[str] 
     items.append({"name": "Rice (Usna)", "available_qntl": usna_avail, "unit": "Qntl"})
     items.append({"name": "Rice (Raw)", "available_qntl": raw_avail, "unit": "Qntl"})
 
-    bp_ob_map = {"bran": ob_bran, "kunda": ob_kunda, "broken": ob_broken, "kanki": ob_kanki, "husk": ob_husk}
-    for p in BY_PRODUCTS:
+    # Dynamic by-product categories
+    cats = await db.byproduct_categories.find({}, {"_id": 0}).sort("order", 1).to_list(100)
+    if not cats:
+        cats = [{"id": "bran"}, {"id": "kunda"}, {"id": "broken"}, {"id": "kanki"}, {"id": "husk"}]
+    bp_ids = [c["id"] for c in cats]
+    bp_ob_map = {p: float(ob.get(p, 0)) for p in bp_ids}
+    for p in bp_ids:
         produced = bp_produced.get(p, 0)
         purchased = pv_bought.get(p.title(), 0)
         sold_bp = round(bp_sold_map.get(p, 0), 2)

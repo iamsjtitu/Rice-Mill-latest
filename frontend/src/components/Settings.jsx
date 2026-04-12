@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Calculator, HardDrive, ShieldCheck, Send, Package, Scale,
-  Camera, AlertCircle, Key, Users, History, Droplets,
+  Camera, AlertCircle, Key, Users, History, Droplets, Wheat,
 } from "lucide-react";
 
 import BrandingTab from "./settings/BrandingTab";
@@ -16,6 +16,7 @@ import CameraSetupTab from "./settings/CameraSetupTab";
 import UsersTab from "./settings/UsersTab";
 import AuditLogTab from "./settings/AuditLogTab";
 import WatermarkTab from "./settings/WatermarkTab";
+import ByProductCategoriesTab from "./settings/ByProductCategoriesTab";
 
 const SUB_TABS = [
   { id: "users", label: "Users", icon: Users },
@@ -24,6 +25,7 @@ const SUB_TABS = [
   { id: "watermark", label: "Watermark", icon: Droplets },
   { id: "gst", label: "GST", icon: Calculator },
   { id: "stock", label: "Stock", icon: Package },
+  { id: "byproducts", label: "By-Products", icon: Wheat },
   { id: "messaging", label: "Messaging", icon: Send },
   { id: "camera", label: "Camera", icon: Camera },
   { id: "weighbridge", label: "Weighbridge", icon: Scale },
@@ -58,6 +60,7 @@ export default function Settings({ user, setUser, kmsYear, onBrandingUpdate }) {
           <TabsContent value="watermark"><WatermarkTab /></TabsContent>
           <TabsContent value="gst"><GSTTab /></TabsContent>
           <TabsContent value="stock"><StockTab kmsYear={kmsYear} user={user} /></TabsContent>
+          <TabsContent value="byproducts"><ByProductCategoriesTab /></TabsContent>
           <TabsContent value="messaging"><MessagingTab /></TabsContent>
           <TabsContent value="camera"><CameraSetupTab /></TabsContent>
           <TabsContent value="weighbridge"><WeighbridgeConfigCard /></TabsContent>
