@@ -462,7 +462,13 @@ async def update_fy_settings(data: dict):
 
 # ============ OPENING STOCK BALANCE ============
 
-STOCK_ITEMS = ["paddy", "rice_usna", "rice_raw", "bran", "kunda", "broken", "kanki", "husk", "frk"]
+STOCK_ITEMS_BASE = ["paddy", "rice_usna", "rice_raw", "frk"]
+
+async def get_stock_items_list():
+    """Get dynamic stock items list (base + dynamic by-products)."""
+    cats = await db.byproduct_categories.find({}, {"_id": 0}).sort("order", 1).to_list(100)
+    bp_ids = [c["id"] for c in cats] if cats else ["bran", "kunda", "broken", "kanki", "husk"]
+    return STOCK_ITEMS_BASE[:3] + bp_ids + [STOCK_ITEMS_BASE[3]]  # paddy, rice_usna, rice_raw, [bp...], frk
 
 @router.get("/opening-stock")
 async def get_opening_stock(kms_year: str = "", financial_year: str = ""):
@@ -477,9 +483,15 @@ async def get_opening_stock(kms_year: str = "", financial_year: str = ""):
         if settings:
             query["kms_year"] = settings.get("active_fy", "")
     
+    stock_items = await get_stock_items_list()
     doc = await db.opening_stock.find_one(query, {"_id": 0})
     if not doc:
-        doc = {"kms_year": kms_year or "", "financial_year": financial_year or "", "stocks": {item: 0 for item in STOCK_ITEMS}}
+        doc = {"kms_year": kms_year or "", "financial_year": financial_year or "", "stocks": {item: 0 for item in stock_items}}
+    else:
+        # Ensure all dynamic items exist
+        for item in stock_items:
+            if item not in doc.get("stocks", {}):
+                doc["stocks"][item] = 0
     return doc
 
 @router.put("/opening-stock")
@@ -491,10 +503,12 @@ async def save_opening_stock(data: dict, username: str = "", role: str = ""):
     kms_year = data.get("kms_year", "")
     financial_year = data.get("financial_year", "")
     stocks = data.get("stocks", {})
+    stock_items = await get_stock_items_list()
     
-    # Clean stocks - only allow known items, convert to float
+    # Clean stocks - allow all known + dynamic items
     clean_stocks = {}
-    for item in STOCK_ITEMS:
+    all_keys = set(stock_items) | set(stocks.keys())
+    for item in all_keys:
         val = stocks.get(item, 0)
         try:
             clean_stocks[item] = float(val) if val else 0
@@ -533,11 +547,17 @@ async def carry_forward_stock(data: dict, username: str = "", role: str = ""):
 
     # Map closing stock to opening stock keys
     closing = {}
+    # Dynamic mapping: build from categories
+    bp_cats = await db.byproduct_categories.find({}, {"_id": 0}).sort("order", 1).to_list(100)
     name_to_key = {
         "Paddy": "paddy", "Rice (Usna)": "rice_usna", "Rice (Raw)": "rice_raw",
-        "Bran": "bran", "Kunda": "kunda", "Broken": "broken",
-        "Kanki": "kanki", "Husk": "husk", "Frk": "frk", "FRK": "frk"
+        "Frk": "frk", "FRK": "frk"
     }
+    # Add dynamic by-product mappings
+    for cat in (bp_cats or []):
+        display = cat.get("name", cat["id"].title())
+        name_to_key[display] = cat["id"]
+        name_to_key[cat["id"].title()] = cat["id"]
     for item in items:
         key = name_to_key.get(item["name"])
         if key:

@@ -230,12 +230,14 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
       {/* Table */}
       <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
         <Table><TableHeader><TableRow className="border-slate-700 hover:bg-transparent">
-          {['Date','Type','Paddy(Q)','Rice%','Rice(Q)','FRK(Q)','CMR(Q)','Outturn%','Bran(Q)','Husk%','Note','Actions'].map(h =>
-            <TableHead key={h} className={`text-slate-300 text-xs ${['Paddy(Q)','Rice%','Rice(Q)','FRK(Q)','CMR(Q)','Outturn%','Bran(Q)','Husk%'].includes(h) ? 'text-right' : h === 'Actions' ? 'text-center' : ''}`}>{h}</TableHead>)}
+          {['Date','Type','Paddy(Q)','Rice%','Rice(Q)','FRK(Q)','CMR(Q)','Outturn%',
+            ...bpCategories.map(c => c.is_auto ? `${c.name}%` : `${c.name}(Q)`),
+            'Note','Actions'].map(h =>
+            <TableHead key={h} className={`text-slate-300 text-xs ${['Date','Type','Note'].includes(h) ? '' : h === 'Actions' ? 'text-center' : 'text-right'}`}>{h}</TableHead>)}
         </TableRow></TableHeader>
         <TableBody>
-          {loading ? <TableRow><TableCell colSpan={12} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-          : entries.length === 0 ? <TableRow><TableCell colSpan={12} className="text-center text-slate-400 py-8">Koi milling entry nahi hai</TableCell></TableRow>
+          {loading ? <TableRow><TableCell colSpan={10 + bpCategories.length} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
+          : entries.length === 0 ? <TableRow><TableCell colSpan={10 + bpCategories.length} className="text-center text-slate-400 py-8">Koi milling entry nahi hai</TableCell></TableRow>
           : entries.map(e => (
             <TableRow key={e.id} className="border-slate-700">
               <TableCell className="text-white text-xs">{fmtDate(e.date)}</TableCell>
@@ -246,8 +248,11 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
               <TableCell className="text-cyan-300 text-xs text-right">{e.frk_used_qntl || 0}</TableCell>
               <TableCell className="text-emerald-400 text-xs text-right font-bold">{e.cmr_delivery_qntl}</TableCell>
               <TableCell className="text-purple-400 text-xs text-right font-bold">{e.outturn_ratio}%</TableCell>
-              <TableCell className="text-orange-300 text-xs text-right">{e.bran_qntl}</TableCell>
-              <TableCell className="text-slate-400 text-xs text-right">{e.husk_percent}%</TableCell>
+              {bpCategories.map(c => (
+                <TableCell key={c.id} className={`text-xs text-right ${c.is_auto ? 'text-yellow-300' : 'text-orange-300'}`}>
+                  {c.is_auto ? `${e[`${c.id}_percent`] || 0}%` : (e[`${c.id}_qntl`] || 0)}
+                </TableCell>
+              ))}
               <TableCell className="text-slate-400 text-xs max-w-[80px] truncate">{e.note}</TableCell>
               <TableCell className="text-center"><div className="flex gap-1 justify-center">
                 <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-400" onClick={() => handleEdit(e)}><Edit className="w-3 h-3" /></Button>

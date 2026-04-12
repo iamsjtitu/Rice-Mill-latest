@@ -133,7 +133,11 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
 
     # ===== 5. BYPRODUCT STOCK =====
     byproduct_sales = await db.byproduct_sales.find(query, {"_id": 0}).to_list(1000)
-    products = ["bran", "kunda", "broken", "kanki", "husk"]
+    # Dynamic categories
+    bp_cats = await db.byproduct_categories.find({}, {"_id": 0}).sort("order", 1).to_list(100)
+    if not bp_cats:
+        bp_cats = [{"id": p} for p in ["bran", "kunda", "broken", "kanki", "husk"]]
+    products = [c["id"] for c in bp_cats]
     byproduct_section = {}
     saved_bp = saved_ob.get("byproducts", {}) if saved_ob else {}
 

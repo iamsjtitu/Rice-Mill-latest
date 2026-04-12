@@ -543,19 +543,23 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
         "details": f"OB: {ob_raw}Q + Milling: {raw_produced}Q + Purchase: {pv_raw}Q - Pvt: {pvt_sold_raw}Q - Sale: {sb_sold.get('Rice (Raw)', 0)}Q"
     })
 
-    # By-products
-    bp_ob_map = {"bran": ob_bran, "kunda": ob_kunda, "broken": ob_broken, "kanki": ob_kanki, "husk": ob_husk}
-    for p in products:
+    # By-products - Dynamic categories
+    bp_cats = await db.byproduct_categories.find({}, {"_id": 0}).sort("order", 1).to_list(100)
+    if not bp_cats:
+        bp_cats = [{"id": p, "name": p.title()} for p in ["bran", "kunda", "broken", "kanki", "husk"]]
+    for cat in bp_cats:
+        p = cat["id"]
+        display_name = cat.get("name", p.title())
         produced = bp_produced.get(p, 0)
         sold_bp = round(bp_sold_map.get(p, 0), 2)
-        sold_sb = sb_sold.get(p.title(), 0)
-        purchased = pv_bought.get(p.title(), 0)
-        item_ob = bp_ob_map.get(p, 0)
+        sold_sb = sb_sold.get(display_name, 0) + sb_sold.get(p.title(), 0) + sb_sold.get(p, 0)
+        purchased = pv_bought.get(display_name, 0) + pv_bought.get(p.title(), 0) + pv_bought.get(p, 0)
+        item_ob = float(ob.get(p, 0))
         total_in = round(produced + purchased, 2)
         total_out = round(sold_bp + sold_sb, 2)
         avail = round(item_ob + total_in - total_out, 2)
         stock_items.append({
-            "name": p.title(), "category": "By-Product",
+            "name": display_name, "category": "By-Product",
             "opening": item_ob,
             "in_qty": total_in, "out_qty": total_out,
             "available": avail, "unit": "Qntl",

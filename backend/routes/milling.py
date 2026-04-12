@@ -232,17 +232,18 @@ async def get_milling_summary(kms_year: Optional[str] = None, season: Optional[s
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     entries = await db.milling_entries.find(query, {"_id": 0}).to_list(1000)
+    cats = await get_byproduct_categories_list()
     
     total_paddy = sum(e.get('paddy_input_qntl', 0) for e in entries)
     total_rice = sum(e.get('rice_qntl', 0) for e in entries)
     total_frk = sum(e.get('frk_used_qntl', 0) for e in entries)
-    total_bran = sum(e.get('bran_qntl', 0) for e in entries)
-    total_kunda = sum(e.get('kunda_qntl', 0) for e in entries)
-    total_broken = sum(e.get('broken_qntl', 0) for e in entries)
-    total_kanki = sum(e.get('kanki_qntl', 0) for e in entries)
-    total_husk = sum(e.get('husk_qntl', 0) for e in entries)
     total_cmr = sum(e.get('cmr_delivery_qntl', 0) for e in entries)
     avg_outturn = round(total_cmr / total_paddy * 100, 2) if total_paddy > 0 else 0
+    
+    # Dynamic by-product totals
+    bp_totals = {}
+    for cat in cats:
+        bp_totals[f"total_{cat['id']}_qntl"] = round(sum(e.get(f"{cat['id']}_qntl", 0) for e in entries), 2)
     
     def type_summary(elist):
         tp = sum(e.get('paddy_input_qntl', 0) for e in elist)
@@ -253,14 +254,14 @@ async def get_milling_summary(kms_year: Optional[str] = None, season: Optional[s
             "total_frk_qntl": round(tf, 2), "total_cmr_qntl": round(tc, 2),
             "avg_outturn": round(tc / tp * 100, 2) if tp > 0 else 0}
     
-    return {"total_entries": len(entries), "total_paddy_qntl": round(total_paddy, 2),
+    result = {"total_entries": len(entries), "total_paddy_qntl": round(total_paddy, 2),
         "total_rice_qntl": round(total_rice, 2), "total_frk_qntl": round(total_frk, 2),
-        "total_bran_qntl": round(total_bran, 2), "total_kunda_qntl": round(total_kunda, 2),
-        "total_broken_qntl": round(total_broken, 2), "total_kanki_qntl": round(total_kanki, 2),
-        "total_husk_qntl": round(total_husk, 2), "total_cmr_qntl": round(total_cmr, 2),
+        **bp_totals,
+        "total_cmr_qntl": round(total_cmr, 2),
         "avg_outturn_ratio": avg_outturn,
         "parboiled": type_summary([e for e in entries if e.get('rice_type') == 'parboiled']),
         "raw": type_summary([e for e in entries if e.get('rice_type') == 'raw'])}
+    return result
 
 
 # ============ FRK PURCHASE APIs ============
