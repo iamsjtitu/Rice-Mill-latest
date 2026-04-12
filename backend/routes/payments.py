@@ -860,12 +860,16 @@ async def get_agent_payments(kms_year: Optional[str] = None, season: Optional[st
             {"$group": {
                 "_id": None, 
                 "total_final_w": {"$sum": "$final_w"},
+                "total_tp_weight": {"$sum": "$tp_weight"},
                 "agent_name": {"$first": "$agent_name"}
             }}
         ]
         result = await db.mill_entries.aggregate(pipeline).to_list(1)
         achieved_kg = result[0]["total_final_w"] if result else 0
         achieved_qntl = round(achieved_kg / 100, 2)
+        tp_weight_kg = result[0]["total_tp_weight"] if result else 0
+        tp_weight_qntl = round(tp_weight_kg / 100, 2)
+        excess_weight = round(achieved_qntl - tp_weight_qntl, 2)
         agent_name = result[0]["agent_name"] if result else mandi_name
         
         is_target_complete = achieved_qntl >= expected_total
@@ -894,7 +898,9 @@ async def get_agent_payments(kms_year: Optional[str] = None, season: Optional[st
             target_amount=target_amount,
             cutting_amount=cutting_amount,
             total_amount=total_amount,
+            tp_weight_qntl=tp_weight_qntl,
             achieved_qntl=achieved_qntl,
+            excess_weight=excess_weight,
             is_target_complete=is_target_complete,
             paid_amount=paid_amount,
             balance_amount=max(0, balance),
@@ -1706,11 +1712,13 @@ async def export_agent_payments_excel(kms_year: Optional[str] = None, season: Op
         cutting_amount = round(cutting_qntl * cutting_rate, 2)
         total_amount = round(target_amount + cutting_amount, 2)
         
-        # Get achieved
+        # Get achieved + TP Weight
         entry_query = {"mandi_name": mandi_name, "kms_year": target["kms_year"], "season": target["season"]}
-        pipeline = [{"$match": entry_query}, {"$group": {"_id": None, "total_final_w": {"$sum": "$final_w"}, "agent_name": {"$first": "$agent_name"}}}]
+        pipeline = [{"$match": entry_query}, {"$group": {"_id": None, "total_final_w": {"$sum": "$final_w"}, "total_tp_weight": {"$sum": "$tp_weight"}, "agent_name": {"$first": "$agent_name"}}}]
         result = await db.mill_entries.aggregate(pipeline).to_list(1)
         achieved_qntl = round(result[0]["total_final_w"] / 100, 2) if result else 0
+        tp_weight_qntl = round(result[0]["total_tp_weight"] / 100, 2) if result else 0
+        excess_weight = round(achieved_qntl - tp_weight_qntl, 2)
         agent_name = result[0]["agent_name"] if result else mandi_name
         
         # Get payment
@@ -1733,7 +1741,9 @@ async def export_agent_payments_excel(kms_year: Optional[str] = None, season: Op
             "target_amount": target_amount,
             "cutting_amount": cutting_amount,
             "total_amount": total_amount,
+            "tp_weight_qntl": tp_weight_qntl,
             "achieved_qntl": achieved_qntl,
+            "excess_weight": excess_weight,
             "paid": paid_amount,
             "balance": balance,
             "status": status
@@ -1746,14 +1756,14 @@ async def export_agent_payments_excel(kms_year: Optional[str] = None, season: Op
     wb = Workbook()
     ws = wb.active
     ws.title = "Agent Payments"
-    ncols = 13
+    ncols = 15
     
     company_name, tagline = await get_company_name()
     title = f"Agent/Mandi Payments - {company_name}"
     subtitle = f"FY: {kms_year or 'All'} | {season or 'All'}"
     style_excel_title(ws, title, ncols, subtitle)
     
-    headers = ["Mandi", "Agent", "Target QNTL", "Cutting QNTL", "Base Rate", "Cut Rate", "Target Amt", "Cut Amt", "Total Amt", "Achieved", "Paid", "Balance", "Status"]
+    headers = ["Mandi", "Agent", "Target QNTL", "Cutting QNTL", "Base Rate", "Cut Rate", "Target Amt", "Cut Amt", "Total Amt", "TP Weight", "Achieved", "Excess Wt", "Paid", "Balance", "Status"]
     for col, header in enumerate(headers, 1):
         ws.cell(row=4, column=col, value=header)
     style_excel_header_row(ws, 4, ncols)
@@ -1769,10 +1779,12 @@ async def export_agent_payments_excel(kms_year: Optional[str] = None, season: Op
         ws.cell(row=row_idx, column=7, value=p["target_amount"])
         ws.cell(row=row_idx, column=8, value=p["cutting_amount"])
         ws.cell(row=row_idx, column=9, value=p["total_amount"])
-        ws.cell(row=row_idx, column=10, value=p["achieved_qntl"])
-        ws.cell(row=row_idx, column=11, value=p["paid"])
-        ws.cell(row=row_idx, column=12, value=p["balance"])
-        ws.cell(row=row_idx, column=13, value=p["status"])
+        ws.cell(row=row_idx, column=10, value=p["tp_weight_qntl"])
+        ws.cell(row=row_idx, column=11, value=p["achieved_qntl"])
+        ws.cell(row=row_idx, column=12, value=p["excess_weight"])
+        ws.cell(row=row_idx, column=13, value=p["paid"])
+        ws.cell(row=row_idx, column=14, value=p["balance"])
+        ws.cell(row=row_idx, column=15, value=p["status"])
     
     if payments_data:
         style_excel_data_rows(ws, data_start, data_start + len(payments_data) - 1, ncols, headers)
@@ -1780,13 +1792,14 @@ async def export_agent_payments_excel(kms_year: Optional[str] = None, season: Op
     total_row = data_start + len(payments_data)
     ws.cell(row=total_row, column=1, value="TOTAL")
     ws.cell(row=total_row, column=9, value=round(total_amount_sum, 2))
-    ws.cell(row=total_row, column=11, value=round(total_paid_sum, 2))
-    ws.cell(row=total_row, column=12, value=round(total_balance_sum, 2))
+    ws.cell(row=total_row, column=13, value=round(total_paid_sum, 2))
+    ws.cell(row=total_row, column=14, value=round(total_balance_sum, 2))
     style_excel_total_row(ws, total_row, ncols)
     
-    col_widths = [14, 12, 12, 12, 10, 10, 12, 10, 12, 10, 10, 12, 10]
+    col_widths = [14, 12, 12, 12, 10, 10, 12, 10, 12, 12, 12, 12, 10, 12, 10]
+    from openpyxl.utils import get_column_letter
     for i, width in enumerate(col_widths, 1):
-        ws.column_dimensions[chr(64 + i)].width = width
+        ws.column_dimensions[get_column_letter(i)].width = width
     
     output = io.BytesIO()
     wb.save(output)
@@ -1835,9 +1848,11 @@ async def export_agent_payments_pdf(kms_year: Optional[str] = None, season: Opti
         total_amount = round(target_amount + cutting_amount, 2)
         
         entry_query = {"mandi_name": mandi_name, "kms_year": target["kms_year"], "season": target["season"]}
-        pipeline = [{"$match": entry_query}, {"$group": {"_id": None, "total_final_w": {"$sum": "$final_w"}, "agent_name": {"$first": "$agent_name"}}}]
+        pipeline = [{"$match": entry_query}, {"$group": {"_id": None, "total_final_w": {"$sum": "$final_w"}, "total_tp_weight": {"$sum": "$tp_weight"}, "agent_name": {"$first": "$agent_name"}}}]
         result = await db.mill_entries.aggregate(pipeline).to_list(1)
         achieved_qntl = round(result[0]["total_final_w"] / 100, 2) if result else 0
+        tp_weight_qntl = round(result[0]["total_tp_weight"] / 100, 2) if result else 0
+        excess_weight = round(achieved_qntl - tp_weight_qntl, 2)
         
         payment_doc = await db.agent_payments.find_one({"mandi_name": mandi_name, "kms_year": target["kms_year"], "season": target["season"]}, {"_id": 0})
         paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0
@@ -1854,7 +1869,9 @@ async def export_agent_payments_pdf(kms_year: Optional[str] = None, season: Opti
             f"{cutting_qntl}",
             f"Rs.{base_rate}+Rs.{cutting_rate}",
             f"Rs.{total_amount}",
+            f"{tp_weight_qntl}",
             f"{achieved_qntl}",
+            f"{excess_weight}",
             f"Rs.{paid_amount}",
             f"Rs.{balance}",
             status
@@ -1885,11 +1902,11 @@ async def export_agent_payments_pdf(kms_year: Optional[str] = None, season: Opti
     elements.append(title_table)
     elements.append(Table([[""]], colWidths=[page_width], rowHeights=[5*mm]))
     
-    headers = ["Mandi", "Target", "Cutting", "Rates", "Total Amt", "Achieved", "Paid", "Balance", "Status"]
+    headers = ["Mandi", "Target", "Cutting", "Rates", "Total Amt", "TP Wt", "Achieved", "Excess", "Paid", "Balance", "Status"]
     table_data = [headers] + payments_data
-    table_data.append(["TOTAL", "", "", "", f"Rs.{round(total_amount_sum, 2)}", "", f"Rs.{round(total_paid_sum, 2)}", f"Rs.{round(total_balance_sum, 2)}", ""])
+    table_data.append(["TOTAL", "", "", "", f"Rs.{round(total_amount_sum, 2)}", "", "", "", f"Rs.{round(total_paid_sum, 2)}", f"Rs.{round(total_balance_sum, 2)}", ""])
     
-    col_widths = [30*mm, 20*mm, 18*mm, 25*mm, 25*mm, 20*mm, 22*mm, 22*mm, 18*mm]
+    col_widths = [26*mm, 18*mm, 16*mm, 24*mm, 22*mm, 18*mm, 18*mm, 18*mm, 20*mm, 20*mm, 16*mm]
     main_table = Table(table_data, colWidths=col_widths, repeatRows=1)
     
     cols_info = [{'header': h} for h in headers]

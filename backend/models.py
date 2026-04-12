@@ -329,7 +329,9 @@ class AgentPaymentStatus(BaseModel):
     target_amount: float
     cutting_amount: float
     total_amount: float
+    tp_weight_qntl: float = 0
     achieved_qntl: float
+    excess_weight: float = 0
     is_target_complete: bool
     paid_amount: float
     balance_amount: float

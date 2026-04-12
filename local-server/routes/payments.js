@@ -291,6 +291,8 @@ module.exports = function(database) {
     const payments = targets.map(target => {
       const mandiEntries = entries.filter(e => (e.mandi_name||'').toLowerCase() === (target.mandi_name||'').toLowerCase());
       const achieved_qntl = mandiEntries.reduce((sum, e) => sum + (e.final_w || 0) / 100, 0);
+      const tp_weight_qntl = mandiEntries.reduce((sum, e) => sum + (e.tp_weight || 0) / 100, 0);
+      const excess_weight = Math.round((achieved_qntl - tp_weight_qntl) * 100) / 100;
       // Get agent_name from entries (first entry with this mandi), matching web backend logic
       const agentName = (mandiEntries.length > 0 && mandiEntries[0].agent_name) ? mandiEntries[0].agent_name : (target.mandi_name || '');
       const cutting_qntl = target.target_qntl * target.cutting_percent / 100;
@@ -319,7 +321,9 @@ module.exports = function(database) {
         target_amount: roundAmount(target_amount),
         cutting_amount: roundAmount(cutting_amount),
         total_amount: roundAmount(total_amount),
+        tp_weight_qntl: Math.round(tp_weight_qntl * 100) / 100,
         achieved_qntl: Math.round(achieved_qntl * 100) / 100,
+        excess_weight: excess_weight,
         is_target_complete: achieved_qntl >= target.expected_total,
         paid_amount: paidAmount,
         balance_amount, status, kms_year: target.kms_year, season: target.season

@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "89.4.3";
+const APP_VERSION = "89.5.0";
 
 const CHANGELOG = [
+  {
+    version: "89.5.0",
+    date: "Apr 2026",
+    title: "v89.5.0 - Agent Payments: TP Weight & Excess Weight",
+    items: [
+      { type: "new", text: "Agent Payments mein TP Weight column add hua (tp_weight se total mandi ka)" },
+      { type: "new", text: "Excess Weight = Achieved QNTL - TP Weight (positive green, negative red)" },
+      { type: "new", text: "Print receipt, Excel aur PDF export mein bhi TP Weight aur Excess Weight aata hai" },
+    ]
+  },
   {
     version: "89.4.0",
     date: "Apr 2026",

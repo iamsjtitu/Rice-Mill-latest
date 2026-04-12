@@ -600,7 +600,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
           <div class="target-info">
             <h4>Target Details / लक्ष्य विवरण</h4>
             <p>Target: ${payment.target_qntl} QNTL + Cutting ${payment.cutting_percent}% = ${(payment.target_qntl + payment.cutting_qntl).toFixed(2)} QNTL</p>
-            <p>Achieved: ${payment.achieved_qntl} QNTL ${payment.is_target_complete ? '✅ Complete' : '⏳ In Progress'}</p>
+            <p>TP Weight: ${payment.tp_weight_qntl || 0} QNTL | Achieved: ${payment.achieved_qntl} QNTL | Excess Weight: ${payment.excess_weight > 0 ? '+' : ''}${payment.excess_weight || 0} QNTL ${payment.is_target_complete ? '✅ Complete' : '⏳ In Progress'}</p>
           </div>
           
           <div class="amount-section">
@@ -1388,7 +1388,9 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                       <TableHead className="text-slate-300 text-right">Cutting</TableHead>
                       <TableHead className="text-slate-300 text-right">Rates</TableHead>
                       <TableHead className="text-slate-300 text-right">Total Amount</TableHead>
+                      <TableHead className="text-slate-300 text-right">TP Weight</TableHead>
                       <TableHead className="text-slate-300 text-right">Achieved</TableHead>
+                      <TableHead className="text-slate-300 text-right">Excess Wt</TableHead>
                       <TableHead className="text-slate-300 text-right">Paid</TableHead>
                       <TableHead className="text-slate-300 text-right">Balance</TableHead>
                       <TableHead className="text-slate-300">Status</TableHead>
@@ -1411,11 +1413,17 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                           <span className="text-purple-400">₹{payment.cutting_rate}</span>
                         </TableCell>
                         <TableCell className="text-right text-white font-semibold">₹{payment.total_amount}</TableCell>
+                        <TableCell className="text-right text-cyan-400">{payment.tp_weight_qntl || 0} QNTL</TableCell>
                         <TableCell className="text-right">
                           <span className={payment.is_target_complete ? 'text-emerald-400' : 'text-amber-400'}>
                             {payment.achieved_qntl} QNTL
                           </span>
                           {payment.is_target_complete && <CheckCircle className="w-3 h-3 inline ml-1 text-emerald-400" />}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className={payment.excess_weight >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+                            {payment.excess_weight > 0 ? '+' : ''}{payment.excess_weight || 0} QNTL
+                          </span>
                         </TableCell>
                         <TableCell className="text-right text-emerald-400">₹{payment.paid_amount}</TableCell>
                         <TableCell className="text-right text-red-400 font-semibold">₹{payment.balance_amount}</TableCell>
