@@ -600,7 +600,8 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
           <div class="target-info">
             <h4>Target Details / लक्ष्य विवरण</h4>
             <p>Target: ${payment.target_qntl} QNTL + Cutting ${payment.cutting_percent}% = ${(payment.target_qntl + payment.cutting_qntl).toFixed(2)} QNTL</p>
-            <p>TP Weight: ${payment.tp_weight_qntl || 0} QNTL | Achieved: ${payment.achieved_qntl} QNTL | Excess Weight: ${payment.excess_weight > 0 ? '+' : ''}${payment.excess_weight || 0} QNTL ${payment.is_target_complete ? '✅ Complete' : '⏳ In Progress'}</p>
+            <p>TP Weight: ${payment.tp_weight_qntl || 0} QNTL | Achieved: ${payment.achieved_qntl} QNTL</p>
+            <p>Excess/Minus Weight: ${payment.excess_weight > 0 ? '+' : ''}${payment.excess_weight || 0} QNTL ${payment.is_target_complete ? '✅ Complete' : '⏳ In Progress'}</p>
           </div>
           
           <div class="amount-section">

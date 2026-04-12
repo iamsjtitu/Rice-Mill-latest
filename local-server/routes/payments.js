@@ -291,8 +291,8 @@ module.exports = function(database) {
     const payments = targets.map(target => {
       const mandiEntries = entries.filter(e => (e.mandi_name||'').toLowerCase() === (target.mandi_name||'').toLowerCase());
       const achieved_qntl = mandiEntries.reduce((sum, e) => sum + (e.final_w || 0) / 100, 0);
-      const tp_weight_qntl = mandiEntries.reduce((sum, e) => sum + (e.tp_weight || 0) / 100, 0);
-      const excess_weight = Math.round((achieved_qntl - tp_weight_qntl) * 100) / 100;
+      const tp_weight_qntl = mandiEntries.reduce((sum, e) => sum + (e.tp_weight || 0), 0); // tp_weight already QNTL
+      const excess_weight = Math.round((achieved_qntl - (target.target_qntl + target.target_qntl * target.cutting_percent / 100)) * 100) / 100; // Achieved - (Target + Cutting)
       // Get agent_name from entries (first entry with this mandi), matching web backend logic
       const agentName = (mandiEntries.length > 0 && mandiEntries[0].agent_name) ? mandiEntries[0].agent_name : (target.mandi_name || '');
       const cutting_qntl = target.target_qntl * target.cutting_percent / 100;
