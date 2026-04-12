@@ -1611,23 +1611,25 @@ async def get_mandi_target_summary(kms_year: Optional[str] = None, season: Optio
         
         pipeline = [
             {"$match": entry_query},
-            {"$group": {"_id": None, "total_final_w": {"$sum": "$final_w"}}}
+            {"$group": {"_id": None, "total_final_w": {"$sum": "$final_w"}, "total_tp_weight": {"$sum": "$tp_weight"}}}
         ]
         
         result = await db.mill_entries.aggregate(pipeline).to_list(1)
         achieved_kg = result[0]["total_final_w"] if result else 0
         achieved_qntl = round(achieved_kg / 100, 2)
+        tp_weight_qntl = round(result[0]["total_tp_weight"], 2) if result else 0
         
         expected_total = target["expected_total"]
         pending_qntl = round(max(0, expected_total - achieved_qntl), 2)
         progress_percent = round((achieved_qntl / expected_total * 100) if expected_total > 0 else 0, 1)
         
-        # Calculate agent payment amounts
+        # Payment based on TP Weight
         target_qntl = target["target_qntl"]
-        cutting_qntl = round(target_qntl * target["cutting_percent"] / 100, 2)
+        cutting_percent = target["cutting_percent"]
         base_rate = target.get("base_rate", 10)
         cutting_rate = target.get("cutting_rate", 5)
-        target_amount = round(target_qntl * base_rate, 2)
+        cutting_qntl = round(tp_weight_qntl * cutting_percent / 100, 2)
+        target_amount = round(tp_weight_qntl * base_rate, 2)
         cutting_amount = round(cutting_qntl * cutting_rate, 2)
         total_agent_amount = round(target_amount + cutting_amount, 2)
         

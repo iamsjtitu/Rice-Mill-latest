@@ -839,15 +839,9 @@ async def get_agent_payments(kms_year: Optional[str] = None, season: Optional[st
         mandi_name = target["mandi_name"]
         target_qntl = target["target_qntl"]
         cutting_percent = target["cutting_percent"]
-        cutting_qntl = round(target_qntl * cutting_percent / 100, 2)
         expected_total = target["expected_total"]
         base_rate = target.get("base_rate", 10)
         cutting_rate = target.get("cutting_rate", 5)
-        
-        # Calculate amounts
-        target_amount = round(target_qntl * base_rate, 2)
-        cutting_amount = round(cutting_qntl * cutting_rate, 2)
-        total_amount = round(target_amount + cutting_amount, 2)
         
         # Get achieved for this mandi (case-insensitive)
         entry_query = {
@@ -868,9 +862,15 @@ async def get_agent_payments(kms_year: Optional[str] = None, season: Optional[st
         achieved_kg = result[0]["total_final_w"] if result else 0
         achieved_qntl = round(achieved_kg / 100, 2)
         tp_weight_qntl = round(result[0]["total_tp_weight"], 2) if result else 0  # tp_weight already in QNTL
-        excess_weight = round(achieved_qntl - (target_qntl + cutting_qntl), 2)  # Achieved - (Target + Cutting)
         agent_name = result[0]["agent_name"] if result else mandi_name
         
+        # Payment based on TP Weight (actual mandi weight)
+        cutting_qntl = round(tp_weight_qntl * cutting_percent / 100, 2)
+        target_amount = round(tp_weight_qntl * base_rate, 2)
+        cutting_amount = round(cutting_qntl * cutting_rate, 2)
+        total_amount = round(target_amount + cutting_amount, 2)
+        
+        excess_weight = round(achieved_qntl - (target_qntl + round(target_qntl * cutting_percent / 100, 2)), 2)
         is_target_complete = achieved_qntl >= expected_total
         
         # Get payment: use ledger as source of truth (includes manual Cash Book payments)
@@ -1703,22 +1703,24 @@ async def export_agent_payments_excel(kms_year: Optional[str] = None, season: Op
     for target in targets:
         mandi_name = target["mandi_name"]
         target_qntl = target["target_qntl"]
-        cutting_qntl = round(target_qntl * target["cutting_percent"] / 100, 2)
+        cutting_percent = target["cutting_percent"]
         base_rate = target.get("base_rate", 10)
         cutting_rate = target.get("cutting_rate", 5)
-        
-        target_amount = round(target_qntl * base_rate, 2)
-        cutting_amount = round(cutting_qntl * cutting_rate, 2)
-        total_amount = round(target_amount + cutting_amount, 2)
         
         # Get achieved + TP Weight
         entry_query = {"mandi_name": mandi_name, "kms_year": target["kms_year"], "season": target["season"]}
         pipeline = [{"$match": entry_query}, {"$group": {"_id": None, "total_final_w": {"$sum": "$final_w"}, "total_tp_weight": {"$sum": "$tp_weight"}, "agent_name": {"$first": "$agent_name"}}}]
         result = await db.mill_entries.aggregate(pipeline).to_list(1)
         achieved_qntl = round(result[0]["total_final_w"] / 100, 2) if result else 0
-        tp_weight_qntl = round(result[0]["total_tp_weight"], 2) if result else 0  # already QNTL
-        excess_weight = round(achieved_qntl - (target_qntl + cutting_qntl), 2)  # Achieved - (Target + Cutting)
+        tp_weight_qntl = round(result[0]["total_tp_weight"], 2) if result else 0
         agent_name = result[0]["agent_name"] if result else mandi_name
+        
+        # Payment based on TP Weight
+        cutting_qntl = round(tp_weight_qntl * cutting_percent / 100, 2)
+        target_amount = round(tp_weight_qntl * base_rate, 2)
+        cutting_amount = round(cutting_qntl * cutting_rate, 2)
+        total_amount = round(target_amount + cutting_amount, 2)
+        excess_weight = round(achieved_qntl - (target_qntl + round(target_qntl * cutting_percent / 100, 2)), 2)
         
         # Get payment
         payment_doc = await db.agent_payments.find_one({"mandi_name": mandi_name, "kms_year": target["kms_year"], "season": target["season"]}, {"_id": 0})
@@ -1838,20 +1840,22 @@ async def export_agent_payments_pdf(kms_year: Optional[str] = None, season: Opti
     for target in targets:
         mandi_name = target["mandi_name"]
         target_qntl = target["target_qntl"]
-        cutting_qntl = round(target_qntl * target["cutting_percent"] / 100, 2)
+        cutting_percent = target["cutting_percent"]
         base_rate = target.get("base_rate", 10)
         cutting_rate = target.get("cutting_rate", 5)
-        
-        target_amount = round(target_qntl * base_rate, 2)
-        cutting_amount = round(cutting_qntl * cutting_rate, 2)
-        total_amount = round(target_amount + cutting_amount, 2)
         
         entry_query = {"mandi_name": mandi_name, "kms_year": target["kms_year"], "season": target["season"]}
         pipeline = [{"$match": entry_query}, {"$group": {"_id": None, "total_final_w": {"$sum": "$final_w"}, "total_tp_weight": {"$sum": "$tp_weight"}, "agent_name": {"$first": "$agent_name"}}}]
         result = await db.mill_entries.aggregate(pipeline).to_list(1)
         achieved_qntl = round(result[0]["total_final_w"] / 100, 2) if result else 0
-        tp_weight_qntl = round(result[0]["total_tp_weight"], 2) if result else 0  # already QNTL
-        excess_weight = round(achieved_qntl - (target_qntl + cutting_qntl), 2)  # Achieved - (Target + Cutting)
+        tp_weight_qntl = round(result[0]["total_tp_weight"], 2) if result else 0
+        
+        # Payment based on TP Weight
+        cutting_qntl = round(tp_weight_qntl * cutting_percent / 100, 2)
+        target_amount = round(tp_weight_qntl * base_rate, 2)
+        cutting_amount = round(cutting_qntl * cutting_rate, 2)
+        total_amount = round(target_amount + cutting_amount, 2)
+        excess_weight = round(achieved_qntl - (target_qntl + round(target_qntl * cutting_percent / 100, 2)), 2)
         
         payment_doc = await db.agent_payments.find_one({"mandi_name": mandi_name, "kms_year": target["kms_year"], "season": target["season"]}, {"_id": 0})
         paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0

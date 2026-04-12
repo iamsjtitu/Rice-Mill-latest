@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "89.5.2";
+const APP_VERSION = "89.6.0";
 
 const CHANGELOG = [
+  {
+    version: "89.6.0",
+    date: "Apr 2026",
+    title: "v89.6.0 - TP Weight Based Payment",
+    items: [
+      { type: "fix", text: "Agent Payment ab TP Weight ke hisab se hoga (pehle target based tha)" },
+      { type: "fix", text: "TP Amount = TP Weight × Rate, Cutting bhi TP Weight based" },
+      { type: "fix", text: "Dashboard Mandi Target vs Achieved mein bhi TP Weight based calculation" },
+      { type: "fix", text: "Excel, PDF, Print - sab jagah TP Weight based payment" },
+    ]
+  },
   {
     version: "89.5.0",
     date: "Apr 2026",

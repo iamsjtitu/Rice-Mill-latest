@@ -238,16 +238,18 @@ module.exports = function(database) {
     const summary = targets.map(target => {
       const mandiEntries = entries.filter(e => (e.mandi_name||'').toLowerCase() === (target.mandi_name||'').toLowerCase());
       const achieved_qntl = mandiEntries.reduce((sum, e) => sum + (e.final_w || 0) / 100, 0);
-      const cutting_qntl = target.target_qntl * target.cutting_percent / 100;
+      const tp_weight_qntl = mandiEntries.reduce((sum, e) => sum + parseFloat(e.tp_weight || 0), 0);
+      // Payment based on TP Weight
+      const cutting_qntl = tp_weight_qntl * target.cutting_percent / 100;
       return {
         ...target,
         achieved_qntl: Math.round(achieved_qntl * 100) / 100,
         pending_qntl: Math.max(0, target.expected_total - achieved_qntl),
         progress_percent: Math.min(100, (achieved_qntl / target.expected_total) * 100),
         cutting_qntl,
-        target_amount: target.target_qntl * (target.base_rate ?? 10),
+        target_amount: tp_weight_qntl * (target.base_rate ?? 10),
         cutting_amount: cutting_qntl * (target.cutting_rate ?? 5),
-        total_agent_amount: (target.target_qntl * (target.base_rate ?? 10)) + (cutting_qntl * (target.cutting_rate ?? 5))
+        total_agent_amount: (tp_weight_qntl * (target.base_rate ?? 10)) + (cutting_qntl * (target.cutting_rate ?? 5))
       };
     });
     res.json(summary);
