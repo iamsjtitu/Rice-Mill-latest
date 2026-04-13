@@ -113,5 +113,75 @@ module.exports = function(database) {
     res.json([...set].sort());
   });
 
+  // ---- EXCEL EXPORT ----
+  router.get('/api/bp-sale-register/export/excel', async (req, res) => {
+    try {
+      ensure();
+      const ExcelJS = require('exceljs');
+      const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
+      const { fmtDate } = require('./pdf_helpers');
+      let sales = [...database.data.bp_sale_register];
+      const { product, kms_year, season } = req.query;
+      if (product) sales = sales.filter(s => s.product === product);
+      if (kms_year) sales = sales.filter(s => s.kms_year === kms_year);
+      if (season) sales = sales.filter(s => s.season === season);
+      sales.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet(`${product || 'BP'} Sales`);
+      ws.columns = [
+        {header:'S.No',key:'sno',width:5},{header:'Date',key:'date',width:10},{header:'Bill No',key:'bill',width:10},
+        {header:'RST',key:'rst',width:8},{header:'Vehicle',key:'vehicle',width:12},{header:'Bill From',key:'billfrom',width:14},
+        {header:'Party',key:'party',width:16},{header:'Destination',key:'dest',width:14},
+        {header:'N/W(Kg)',key:'nwkg',width:10},{header:'Bags',key:'bags',width:7},{header:'Rate/Q',key:'rate',width:9},
+        {header:'Amount',key:'amount',width:12},{header:'Tax',key:'tax',width:9},{header:'Total',key:'total',width:12},
+        {header:'Cash',key:'cash',width:9},{header:'Diesel',key:'diesel',width:9},{header:'Adv',key:'adv',width:8},{header:'Balance',key:'balance',width:12}
+      ];
+      sales.forEach((s, i) => {
+        ws.addRow({sno:i+1,date:fmtDate(s.date),bill:s.bill_number||'',rst:s.rst_no||'',vehicle:s.vehicle_no||'',
+          billfrom:s.bill_from||'',party:s.party_name||'',dest:s.destination||'',
+          nwkg:s.net_weight_kg||0,bags:s.bags||0,rate:s.rate_per_qtl||0,
+          amount:s.amount||0,tax:s.tax_amount||0,total:s.total||0,
+          cash:s.cash_paid||0,diesel:s.diesel_paid||0,adv:s.advance||0,balance:s.balance||0});
+      });
+      addExcelTitle(ws, `${product || 'By-Product'} Sale Register`, 18, database);
+      styleExcelHeader(ws); styleExcelData(ws, 5);
+      res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition',`attachment; filename=${(product||'bp').toLowerCase().replace(/ /g,'_')}_sales_${Date.now()}.xlsx`);
+      await wb.xlsx.write(res); res.end();
+    } catch(e) { res.status(500).json({detail:'Export failed: '+e.message}); }
+  });
+
+  // ---- PDF EXPORT ----
+  router.get('/api/bp-sale-register/export/pdf', async (req, res) => {
+    try {
+      ensure();
+      const PDFDocument = require('pdfkit');
+      const { addPdfHeader: _addPdfHeader, addPdfTable, safePdfPipe, fmtDate } = require('./pdf_helpers');
+      const addPdfHeader = (doc, title) => _addPdfHeader(doc, title, database.getBranding ? database.getBranding() : {company_name:'Mill'});
+      let sales = [...database.data.bp_sale_register];
+      const { product, kms_year, season } = req.query;
+      if (product) sales = sales.filter(s => s.product === product);
+      if (kms_year) sales = sales.filter(s => s.kms_year === kms_year);
+      if (season) sales = sales.filter(s => s.season === season);
+      sales.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+
+      const doc = new PDFDocument({size:'A4',layout:'landscape',margin:20});
+      res.setHeader('Content-Type','application/pdf');
+      res.setHeader('Content-Disposition',`attachment; filename=${(product||'bp').toLowerCase().replace(/ /g,'_')}_sales_${Date.now()}.pdf`);
+      let title = `${product || 'By-Product'} Sale Register`;
+      if (kms_year) title += ` - FY ${kms_year}`;
+      addPdfHeader(doc, title);
+      const headers = ['S.No','Date','Bill','RST','Vehicle','Party','Dest','NW(Kg)','Bags','Rate/Q','Amount','Tax','Total','Cash','Diesel','Adv','Bal'];
+      const rows = sales.map((s,i) => [i+1,fmtDate(s.date),s.bill_number||'',s.rst_no||'',s.vehicle_no||'',
+        (s.party_name||'').substring(0,14),(s.destination||'').substring(0,10),
+        s.net_weight_kg||0,s.bags||0,s.rate_per_qtl||0,
+        Math.round(s.amount||0),Math.round(s.tax_amount||0),Math.round(s.total||0),
+        s.cash_paid||0,s.diesel_paid||0,s.advance||0,Math.round(s.balance||0)]);
+      addPdfTable(doc, headers, rows, [22,42,38,28,48,60,42,38,28,35,42,30,42,32,32,28,40]);
+      await safePdfPipe(doc, res);
+    } catch(e) { res.status(500).json({detail:'PDF failed: '+e.message}); }
+  });
+
   return router;
 };

@@ -157,6 +157,14 @@ export default function ByProductSaleRegister({ filters, user, product }) {
         </div>
         <div className="flex gap-2 items-center">
           <span className="text-xs text-slate-400">{filtered.length} entries | Total: <span className="text-emerald-400 font-bold">{totalAmount.toLocaleString()}</span> | Balance: <span className="text-red-400 font-bold">{totalBalance.toLocaleString()}</span></span>
+          <Button onClick={async () => { try { const params = new URLSearchParams(); if (product) params.append('product', product); if (filters.kms_year) params.append('kms_year', filters.kms_year); if (filters.season) params.append('season', filters.season); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/bp-sale-register/export/excel?${params}`, `${product || 'byproduct'}_sales.xlsx`); toast.success("Excel exported!"); } catch(e) { toast.error("Export failed"); }}}
+            variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700 h-7 text-[10px]" data-testid="bp-export-excel">
+            <Download className="w-3 h-3 mr-1" /> Excel
+          </Button>
+          <Button onClick={async () => { try { const params = new URLSearchParams(); if (product) params.append('product', product); if (filters.kms_year) params.append('kms_year', filters.kms_year); if (filters.season) params.append('season', filters.season); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/bp-sale-register/export/pdf?${params}`, `${product || 'byproduct'}_sales.pdf`); toast.success("PDF exported!"); } catch(e) { toast.error("Export failed"); }}}
+            variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700 h-7 text-[10px]" data-testid="bp-export-pdf">
+            <Download className="w-3 h-3 mr-1" /> PDF
+          </Button>
           <Button onClick={openNew} size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900" data-testid="bp-sale-add">
             <Plus className="w-4 h-4 mr-1" /> New Sale
           </Button>
