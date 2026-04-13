@@ -265,7 +265,7 @@ module.exports = function(database) {
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=Form_A_Paddy_Register_${kms_year || 'all'}.pdf`);
-    safePdfPipe(doc, res);
+    doc.pipe(res);
 
     addPdfHeader(doc, `Form A - Paddy Received from State Procuring Agency | ${kms_year || 'All'}${season ? ' | ' + season : ''}`, branding);
 
@@ -722,7 +722,7 @@ module.exports = function(database) {
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=Transit_Pass_Register_${kms_year || 'all'}.pdf`);
-    safePdfPipe(doc, res);
+    doc.pipe(res);
 
     addPdfHeader(doc, `Transit Pass Register | ${kms_year || 'All'}${season ? ' | ' + season : ''}`, branding);
 

@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "90.6.1",
+    date: "Apr 2026",
+    title: "v90.6.1 - PDF Export Fix",
+    items: [
+      { type: "fix", text: "Transit Pass aur Form A PDF download fix - pehle stream error aa raha tha (safePdfPipe → doc.pipe)" },
+    ]
+  },
+  {
     version: "90.6.0",
     date: "Apr 2026",
     title: "v90.6.0 - Form A PDF + Transit Pass PDF Fix + Opening Stock Fix",
