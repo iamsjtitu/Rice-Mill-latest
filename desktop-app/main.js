@@ -926,7 +926,7 @@ class JsonDatabase {
     // Dynamic by-product categories
     const cats = this.data.byproduct_categories && this.data.byproduct_categories.length > 0
       ? [...this.data.byproduct_categories].sort((a,b) => (a.order||0)-(b.order||0))
-      : [{id:'bran',is_auto:false},{id:'kunda',is_auto:false},{id:'broken',is_auto:false},{id:'kanki',is_auto:false},{id:'husk',is_auto:true}];
+      : [{id:'bran',is_auto:false},{id:'kunda',is_auto:false},{id:'broken',is_auto:false},{id:'rejection_rice',is_auto:false},{id:'pin_broken_rice',is_auto:false},{id:'poll',is_auto:false},{id:'husk',is_auto:true}];
     
     let usedPct = ricePct;
     let autoCatId = null;

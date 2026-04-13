@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "90.8.0",
+    date: "Apr 2026",
+    title: "v90.8.0 - By-Products Renamed + New Products",
+    items: [
+      { type: "new", text: "3 naye by-products add kiye: Rejection Rice, Pin Broken Rice, Poll" },
+      { type: "fix", text: "Bran → Rice Bran, Kunda → Mota Kunda, Broken → Broken Rice, Husk → Bhusa renamed" },
+      { type: "fix", text: "Kanki remove kiya (Broken Rice mein merge)" },
+      { type: "fix", text: "Saare PDF/Excel exports, Milling CMR, Stock Summary, Opening Stock updated with 7 products" },
+    ]
+  },
+  {
     version: "90.7.3",
     date: "Apr 2026",
     title: "v90.7.3 - Stability Restore",

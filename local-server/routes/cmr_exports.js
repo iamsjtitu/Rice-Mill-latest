@@ -23,16 +23,20 @@ router.get('/api/milling-report/excel', async (req, res) => {
       { header: 'Paddy (Q)', key: 'paddy', width: 12 }, { header: 'Rice %', key: 'rice_pct', width: 9 },
       { header: 'Rice (Q)', key: 'rice', width: 10 }, { header: 'FRK (Q)', key: 'frk', width: 9 },
       { header: 'CMR (Q)', key: 'cmr', width: 10 }, { header: 'Outturn %', key: 'outturn', width: 10 },
-      { header: 'Bran (Q)', key: 'bran', width: 9 }, { header: 'Kunda (Q)', key: 'kunda', width: 9 },
-      { header: 'Husk %', key: 'husk_pct', width: 9 }, { header: 'Note', key: 'note', width: 14 }
+      { header: 'Rice Bran (Q)', key: 'bran', width: 11 }, { header: 'Mota Kunda (Q)', key: 'kunda', width: 11 },
+      { header: 'Broken Rice (Q)', key: 'broken_rice', width: 11 }, { header: 'Rejection Rice (Q)', key: 'rejection_rice', width: 13 },
+      { header: 'Pin Broken (Q)', key: 'pin_broken', width: 11 }, { header: 'Poll (Q)', key: 'poll', width: 9 },
+      { header: 'Bhusa %', key: 'husk_pct', width: 9 }, { header: 'Note', key: 'note', width: 14 }
     ];
     entries.forEach(e => {
       ws.addRow({ date: fmtDate(e.date), rice_type: (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1),
         paddy: e.paddy_input_qntl||0, rice_pct: e.rice_percent||0, rice: e.rice_qntl||0,
         frk: e.frk_used_qntl||0, cmr: e.cmr_delivery_qntl||0, outturn: e.outturn_ratio||0,
-        bran: e.bran_qntl||0, kunda: e.kunda_qntl||0, husk_pct: e.husk_percent||0, note: e.note||'' });
+        bran: e.bran_qntl||0, kunda: e.kunda_qntl||0, broken_rice: e.broken_qntl||0,
+        rejection_rice: e.rejection_rice_qntl||0, pin_broken: e.pin_broken_rice_qntl||0, poll: e.poll_qntl||0,
+        husk_pct: e.husk_percent||0, note: e.note||'' });
     });
-    addExcelTitle(ws, 'Milling Report', 12);
+    addExcelTitle(ws, 'Milling Report', 16);
     styleExcelHeader(ws);
     styleExcelData(ws, 5);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -50,11 +54,12 @@ router.get('/api/milling-report/pdf', async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.pdf`);
     addPdfHeader(doc, 'Milling Report');
-    const headers = ['Date','Type','Paddy(Q)','Rice%','Rice(Q)','FRK(Q)','CMR(Q)','Outturn%','Bran(Q)','Husk%','Note'];
+    const headers = ['Date','Type','Paddy(Q)','Rice%','Rice(Q)','FRK(Q)','CMR(Q)','Out%','RBran(Q)','MKunda(Q)','BrkR(Q)','RejR(Q)','PinBR(Q)','Poll(Q)','Bhusa%'];
     const rows = entries.map(e => [fmtDate(e.date), (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1),
       (e.paddy_input_qntl||0), (e.rice_percent||0)+'%', (e.rice_qntl||0), (e.frk_used_qntl||0),
-      (e.cmr_delivery_qntl||0), (e.outturn_ratio||0)+'%', (e.bran_qntl||0), (e.husk_percent||0)+'%', (e.note||'').substring(0,15)]);
-    addPdfTable(doc, headers, rows, [50,45,45,35,40,35,40,40,35,35,60]);
+      (e.cmr_delivery_qntl||0), (e.outturn_ratio||0)+'%', (e.bran_qntl||0), (e.kunda_qntl||0),
+      (e.broken_qntl||0), (e.rejection_rice_qntl||0), (e.pin_broken_rice_qntl||0), (e.poll_qntl||0), (e.husk_percent||0)+'%']);
+    addPdfTable(doc, headers, rows, [45,35,42,30,38,30,38,35,35,38,35,32,32,32,32]);
     await safePdfPipe(doc, res);
   } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
 });
@@ -118,7 +123,7 @@ router.get('/api/byproduct-sales/excel', async (req, res) => {
     if (req.query.season) sales = sales.filter(s => s.season === req.query.season);
     sales.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)));
     const millingEntries = database.getMillingEntries(req.query);
-    const products = ['bran','kunda','broken','kanki','husk'];
+    const products = ['bran','kunda','broken','rejection_rice','pin_broken_rice','poll','husk'];
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('By-Product Sales');
     ws.columns = [
@@ -157,7 +162,7 @@ router.get('/api/byproduct-sales/pdf', async (req, res) => {
     if (req.query.season) sales = sales.filter(s => s.season === req.query.season);
     sales.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)));
     const millingEntries = database.getMillingEntries(req.query);
-    const products = ['bran','kunda','broken','kanki','husk'];
+    const products = ['bran','kunda','broken','rejection_rice','pin_broken_rice','poll','husk'];
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=byproduct_sales_${Date.now()}.pdf`);

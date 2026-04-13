@@ -303,7 +303,7 @@ module.exports = function(database) {
   }));
 
   // ===== OPENING STOCK =====
-  const STOCK_ITEMS = ['paddy', 'rice_usna', 'rice_raw', 'bran', 'kunda', 'broken', 'kanki', 'husk', 'frk'];
+  const STOCK_ITEMS = ['paddy', 'rice_usna', 'rice_raw', 'bran', 'kunda', 'broken', 'rejection_rice', 'pin_broken_rice', 'poll', 'husk', 'frk'];
 
   router.get('/api/opening-stock', safeSync(async (req, res) => {
     const kms_year = req.query.kms_year || '';
@@ -355,10 +355,12 @@ module.exports = function(database) {
     const obBran = parseFloat(ob.bran || 0);
     const obKunda = parseFloat(ob.kunda || 0);
     const obBroken = parseFloat(ob.broken || 0);
-    const obKanki = parseFloat(ob.kanki || 0);
+    const obRejectionRice = parseFloat(ob.rejection_rice || 0);
+    const obPinBrokenRice = parseFloat(ob.pin_broken_rice || 0);
+    const obPoll = parseFloat(ob.poll || 0);
     const obHusk = parseFloat(ob.husk || 0);
     const obFrk = parseFloat(ob.frk || 0);
-    const bpObMap = { bran: obBran, kunda: obKunda, broken: obBroken, kanki: obKanki, husk: obHusk };
+    const bpObMap = { bran: obBran, kunda: obKunda, broken: obBroken, rejection_rice: obRejectionRice, pin_broken_rice: obPinBrokenRice, poll: obPoll, husk: obHusk };
 
     const milling = filterByKms(database.data.milling_entries);
     const dc = filterByKms(database.data.dc_entries);
@@ -385,7 +387,7 @@ module.exports = function(database) {
     purchaseVouchers.forEach(pv => (pv.items || []).forEach(i => { const n = i.item_name || ''; pvBought[n] = (pvBought[n] || 0) + (parseFloat(i.quantity) || 0); }));
 
     const bpProduced = {};
-    const byProducts = ['bran', 'kunda', 'broken', 'kanki', 'husk'];
+    const byProducts = ['bran', 'kunda', 'broken', 'rejection_rice', 'pin_broken_rice', 'poll', 'husk'];
     byProducts.forEach(p => { bpProduced[p] = round2(milling.reduce((s, e) => s + (e[`${p}_qntl`] || 0), 0)); });
     const bpSoldMap = {};
     bpSales.forEach(s => { const p = s.product || ''; bpSoldMap[p] = (bpSoldMap[p] || 0) + (s.quantity_qntl || 0); });
@@ -428,7 +430,9 @@ module.exports = function(database) {
       bran: bpClosing.bran || 0,
       kunda: bpClosing.kunda || 0,
       broken: bpClosing.broken || 0,
-      kanki: bpClosing.kanki || 0,
+      rejection_rice: bpClosing.rejection_rice || 0,
+      pin_broken_rice: bpClosing.pin_broken_rice || 0,
+      poll: bpClosing.poll || 0,
       husk: bpClosing.husk || 0,
       frk: frkAvail
     };

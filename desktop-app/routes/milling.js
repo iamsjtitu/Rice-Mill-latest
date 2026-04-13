@@ -10,11 +10,13 @@ module.exports = function(database) {
 
   // ===== BY-PRODUCT CATEGORIES =====
   const DEFAULT_BP_CATS = [
-    {id:"bran",name:"Bran",name_hi:"भूसी",is_auto:false,order:1},
-    {id:"kunda",name:"Kunda",name_hi:"कुंडा",is_auto:false,order:2},
-    {id:"broken",name:"Broken",name_hi:"टूटा",is_auto:false,order:3},
-    {id:"kanki",name:"Kanki",name_hi:"कंकी",is_auto:false,order:4},
-    {id:"husk",name:"Husk",name_hi:"भूसा",is_auto:true,order:5},
+    {id:"bran",name:"Rice Bran",name_hi:"",is_auto:false,order:1},
+    {id:"kunda",name:"Mota Kunda",name_hi:"",is_auto:false,order:2},
+    {id:"broken",name:"Broken Rice",name_hi:"",is_auto:false,order:3},
+    {id:"rejection_rice",name:"Rejection Rice",name_hi:"",is_auto:false,order:4},
+    {id:"pin_broken_rice",name:"Pin Broken Rice",name_hi:"",is_auto:false,order:5},
+    {id:"poll",name:"Poll",name_hi:"",is_auto:false,order:6},
+    {id:"husk",name:"Bhusa",name_hi:"",is_auto:true,order:7},
   ];
   function getBpCats() {
     if (!database.data.byproduct_categories || database.data.byproduct_categories.length === 0) {
@@ -151,7 +153,7 @@ module.exports = function(database) {
     let sales = [...database.data.byproduct_sales];
     if (req.query.kms_year) sales = sales.filter(s => s.kms_year === req.query.kms_year);
     if (req.query.season) sales = sales.filter(s => s.season === req.query.season);
-    const products = ['bran', 'kunda', 'broken', 'kanki', 'husk'];
+    const products = ['bran', 'kunda', 'broken', 'rejection_rice', 'pin_broken_rice', 'poll', 'husk'];
     const stock = {};
     products.forEach(p => {
       const produced = +millingEntries.reduce((s, e) => s + (e[`${p}_qntl`] || 0), 0).toFixed(2);

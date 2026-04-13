@@ -30,7 +30,7 @@ const CURRENT_KMS_YEAR = (() => {
 })();
 
 const PRODUCT_LABELS = {
-  bran: "Bran (भूसी)", kunda: "Kunda (कुंडा)", broken: "Broken (टूटा)", kanki: "Kanki (कंकी)", husk: "Husk (भूसा)",
+  bran: "Rice Bran", kunda: "Mota Kunda", broken: "Broken Rice", rejection_rice: "Rejection Rice", pin_broken_rice: "Pin Broken Rice", poll: "Poll", husk: "Bhusa",
 };
 
 // ===== Sub-tab: Milling Entries =====

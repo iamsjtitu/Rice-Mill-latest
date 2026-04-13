@@ -16,11 +16,13 @@ const BASE_ITEMS = [
   { key: "paddy", label: "Paddy / धान", unit: "Qntl" },
   { key: "rice_usna", label: "Rice Usna / उसना चावल", unit: "Qntl" },
   { key: "rice_raw", label: "Rice Raw / कच्चा चावल", unit: "Qntl" },
-  { key: "bran", label: "Bran / भूसी", unit: "Qntl" },
-  { key: "kunda", label: "Kunda / कुंडा", unit: "Qntl" },
-  { key: "broken", label: "Broken / टूटा", unit: "Qntl" },
-  { key: "kanki", label: "Kanki / कंकी", unit: "Qntl" },
-  { key: "husk", label: "Husk / भूसा", unit: "Qntl" },
+  { key: "bran", label: "Rice Bran", unit: "Qntl" },
+  { key: "kunda", label: "Mota Kunda", unit: "Qntl" },
+  { key: "broken", label: "Broken Rice", unit: "Qntl" },
+  { key: "rejection_rice", label: "Rejection Rice", unit: "Qntl" },
+  { key: "pin_broken_rice", label: "Pin Broken Rice", unit: "Qntl" },
+  { key: "poll", label: "Poll", unit: "Qntl" },
+  { key: "husk", label: "Bhusa", unit: "Qntl" },
   { key: "frk", label: "FRK", unit: "Qntl" },
 ];
 

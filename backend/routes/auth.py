@@ -467,7 +467,7 @@ STOCK_ITEMS_BASE = ["paddy", "rice_usna", "rice_raw", "frk"]
 async def get_stock_items_list():
     """Get dynamic stock items list (base + dynamic by-products)."""
     cats = await db.byproduct_categories.find({}, {"_id": 0}).sort("order", 1).to_list(100)
-    bp_ids = [c["id"] for c in cats] if cats else ["bran", "kunda", "broken", "kanki", "husk"]
+    bp_ids = [c["id"] for c in cats] if cats else ["bran", "kunda", "broken", "rejection_rice", "pin_broken_rice", "poll", "husk"]
     return STOCK_ITEMS_BASE[:3] + bp_ids + [STOCK_ITEMS_BASE[3]]  # paddy, rice_usna, rice_raw, [bp...], frk
 
 @router.get("/opening-stock")

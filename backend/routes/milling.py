@@ -18,11 +18,13 @@ router = APIRouter()
 # ============ BY-PRODUCT CATEGORIES CRUD ============
 
 DEFAULT_BYPRODUCT_CATEGORIES = [
-    {"id": "bran", "name": "Bran", "name_hi": "भूसी", "is_auto": False, "order": 1},
-    {"id": "kunda", "name": "Kunda", "name_hi": "कुंडा", "is_auto": False, "order": 2},
-    {"id": "broken", "name": "Broken", "name_hi": "टूटा", "is_auto": False, "order": 3},
-    {"id": "kanki", "name": "Kanki", "name_hi": "कंकी", "is_auto": False, "order": 4},
-    {"id": "husk", "name": "Husk", "name_hi": "भूसा", "is_auto": True, "order": 5},
+    {"id": "bran", "name": "Rice Bran", "name_hi": "", "is_auto": False, "order": 1},
+    {"id": "kunda", "name": "Mota Kunda", "name_hi": "", "is_auto": False, "order": 2},
+    {"id": "broken", "name": "Broken Rice", "name_hi": "", "is_auto": False, "order": 3},
+    {"id": "rejection_rice", "name": "Rejection Rice", "name_hi": "", "is_auto": False, "order": 4},
+    {"id": "pin_broken_rice", "name": "Pin Broken Rice", "name_hi": "", "is_auto": False, "order": 5},
+    {"id": "poll", "name": "Poll", "name_hi": "", "is_auto": False, "order": 6},
+    {"id": "husk", "name": "Bhusa", "name_hi": "", "is_auto": True, "order": 7},
 ]
 
 
@@ -128,14 +130,18 @@ def calculate_milling_fields(data: dict, categories=None) -> dict:
         bran_pct = data.get('bran_percent', 0) or 0
         kunda_pct = data.get('kunda_percent', 0) or 0
         broken_pct = data.get('broken_percent', 0) or 0
-        kanki_pct = data.get('kanki_percent', 0) or 0
-        used_pct = rice_pct + bran_pct + kunda_pct + broken_pct + kanki_pct
+        rejection_rice_pct = data.get('rejection_rice_percent', 0) or 0
+        pin_broken_rice_pct = data.get('pin_broken_rice_percent', 0) or 0
+        poll_pct = data.get('poll_percent', 0) or 0
+        used_pct = rice_pct + bran_pct + kunda_pct + broken_pct + rejection_rice_pct + pin_broken_rice_pct + poll_pct
         husk_pct = max(0, round(100 - used_pct, 2))
         data['husk_percent'] = husk_pct
         data['bran_qntl'] = round(paddy * bran_pct / 100, 2)
         data['kunda_qntl'] = round(paddy * kunda_pct / 100, 2)
         data['broken_qntl'] = round(paddy * broken_pct / 100, 2)
-        data['kanki_qntl'] = round(paddy * kanki_pct / 100, 2)
+        data['rejection_rice_qntl'] = round(paddy * rejection_rice_pct / 100, 2)
+        data['pin_broken_rice_qntl'] = round(paddy * pin_broken_rice_pct / 100, 2)
+        data['poll_qntl'] = round(paddy * poll_pct / 100, 2)
         data['husk_qntl'] = round(paddy * husk_pct / 100, 2)
     
     data['rice_qntl'] = round(paddy * rice_pct / 100, 2)
@@ -575,13 +581,13 @@ async def export_milling_report_excel(kms_year: Optional[str] = None, season: Op
     entries = await db.milling_entries.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
     
     wb = Workbook(); ws = wb.active; ws.title = "Milling Report"
-    ncols = 12
+    ncols = 15
     title = "Milling Report / मिलिंग रिपोर्ट"
     if kms_year: title += f" - FY {kms_year}"
     if season: title += f" ({season})"
     style_excel_title(ws, title, ncols)
     
-    headers = ['Date', 'Type', 'Paddy (Q)', 'Rice %', 'Rice (Q)', 'FRK Used (Q)', 'CMR (Q)', 'Outturn %', 'Bran (Q)', 'Kunda (Q)', 'Husk %', 'Note']
+    headers = ['Date', 'Type', 'Paddy (Q)', 'Rice %', 'Rice (Q)', 'FRK Used (Q)', 'CMR (Q)', 'Outturn %', 'Rice Bran (Q)', 'Mota Kunda (Q)', 'Broken Rice (Q)', 'Rejection Rice (Q)', 'Pin Broken (Q)', 'Poll (Q)', 'Bhusa %']
     for col, h in enumerate(headers, 1):
         ws.cell(row=4, column=col, value=h)
     style_excel_header_row(ws, 4, ncols)
@@ -591,7 +597,8 @@ async def export_milling_report_excel(kms_year: Optional[str] = None, season: Op
         row = idx + data_start
         vals = [fmt_date(e.get('date','')), e.get('rice_type','').title(), e.get('paddy_input_qntl',0), e.get('rice_percent',0),
             e.get('rice_qntl',0), e.get('frk_used_qntl',0), e.get('cmr_delivery_qntl',0), e.get('outturn_ratio',0),
-            e.get('bran_qntl',0), e.get('kunda_qntl',0), e.get('husk_percent',0), e.get('note','')]
+            e.get('bran_qntl',0), e.get('kunda_qntl',0), e.get('broken_qntl',0), e.get('rejection_rice_qntl',0),
+            e.get('pin_broken_rice_qntl',0), e.get('poll_qntl',0), e.get('husk_percent',0)]
         for col, v in enumerate(vals, 1):
             ws.cell(row=row, column=col, value=v)
             if col >= 3: ws.cell(row=row, column=col).alignment = Alignment(horizontal='right')
@@ -602,7 +609,7 @@ async def export_milling_report_excel(kms_year: Optional[str] = None, season: Op
     tr = data_start + len(entries)
     ws.cell(row=tr, column=1, value="TOTAL")
     if entries:
-        for col, key in [(3,'paddy_input_qntl'),(5,'rice_qntl'),(6,'frk_used_qntl'),(7,'cmr_delivery_qntl'),(9,'bran_qntl'),(10,'kunda_qntl')]:
+        for col, key in [(3,'paddy_input_qntl'),(5,'rice_qntl'),(6,'frk_used_qntl'),(7,'cmr_delivery_qntl'),(9,'bran_qntl'),(10,'kunda_qntl'),(11,'broken_qntl'),(12,'rejection_rice_qntl'),(13,'pin_broken_rice_qntl'),(14,'poll_qntl')]:
             ws.cell(row=tr, column=col, value=round(sum(e.get(key,0) for e in entries),2))
     style_excel_total_row(ws, tr, ncols)
     
@@ -643,20 +650,22 @@ async def export_milling_report_pdf(kms_year: Optional[str] = None, season: Opti
     elements.append(Paragraph(title, styles['Title']))
     elements.append(Spacer(1, 12))
     
-    headers = ['Date', 'Type', 'Paddy(Q)', 'Rice%', 'Rice(Q)', 'FRK(Q)', 'CMR(Q)', 'Outturn%', 'Bran(Q)', 'Kunda(Q)', 'Husk%']
+    headers = ['Date', 'Type', 'Paddy(Q)', 'Rice%', 'Rice(Q)', 'FRK(Q)', 'CMR(Q)', 'Outturn%', 'RiceBran(Q)', 'MKunda(Q)', 'BrokenR(Q)', 'RejR(Q)', 'PinBR(Q)', 'Poll(Q)', 'Bhusa%']
     data = [headers]
-    tp = tr = tf = tc = tb = tk = 0
+    tp = tr = tf = tc = tb = tk = tbrk = trr = tpb = tpoll = 0
     for e in entries:
         tp += e.get('paddy_input_qntl',0); tr += e.get('rice_qntl',0); tf += e.get('frk_used_qntl',0)
         tc += e.get('cmr_delivery_qntl',0); tb += e.get('bran_qntl',0); tk += e.get('kunda_qntl',0)
+        tbrk += e.get('broken_qntl',0); trr += e.get('rejection_rice_qntl',0); tpb += e.get('pin_broken_rice_qntl',0); tpoll += e.get('poll_qntl',0)
         data.append([fmt_date(e.get('date','')), e.get('rice_type','').title()[:3], e.get('paddy_input_qntl',0),
             f"{e.get('rice_percent',0)}%", e.get('rice_qntl',0), e.get('frk_used_qntl',0),
-            e.get('cmr_delivery_qntl',0), f"{e.get('outturn_ratio',0)}%", e.get('bran_qntl',0), e.get('kunda_qntl',0), f"{e.get('husk_percent',0)}%"])
-    data.append(['TOTAL', '', round(tp,2), '', round(tr,2), round(tf,2), round(tc,2), '', round(tb,2), round(tk,2), ''])
+            e.get('cmr_delivery_qntl',0), f"{e.get('outturn_ratio',0)}%", e.get('bran_qntl',0), e.get('kunda_qntl',0),
+            e.get('broken_qntl',0), e.get('rejection_rice_qntl',0), e.get('pin_broken_rice_qntl',0), e.get('poll_qntl',0), f"{e.get('husk_percent',0)}%"])
+    data.append(['TOTAL', '', round(tp,2), '', round(tr,2), round(tf,2), round(tc,2), '', round(tb,2), round(tk,2), round(tbrk,2), round(trr,2), round(tpb,2), round(tpoll,2), ''])
     
     from utils.export_helpers import get_pdf_table_style
     
-    col_widths = [65, 35, 55, 40, 50, 45, 50, 55, 45, 50, 40]
+    col_widths = [50, 28, 42, 32, 38, 32, 38, 42, 38, 38, 38, 32, 32, 32, 35]
     table = RLTable(data, colWidths=col_widths, repeatRows=1)
     style_cmds = get_pdf_table_style(len(data))
     style_cmds.append(('ALIGN', (2,0), (-1,-1), 'RIGHT'))
@@ -883,7 +892,7 @@ async def export_byproduct_sales_excel(kms_year: Optional[str] = None, season: O
     style_excel_header_row(ws, 5, 5)
     row = 6
     stock_start = row
-    for prod, label in [('bran','Bran'), ('kunda','Kunda'), ('broken','Broken'), ('kanki','Kanki'), ('husk','Husk')]:
+    for prod, label in [('bran','Rice Bran'), ('kunda','Mota Kunda'), ('broken','Broken Rice'), ('rejection_rice','Rejection Rice'), ('pin_broken_rice','Pin Broken Rice'), ('poll','Poll'), ('husk','Bhusa')]:
         s = stock_data.get(prod, {})
         for col, v in enumerate([label, s.get('produced_qntl',0), s.get('sold_qntl',0), s.get('available_qntl',0), s.get('total_revenue',0)], 1):
             ws.cell(row=row, column=col, value=v)
@@ -948,7 +957,7 @@ async def export_byproduct_sales_pdf(kms_year: Optional[str] = None, season: Opt
     # Stock summary table
     elements.append(Paragraph("Stock Summary", styles['Heading2'])); elements.append(Spacer(1, 6))
     sdata = [['Product', 'Produced(Q)', 'Sold(Q)', 'Available(Q)', 'Revenue(Rs)']]
-    for prod, label in [('bran','Bran'), ('kunda','Kunda'), ('broken','Broken'), ('kanki','Kanki'), ('husk','Husk')]:
+    for prod, label in [('bran','Rice Bran'), ('kunda','Mota Kunda'), ('broken','Broken Rice'), ('rejection_rice','Rejection Rice'), ('pin_broken_rice','Pin Broken Rice'), ('poll','Poll'), ('husk','Bhusa')]:
         s = stock_data.get(prod, {})
         sdata.append([label, s.get('produced_qntl',0), s.get('sold_qntl',0), s.get('available_qntl',0), s.get('total_revenue',0)])
     st = RLTable(sdata, colWidths=[70, 70, 60, 70, 70])
