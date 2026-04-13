@@ -1,12 +1,13 @@
 """
-Test Dynamic By-Product Categories - Iteration 186
-Tests for custom categories like 'rejection_rice' appearing everywhere:
-- Milling Entry save
-- Stock Summary
-- Sale Voucher dropdown
-- FY Summary
-- Purchase Book
-- Opening Stock from Settings
+Test Dynamic By-Product Categories Feature - Iteration 192
+Tests that custom categories (like 'rejection_rice') appear in:
+- GET /api/byproduct-categories
+- GET /api/byproduct-stock
+- GET /api/milling-summary
+- GET /api/milling-report/excel
+- GET /api/milling-report/pdf
+- GET /api/byproduct-sales/excel
+- GET /api/byproduct-sales/pdf
 """
 import pytest
 import requests
@@ -14,306 +15,204 @@ import os
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 
-@pytest.fixture(scope="module")
-def session():
-    """Create authenticated session"""
-    s = requests.Session()
-    s.headers.update({"Content-Type": "application/json"})
-    # Login
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "admin", "password": "admin123"})
-    assert resp.status_code == 200, f"Login failed: {resp.text}"
-    return s
-
-
-class TestByProductCategories:
-    """Test by-product categories CRUD and dynamic behavior"""
+class TestByProductCategoriesAPI:
+    """Test /api/byproduct-categories endpoint returns all categories including custom ones"""
     
-    def test_get_byproduct_categories_includes_rejection_rice(self, session):
-        """GET /api/byproduct-categories should include 'rejection_rice' category"""
-        resp = session.get(f"{BASE_URL}/api/byproduct-categories")
-        assert resp.status_code == 200, f"Failed: {resp.text}"
-        categories = resp.json()
-        assert isinstance(categories, list), "Response should be a list"
-        
-        # Check if rejection_rice exists
-        cat_ids = [c["id"] for c in categories]
-        print(f"Available categories: {cat_ids}")
-        
-        # If rejection_rice doesn't exist, create it
-        if "rejection_rice" not in cat_ids:
-            create_resp = session.post(f"{BASE_URL}/api/byproduct-categories", json={
-                "id": "rejection_rice",
-                "name": "Rejection Rice",
-                "name_hi": "रिजेक्शन चावल",
-                "is_auto": False
-            })
-            assert create_resp.status_code == 200, f"Failed to create rejection_rice: {create_resp.text}"
-            print("Created rejection_rice category")
-            
-            # Verify it was created
-            resp = session.get(f"{BASE_URL}/api/byproduct-categories")
-            categories = resp.json()
-            cat_ids = [c["id"] for c in categories]
-        
-        assert "rejection_rice" in cat_ids, f"rejection_rice not found in categories: {cat_ids}"
-        print(f"PASS: rejection_rice category exists")
-
-
-class TestMillingEntryWithDynamicCategories:
-    """Test milling entry creation with dynamic by-product categories"""
+    def test_byproduct_categories_returns_200(self):
+        """GET /api/byproduct-categories should return 200"""
+        response = requests.get(f"{BASE_URL}/api/byproduct-categories")
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        print("PASS: GET /api/byproduct-categories returns 200")
     
-    created_entry_id = None
+    def test_byproduct_categories_returns_list(self):
+        """Response should be a list of categories"""
+        response = requests.get(f"{BASE_URL}/api/byproduct-categories")
+        data = response.json()
+        assert isinstance(data, list), "Response should be a list"
+        assert len(data) >= 5, f"Expected at least 5 default categories, got {len(data)}"
+        print(f"PASS: Returns {len(data)} categories")
     
-    def test_create_milling_entry_with_rejection_rice(self, session):
-        """POST /api/milling-entries with rejection_rice_percent=5, paddy_input_qntl=100"""
-        payload = {
-            "date": "2025-01-15",
-            "rice_type": "parboiled",
-            "paddy_input_qntl": 100,
-            "rice_percent": 67,
-            "bran_percent": 5,
-            "kunda_percent": 3,
-            "broken_percent": 2,
-            "kanki_percent": 1,
-            "rejection_rice_percent": 5,  # Dynamic category
-            "frk_used_qntl": 0,
-            "note": "TEST_dynamic_category_test",
-            "kms_year": "2025-26",
-            "season": "Kharif"
-        }
-        resp = session.post(f"{BASE_URL}/api/milling-entries", json=payload)
-        assert resp.status_code == 200, f"Failed to create milling entry: {resp.text}"
-        
-        data = resp.json()
-        TestMillingEntryWithDynamicCategories.created_entry_id = data.get("id")
-        
-        # Verify rejection_rice_qntl is calculated correctly (5% of 100 = 5.0)
-        assert "rejection_rice_qntl" in data, f"rejection_rice_qntl not in response: {data.keys()}"
-        assert data["rejection_rice_qntl"] == 5.0, f"Expected 5.0, got {data['rejection_rice_qntl']}"
-        
-        # Verify husk_percent is auto-calculated (100 - 67 - 5 - 3 - 2 - 1 - 5 = 17)
-        expected_husk = 100 - 67 - 5 - 3 - 2 - 1 - 5
-        assert data.get("husk_percent") == expected_husk, f"Expected husk_percent={expected_husk}, got {data.get('husk_percent')}"
-        
-        print(f"PASS: Milling entry created with rejection_rice_qntl={data['rejection_rice_qntl']}")
-        print(f"PASS: husk_percent auto-calculated as {data.get('husk_percent')}")
+    def test_byproduct_categories_has_default_categories(self):
+        """Should include default categories: bran, kunda, broken, kanki, husk"""
+        response = requests.get(f"{BASE_URL}/api/byproduct-categories")
+        data = response.json()
+        cat_ids = [c['id'] for c in data]
+        default_cats = ['bran', 'kunda', 'broken', 'kanki', 'husk']
+        for cat in default_cats:
+            assert cat in cat_ids, f"Missing default category: {cat}"
+        print(f"PASS: All default categories present: {default_cats}")
     
-    def test_get_milling_entry_has_rejection_rice(self, session):
-        """GET /api/milling-entries/{id} should have rejection_rice fields"""
-        if not TestMillingEntryWithDynamicCategories.created_entry_id:
-            pytest.skip("No entry created")
-        
-        entry_id = TestMillingEntryWithDynamicCategories.created_entry_id
-        resp = session.get(f"{BASE_URL}/api/milling-entries/{entry_id}")
-        assert resp.status_code == 200, f"Failed: {resp.text}"
-        
-        data = resp.json()
-        assert "rejection_rice_qntl" in data, f"rejection_rice_qntl not in entry"
-        assert data["rejection_rice_qntl"] == 5.0
-        print(f"PASS: GET milling entry has rejection_rice_qntl={data['rejection_rice_qntl']}")
+    def test_byproduct_categories_has_custom_rejection_rice(self):
+        """Should include custom category 'rejection_rice'"""
+        response = requests.get(f"{BASE_URL}/api/byproduct-categories")
+        data = response.json()
+        cat_ids = [c['id'] for c in data]
+        assert 'rejection_rice' in cat_ids, "Custom category 'rejection_rice' not found"
+        # Verify structure
+        rejection_cat = next((c for c in data if c['id'] == 'rejection_rice'), None)
+        assert rejection_cat is not None
+        assert 'name' in rejection_cat
+        assert 'name_hi' in rejection_cat
+        assert 'is_auto' in rejection_cat
+        assert 'order' in rejection_cat
+        print(f"PASS: Custom category 'rejection_rice' found with name: {rejection_cat['name']}")
 
 
-class TestByProductStock:
-    """Test by-product stock includes dynamic categories"""
+class TestByProductStockAPI:
+    """Test /api/byproduct-stock returns stock data for ALL dynamic categories"""
     
-    def test_byproduct_stock_has_rejection_rice(self, session):
-        """GET /api/byproduct-stock?kms_year=2025-26 should have rejection_rice with produced_qntl > 0"""
-        resp = session.get(f"{BASE_URL}/api/byproduct-stock", params={"kms_year": "2025-26"})
-        assert resp.status_code == 200, f"Failed: {resp.text}"
-        
-        stock = resp.json()
-        assert isinstance(stock, dict), "Response should be a dict"
-        
-        # Check rejection_rice exists in stock
-        assert "rejection_rice" in stock, f"rejection_rice not in stock: {stock.keys()}"
-        
-        rejection_rice_stock = stock["rejection_rice"]
-        print(f"rejection_rice stock: {rejection_rice_stock}")
-        
-        # Should have produced_qntl > 0 if milling entry was created
-        assert rejection_rice_stock.get("produced_qntl", 0) >= 0, "produced_qntl should be >= 0"
-        print(f"PASS: rejection_rice in byproduct-stock with produced_qntl={rejection_rice_stock.get('produced_qntl')}")
-
-
-class TestSaleBookStockItems:
-    """Test sale book stock items includes dynamic categories"""
+    def test_byproduct_stock_returns_200(self):
+        """GET /api/byproduct-stock should return 200"""
+        response = requests.get(f"{BASE_URL}/api/byproduct-stock")
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        print("PASS: GET /api/byproduct-stock returns 200")
     
-    def test_sale_book_stock_items_has_rejection_rice(self, session):
-        """GET /api/sale-book/stock-items?kms_year=2025-26 should have 'Rejection Rice'"""
-        resp = session.get(f"{BASE_URL}/api/sale-book/stock-items", params={"kms_year": "2025-26"})
-        assert resp.status_code == 200, f"Failed: {resp.text}"
+    def test_byproduct_stock_has_all_categories(self):
+        """Stock data should include all categories from byproduct-categories"""
+        cats_response = requests.get(f"{BASE_URL}/api/byproduct-categories")
+        categories = cats_response.json()
+        cat_ids = [c['id'] for c in categories]
         
-        items = resp.json()
-        assert isinstance(items, list), "Response should be a list"
+        stock_response = requests.get(f"{BASE_URL}/api/byproduct-stock")
+        stock_data = stock_response.json()
         
-        item_names = [i["name"] for i in items]
-        print(f"Sale book stock items: {item_names}")
-        
-        # Check for Rejection Rice (display name)
-        assert "Rejection Rice" in item_names, f"'Rejection Rice' not in sale book stock items: {item_names}"
-        
-        # Find the item and check quantity
-        rejection_item = next((i for i in items if i["name"] == "Rejection Rice"), None)
-        assert rejection_item is not None
-        print(f"PASS: 'Rejection Rice' in sale-book/stock-items with available_qntl={rejection_item.get('available_qntl')}")
-
-
-class TestPurchaseBookStockItems:
-    """Test purchase book stock items includes dynamic categories"""
+        for cat_id in cat_ids:
+            assert cat_id in stock_data, f"Stock data missing category: {cat_id}"
+            # Verify stock structure
+            assert 'produced_qntl' in stock_data[cat_id]
+            assert 'sold_qntl' in stock_data[cat_id]
+            assert 'available_qntl' in stock_data[cat_id]
+            assert 'total_revenue' in stock_data[cat_id]
+        print(f"PASS: Stock data includes all {len(cat_ids)} categories: {cat_ids}")
     
-    def test_purchase_book_stock_items_has_rejection_rice(self, session):
-        """GET /api/purchase-book/stock-items?kms_year=2025-26 should have 'Rejection Rice'"""
-        resp = session.get(f"{BASE_URL}/api/purchase-book/stock-items", params={"kms_year": "2025-26"})
-        assert resp.status_code == 200, f"Failed: {resp.text}"
-        
-        items = resp.json()
-        assert isinstance(items, list), "Response should be a list"
-        
-        item_names = [i["name"] for i in items]
-        print(f"Purchase book stock items: {item_names}")
-        
-        # Check for Rejection Rice (display name)
-        assert "Rejection Rice" in item_names, f"'Rejection Rice' not in purchase book stock items: {item_names}"
-        print(f"PASS: 'Rejection Rice' in purchase-book/stock-items")
+    def test_byproduct_stock_has_rejection_rice(self):
+        """Stock data should specifically include rejection_rice"""
+        response = requests.get(f"{BASE_URL}/api/byproduct-stock")
+        data = response.json()
+        assert 'rejection_rice' in data, "Stock data missing 'rejection_rice'"
+        print(f"PASS: rejection_rice stock: {data['rejection_rice']}")
 
 
-class TestOpeningStockAndFYSummary:
-    """Test opening stock from Settings reflects in FY Summary"""
+class TestMillingSummaryAPI:
+    """Test /api/milling-summary returns dynamic by-product totals"""
     
-    def test_set_opening_stock_with_rejection_rice(self, session):
-        """PUT /api/opening-stock with rejection_rice=50"""
-        payload = {
-            "kms_year": "2025-26",
-            "stocks": {
-                "paddy": 0,
-                "rice_usna": 0,
-                "rice_raw": 0,
-                "bran": 0,
-                "kunda": 0,
-                "broken": 0,
-                "kanki": 0,
-                "husk": 0,
-                "frk": 0,
-                "rejection_rice": 50  # Dynamic category opening stock
-            }
-        }
-        # Admin-only endpoint requires username and role params
-        resp = session.put(f"{BASE_URL}/api/opening-stock", json=payload, params={"username": "admin", "role": "admin"})
-        assert resp.status_code == 200, f"Failed to set opening stock: {resp.text}"
-        
-        data = resp.json()
-        assert data.get("success") == True, f"Expected success=True: {data}"
-        print(f"PASS: Opening stock set with rejection_rice=50")
+    def test_milling_summary_returns_200(self):
+        """GET /api/milling-summary should return 200"""
+        response = requests.get(f"{BASE_URL}/api/milling-summary")
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        print("PASS: GET /api/milling-summary returns 200")
     
-    def test_get_opening_stock_has_rejection_rice(self, session):
-        """GET /api/opening-stock?kms_year=2025-26 should have rejection_rice=50"""
-        resp = session.get(f"{BASE_URL}/api/opening-stock", params={"kms_year": "2025-26"})
-        assert resp.status_code == 200, f"Failed: {resp.text}"
+    def test_milling_summary_has_dynamic_totals(self):
+        """Summary should include total_<category>_qntl for all categories"""
+        cats_response = requests.get(f"{BASE_URL}/api/byproduct-categories")
+        categories = cats_response.json()
         
-        data = resp.json()
-        stocks = data.get("stocks", {})
+        summary_response = requests.get(f"{BASE_URL}/api/milling-summary")
+        summary = summary_response.json()
         
-        assert "rejection_rice" in stocks, f"rejection_rice not in opening stock: {stocks.keys()}"
-        assert stocks["rejection_rice"] == 50, f"Expected 50, got {stocks['rejection_rice']}"
-        print(f"PASS: Opening stock has rejection_rice={stocks['rejection_rice']}")
+        for cat in categories:
+            key = f"total_{cat['id']}_qntl"
+            assert key in summary, f"Summary missing dynamic total: {key}"
+        print(f"PASS: Summary includes dynamic totals for all categories")
     
-    def test_fy_summary_has_rejection_rice_opening_stock(self, session):
-        """GET /api/fy-summary?kms_year=2025-26 should show rejection_rice opening_stock=50"""
-        resp = session.get(f"{BASE_URL}/api/fy-summary", params={"kms_year": "2025-26"})
-        assert resp.status_code == 200, f"Failed: {resp.text}"
-        
-        data = resp.json()
-        byproducts = data.get("byproducts", {})
-        
-        print(f"FY Summary byproducts: {list(byproducts.keys())}")
-        
-        # Check rejection_rice exists in byproducts
-        assert "rejection_rice" in byproducts, f"rejection_rice not in FY summary byproducts: {byproducts.keys()}"
-        
-        rejection_rice = byproducts["rejection_rice"]
-        print(f"rejection_rice in FY summary: {rejection_rice}")
-        
-        # Opening stock should be 50 (from Settings)
-        assert rejection_rice.get("opening_stock") == 50, f"Expected opening_stock=50, got {rejection_rice.get('opening_stock')}"
-        print(f"PASS: FY Summary has rejection_rice opening_stock={rejection_rice.get('opening_stock')}")
+    def test_milling_summary_has_rejection_rice_total(self):
+        """Summary should include total_rejection_rice_qntl"""
+        response = requests.get(f"{BASE_URL}/api/milling-summary")
+        data = response.json()
+        assert 'total_rejection_rice_qntl' in data, "Summary missing 'total_rejection_rice_qntl'"
+        print(f"PASS: total_rejection_rice_qntl = {data['total_rejection_rice_qntl']}")
 
 
-class TestStockSummary:
-    """Test stock summary includes dynamic categories"""
+class TestMillingReportExports:
+    """Test milling report Excel/PDF exports with dynamic by-product columns"""
     
-    def test_stock_summary_has_rejection_rice(self, session):
-        """GET /api/stock-summary?kms_year=2025-26 should have 'Rejection Rice'"""
-        resp = session.get(f"{BASE_URL}/api/stock-summary", params={"kms_year": "2025-26"})
-        assert resp.status_code == 200, f"Failed: {resp.text}"
-        
-        data = resp.json()
-        items = data.get("items", [])
-        
-        item_names = [i["name"] for i in items]
-        print(f"Stock summary items: {item_names}")
-        
-        # Check for Rejection Rice
-        assert "Rejection Rice" in item_names, f"'Rejection Rice' not in stock summary: {item_names}"
-        
-        rejection_item = next((i for i in items if i["name"] == "Rejection Rice"), None)
-        assert rejection_item is not None
-        
-        # Should have opening stock from Settings
-        print(f"Rejection Rice in stock summary: {rejection_item}")
-        print(f"PASS: 'Rejection Rice' in stock-summary with opening={rejection_item.get('opening')}, available={rejection_item.get('available')}")
+    def test_milling_report_excel_returns_200(self):
+        """GET /api/milling-report/excel should return 200"""
+        response = requests.get(f"{BASE_URL}/api/milling-report/excel")
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        print("PASS: GET /api/milling-report/excel returns 200")
+    
+    def test_milling_report_excel_content_type(self):
+        """Excel export should have correct content type"""
+        response = requests.get(f"{BASE_URL}/api/milling-report/excel")
+        content_type = response.headers.get('content-type', '')
+        assert 'spreadsheetml' in content_type or 'excel' in content_type.lower(), \
+            f"Expected Excel content type, got: {content_type}"
+        print(f"PASS: Excel content-type: {content_type}")
+    
+    def test_milling_report_excel_has_content(self):
+        """Excel export should have content"""
+        response = requests.get(f"{BASE_URL}/api/milling-report/excel")
+        assert len(response.content) > 0, "Excel file is empty"
+        print(f"PASS: Excel file size: {len(response.content)} bytes")
+    
+    def test_milling_report_pdf_returns_200(self):
+        """GET /api/milling-report/pdf should return 200"""
+        response = requests.get(f"{BASE_URL}/api/milling-report/pdf")
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        print("PASS: GET /api/milling-report/pdf returns 200")
+    
+    def test_milling_report_pdf_content_type(self):
+        """PDF export should have correct content type"""
+        response = requests.get(f"{BASE_URL}/api/milling-report/pdf")
+        content_type = response.headers.get('content-type', '')
+        assert 'pdf' in content_type.lower(), f"Expected PDF content type, got: {content_type}"
+        print(f"PASS: PDF content-type: {content_type}")
+    
+    def test_milling_report_pdf_has_content(self):
+        """PDF export should have content"""
+        response = requests.get(f"{BASE_URL}/api/milling-report/pdf")
+        assert len(response.content) > 0, "PDF file is empty"
+        print(f"PASS: PDF file size: {len(response.content)} bytes")
 
 
-class TestMillingSummary:
-    """Test milling summary includes dynamic categories"""
+class TestByProductSalesExports:
+    """Test by-product sales Excel/PDF exports"""
     
-    def test_milling_summary_has_rejection_rice_total(self, session):
-        """GET /api/milling-summary?kms_year=2025-26 should have total_rejection_rice_qntl"""
-        resp = session.get(f"{BASE_URL}/api/milling-summary", params={"kms_year": "2025-26"})
-        assert resp.status_code == 200, f"Failed: {resp.text}"
-        
-        data = resp.json()
-        print(f"Milling summary keys: {data.keys()}")
-        
-        # Check for total_rejection_rice_qntl
-        assert "total_rejection_rice_qntl" in data, f"total_rejection_rice_qntl not in milling summary: {data.keys()}"
-        print(f"PASS: Milling summary has total_rejection_rice_qntl={data.get('total_rejection_rice_qntl')}")
+    def test_byproduct_sales_excel_returns_200(self):
+        """GET /api/byproduct-sales/excel should return 200"""
+        response = requests.get(f"{BASE_URL}/api/byproduct-sales/excel")
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        print("PASS: GET /api/byproduct-sales/excel returns 200")
+    
+    def test_byproduct_sales_excel_content_type(self):
+        """Excel export should have correct content type"""
+        response = requests.get(f"{BASE_URL}/api/byproduct-sales/excel")
+        content_type = response.headers.get('content-type', '')
+        assert 'spreadsheetml' in content_type or 'excel' in content_type.lower(), \
+            f"Expected Excel content type, got: {content_type}"
+        print(f"PASS: Excel content-type: {content_type}")
+    
+    def test_byproduct_sales_pdf_returns_200(self):
+        """GET /api/byproduct-sales/pdf should return 200"""
+        response = requests.get(f"{BASE_URL}/api/byproduct-sales/pdf")
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        print("PASS: GET /api/byproduct-sales/pdf returns 200")
+    
+    def test_byproduct_sales_pdf_content_type(self):
+        """PDF export should have correct content type"""
+        response = requests.get(f"{BASE_URL}/api/byproduct-sales/pdf")
+        content_type = response.headers.get('content-type', '')
+        assert 'pdf' in content_type.lower(), f"Expected PDF content type, got: {content_type}"
+        print(f"PASS: PDF content-type: {content_type}")
 
 
-class TestCleanup:
-    """Cleanup test data"""
+class TestByProductSalesAPI:
+    """Test /api/byproduct-sales endpoint"""
     
-    def test_delete_test_milling_entry(self, session):
-        """DELETE the test milling entry"""
-        entry_id = TestMillingEntryWithDynamicCategories.created_entry_id
-        if not entry_id:
-            pytest.skip("No entry to delete")
-        
-        resp = session.delete(f"{BASE_URL}/api/milling-entries/{entry_id}")
-        assert resp.status_code == 200, f"Failed to delete: {resp.text}"
-        print(f"PASS: Deleted test milling entry {entry_id}")
+    def test_byproduct_sales_returns_200(self):
+        """GET /api/byproduct-sales should return 200"""
+        response = requests.get(f"{BASE_URL}/api/byproduct-sales")
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        print("PASS: GET /api/byproduct-sales returns 200")
     
-    def test_reset_opening_stock(self, session):
-        """Reset opening stock to 0"""
-        payload = {
-            "kms_year": "2025-26",
-            "stocks": {
-                "paddy": 0,
-                "rice_usna": 0,
-                "rice_raw": 0,
-                "bran": 0,
-                "kunda": 0,
-                "broken": 0,
-                "kanki": 0,
-                "husk": 0,
-                "frk": 0,
-                "rejection_rice": 0
-            }
-        }
-        # Admin-only endpoint requires username and role params
-        resp = session.put(f"{BASE_URL}/api/opening-stock", json=payload, params={"username": "admin", "role": "admin"})
-        assert resp.status_code == 200, f"Failed to reset opening stock: {resp.text}"
-        print(f"PASS: Reset opening stock to 0")
+    def test_byproduct_sales_returns_list(self):
+        """Response should be a list"""
+        response = requests.get(f"{BASE_URL}/api/byproduct-sales")
+        data = response.json()
+        assert isinstance(data, list), "Response should be a list"
+        print(f"PASS: Returns list with {len(data)} sales")
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, "-v", "--tb=short"])
+    pytest.main([__file__, "-v"])

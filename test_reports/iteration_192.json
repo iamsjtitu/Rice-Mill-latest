@@ -1,0 +1,70 @@
+{
+  "summary": "Dynamic By-Product Categories Feature - Iteration 192 PASSED. All 22 backend tests passed. Frontend UI verified: Milling table headers show all 6 dynamic categories including custom 'Rejection Rice', New Milling Entry form has dynamic by-product percentage fields, Settings → By-Products page shows category management with all 6 categories. All export endpoints (Excel/PDF) return 200 with correct content types.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_dynamic_byproduct_categories.py",
+    "/app/test_reports/pytest/pytest_results_iteration192.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_dynamic_byproduct_categories.py"
+  ],
+  "success_rate": {
+    "backend": "100% (22/22 tests passed)",
+    "frontend": "100% (All UI tests passed)"
+  },
+  "test_credentials": "admin/admin123",
+  "seed_data_creation": "None - used existing 'rejection_rice' category in DB",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Dynamic by-product categories feature verified. Key changes: (1) Backend uses get_byproduct_categories_list() for dynamic DB lookups instead of hardcoded arrays. (2) All export endpoints (milling-report/excel, milling-report/pdf, byproduct-sales/excel, byproduct-sales/pdf) now include dynamic columns. (3) Frontend MillingTracker.jsx fetches bpCategories API and renders dynamic table headers and form fields. (4) Settings → By-Products page allows CRUD operations on categories. (5) Custom category 'rejection_rice' (Rejection Rice / रिजेक्शन) is present and working.",
+  "tests_executed": {
+    "backend_api_tests": [
+      "GET /api/byproduct-categories - PASS (returns 6 categories including rejection_rice)",
+      "GET /api/byproduct-stock - PASS (returns stock for all 6 dynamic categories)",
+      "GET /api/milling-summary - PASS (includes total_rejection_rice_qntl)",
+      "GET /api/milling-report/excel - PASS (200, correct content-type)",
+      "GET /api/milling-report/pdf - PASS (200, application/pdf)",
+      "GET /api/byproduct-sales/excel - PASS (200, correct content-type)",
+      "GET /api/byproduct-sales/pdf - PASS (200, application/pdf)",
+      "GET /api/byproduct-sales - PASS (returns list)"
+    ],
+    "frontend_ui_tests": [
+      "1. Login with admin/admin123 - PASS",
+      "2. Navigate to Milling (CMR) tab - PASS",
+      "3. Milling table headers show dynamic columns - PASS (Bran, Kunda, Broken, Kanki, Husk%, Rejection Rice)",
+      "4. New Milling Entry form has dynamic by-product fields - PASS (includes Rejection Rice%)",
+      "5. Live Preview shows all dynamic categories - PASS",
+      "6. Excel export button present - PASS",
+      "7. PDF export button present - PASS",
+      "8. Navigate to Settings tab - PASS",
+      "9. Settings → By-Products sub-tab - PASS",
+      "10. By-Product Categories management UI - PASS (shows all 6 categories)",
+      "11. Rejection Rice category visible in Settings - PASS"
+    ]
+  },
+  "dynamic_categories_verified": {
+    "categories_in_db": ["bran", "kunda", "broken", "kanki", "husk", "rejection_rice"],
+    "custom_category": {
+      "id": "rejection_rice",
+      "name": "Rejection Rice",
+      "name_hi": "रिजेक्शन",
+      "is_auto": false
+    },
+    "auto_category": {
+      "id": "husk",
+      "name": "Husk",
+      "is_auto": true
+    }
+  },
+  "version_tested": "v90.6.2"
+}

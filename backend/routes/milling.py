@@ -573,15 +573,25 @@ async def export_milling_report_excel(kms_year: Optional[str] = None, season: Op
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     entries = await db.milling_entries.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
+    cats = await get_byproduct_categories_list()
+    
+    # Build dynamic headers
+    base_headers = ['Date', 'Type', 'Paddy (Q)', 'Rice %', 'Rice (Q)', 'FRK Used (Q)', 'CMR (Q)', 'Outturn %']
+    bp_headers = []
+    for c in cats:
+        if c.get("is_auto"):
+            bp_headers.append(f"{c['name']} %")
+        else:
+            bp_headers.append(f"{c['name']} (Q)")
+    headers = base_headers + bp_headers + ['Note']
+    ncols = len(headers)
     
     wb = Workbook(); ws = wb.active; ws.title = "Milling Report"
-    ncols = 12
     title = "Milling Report / मिलिंग रिपोर्ट"
     if kms_year: title += f" - FY {kms_year}"
     if season: title += f" ({season})"
     style_excel_title(ws, title, ncols)
     
-    headers = ['Date', 'Type', 'Paddy (Q)', 'Rice %', 'Rice (Q)', 'FRK Used (Q)', 'CMR (Q)', 'Outturn %', 'Bran (Q)', 'Kunda (Q)', 'Husk %', 'Note']
     for col, h in enumerate(headers, 1):
         ws.cell(row=4, column=col, value=h)
     style_excel_header_row(ws, 4, ncols)
@@ -590,8 +600,13 @@ async def export_milling_report_excel(kms_year: Optional[str] = None, season: Op
     for idx, e in enumerate(entries):
         row = idx + data_start
         vals = [fmt_date(e.get('date','')), e.get('rice_type','').title(), e.get('paddy_input_qntl',0), e.get('rice_percent',0),
-            e.get('rice_qntl',0), e.get('frk_used_qntl',0), e.get('cmr_delivery_qntl',0), e.get('outturn_ratio',0),
-            e.get('bran_qntl',0), e.get('kunda_qntl',0), e.get('husk_percent',0), e.get('note','')]
+            e.get('rice_qntl',0), e.get('frk_used_qntl',0), e.get('cmr_delivery_qntl',0), e.get('outturn_ratio',0)]
+        for c in cats:
+            if c.get("is_auto"):
+                vals.append(e.get(f"{c['id']}_percent", 0))
+            else:
+                vals.append(e.get(f"{c['id']}_qntl", 0))
+        vals.append(e.get('note',''))
         for col, v in enumerate(vals, 1):
             ws.cell(row=row, column=col, value=v)
             if col >= 3: ws.cell(row=row, column=col).alignment = Alignment(horizontal='right')
@@ -602,8 +617,14 @@ async def export_milling_report_excel(kms_year: Optional[str] = None, season: Op
     tr = data_start + len(entries)
     ws.cell(row=tr, column=1, value="TOTAL")
     if entries:
-        for col, key in [(3,'paddy_input_qntl'),(5,'rice_qntl'),(6,'frk_used_qntl'),(7,'cmr_delivery_qntl'),(9,'bran_qntl'),(10,'kunda_qntl')]:
+        # Fixed totals
+        for col, key in [(3,'paddy_input_qntl'),(5,'rice_qntl'),(6,'frk_used_qntl'),(7,'cmr_delivery_qntl')]:
             ws.cell(row=tr, column=col, value=round(sum(e.get(key,0) for e in entries),2))
+        # Dynamic by-product totals
+        for i, c in enumerate(cats):
+            bp_col = 9 + i  # starts after column 8 (Outturn%)
+            if not c.get("is_auto"):
+                ws.cell(row=tr, column=bp_col, value=round(sum(e.get(f"{c['id']}_qntl",0) for e in entries),2))
     style_excel_total_row(ws, tr, ncols)
     
     for i in range(1, ncols + 1):
@@ -629,6 +650,7 @@ async def export_milling_report_pdf(kms_year: Optional[str] = None, season: Opti
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     entries = await db.milling_entries.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
+    cats = await get_byproduct_categories_list()
     
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=30, bottomMargin=30)
@@ -643,20 +665,54 @@ async def export_milling_report_pdf(kms_year: Optional[str] = None, season: Opti
     elements.append(Paragraph(title, styles['Title']))
     elements.append(Spacer(1, 12))
     
-    headers = ['Date', 'Type', 'Paddy(Q)', 'Rice%', 'Rice(Q)', 'FRK(Q)', 'CMR(Q)', 'Outturn%', 'Bran(Q)', 'Kunda(Q)', 'Husk%']
+    # Dynamic headers
+    base_headers = ['Date', 'Type', 'Paddy(Q)', 'Rice%', 'Rice(Q)', 'FRK(Q)', 'CMR(Q)', 'Outturn%']
+    bp_headers = []
+    for c in cats:
+        if c.get("is_auto"):
+            bp_headers.append(f"{c['name']}%")
+        else:
+            bp_headers.append(f"{c['name']}(Q)")
+    headers = base_headers + bp_headers
     data = [headers]
-    tp = tr = tf = tc = tb = tk = 0
+    
+    # Totals accumulators
+    tp = tr = tf = tc = 0
+    bp_totals = {c['id']: 0 for c in cats}
+    
     for e in entries:
         tp += e.get('paddy_input_qntl',0); tr += e.get('rice_qntl',0); tf += e.get('frk_used_qntl',0)
-        tc += e.get('cmr_delivery_qntl',0); tb += e.get('bran_qntl',0); tk += e.get('kunda_qntl',0)
-        data.append([fmt_date(e.get('date','')), e.get('rice_type','').title()[:3], e.get('paddy_input_qntl',0),
+        tc += e.get('cmr_delivery_qntl',0)
+        row_data = [fmt_date(e.get('date','')), e.get('rice_type','').title()[:3], e.get('paddy_input_qntl',0),
             f"{e.get('rice_percent',0)}%", e.get('rice_qntl',0), e.get('frk_used_qntl',0),
-            e.get('cmr_delivery_qntl',0), f"{e.get('outturn_ratio',0)}%", e.get('bran_qntl',0), e.get('kunda_qntl',0), f"{e.get('husk_percent',0)}%"])
-    data.append(['TOTAL', '', round(tp,2), '', round(tr,2), round(tf,2), round(tc,2), '', round(tb,2), round(tk,2), ''])
+            e.get('cmr_delivery_qntl',0), f"{e.get('outturn_ratio',0)}%"]
+        for c in cats:
+            cat_id = c["id"]
+            if c.get("is_auto"):
+                pct_val = e.get(f"{cat_id}_percent", 0)
+                row_data.append(f"{pct_val}%")
+            else:
+                val = e.get(f"{cat_id}_qntl", 0)
+                bp_totals[c['id']] += val
+                row_data.append(val)
+        data.append(row_data)
+    
+    # Total row
+    total_row = ['TOTAL', '', round(tp,2), '', round(tr,2), round(tf,2), round(tc,2), '']
+    for c in cats:
+        if c.get("is_auto"):
+            total_row.append('')
+        else:
+            total_row.append(round(bp_totals[c['id']],2))
+    data.append(total_row)
     
     from utils.export_helpers import get_pdf_table_style
     
-    col_widths = [65, 35, 55, 40, 50, 45, 50, 55, 45, 50, 40]
+    # Dynamic column widths
+    base_widths = [55, 30, 48, 35, 42, 38, 42, 48]
+    bp_widths = [38] * len(cats)
+    col_widths = base_widths + bp_widths
+    
     table = RLTable(data, colWidths=col_widths, repeatRows=1)
     style_cmds = get_pdf_table_style(len(data))
     style_cmds.append(('ALIGN', (2,0), (-1,-1), 'RIGHT'))
@@ -865,6 +921,7 @@ async def export_byproduct_sales_excel(kms_year: Optional[str] = None, season: O
     if season: query["season"] = season
     sales = await db.byproduct_sales.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
     stock_data = await get_byproduct_stock(kms_year=kms_year, season=season)
+    cats = await get_byproduct_categories_list()
     
     wb = Workbook(); ws = wb.active; ws.title = "By-Product Sales"
     from utils.export_helpers import (style_excel_title, style_excel_header_row,
@@ -875,7 +932,7 @@ async def export_byproduct_sales_excel(kms_year: Optional[str] = None, season: O
     if kms_year: title += f" - FY {kms_year}"
     style_excel_title(ws, title, ncols)
     
-    # Stock summary section
+    # Stock summary section - dynamic categories
     ws.cell(row=4, column=1, value="Stock Summary").font = Font(bold=True, size=11, color=COLORS['title_text'])
     stock_headers = ['Product', 'Produced (Q)', 'Sold (Q)', 'Available (Q)', 'Revenue (Rs)']
     for col, h in enumerate(stock_headers, 1):
@@ -883,8 +940,10 @@ async def export_byproduct_sales_excel(kms_year: Optional[str] = None, season: O
     style_excel_header_row(ws, 5, 5)
     row = 6
     stock_start = row
-    for prod, label in [('bran','Bran'), ('kunda','Kunda'), ('broken','Broken'), ('kanki','Kanki'), ('husk','Husk')]:
-        s = stock_data.get(prod, {})
+    for cat in cats:
+        p = cat["id"]
+        label = cat.get("name", p.title())
+        s = stock_data.get(p, {})
         for col, v in enumerate([label, s.get('produced_qntl',0), s.get('sold_qntl',0), s.get('available_qntl',0), s.get('total_revenue',0)], 1):
             ws.cell(row=row, column=col, value=v)
             if col >= 2: ws.cell(row=row, column=col).alignment = Alignment(horizontal='right')
@@ -933,6 +992,7 @@ async def export_byproduct_sales_pdf(kms_year: Optional[str] = None, season: Opt
     if season: query["season"] = season
     sales = await db.byproduct_sales.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
     stock_data = await get_byproduct_stock(kms_year=kms_year, season=season)
+    cats = await get_byproduct_categories_list()
     
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
@@ -945,11 +1005,13 @@ async def export_byproduct_sales_pdf(kms_year: Optional[str] = None, season: Opt
     
     from utils.export_helpers import get_pdf_table_style
     
-    # Stock summary table
+    # Stock summary table - dynamic categories
     elements.append(Paragraph("Stock Summary", styles['Heading2'])); elements.append(Spacer(1, 6))
     sdata = [['Product', 'Produced(Q)', 'Sold(Q)', 'Available(Q)', 'Revenue(Rs)']]
-    for prod, label in [('bran','Bran'), ('kunda','Kunda'), ('broken','Broken'), ('kanki','Kanki'), ('husk','Husk')]:
-        s = stock_data.get(prod, {})
+    for cat in cats:
+        p = cat["id"]
+        label = cat.get("name", p.title())
+        s = stock_data.get(p, {})
         sdata.append([label, s.get('produced_qntl',0), s.get('sold_qntl',0), s.get('available_qntl',0), s.get('total_revenue',0)])
     st = RLTable(sdata, colWidths=[70, 70, 60, 70, 70])
     style_cmds = get_pdf_table_style(len(sdata))

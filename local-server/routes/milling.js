@@ -146,7 +146,9 @@ module.exports = function(database) {
     let sales = [...database.data.byproduct_sales];
     if (req.query.kms_year) sales = sales.filter(s => s.kms_year === req.query.kms_year);
     if (req.query.season) sales = sales.filter(s => s.season === req.query.season);
-    const products = ['bran', 'kunda', 'broken', 'kanki', 'husk'];
+    // Dynamic categories from DB
+    const cats = getBpCats();
+    const products = cats.map(c => c.id);
     const stock = {};
     products.forEach(p => {
       const produced = +millingEntries.reduce((s, e) => s + (e[`${p}_qntl`] || 0), 0).toFixed(2);
