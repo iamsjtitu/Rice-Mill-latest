@@ -53,7 +53,7 @@ async def create_bp_sale(data: dict, username: str = "", role: str = ""):
     data["cash_paid"] = cash
     data["diesel_paid"] = diesel
     data["advance"] = advance
-    data["balance"] = round(data["total"] - cash - diesel - advance, 2)
+    data["balance"] = round(data["total"] - advance, 2)
 
     await db.bp_sale_register.insert_one({**data})
     data.pop("_id", None)
@@ -89,7 +89,7 @@ async def update_bp_sale(sale_id: str, data: dict, username: str = "", role: str
     data["cash_paid"] = cash
     data["diesel_paid"] = diesel
     data["advance"] = advance
-    data["balance"] = round(data["total"] - cash - diesel - advance, 2)
+    data["balance"] = round(data["total"] - advance, 2)
 
     data.pop("id", None)
     data.pop("_id", None)
@@ -127,7 +127,9 @@ async def get_destination_suggestions():
 
 
 @router.get("/bp-sale-register/export/excel")
-async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: str = ""):
+async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: str = "",
+    date_from: str = "", date_to: str = "", billing_date_from: str = "", billing_date_to: str = "",
+    rst_no: str = "", vehicle_no: str = "", bill_from: str = "", party_name: str = "", destination: str = ""):
     from io import BytesIO
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -139,6 +141,19 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
     if product: query["product"] = product
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
+    if rst_no: query["rst_no"] = {"$regex": rst_no, "$options": "i"}
+    if vehicle_no: query["vehicle_no"] = {"$regex": vehicle_no, "$options": "i"}
+    if bill_from: query["bill_from"] = {"$regex": bill_from, "$options": "i"}
+    if party_name: query["party_name"] = {"$regex": party_name, "$options": "i"}
+    if destination: query["destination"] = {"$regex": destination, "$options": "i"}
+    if date_from or date_to:
+        query["date"] = {}
+        if date_from: query["date"]["$gte"] = date_from
+        if date_to: query["date"]["$lte"] = date_to
+    if billing_date_from or billing_date_to:
+        query["billing_date"] = {}
+        if billing_date_from: query["billing_date"]["$gte"] = billing_date_from
+        if billing_date_to: query["billing_date"]["$lte"] = billing_date_to
     sales = await db.bp_sale_register.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
 
     # Branding
@@ -283,7 +298,9 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
 
 
 @router.get("/bp-sale-register/export/pdf")
-async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str = ""):
+async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str = "",
+    date_from: str = "", date_to: str = "", billing_date_from: str = "", billing_date_to: str = "",
+    rst_no: str = "", vehicle_no: str = "", bill_from: str = "", party_name: str = "", destination: str = ""):
     from io import BytesIO
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
@@ -296,6 +313,19 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
     if product: query["product"] = product
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
+    if rst_no: query["rst_no"] = {"$regex": rst_no, "$options": "i"}
+    if vehicle_no: query["vehicle_no"] = {"$regex": vehicle_no, "$options": "i"}
+    if bill_from: query["bill_from"] = {"$regex": bill_from, "$options": "i"}
+    if party_name: query["party_name"] = {"$regex": party_name, "$options": "i"}
+    if destination: query["destination"] = {"$regex": destination, "$options": "i"}
+    if date_from or date_to:
+        query["date"] = {}
+        if date_from: query["date"]["$gte"] = date_from
+        if date_to: query["date"]["$lte"] = date_to
+    if billing_date_from or billing_date_to:
+        query["billing_date"] = {}
+        if billing_date_from: query["billing_date"]["$gte"] = billing_date_from
+        if billing_date_to: query["billing_date"]["$lte"] = billing_date_to
     sales = await db.bp_sale_register.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
 
     branding = await db.branding.find_one({}, {"_id": 0}) or {}

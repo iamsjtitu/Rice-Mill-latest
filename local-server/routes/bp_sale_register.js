@@ -43,7 +43,7 @@ module.exports = function(database) {
     data.cash_paid = cash;
     data.diesel_paid = diesel;
     data.advance = advance;
-    data.balance = +(data.total - cash - diesel - advance).toFixed(2);
+    data.balance = +(data.total - advance).toFixed(2);
 
     database.data.bp_sale_register.push(data);
     database.save();
@@ -77,7 +77,7 @@ module.exports = function(database) {
     data.cash_paid = cash;
     data.diesel_paid = diesel;
     data.advance = advance;
-    data.balance = +(data.total - cash - diesel - advance).toFixed(2);
+    data.balance = +(data.total - advance).toFixed(2);
 
     data.id = req.params.id;
     data.created_at = database.data.bp_sale_register[idx].created_at;

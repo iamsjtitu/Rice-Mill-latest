@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Edit, Search, Download, Eye } from "lucide-react";
+import { Plus, Trash2, Edit, Search, Download, Eye, Filter } from "lucide-react";
 import { fmtDate } from "@/utils/date";
 import { useConfirm } from "./ConfirmProvider";
 import logger from "../utils/logger";
@@ -23,6 +23,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const [editingId, setEditingId] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewSale, setViewSale] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterValues, setFilterValues] = useState({ date_from: "", date_to: "", billing_date_from: "", billing_date_to: "", rst_no: "", vehicle_no: "", bill_from: "", party_name: "", destination: "" });
   const [billFromSugg, setBillFromSugg] = useState([]);
   const [partySugg, setPartySugg] = useState([]);
   const [destSugg, setDestSugg] = useState([]);
@@ -95,7 +97,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const cash = parseFloat(form.cash_paid) || 0;
   const diesel = parseFloat(form.diesel_paid) || 0;
   const advance = parseFloat(form.advance) || 0;
-  const balance = Math.round((total - cash - diesel - advance) * 100) / 100;
+  const balance = Math.round((total - advance) * 100) / 100;
 
   const openNew = () => {
     setEditingId(null);
@@ -140,9 +142,45 @@ export default function ByProductSaleRegister({ filters, user, product }) {
     try { await axios.delete(`${API}/bp-sale-register/${id}`); toast.success("Deleted!"); fetchData(); } catch (e) { toast.error("Error"); }
   };
 
-  const filtered = searchQuery
-    ? sales.filter(s => (s.party_name || "").toLowerCase().includes(searchQuery.toLowerCase()) || (s.bill_number || "").toLowerCase().includes(searchQuery.toLowerCase()) || (s.vehicle_no || "").toLowerCase().includes(searchQuery.toLowerCase()))
-    : sales;
+  const filtered = sales.filter(s => {
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      if (!(s.party_name || "").toLowerCase().includes(q) && !(s.bill_number || "").toLowerCase().includes(q) && !(s.vehicle_no || "").toLowerCase().includes(q)) return false;
+    }
+    const f = filterValues;
+    if (f.date_from && (s.date || "") < f.date_from) return false;
+    if (f.date_to && (s.date || "") > f.date_to) return false;
+    if (f.billing_date_from && (s.billing_date || "") < f.billing_date_from) return false;
+    if (f.billing_date_to && (s.billing_date || "") > f.billing_date_to) return false;
+    if (f.rst_no && !(s.rst_no || "").toLowerCase().includes(f.rst_no.toLowerCase())) return false;
+    if (f.vehicle_no && !(s.vehicle_no || "").toLowerCase().includes(f.vehicle_no.toLowerCase())) return false;
+    if (f.bill_from && !(s.bill_from || "").toLowerCase().includes(f.bill_from.toLowerCase())) return false;
+    if (f.party_name && !(s.party_name || "").toLowerCase().includes(f.party_name.toLowerCase())) return false;
+    if (f.destination && !(s.destination || "").toLowerCase().includes(f.destination.toLowerCase())) return false;
+    return true;
+  });
+
+  // Build export filter params
+  const buildExportParams = () => {
+    const params = new URLSearchParams();
+    if (product) params.append('product', product);
+    if (filters.kms_year) params.append('kms_year', filters.kms_year);
+    if (filters.season) params.append('season', filters.season);
+    const f = filterValues;
+    if (f.date_from) params.append('date_from', f.date_from);
+    if (f.date_to) params.append('date_to', f.date_to);
+    if (f.billing_date_from) params.append('billing_date_from', f.billing_date_from);
+    if (f.billing_date_to) params.append('billing_date_to', f.billing_date_to);
+    if (f.rst_no) params.append('rst_no', f.rst_no);
+    if (f.vehicle_no) params.append('vehicle_no', f.vehicle_no);
+    if (f.bill_from) params.append('bill_from', f.bill_from);
+    if (f.party_name) params.append('party_name', f.party_name);
+    if (f.destination) params.append('destination', f.destination);
+    return params;
+  };
+
+  const hasActiveFilters = Object.values(filterValues).some(v => v);
+  const clearFilters = () => setFilterValues({ date_from: "", date_to: "", billing_date_from: "", billing_date_to: "", rst_no: "", vehicle_no: "", bill_from: "", party_name: "", destination: "" });
 
   const totalAmount = filtered.reduce((s, v) => s + (v.total || 0), 0);
   const totalBalance = filtered.reduce((s, v) => s + (v.balance || 0), 0);
@@ -158,11 +196,11 @@ export default function ByProductSaleRegister({ filters, user, product }) {
         </div>
         <div className="flex gap-2 items-center">
           <span className="text-xs text-slate-400">{filtered.length} entries | Total: <span className="text-emerald-400 font-bold">{totalAmount.toLocaleString()}</span> | Balance: <span className="text-red-400 font-bold">{totalBalance.toLocaleString()}</span></span>
-          <Button onClick={async () => { try { const params = new URLSearchParams(); if (product) params.append('product', product); if (filters.kms_year) params.append('kms_year', filters.kms_year); if (filters.season) params.append('season', filters.season); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/bp-sale-register/export/excel?${params}`, `${product || 'byproduct'}_sales.xlsx`); toast.success("Excel exported!"); } catch(e) { toast.error("Export failed"); }}}
+          <Button onClick={async () => { try { const params = buildExportParams(); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/bp-sale-register/export/excel?${params}`, `${product || 'byproduct'}_sales.xlsx`); toast.success("Excel exported!"); } catch(e) { toast.error("Export failed"); }}}
             variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700 h-7 text-[10px]" data-testid="bp-export-excel">
             <Download className="w-3 h-3 mr-1" /> Excel
           </Button>
-          <Button onClick={async () => { try { const params = new URLSearchParams(); if (product) params.append('product', product); if (filters.kms_year) params.append('kms_year', filters.kms_year); if (filters.season) params.append('season', filters.season); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/bp-sale-register/export/pdf?${params}`, `${product || 'byproduct'}_sales.pdf`); toast.success("PDF exported!"); } catch(e) { toast.error("Export failed"); }}}
+          <Button onClick={async () => { try { const params = buildExportParams(); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/bp-sale-register/export/pdf?${params}`, `${product || 'byproduct'}_sales.pdf`); toast.success("PDF exported!"); } catch(e) { toast.error("Export failed"); }}}
             variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700 h-7 text-[10px]" data-testid="bp-export-pdf">
             <Download className="w-3 h-3 mr-1" /> PDF
           </Button>
@@ -170,6 +208,67 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             <Plus className="w-4 h-4 mr-1" /> New Sale
           </Button>
         </div>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="space-y-2">
+        <Button onClick={() => setShowFilters(p => !p)} variant="ghost" size="sm"
+          className={`text-xs ${hasActiveFilters ? 'text-amber-400' : 'text-slate-400'} hover:bg-slate-700`} data-testid="bp-filter-toggle">
+          <Filter className="w-3 h-3 mr-1" /> Filters {hasActiveFilters && `(Active)`}
+          {hasActiveFilters && <button onClick={(e) => { e.stopPropagation(); clearFilters(); }} className="ml-2 text-red-400 hover:text-red-300 text-[10px]">Clear</button>}
+        </Button>
+        {showFilters && (
+          <div className="grid grid-cols-4 md:grid-cols-6 gap-2 p-2 bg-slate-800/80 rounded border border-slate-700">
+            <div>
+              <Label className="text-[9px] text-slate-500">Date From</Label>
+              <Input type="date" value={filterValues.date_from} onChange={e => setFilterValues(p => ({ ...p, date_from: e.target.value }))}
+                className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+            </div>
+            <div>
+              <Label className="text-[9px] text-slate-500">Date To</Label>
+              <Input type="date" value={filterValues.date_to} onChange={e => setFilterValues(p => ({ ...p, date_to: e.target.value }))}
+                className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+            </div>
+            <div>
+              <Label className="text-[9px] text-slate-500">Bill Date From</Label>
+              <Input type="date" value={filterValues.billing_date_from} onChange={e => setFilterValues(p => ({ ...p, billing_date_from: e.target.value }))}
+                className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+            </div>
+            <div>
+              <Label className="text-[9px] text-slate-500">Bill Date To</Label>
+              <Input type="date" value={filterValues.billing_date_to} onChange={e => setFilterValues(p => ({ ...p, billing_date_to: e.target.value }))}
+                className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+            </div>
+            <div>
+              <Label className="text-[9px] text-slate-500">RST No</Label>
+              <Input value={filterValues.rst_no} onChange={e => setFilterValues(p => ({ ...p, rst_no: e.target.value }))} placeholder="RST"
+                className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+            </div>
+            <div>
+              <Label className="text-[9px] text-slate-500">Vehicle</Label>
+              <Input value={filterValues.vehicle_no} onChange={e => setFilterValues(p => ({ ...p, vehicle_no: e.target.value }))} placeholder="Vehicle"
+                className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+            </div>
+            <div>
+              <Label className="text-[9px] text-slate-500">Bill From</Label>
+              <Input value={filterValues.bill_from} onChange={e => setFilterValues(p => ({ ...p, bill_from: e.target.value }))} placeholder="Bill From"
+                list="filter-bf" className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+              <datalist id="filter-bf">{billFromSugg.map(s => <option key={s} value={s} />)}</datalist>
+            </div>
+            <div>
+              <Label className="text-[9px] text-slate-500">Party</Label>
+              <Input value={filterValues.party_name} onChange={e => setFilterValues(p => ({ ...p, party_name: e.target.value }))} placeholder="Party"
+                list="filter-party" className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+              <datalist id="filter-party">{partySugg.map(s => <option key={s} value={s} />)}</datalist>
+            </div>
+            <div>
+              <Label className="text-[9px] text-slate-500">Destination</Label>
+              <Input value={filterValues.destination} onChange={e => setFilterValues(p => ({ ...p, destination: e.target.value }))} placeholder="Destination"
+                list="filter-dest" className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+              <datalist id="filter-dest">{destSugg.map(s => <option key={s} value={s} />)}</datalist>
+            </div>
+          </div>
+        )}
       </div>
 
       <Card className="bg-slate-800/50 border-slate-700">
