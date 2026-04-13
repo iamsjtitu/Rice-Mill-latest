@@ -656,4 +656,3 @@ function AutoVWMessagingCard() {
 }
 
 export default MessagingTab;
-ngTab;
