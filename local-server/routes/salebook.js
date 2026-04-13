@@ -496,11 +496,7 @@ module.exports = function(database) {
     const pvBought = {};
     purchaseVouchers.forEach(pv => (pv.items || []).forEach(i => { const n = i.item_name || ''; pvBought[n] = (pvBought[n] || 0) + (parseFloat(i.quantity) || 0); }));
 
-    // Dynamic by-product categories
-    const bpCatsMain = database.data.byproduct_categories && database.data.byproduct_categories.length > 0
-      ? [...database.data.byproduct_categories].sort((a,b) => (a.order||0)-(b.order||0))
-      : [{id:'bran',name:'Bran'},{id:'kunda',name:'Kunda'},{id:'broken',name:'Broken'},{id:'kanki',name:'Kanki'},{id:'husk',name:'Husk'}];
-    const products = bpCatsMain.map(c => c.id);
+    // By-product production and sales (reuse products from above)
     const bpProduced = {};
     products.forEach(p => { bpProduced[p] = round2(milling.reduce((s, e) => s + (e[`${p}_qntl`] || 0), 0)); });
     const bpSoldMap = {};
