@@ -40,10 +40,10 @@ function MessagingTab() {
   };
 
   const fetchTelegramConfig = async () => {
-    try { const res = await axios.get(`${API}/telegram/config`); setTelegramConfig(res.data); } catch {}
+    try { const res = await axios.get(`${API}/telegram/config`); setTelegramConfig(res.data); } catch (e) { console.error('Telegram config fetch error:', e); }
   };
   const fetchTelegramLogs = async () => {
-    try { const res = await axios.get(`${API}/telegram/logs`); setTelegramLogs(res.data); } catch {}
+    try { const res = await axios.get(`${API}/telegram/logs`); setTelegramLogs(res.data); } catch (e) { console.error('Telegram logs fetch error:', e); }
   };
 
   useEffect(() => {
@@ -58,7 +58,7 @@ function MessagingTab() {
     try {
       const res = await axios.get(`${API}/whatsapp/groups`);
       if (res.data.success) setWaGroups(res.data.groups || []);
-    } catch {}
+    } catch (e) { console.error('WhatsApp groups fetch error:', e); }
     setWaGroupsLoading(false);
   };
 
@@ -502,7 +502,7 @@ function AutoVWMessagingCard() {
     try {
       const res = await axios.get(`${API}/whatsapp/groups`);
       if (res.data.success) setWaGroups(res.data.groups || []);
-    } catch {}
+    } catch (e) { console.error('WhatsApp groups fetch error:', e); }
     setWaGroupsLoading(false);
   };
 

@@ -22,7 +22,7 @@ function WatermarkTab() {
     try {
       const { data } = await axios.get(`${API}/settings/watermark`);
       setSettings(data);
-    } catch { /* first time - use defaults */ }
+    } catch (e) { console.error('Watermark settings load error:', e); /* first time - use defaults */ }
     setLoading(false);
   };
 
@@ -44,7 +44,7 @@ function WatermarkTab() {
       const { data } = await axios.post(`${API}/settings/watermark/upload`, fd);
       setSettings(prev => ({ ...prev, type: 'image', image_path: data.image_path }));
       toast.success('Image upload ho gayi');
-    } catch { toast.error('Upload failed'); }
+    } catch (e) { console.error('Watermark upload error:', e); toast.error('Upload failed'); }
   };
 
   const opacityPercent = Math.round((settings.opacity || 0.06) * 100);

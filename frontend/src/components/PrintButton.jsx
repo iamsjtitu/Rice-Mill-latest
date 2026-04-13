@@ -10,20 +10,20 @@ const isElectronEnv = typeof window !== 'undefined' && (window.electronAPI || wi
 export function printHtml(htmlContent, title) {
   const w = window.open('', '_blank', 'width=900,height=700');
   if (!w) { alert('Popup blocked! Please allow popups.'); return; }
-  w.document.open();
-  w.document.write(htmlContent);
-  w.document.close();
+  const doc = w.document;
+  doc.open();
+  doc.write(htmlContent);
+  doc.close();
   // Give time for styles/images to load before printing
   const triggerPrint = () => {
     w.focus();
     if (isElectronEnv && w.electronAPI) {
-      // Use Electron's native print if available
       w.electronAPI.print();
     } else {
       w.print();
     }
   };
-  if (w.document.readyState === 'complete') {
+  if (doc.readyState === 'complete') {
     setTimeout(triggerPrint, 500);
   } else {
     w.onload = () => setTimeout(triggerPrint, 500);

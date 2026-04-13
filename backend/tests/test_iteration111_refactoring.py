@@ -10,9 +10,9 @@ from datetime import datetime
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 
-# Test credentials
-TEST_USERNAME = "admin"
-TEST_PASSWORD = "admin123"
+# Test credentials from environment
+TEST_USERNAME = os.environ.get('TEST_ADMIN_USERNAME', 'admin')
+TEST_PASSWORD = os.environ.get('TEST_ADMIN_PASSWORD', 'admin123')
 KMS_YEAR = "2025-2026"
 
 

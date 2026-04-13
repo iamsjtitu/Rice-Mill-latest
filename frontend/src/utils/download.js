@@ -79,7 +79,7 @@ function _saveBlobBrowser(blobData, contentType, filename) {
   document.body.appendChild(a);
   a.click();
   setTimeout(() => {
-    try { document.body.removeChild(a); } catch (e) {}
+    try { document.body.removeChild(a); } catch (e) { console.error('Cleanup error:', e); }
     window.URL.revokeObjectURL(blobUrl);
   }, 30000);
 }

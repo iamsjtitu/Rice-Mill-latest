@@ -149,8 +149,7 @@ const LocalPartyAccount = ({ filters, user }) => {
 
   const handlePrint = () => {
     if (!reportData) return;
-    const w = window.open('', '_blank', 'width=800,height=600');
-    w.document.write(`<html><head><title>${reportData.party_name} - Hisaab</title>
+    let html = `<html><head><title>${reportData.party_name} - Hisaab</title>
       <style>body{font-family:Arial,sans-serif;padding:20px;color:#000}
       h2{text-align:center;margin-bottom:5px}
       .meta{text-align:center;color:#555;font-size:13px;margin-bottom:15px}
@@ -163,19 +162,24 @@ const LocalPartyAccount = ({ filters, user }) => {
       @media print{body{margin:0;padding:10px}}</style></head><body>
       <h2>${reportData.party_name} - Hisaab / Ledger</h2>
       <p class="meta">${filters.kms_year ? 'FY: ' + filters.kms_year : ''} ${filters.season ? '| Season: ' + filters.season : ''} | Date: ${new Date().toLocaleDateString('en-IN')}</p>
-      <table><thead><tr><th>#</th><th>Date</th><th>Description</th><th>Source</th><th>Debit (Rs.)</th><th>Payment (Rs.)</th><th>Balance (Rs.)</th></tr></thead><tbody>`);
+      <table><thead><tr><th>#</th><th>Date</th><th>Description</th><th>Source</th><th>Debit (Rs.)</th><th>Payment (Rs.)</th><th>Balance (Rs.)</th></tr></thead><tbody>`;
     reportData.transactions.forEach((t, i) => {
-      w.document.write(`<tr><td>${i + 1}</td><td>${t.date}</td><td>${t.description || ''}</td>
+      html += `<tr><td>${i + 1}</td><td>${t.date}</td><td>${t.description || ''}</td>
         <td>${t.source_type === 'mill_part' ? 'Mill Part' : t.source_type === 'gunny_bag' ? 'Gunny Bag' : t.source_type === 'settlement' ? 'Settlement' : t.source_type === 'cashbook' ? 'CashBook' : 'Manual'}</td>
         <td class="debit">${t.txn_type === 'debit' ? t.amount : ''}</td>
         <td class="payment">${t.txn_type === 'payment' ? t.amount : ''}</td>
-        <td style="font-weight:bold">${t.running_balance}</td></tr>`);
+        <td style="font-weight:bold">${t.running_balance}</td></tr>`;
     });
-    w.document.write(`</tbody></table>
+    html += `</tbody></table>
       <div class="summary"><span><b>Total Debit:</b> Rs.${reportData.total_debit}</span>
       <span><b>Total Paid:</b> Rs.${reportData.total_paid}</span>
-      <span style="color:red"><b>Balance:</b> Rs.${reportData.balance}</span></div></body></html>`);
-    w.document.close(); w.focus();
+      <span style="color:red"><b>Balance:</b> Rs.${reportData.balance}</span></div></body></html>`;
+    const w = window.open('', '_blank', 'width=800,height=600');
+    const doc = w.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+    w.focus();
     setTimeout(() => w.print(), 300);
   };
 

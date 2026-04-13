@@ -11,9 +11,9 @@ import os
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 
-# Test credentials
-USERNAME = "admin"
-PASSWORD = "admin123"
+# Test credentials from environment
+USERNAME = os.environ.get('TEST_ADMIN_USERNAME', 'admin')
+PASSWORD = os.environ.get('TEST_ADMIN_PASSWORD', 'admin123')
 
 
 class TestBrandingAPI:

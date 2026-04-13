@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse, Response
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
-from models import *
+from models import ByProductSale, ByProductSaleCreate, FrkPurchase, FrkPurchaseCreate, round_amount
 from utils.date_format import fmt_date
 import uuid
 import io
@@ -151,7 +151,7 @@ async def create_milling_entry(data: dict, username: str = "", role: str = ""):
     cats = await get_byproduct_categories_list()
     data = calculate_milling_fields(data, cats)
     data['created_by'] = username
-    data['id'] = data.get('id') or str(__import__('uuid').uuid4())
+    data['id'] = data.get('id') or str(uuid.uuid4())
     data['created_at'] = data.get('created_at') or datetime.now(timezone.utc).isoformat()
     await db.milling_entries.insert_one(data)
     data.pop('_id', None)

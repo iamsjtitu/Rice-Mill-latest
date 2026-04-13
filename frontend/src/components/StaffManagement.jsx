@@ -463,8 +463,7 @@ const AdvanceSection = ({ staff, filters, fetchAdvances, advances, payments }) =
   const exportLedger = async (fmt) => {
     const staffName = filterStaff ? (staff.find(s => s.id === filterStaff)?.name || '') : 'All Staff';
     if (fmt === 'pdf') {
-      const w = window.open('', '_blank');
-      w.document.write(`<html><head><title>Advance Ledger</title><style>
+      let html = `<html><head><title>Advance Ledger</title><style>
         body{font-family:Arial;padding:20px;color:#000}h2{text-align:center;color:#1a365d}
         table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #999;padding:6px 8px;font-size:11px}
         th{background:#1a365d;color:white;text-align:center}.debit{color:#dc2626;text-align:right}.credit{color:#059669;text-align:right}
@@ -472,16 +471,21 @@ const AdvanceSection = ({ staff, filters, fetchAdvances, advances, payments }) =
       </style></head><body>
         <h2>Advance Ledger - ${staffName}</h2>
         <p style="text-align:center;font-size:11px">${filters.kms_year || ''} ${filters.season || ''}</p>
-        <table><thead><tr><th>#</th><th>Date</th><th>Staff</th><th>Description</th><th>Debit (Rs.)</th><th>Credit (Rs.)</th><th>Balance (Rs.)</th></tr></thead><tbody>`);
+        <table><thead><tr><th>#</th><th>Date</th><th>Staff</th><th>Description</th><th>Debit (Rs.)</th><th>Credit (Rs.)</th><th>Balance (Rs.)</th></tr></thead><tbody>`;
       ledger.forEach((l, i) => {
-        w.document.write(`<tr><td>${i+1}</td><td>${fmtD(l.date)}</td><td>${l.staff_name}</td><td>${l.description}</td>
+        html += `<tr><td>${i+1}</td><td>${fmtD(l.date)}</td><td>${l.staff_name}</td><td>${l.description}</td>
           <td class="debit">${l.type==='debit' ? l.amount.toLocaleString('en-IN') : ''}</td>
           <td class="credit">${l.type==='credit' ? l.amount.toLocaleString('en-IN') : ''}</td>
-          <td class="bal">${l.balance.toLocaleString('en-IN')}</td></tr>`);
+          <td class="bal">${l.balance.toLocaleString('en-IN')}</td></tr>`;
       });
-      w.document.write(`</tbody></table>
-        <div class="summary"><b>Total Advance:</b> Rs.${totalDebit.toLocaleString('en-IN')} | <b>Total Deducted:</b> Rs.${totalCredit.toLocaleString('en-IN')} | <b style="color:red">Balance:</b> Rs.${balance.toLocaleString('en-IN')}</div></body></html>`);
-      w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
+      html += `</tbody></table>
+        <div class="summary"><b>Total Advance:</b> Rs.${totalDebit.toLocaleString('en-IN')} | <b>Total Deducted:</b> Rs.${totalCredit.toLocaleString('en-IN')} | <b style="color:red">Balance:</b> Rs.${balance.toLocaleString('en-IN')}</div></body></html>`;
+      const w = window.open('', '_blank');
+      const doc = w.document;
+      doc.open();
+      doc.write(html);
+      doc.close();
+      w.focus(); setTimeout(() => w.print(), 300);
     } else {
       // Download as Excel from backend or generate client-side
       try {

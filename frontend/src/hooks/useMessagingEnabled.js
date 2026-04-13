@@ -18,7 +18,7 @@ export function useMessagingEnabled() {
         wa: !!(waRes.data?.enabled && waRes.data?.api_key),
         tg: !!(tgRes.data?.enabled && tgRes.data?.bot_token)
       });
-    } catch {}
+    } catch (e) { console.error('Messaging flags fetch error:', e); }
   }, []);
 
   useEffect(() => {

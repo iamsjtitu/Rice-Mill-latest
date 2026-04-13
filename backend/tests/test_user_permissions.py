@@ -20,9 +20,9 @@ class TestUserPermissionsAPI:
         """Setup test session"""
         self.session = requests.Session()
         self.session.headers.update({"Content-Type": "application/json"})
-        # Admin credentials
-        self.admin_username = "admin"
-        self.admin_password = "admin123"
+        # Credentials from environment
+        self.admin_username = os.environ.get('TEST_ADMIN_USERNAME', 'admin')
+        self.admin_password = os.environ.get('TEST_ADMIN_PASSWORD', 'admin123')
         
     def test_login_returns_can_edit_rst_permission(self):
         """Test that login response includes can_edit_rst in permissions"""

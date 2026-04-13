@@ -37,7 +37,7 @@ function WeighbridgeConfigCard() {
     try {
       await window.electronAPI.serialSaveConfig(config);
       toast.success("Weighbridge config saved!");
-    } catch { toast.error("Save error"); }
+    } catch (e) { console.error('Weighbridge save error:', e); toast.error("Save error"); }
   };
 
   const handleConnect = () => {

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from typing import Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from database import db
 from utils.date_format import fmt_date
 import uuid, io
@@ -168,14 +168,14 @@ async def get_form_a(kms_year: Optional[str] = None, season: Optional[str] = Non
             try:
                 dt = _dt.strptime(r["date"], "%Y-%m-%d")
                 # Monday-based week
-                week_start = dt - __import__('datetime').timedelta(days=dt.weekday())
+                week_start = dt - timedelta(days=dt.weekday())
                 week_key = week_start.strftime("%Y-%m-%d")
             except:
                 week_key = r["date"]
             if week_data is None or week_data["_week_key"] != week_key:
                 if week_data:
                     weekly_rows.append(week_data)
-                week_end = (week_start + __import__('datetime').timedelta(days=6)).strftime("%Y-%m-%d")
+                week_end = (week_start + timedelta(days=6)).strftime("%Y-%m-%d")
                 week_data = {
                     "_week_key": week_key,
                     "date": f"{fmt_date(week_key)} to {fmt_date(week_end)}",

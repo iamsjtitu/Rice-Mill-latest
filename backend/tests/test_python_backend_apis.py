@@ -9,11 +9,11 @@ import os
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 
-# Test credentials
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "admin123"
-STAFF_USERNAME = "staff"
-STAFF_PASSWORD = "staff123"
+# Test credentials from environment
+ADMIN_USERNAME = os.environ.get('TEST_ADMIN_USERNAME', 'admin')
+ADMIN_PASSWORD = os.environ.get('TEST_ADMIN_PASSWORD', 'admin123')
+STAFF_USERNAME = os.environ.get('TEST_STAFF_USERNAME', 'staff')
+STAFF_PASSWORD = os.environ.get('TEST_STAFF_PASSWORD', 'staff123')
 
 
 class TestHealthAndBasics:

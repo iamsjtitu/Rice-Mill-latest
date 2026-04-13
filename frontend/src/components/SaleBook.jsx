@@ -551,7 +551,7 @@ export default function SaleBook({ filters, user }) {
                     const amt = (parseFloat(item.quantity) || 0) * (parseFloat(item.rate) || 0);
                     const itemGst = isGst ? amt * (item.gst_percent || 0) / 100 : 0;
                     return (
-                      <TableRow key={idx} className="border-slate-600">
+                      <TableRow key={`item-${idx}-${item.item_name || 'empty'}`} className="border-slate-600">
                         <TableCell className="p-1">
                           <Select value={item.item_name || "_none"} onValueChange={v => updateItem(idx, 'item_name', v === "_none" ? "" : v)}>
                             <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid={`sv-item-name-${idx}`}><SelectValue placeholder="Select" /></SelectTrigger>
@@ -789,7 +789,7 @@ export default function SaleBook({ filters, user }) {
             ) : historyData.length > 0 ? (
               <div className="max-h-[300px] overflow-y-auto space-y-2">
                 {historyData.map((record, idx) => (
-                  <div key={idx} className="p-3 rounded-lg border bg-slate-700/50 border-slate-600">
+                  <div key={record.id || `history-${idx}`} className="p-3 rounded-lg border bg-slate-700/50 border-slate-600">
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="text-emerald-400 font-bold">+Rs.{Math.abs(record.amount).toLocaleString('en-IN')}</p>
@@ -850,7 +850,7 @@ export default function SaleBook({ filters, user }) {
                 </TableHeader>
                 <TableBody>
                   {buildGstSummary(gstSummaryVoucher).map((row, idx) => (
-                    <TableRow key={idx} className="border-slate-600">
+                    <TableRow key={`gst-${row.hsn}-${row.gst_percent}`} className="border-slate-600">
                       <TableCell className="text-white text-xs font-mono">{row.hsn}</TableCell>
                       <TableCell className="text-slate-300 text-xs">{row.gst_percent}%</TableCell>
                       <TableCell className="text-white text-xs text-right">Rs.{row.taxable.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</TableCell>

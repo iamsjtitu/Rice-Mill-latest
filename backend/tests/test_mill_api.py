@@ -6,7 +6,12 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://paddy-ledger-1.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
+
+ADMIN_USERNAME = os.environ.get('TEST_ADMIN_USERNAME', 'admin')
+ADMIN_PASSWORD = os.environ.get('TEST_ADMIN_PASSWORD', 'admin123')
+STAFF_USERNAME = os.environ.get('TEST_STAFF_USERNAME', 'staff')
+STAFF_PASSWORD = os.environ.get('TEST_STAFF_PASSWORD', 'staff123')
 
 class TestPrintEndpoint:
     """CRITICAL: Test server-side print functionality for Electron compatibility"""
@@ -106,22 +111,22 @@ class TestAuthEndpoints:
     def test_admin_login(self):
         """POST /api/auth/login with admin credentials"""
         response = requests.post(f"{BASE_URL}/api/auth/login", json={
-            "username": "admin",
-            "password": "admin123"
+            "username": ADMIN_USERNAME,
+            "password": ADMIN_PASSWORD
         })
         
         assert response.status_code == 200, f"Expected 200, got {response.status_code}"
         data = response.json()
         assert data["success"] == True
-        assert data["username"] == "admin"
+        assert data["username"] == ADMIN_USERNAME
         assert data["role"] == "admin"
         print(f"✓ Admin login successful")
     
     def test_staff_login(self):
         """POST /api/auth/login with staff credentials"""
         response = requests.post(f"{BASE_URL}/api/auth/login", json={
-            "username": "staff",
-            "password": "staff123"
+            "username": STAFF_USERNAME,
+            "password": STAFF_PASSWORD
         })
         
         assert response.status_code == 200

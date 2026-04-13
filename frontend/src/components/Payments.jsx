@@ -659,7 +659,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   };
 
   // Calculate Truck-wise consolidated payments (group by truck_no)
-  const truckWiseConsolidated = filteredTruckPayments.reduce((acc, payment) => {
+  const truckWiseConsolidated = useMemo(() => filteredTruckPayments.reduce((acc, payment) => {
     const truckNo = payment.truck_no;
     if (!acc[truckNo]) {
       acc[truckNo] = {
@@ -690,9 +690,9 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
     else if (tb < 0.10) acc[truckNo].status = "paid";
     else acc[truckNo].status = "partial";
     return acc;
-  }, {});
+  }, {}), [filteredTruckPayments]);
 
-  const consolidatedTruckList = Object.values(truckWiseConsolidated);
+  const consolidatedTruckList = useMemo(() => Object.values(truckWiseConsolidated), [truckWiseConsolidated]);
 
   // Print Consolidated Truck Invoice
   const handlePrintConsolidatedInvoice = (truckData) => {

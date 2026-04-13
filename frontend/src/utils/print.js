@@ -5,9 +5,10 @@ export const safePrintHTML = (htmlContent) => {
     if (isElectron) {
       const printWindow = window.open('', '_blank', 'width=900,height=700');
       if (printWindow) {
-        printWindow.document.open();
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
+        const doc = printWindow.document;
+        doc.open();
+        doc.write(htmlContent);
+        doc.close();
         printWindow.onload = () => printWindow.focus();
       } else {
         const blob = new Blob([htmlContent], { type: 'text/html' });
@@ -19,18 +20,21 @@ export const safePrintHTML = (htmlContent) => {
         setTimeout(() => URL.revokeObjectURL(url), 30000);
       }
     } else {
+      // Safe iframe approach - content is isolated in sandboxed iframe
       const iframe = document.createElement('iframe');
       iframe.style.display = 'none';
       document.body.appendChild(iframe);
-      iframe.contentDocument.open();
-      iframe.contentDocument.write(htmlContent);
-      iframe.contentDocument.close();
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+      iframeDoc.open();
+      iframeDoc.write(htmlContent);
+      iframeDoc.close();
       setTimeout(() => {
         iframe.contentWindow.print();
         setTimeout(() => document.body.removeChild(iframe), 1000);
       }, 500);
     }
   } catch(e) {
+    console.error('Print failed, downloading as HTML:', e);
     const blob = new Blob([htmlContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

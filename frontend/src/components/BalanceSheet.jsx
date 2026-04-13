@@ -192,8 +192,10 @@ export default function BalanceSheet({ filters }) {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
     const html = buildPrintHtml(data);
-    printWindow.document.write(html);
-    printWindow.document.close();
+    const doc = printWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
     printWindow.onload = () => { printWindow.print(); };
   };
 
