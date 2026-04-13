@@ -4,7 +4,6 @@ import axios from "axios";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { useArrowSubTabNav } from "./utils/useArrowSubTabNav";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -125,12 +124,6 @@ function MainApp({ user, setUser, onLogout }) {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("entries");
   const [entriesSubTab, setEntriesSubTab] = useState("mill-entries");
-  const ENTRIES_SUB_TABS = ["mill-entries", "vehicle-weight", "auto-weight-entries", "paddy-register"];
-  useArrowSubTabNav(
-    activeTab === "entries" ? ENTRIES_SUB_TABS : [],
-    entriesSubTab,
-    setEntriesSubTab
-  );
 
   // Use extracted filter hook
   const {
@@ -141,43 +134,15 @@ function MainApp({ user, setUser, onLogout }) {
   } = useFilters();
 
   // Global ESC key handler - dispatch custom event to close filters everywhere
-  // Global Arrow key handler - navigate between tabs
   useEffect(() => {
-    const MAIN_TABS = ["entries", "dashboard", "milling", "dctracker", "vouchers", "cashbook", "payments", "reports", "mill-parts", "staff", "hemali", "govt-registers", "fy-summary", "settings"];
-
-    const handleKeyDown = (e) => {
-      // Skip if user is typing in input/textarea/select
-      const tag = (e.target.tagName || '').toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
-      // Skip if a dialog/modal is open
-      if (document.querySelector('[role="dialog"]')) return;
-
+    const handleEsc = (e) => {
       if (e.key === 'Escape') {
         window.dispatchEvent(new CustomEvent('close-filters'));
-        return;
-      }
-
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        e.preventDefault();
-        const currentIdx = MAIN_TABS.indexOf(activeTab);
-        if (currentIdx < 0) return;
-        let newIdx;
-        if (e.key === 'ArrowRight') {
-          newIdx = currentIdx + 1 >= MAIN_TABS.length ? 0 : currentIdx + 1;
-        } else {
-          newIdx = currentIdx - 1 < 0 ? MAIN_TABS.length - 1 : currentIdx - 1;
-        }
-        setActiveTabSafe(MAIN_TABS[newIdx]);
-      }
-
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        window.dispatchEvent(new CustomEvent('arrow-nav-subtab', { detail: { direction: e.key === 'ArrowDown' ? 'next' : 'prev' } }));
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTab, setActiveTabSafe]);
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
 
   // Kill camera streams when switching away from vehicle-weight
   const setActiveTabSafe = useCallback((tab) => {
