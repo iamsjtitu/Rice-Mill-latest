@@ -1,8 +1,5 @@
 # Rice Mill Management System - PRD
 
-## Original Problem Statement
-A comprehensive full-stack rice mill management system with React frontend, Python FastAPI web backend, and Electron/Express desktop app. Triple backend architecture with MongoDB (web) and SQLite/JSON (desktop/local). Requires double-entry accounting, advanced reporting, offline-first desktop, and cross-device sync.
-
 ## Current Version: v90.3.0
 
 ## Architecture
@@ -12,54 +9,31 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - **Backend (Local)**: Express + SQLite/JSON
 
 ## What's Been Implemented
+- Mill Entry CRUD, Cash Book, Private Paddy Purchase, Sale/Purchase Vouchers
+- DC Tracker, Milling Tracker (CMR), Staff Management, Hemali, Rice Sales, Truck Lease, Diesel, Mill Parts
+- Government Registers (Form A-F, Transit Pass, CMR Delivery, FRK Blending, Gunny Bag, Security Deposit)
+- Dynamic By-Product Categories (Settings → auto-populate everywhere)
+- Reports (CMR vs DC, Season P&L, Daily, Agent/Mandi, Weight Discrepancy)
+- FY Summary Dashboard, Balance Sheet, Quick Search, PDF/Excel export with watermark
+- Multi-user with role-based access, WhatsApp/Telegram messaging, Camera, GST Ledger/Audit Log
 
-### Core Features
-- Mill Entry CRUD with full weight/cut/payment tracking
-- Cash Book (Jama/Nikasi) with double-entry accounting
-- Private Paddy Purchase with party ledgers
-- Sale & Purchase Vouchers (with Bill No, Destination, Bill Book, Oil %)
-- DC Tracker (Delivery Challans)
-- Milling Tracker (CMR)
-- Staff Management with salary/advance
-- Hemali Payment system
-- Rice Sales tracking
-- Truck Lease management
-- Diesel Accounts
-- Mill Parts Stock
+## Code Quality & Refactoring (v90.3.0)
 
-### Reports
-- CMR vs DC comparison
-- Season P&L
-- Daily Report
-- Agent & Mandi reports
-- Weight Discrepancy report
-- Mandi Wise Custody Register (QNTL, professional Excel)
-- Paddy Custody Register (Final W)
+### Security Fixes
+- Wildcard imports → explicit imports (auth.py, cashbook.py, dc_payments.py, milling.py)
+- Dynamic __import__ → static imports (milling.py, govt_registers.py)
+- document.write XSS → safe doc reference patterns (6 files)
+- Empty catch blocks → console.error logging (5 files)
+- Test credentials → environment variables (5 test files)
 
-### Government Registers (v89.1.0 - v89.3.0)
-- Paddy Custody Register, Transit Pass Register, CMR Delivery Tracker
-- Form A/B/E/F, FRK Blending Register, Gunny Bag Stock Register
-- Security Deposit Management
-- All registers with government-format Excel export
+### Component Splitting
+- **App.js** (1709→1394 lines): Extracted `useFilters` hook (137 lines), `useKeyboardShortcuts` hook (130 lines)
+- **Reports.jsx** (1391→1236 lines): Extracted `reports/CMRvsDC.jsx` (84 lines), `reports/SeasonPnL.jsx` (83 lines)
+- **cashbook.py** (1754→1618 lines): Extracted `services/cashbook_service.py` (164 lines) with detect_party_type, create_auto_ledger_entry, process_diesel_auto_entry, process_pvt_paddy_auto_payment
 
-### Dynamic By-Product Categories (v90.0.0 - v90.3.0)
-- Settings mein 'By-Products' tab - custom categories
-- Categories auto-populate in Milling Form, Stock Summary, Sale Voucher, FY Summary
-- Opening Stock from Settings reflects in FY Summary/Balance Sheet
-
-### Code Quality Fixes (v90.3.0)
-- Replaced wildcard imports with explicit imports (auth.py, cashbook.py, dc_payments.py, milling.py)
-- Fixed dynamic __import__ calls → static imports (milling.py uuid, govt_registers.py timedelta)
-- Fixed document.write XSS → safe doc reference patterns (print.js, PrintButton, LocalPartyAccount, StaffManagement, BalanceSheet)
-- Added console.error logging to all empty catch blocks (MessagingTab, WatermarkTab, WeighbridgeTab, download.js, useMessagingEnabled)
-- Added useMemo for expensive computations (Payments.jsx truckWiseConsolidated)
-- Replaced array index keys with stable unique keys (SaleBook.jsx)
-- Moved test credentials to environment variables
-
-### Features
-- Quick Search, PDF/Excel export with watermark, FY Summary Dashboard, Balance Sheet
-- Branding/Settings, Auto-update, WhatsApp/Telegram, Camera, GST Ledger/Audit Log
-- Multi-user with role-based access, Bags validation
+### Performance
+- useMemo for expensive reduce() in Payments.jsx (truckWiseConsolidated)
+- Stable unique keys replacing array index keys in SaleBook.jsx
 
 ## Prioritized Backlog
 
@@ -67,25 +41,19 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Quality Test Report Register
 - Monthly Return Auto-generation
 
-### P2 (Medium)
-- Large component splitting (App.js, Payments.jsx, CashBook.jsx, Reports.jsx)
-- Cashbook routes complexity refactoring (add_cash_transaction → smaller functions)
-- Python backend service layer refactoring
-- Triple backend code deduplication
+### P2 (Medium)  
+- Further Payments.jsx splitting (2035 lines → TruckPayments, AgentPayments sub-components)
+- Further App.js splitting (1394 lines → EntriesActionBar, AppHeader components)
+- DailyReport + AgentMandiReport extraction from Reports.jsx
 
 ### P3 (Low)
-- Payment logic centralized service layer
-- Remaining array-index-as-key fixes (55 instances, ~40 remaining)
-
-## Key Technical Notes
-- Triple Backend: Python changes must be replicated in desktop-app and local-server JS routes
-- Auth: Session-cookie based, no JWT
-- Collection mapping: MongoDB `mill_entries` = JS `entries`
-- Dynamic By-Products: Models accept raw dict for Milling Entries
-- Opening Stock: `opening_stock` collection (Settings) falls back to `opening_balances` (FY Summary)
+- Triple backend code deduplication
+- Remaining array-index-as-key fixes (~40 instances)
 
 ## Permanent Rules
 1. Version Bump + WhatsNew: Every fix/feature
 2. Parity Check: `python3 /app/scripts/check-parity.py`
 3. Route Sync: `bash /app/scripts/sync-js-routes.sh`
 4. Hindi/Hinglish communication only
+5. Dynamic By-Products: Models accept raw dict for Milling Entries
+6. Opening Stock: `opening_stock` collection (Settings) falls back to `opening_balances` (FY Summary)
