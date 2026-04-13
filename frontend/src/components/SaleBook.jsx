@@ -20,14 +20,17 @@ import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 import logger from "../utils/logger";
 const HSN_MAP = {
   "Rice (Usna)": "1006 30 20", "Rice (Raw)": "1006 30 10",
-  "Broken": "1006 40 00", "Kanki": "1006 40 00",
-  "Bran": "2302 40 00", "Kunda": "2302 40 00", "Husk": "2302 40 00",
+  "Broken Rice": "1006 40 00", "Rejection Rice": "1006 40 00", "Pin Broken Rice": "1006 40 00",
+  "Rice Bran": "2302 40 00", "Mota Kunda": "2302 40 00", "Bhusa": "2302 40 00", "Poll": "2302 40 00",
   "FRK": "1006 30 20", "Paddy": "1006 10 90",
+  "Broken": "1006 40 00", "Kanki": "1006 40 00", "Bran": "2302 40 00", "Kunda": "2302 40 00", "Husk": "2302 40 00",
 };
-const DEFAULT_GST = { "Rice (Usna)": 5, "Rice (Raw)": 5, "Broken": 5, "Kanki": 5, "Bran": 5, "Kunda": 5, "Husk": 5, "FRK": 5, "Paddy": 5 };
+const DEFAULT_GST = { "Rice (Usna)": 5, "Rice (Raw)": 5, "Broken Rice": 5, "Rejection Rice": 5, "Pin Broken Rice": 5,
+  "Rice Bran": 5, "Mota Kunda": 5, "Bhusa": 5, "Poll": 5, "FRK": 5, "Paddy": 5,
+  "Broken": 5, "Kanki": 5, "Bran": 5, "Kunda": 5, "Husk": 5 };
 const GST_RATES = [0, 5, 12, 18, 28];
 
-export default function SaleBook({ filters, user }) {
+export default function SaleBook({ filters, user, category }) {
   const showConfirm = useConfirm();
   const { wa } = useMessagingEnabled();
   const [vouchers, setVouchers] = useState([]);
@@ -81,8 +84,9 @@ export default function SaleBook({ filters, user }) {
   const fetchData = useCallback(async () => {
     try {
       const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
+      const catParam = category ? `&item_category=${encodeURIComponent(category)}` : '';
       const [vRes, sRes, obRes, bRes] = await Promise.all([
-        axios.get(`${API}/sale-book?${p}${searchParam}`),
+        axios.get(`${API}/sale-book?${p}${searchParam}${catParam}`),
         axios.get(`${API}/sale-book/stock-items?${p}`),
         axios.get(`${API}/opening-balances?kms_year=${filters.kms_year || ''}`),
         axios.get(`${API}/bank-accounts`),
@@ -92,16 +96,19 @@ export default function SaleBook({ filters, user }) {
       setObList(obRes.data);
       setBankAccounts(bRes.data || []);
     } catch (e) { logger.error(e); }
-  }, [p, filters.kms_year, searchQuery]);
+  }, [p, filters.kms_year, searchQuery, category]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const openNewForm = () => {
     setEditingId(null);
+    const defaultItem = category
+      ? { ...emptyItem, item_name: category }
+      : { ...emptyItem };
     setForm({
       date: new Date().toISOString().split('T')[0], party_name: "", invoice_no: "", bill_book: "", destination: "",
       buyer_gstin: "", buyer_address: "",
-      items: [{ ...emptyItem }], gst_type: "none",
+      items: [defaultItem], gst_type: "none",
       truck_no: "", rst_no: "", remark: "", cash_paid: "", diesel_paid: "", advance: "", eway_bill_no: "",
       kms_year: filters.kms_year || "", season: filters.season || "",
     });

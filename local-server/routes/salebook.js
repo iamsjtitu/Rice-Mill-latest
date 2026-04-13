@@ -11,9 +11,10 @@ module.exports = function(database) {
   router.get('/api/sale-book', safeHandler(async (req, res) => {
     ensure();
     let vouchers = [...database.data.sale_vouchers];
-    const { kms_year, season, search } = req.query;
+    const { kms_year, season, search, item_category } = req.query;
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
     if (season) vouchers = vouchers.filter(v => v.season === season);
+    if (item_category) { const cat = item_category.toLowerCase(); vouchers = vouchers.filter(v => (v.items || []).some(i => (i.item_name || '').toLowerCase() === cat)); }
     if (search) { const s = search.toLowerCase(); vouchers = vouchers.filter(v => (v.party_name || '').toLowerCase().includes(s) || (v.voucher_no || '').toLowerCase().includes(s) || (v.invoice_no || '').toLowerCase().includes(s) || (v.destination || '').toLowerCase().includes(s) || (v.bill_book || '').toLowerCase().includes(s)); }
     vouchers.sort((a, b) => (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10)));
     res.json(vouchers);

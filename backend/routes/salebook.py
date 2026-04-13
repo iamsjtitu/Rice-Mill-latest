@@ -184,13 +184,16 @@ async def get_stock_items(kms_year: Optional[str] = None, season: Optional[str] 
 @router.get("/sale-book")
 async def get_sale_vouchers(kms_year: Optional[str] = None, season: Optional[str] = None,
                             party_name: Optional[str] = None, invoice_no: Optional[str] = None,
-                            rst_no: Optional[str] = None, search: Optional[str] = None):
+                            rst_no: Optional[str] = None, search: Optional[str] = None,
+                            item_category: Optional[str] = None):
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     if party_name: query["party_name"] = {"$regex": party_name, "$options": "i"}
     if invoice_no: query["invoice_no"] = {"$regex": invoice_no, "$options": "i"}
     if rst_no: query["rst_no"] = {"$regex": rst_no, "$options": "i"}
+    if item_category:
+        query["items.item_name"] = {"$regex": f"^{item_category}$", "$options": "i"}
     if search:
         query["$or"] = [
             {"party_name": {"$regex": search, "$options": "i"}},

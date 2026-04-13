@@ -14,8 +14,22 @@ const tabs = [
   { id: "summary", label: "Party Summary", icon: Users, activeClass: "bg-purple-500 hover:bg-purple-600 text-white" },
 ];
 
+const SALE_CATEGORIES = [
+  { id: "all", label: "All", itemName: null },
+  { id: "govt_rice", label: "Govt Rice", itemName: "Rice (Usna)" },
+  { id: "private_rice", label: "Private Rice", itemName: "Rice (Raw)" },
+  { id: "bhusa", label: "Bhusa", itemName: "Bhusa" },
+  { id: "rice_bran", label: "Rice Bran", itemName: "Rice Bran" },
+  { id: "mota_kunda", label: "Mota Kunda", itemName: "Mota Kunda" },
+  { id: "broken_rice", label: "Broken Rice", itemName: "Broken Rice" },
+  { id: "rejection_rice", label: "Rejection Rice", itemName: "Rejection Rice" },
+  { id: "pin_broken_rice", label: "Pin Broken Rice", itemName: "Pin Broken Rice" },
+  { id: "poll", label: "Poll", itemName: "Poll" },
+];
+
 export default function Vouchers({ filters, user, onNavigate }) {
   const [activeTab, setActiveTab] = useState("sale");
+  const [saleCat, setSaleCat] = useState("all");
 
   return (
     <div className="space-y-4" data-testid="vouchers-page">
@@ -34,7 +48,27 @@ export default function Vouchers({ filters, user, onNavigate }) {
       </div>
 
       {activeTab === "sale" ? (
-        <SaleBook filters={filters} user={user} />
+        <div className="space-y-3">
+          <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+            {SALE_CATEGORIES.map(cat => (
+              <button key={cat.id} onClick={() => setSaleCat(cat.id)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                  saleCat === cat.id
+                    ? "bg-amber-500 text-slate-900"
+                    : "bg-slate-700/60 text-slate-300 hover:bg-slate-600"
+                }`}
+                data-testid={`sale-cat-${cat.id}`}>
+                {cat.label}
+              </button>
+            ))}
+          </div>
+          <SaleBook
+            key={saleCat}
+            filters={filters}
+            user={user}
+            category={SALE_CATEGORIES.find(c => c.id === saleCat)?.itemName || null}
+          />
+        </div>
       ) : activeTab === "purchase" ? (
         <PurchaseVouchers filters={filters} user={user} />
       ) : activeTab === "paddy" ? (
