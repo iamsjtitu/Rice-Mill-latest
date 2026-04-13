@@ -104,6 +104,11 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
     } catch (error) { toast.error("Error: " + (error.response?.data?.detail || error.message)); }
   };
 
+  // When editing, add back the original entry's paddy to available stock
+  const editingEntry = editingId ? entries.find(e => e.id === editingId) : null;
+  const editingPaddy = editingEntry ? parseFloat(editingEntry.paddy_input_qntl) || 0 : 0;
+  const effectiveAvailPaddy = paddyStock ? paddyStock.available_paddy_qntl + editingPaddy : 0;
+
   const handleEdit = (entry) => {
     const fd = { date: entry.date, rice_type: entry.rice_type, paddy_input_qntl: entry.paddy_input_qntl.toString(),
       rice_percent: entry.rice_percent.toString(), frk_used_qntl: (entry.frk_used_qntl || 0).toString(),
@@ -278,10 +283,10 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
                   <SelectContent><SelectItem value="parboiled">Parboiled (उसना)</SelectItem><SelectItem value="raw">Raw (अरवा)</SelectItem></SelectContent>
                 </Select></div>
             </div>
-            <div><Label className="text-xs text-slate-400">Paddy Input (QNTL) {paddyStock && <span className={`font-bold ${(paddyStock.available_paddy_qntl - (parseFloat(formData.paddy_input_qntl) || 0)) > 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((paddyStock.available_paddy_qntl - (parseFloat(formData.paddy_input_qntl) || 0)) * 100) / 100} Q)</span>}</Label>
+            <div><Label className="text-xs text-slate-400">Paddy Input (QNTL) {paddyStock && <span className={`font-bold ${(effectiveAvailPaddy - (parseFloat(formData.paddy_input_qntl) || 0)) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((effectiveAvailPaddy - (parseFloat(formData.paddy_input_qntl) || 0)) * 100) / 100} Q)</span>}</Label>
               <Input type="number" step="0.01" value={formData.paddy_input_qntl} onChange={(e) => setFormData(p => ({ ...p, paddy_input_qntl: e.target.value }))}
-                placeholder={paddyStock ? `Max ${paddyStock.available_paddy_qntl}` : ""} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="milling-form-paddy" />
-              {paddyStock && paddy > paddyStock.available_paddy_qntl && <p className="text-red-400 text-xs mt-1">Stock se zyada!</p>}
+                placeholder={paddyStock ? `Max ${effectiveAvailPaddy}` : ""} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="milling-form-paddy" />
+              {paddyStock && paddy > effectiveAvailPaddy && <p className="text-red-400 text-xs mt-1">Stock se zyada!</p>}
             </div>
             <div className="border border-slate-600 rounded p-3 space-y-2">
               <p className="text-xs text-amber-400 font-medium">Paddy Output % / धान से निकला</p>
