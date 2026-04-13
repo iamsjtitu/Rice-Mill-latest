@@ -1028,7 +1028,10 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                     }}>
                       <SelectTrigger className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-product"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {["GOVT PADDY","PADDY","RICE","BHUSI","KANDA","OTHER"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                        {(form.trans_type === "Dispatch(Sale)"
+                          ? ["RICE","RICE BRAN","MOTA KUNDA","BROKEN RICE","REJECTION RICE","PIN BROKEN RICE","POLL","BHUSA","FRK","OTHER"]
+                          : ["GOVT PADDY","PADDY","FRK","OTHER"]
+                        ).map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                       </SelectContent>
                     </Select>
                     )}
@@ -1038,7 +1041,11 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                     {secondWtMode ? (
                       <Input value={form.trans_type} disabled className="bg-slate-700 border-slate-500 text-slate-200 h-8 text-xs opacity-70 cursor-not-allowed" />
                     ) : (
-                    <Select value={form.trans_type} onValueChange={v => setForm(p => ({ ...p, trans_type: v }))}>
+                    <Select value={form.trans_type} onValueChange={v => setForm(p => ({
+                      ...p,
+                      trans_type: v,
+                      product: v === "Dispatch(Sale)" ? "RICE" : "GOVT PADDY"
+                    }))}>
                       <SelectTrigger className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-trans"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Receive(Purchase)">Receive(Purchase)</SelectItem>
@@ -1418,7 +1425,10 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                 <Select value={editForm.product || ""} onValueChange={v => setEditForm(p => ({ ...p, product: v }))}>
                   <SelectTrigger className="h-9 text-sm border-slate-600" data-testid="edit-product"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {["GOVT PADDY","PADDY","RICE","BHUSI","KANDA","OTHER"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                    {(editForm.trans_type === "Dispatch(Sale)"
+                      ? ["RICE","RICE BRAN","MOTA KUNDA","BROKEN RICE","REJECTION RICE","PIN BROKEN RICE","POLL","BHUSA","FRK","OTHER"]
+                      : ["GOVT PADDY","PADDY","FRK","OTHER"]
+                    ).map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
