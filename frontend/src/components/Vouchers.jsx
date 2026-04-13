@@ -7,8 +7,8 @@ import StockSummary from "./StockSummary";
 import { PaddyPurchase, PartySummary } from "./PaddyPurchase";
 
 const tabs = [
-  { id: "sale", label: "Sale Vouchers", icon: FileText, activeClass: "bg-amber-500 hover:bg-amber-600 text-slate-900" },
-  { id: "purchase", label: "Purchase Vouchers", icon: ShoppingBag, activeClass: "bg-emerald-500 hover:bg-emerald-600 text-white" },
+  { id: "sale", label: "Sales Register", icon: FileText, activeClass: "bg-amber-500 hover:bg-amber-600 text-slate-900" },
+  { id: "purchase", label: "Purchase Register", icon: ShoppingBag, activeClass: "bg-emerald-500 hover:bg-emerald-600 text-white" },
   { id: "paddy", label: "Paddy Purchase", icon: Wheat, activeClass: "bg-orange-500 hover:bg-orange-600 text-white" },
   { id: "stock", label: "Stock Summary", icon: Package, activeClass: "bg-sky-500 hover:bg-sky-600 text-white" },
   { id: "summary", label: "Party Summary", icon: Users, activeClass: "bg-purple-500 hover:bg-purple-600 text-white" },
