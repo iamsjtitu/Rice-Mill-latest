@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "90.7.1",
+    date: "Apr 2026",
+    title: "v90.7.1 - Opening Stock Data Loss Fix",
+    items: [
+      { type: "fix", text: "Custom by-product (jaise Rejection Rice) ka opening stock save karne pe delete nahi hoga ab - pehle hardcoded list se strip ho jata tha" },
+      { type: "fix", text: "Stock Summary crash fix (salebook.js duplicate variable error)" },
+      { type: "fix", text: "Carry Forward ab dynamic categories ka closing stock bhi include karta hai" },
+    ]
+  },
+  {
     version: "90.7.0",
     date: "Apr 2026",
     title: "v90.7.0 - Dynamic By-Product Categories Everywhere",
