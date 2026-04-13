@@ -416,6 +416,18 @@ async def get_byproduct_stock(kms_year: Optional[str] = None, season: Optional[s
         for item in pv.get('items', []):
             name = item.get('item_name', '').lower()
             pv_bought[name] = pv_bought.get(name, 0) + (item.get('quantity', 0) or 0)
+    # Also count sales from bp_sale_register (new dedicated registers)
+    bp_reg_sales = await db.bp_sale_register.find(query, {"_id": 0}).to_list(10000)
+    bp_reg_sold = {}
+    bp_reg_revenue = {}
+    # Map product display names to internal IDs
+    name_to_id = {"Rice Bran": "bran", "Mota Kunda": "kunda", "Broken Rice": "broken",
+        "Rejection Rice": "rejection_rice", "Pin Broken Rice": "pin_broken_rice", "Poll": "poll", "Bhusa": "husk"}
+    for s in bp_reg_sales:
+        p = name_to_id.get(s.get('product', ''), (s.get('product', '') or '').lower().replace(' ', '_'))
+        qty_qtl = s.get('net_weight_qtl', 0) or 0
+        bp_reg_sold[p] = bp_reg_sold.get(p, 0) + qty_qtl
+        bp_reg_revenue[p] = bp_reg_revenue.get(p, 0) + (s.get('total', 0) or 0)
     # Dynamic categories
     cats = await get_byproduct_categories_list()
     products = [c["id"] for c in cats]
@@ -425,8 +437,11 @@ async def get_byproduct_stock(kms_year: Optional[str] = None, season: Optional[s
         purchased = round(pv_bought.get(p, 0), 2)
         sold = round(sum(s.get('quantity_qntl', 0) for s in sales if s.get('product') == p), 2)
         sold_sb = round(sb_sold.get(p, 0), 2)
+        sold_reg = round(bp_reg_sold.get(p, 0), 2)
+        total_sold = round(sold + sold_sb + sold_reg, 2)
         revenue = round(sum(s.get('total_amount', 0) for s in sales if s.get('product') == p), 2)
-        stock[p] = {"produced_qntl": produced, "purchased_qntl": purchased, "sold_qntl": round(sold + sold_sb, 2), "available_qntl": round(produced + purchased - sold - sold_sb, 2), "total_revenue": revenue}
+        revenue += round(bp_reg_revenue.get(p, 0), 2)
+        stock[p] = {"produced_qntl": produced, "purchased_qntl": purchased, "sold_qntl": total_sold, "available_qntl": round(produced + purchased - total_sold, 2), "total_revenue": revenue}
     return stock
 
 

@@ -42,6 +42,11 @@ export default function ByProductSaleRegister({ filters, user, product }) {
     product, kms_year: filters.kms_year || "", season: filters.season || "",
   };
   const [form, setForm] = useState(blankForm);
+  const [stockInfo, setStockInfo] = useState(null);
+
+  // Product ID mapping for stock API
+  const productIdMap = {"Rice Bran":"bran","Mota Kunda":"kunda","Broken Rice":"broken","Rejection Rice":"rejection_rice","Pin Broken Rice":"pin_broken_rice","Poll":"poll","Bhusa":"husk"};
+  const productId = productIdMap[product] || product;
 
   const fetchData = useCallback(async () => {
     try {
@@ -49,18 +54,23 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       if (product) params.append("product", product);
       if (filters.kms_year) params.append("kms_year", filters.kms_year);
       if (filters.season) params.append("season", filters.season);
-      const [salesRes, bfRes, pRes, dRes] = await Promise.all([
+      const stockParams = new URLSearchParams();
+      if (filters.kms_year) stockParams.append("kms_year", filters.kms_year);
+      if (filters.season) stockParams.append("season", filters.season);
+      const [salesRes, bfRes, pRes, dRes, stockRes] = await Promise.all([
         axios.get(`${API}/bp-sale-register?${params}`),
         axios.get(`${API}/bp-sale-register/suggestions/bill-from`),
         axios.get(`${API}/bp-sale-register/suggestions/party-name`),
         axios.get(`${API}/bp-sale-register/suggestions/destination`),
+        axios.get(`${API}/byproduct-stock?${stockParams}`),
       ]);
       setSales(salesRes.data);
       setBillFromSugg(bfRes.data || []);
       setPartySugg(pRes.data || []);
       setDestSugg(dRes.data || []);
+      setStockInfo(stockRes.data?.[productId] || null);
     } catch (e) { logger.error(e); }
-  }, [product, filters.kms_year, filters.season]);
+  }, [product, productId, filters.kms_year, filters.season]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -189,6 +199,28 @@ export default function ByProductSaleRegister({ filters, user, product }) {
 
   return (
     <div className="space-y-3" data-testid={`bp-sale-register-${product}`}>
+      {/* Stock Summary Card */}
+      {stockInfo && (
+        <div className="grid grid-cols-4 gap-3">
+          <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
+            <p className="text-[10px] text-slate-400 mb-1">Produced (Milling)</p>
+            <p className="text-lg font-bold text-green-400">{stockInfo.produced_qntl || 0} <span className="text-xs text-slate-400">Qtl</span></p>
+          </CardContent></Card>
+          <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
+            <p className="text-[10px] text-slate-400 mb-1">Total Sold</p>
+            <p className="text-lg font-bold text-orange-400">{stockInfo.sold_qntl || 0} <span className="text-xs text-slate-400">Qtl</span></p>
+          </CardContent></Card>
+          <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
+            <p className="text-[10px] text-slate-400 mb-1">Available Stock</p>
+            <p className={`text-lg font-bold ${(stockInfo.available_qntl || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{stockInfo.available_qntl || 0} <span className="text-xs text-slate-400">Qtl</span></p>
+          </CardContent></Card>
+          <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
+            <p className="text-[10px] text-slate-400 mb-1">Total Revenue</p>
+            <p className="text-lg font-bold text-amber-400">{(stockInfo.total_revenue || 0).toLocaleString()} <span className="text-xs text-slate-400">Rs</span></p>
+          </CardContent></Card>
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-3">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-2 top-2 w-4 h-4 text-slate-400" />

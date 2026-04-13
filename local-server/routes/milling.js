@@ -154,13 +154,25 @@ module.exports = function(database) {
     if (req.query.kms_year) sales = sales.filter(s => s.kms_year === req.query.kms_year);
     if (req.query.season) sales = sales.filter(s => s.season === req.query.season);
     const products = ['bran', 'kunda', 'broken', 'rejection_rice', 'pin_broken_rice', 'poll', 'husk'];
+    // Also count from bp_sale_register (new dedicated registers)
+    if (!database.data.bp_sale_register) database.data.bp_sale_register = [];
+    let bpRegSales = [...database.data.bp_sale_register];
+    if (req.query.kms_year) bpRegSales = bpRegSales.filter(s => s.kms_year === req.query.kms_year);
+    if (req.query.season) bpRegSales = bpRegSales.filter(s => s.season === req.query.season);
     const stock = {};
     products.forEach(p => {
       const produced = +millingEntries.reduce((s, e) => s + (e[`${p}_qntl`] || 0), 0).toFixed(2);
       const pSales = sales.filter(s => s.product === p);
       const sold = +pSales.reduce((s, e) => s + (e.quantity_qntl || 0), 0).toFixed(2);
       const revenue = +pSales.reduce((s, e) => s + (e.total_amount || 0), 0).toFixed(2);
-      stock[p] = { produced_qntl: produced, sold_qntl: sold, available_qntl: +(produced - sold).toFixed(2), total_revenue: revenue };
+      // Match product name to bp_sale_register product field (e.g. "Rice Bran" -> "bran")
+      const productNameMap = {bran:'Rice Bran',kunda:'Mota Kunda',broken:'Broken Rice',rejection_rice:'Rejection Rice',pin_broken_rice:'Pin Broken Rice',poll:'Poll',husk:'Bhusa'};
+      const regName = productNameMap[p] || p;
+      const regSales = bpRegSales.filter(s => s.product === regName);
+      const soldReg = +regSales.reduce((s, e) => s + (e.net_weight_qtl || 0), 0).toFixed(2);
+      const revenueReg = +regSales.reduce((s, e) => s + (e.total || 0), 0).toFixed(2);
+      const totalSold = +(sold + soldReg).toFixed(2);
+      stock[p] = { produced_qntl: produced, sold_qntl: totalSold, available_qntl: +(produced - totalSold).toFixed(2), total_revenue: +(revenue + revenueReg).toFixed(2) };
     });
     res.json(stock);
   }));
