@@ -39,11 +39,22 @@ function StockTab({ kmsYear, user }) {
         ];
         setStockItems(dynamicItems);
 
-        // Fetch opening stock values
+        // Fetch opening stock values - merge with dynamic items
         const params = new URLSearchParams();
         if (kmsYear) params.append('kms_year', kmsYear);
         const res = await axios.get(`${API}/opening-stock?${params}`);
-        setStocks(res.data?.stocks || {});
+        const savedStocks = res.data?.stocks || {};
+        
+        // Initialize all dynamic items with 0 if not present, keep existing values
+        const merged = {};
+        for (const item of dynamicItems) {
+          merged[item.key] = savedStocks[item.key] || 0;
+        }
+        // Also keep any extra keys from saved data that might not be in current categories
+        for (const [k, v] of Object.entries(savedStocks)) {
+          if (!(k in merged)) merged[k] = v;
+        }
+        setStocks(merged);
       } catch (e) { logger.error('Stock data fetch error:', e); setStocks({}); }
       setLoaded(true);
     };
@@ -53,7 +64,20 @@ function StockTab({ kmsYear, user }) {
   const save = async () => {
     setSaving(true);
     try {
-      await axios.put(`${API}/opening-stock?username=${user.username}&role=${user.role}`, { kms_year: kmsYear, stocks });
+      // Merge: fetch current saved stock first, then overlay our changes
+      // This prevents deleting keys that exist in DB but not in current UI
+      const params = new URLSearchParams();
+      if (kmsYear) params.append('kms_year', kmsYear);
+      let existingStocks = {};
+      try {
+        const cur = await axios.get(`${API}/opening-stock?${params}`);
+        existingStocks = cur.data?.stocks || {};
+      } catch (e) { /* first time - no existing data */ }
+      
+      // Merge: existing values + current form values (form takes priority)
+      const mergedStocks = { ...existingStocks, ...stocks };
+      
+      await axios.put(`${API}/opening-stock?username=${user.username}&role=${user.role}`, { kms_year: kmsYear, stocks: mergedStocks });
       toast.success("Opening stock save ho gaya!");
     } catch (e) { toast.error(e.response?.data?.detail || "Save error"); }
     setSaving(false);

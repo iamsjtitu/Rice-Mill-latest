@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "90.6.2",
+    date: "Apr 2026",
+    title: "v90.6.2 - Opening Stock Data Loss Fix",
+    items: [
+      { type: "fix", text: "Opening Stock save karne par existing items delete nahi hote - merge approach use hota hai ab" },
+    ]
+  },
+  {
     version: "90.6.1",
     date: "Apr 2026",
     title: "v90.6.1 - PDF Export Fix",
