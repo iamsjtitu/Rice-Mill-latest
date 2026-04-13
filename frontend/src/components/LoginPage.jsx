@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { User, Lock, Sun, Moon } from "lucide-react";
+import logger from "../utils/logger";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const _builtInUrl = process.env.REACT_APP_BACKEND_URL || '';
@@ -35,11 +36,11 @@ const LoginPage = ({ onLogin }) => {
         const response = await axios.get(`${API}/branding`);
         setBranding(response.data);
       } catch (error) {
-        console.error("Branding fetch error:", error);
+        logger.error("Branding fetch error:", error);
       }
     };
     fetchBranding();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -50,7 +51,7 @@ const LoginPage = ({ onLogin }) => {
     removeBadge();
     const timeout = setTimeout(removeBadge, 3000);
     return () => clearTimeout(timeout);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLogin = async (e) => {
     e.preventDefault();

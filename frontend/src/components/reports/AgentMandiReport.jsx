@@ -241,7 +241,7 @@ const AgentMandiReport = ({ filters }) => {
                     </thead>
                     <tbody>
                       {mandi.entries.map((entry, idx) => (
-                        <tr key={idx} className={`border-t border-slate-700/50 ${idx % 2 === 0 ? '' : 'bg-slate-800/50'} hover:bg-slate-700/30`}>
+                        <tr key={entry.id || `entry-${entry.truck_no}-${entry.date}-${idx}`} className={`border-t border-slate-700/50 ${idx % 2 === 0 ? '' : 'bg-slate-800/50'} hover:bg-slate-700/30`}>
                           <td className="px-2 py-1.5 text-white whitespace-nowrap">{fmtDate(entry.date)}</td>
                           <td className="px-2 py-1.5 text-white font-semibold">{entry.truck_no}</td>
                           <td className="px-2 py-1.5 text-right text-amber-400 font-semibold">{entry.qntl}</td>

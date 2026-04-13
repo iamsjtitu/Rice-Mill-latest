@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, RefreshCw, Package, ArrowDown, ArrowUp, Download, FileText, AlertTriangle, Settings, Edit, Search, Calendar, Filter, Warehouse } from "lucide-react";
 import { downloadFile } from "../utils/download";
 import { useConfirm } from "./ConfirmProvider";
+import logger from "../utils/logger";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
@@ -61,7 +62,7 @@ export default function MillPartsStock({ filters, user }) {
       setSummary(summaryRes.data);
       setStockEntries(stockRes.data);
       setStoreRooms(roomsRes.data);
-    } catch { toast.error("Data load nahi hua"); }
+    } catch (e) { logger.error(e); toast.error("Data load nahi hua"); }
     finally { setLoading(false); }
   }, [filters.kms_year, filters.season, txnFilters]);
 
@@ -146,7 +147,7 @@ export default function MillPartsStock({ filters, user }) {
       if (filters.season) p.append('season', filters.season);
       const res = await axios.get(`${API}/mill-parts/store-room-report?${p}`);
       setStoreRoomReport(res.data);
-    } catch { toast.error("Report load nahi hua"); }
+    } catch (e) { logger.error(e); toast.error("Report load nahi hua"); }
   };
 
   const handleEditPart = async (part, field, value) => {
@@ -158,7 +159,7 @@ export default function MillPartsStock({ filters, user }) {
       }
       await axios.put(`${API}/mill-parts/${part.id}`, update);
       toast.success("Updated!"); fetchAll();
-    } catch { toast.error("Update nahi hua"); }
+    } catch (e) { logger.error(e); toast.error("Update nahi hua"); }
   };
 
   const exportRoomReport = async (type) => {
@@ -168,7 +169,7 @@ export default function MillPartsStock({ filters, user }) {
       if (filters.season) p.append('season', filters.season);
       const url = `${API}/mill-parts/store-room-report/${type}?${p}`;
       downloadFile(url, `store_room_report.${type === 'excel' ? 'xlsx' : 'pdf'}`);
-    } catch { toast.error("Export nahi hua"); }
+    } catch (e) { logger.error(e); toast.error("Export nahi hua"); }
   };
 
   const handleEditStock = async (e) => {

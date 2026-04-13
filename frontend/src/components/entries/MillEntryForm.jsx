@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import AutoSuggest from "@/components/common/AutoSuggest";
 import { FY_YEARS, SEASONS } from "@/utils/constants";
 import { useState, useEffect, useRef } from "react";
+import logger from "../../utils/logger";
 import axios from "axios";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -75,10 +76,10 @@ export function MillEntryForm({
           toast.warning(`TP No. ${tp} pehle se RST #${data.tp_rst_no || '?'} mein entry hai`);
         }
         setDupWarning(newWarning);
-      } catch { setDupWarning({ rst: null, tp: null }); }
+      } catch (e) { logger.error('Duplicate check error:', e); setDupWarning({ rst: null, tp: null }); }
     }, 400);
     return () => clearTimeout(dupTimer.current);
-  }, [formData.rst_no, formData.tp_no, formData.kms_year, editingId]);
+  }, [formData.rst_no, formData.tp_no, formData.kms_year, editingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

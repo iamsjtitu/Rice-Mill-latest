@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Calculator, FileText } from "lucide-react";
 import { API } from "./settingsConstants";
+import logger from "../../utils/logger";
 
 function GSTTab() {
   return (
@@ -51,12 +52,12 @@ function GSTSettingsForm() {
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     axios.get(`${API}/gst-settings`).then(r => { setGst(r.data); setLoaded(true); }).catch(() => setLoaded(true));
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const save = async () => {
     try {
       await axios.put(`${API}/gst-settings`, gst);
       toast.success("GST settings save ho gayi!");
-    } catch { toast.error("GST save error"); }
+    } catch (e) { logger.error(e); toast.error("GST save error"); }
   };
   if (!loaded) return null;
   return (
@@ -90,12 +91,12 @@ function GstCompanyForm() {
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     axios.get(`${API}/gst-company-settings`).then(r => { setData(r.data); setLoaded(true); }).catch(() => setLoaded(true));
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const save = async () => {
     try {
       await axios.put(`${API}/gst-company-settings`, data);
       toast.success("GST Company settings save ho gayi!");
-    } catch { toast.error("Save error"); }
+    } catch (e) { logger.error(e); toast.error("Save error"); }
   };
   if (!loaded) return null;
   const f = (key, label, placeholder) => (

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HardDrive, ShieldCheck } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmProvider";
 import { API } from "./settingsConstants";
+import logger from "../../utils/logger";
 
 function DataTab({ user }) {
   const showConfirm = useConfirm();
@@ -23,7 +24,7 @@ function DataTab({ user }) {
       const res = await axios.get(`${API}/backups`);
       setBackups(res.data.backups || []);
       setBackupStatus(res.data);
-    } catch { setBackupStatus(null); }
+    } catch (e) { setBackupStatus(null); }
   };
 
   useEffect(() => {
@@ -32,7 +33,7 @@ function DataTab({ user }) {
     axios.get(`${API}/settings/storage-engine`).then(r => {
       setStorageEngine(r.data.engine || 'json');
     }).catch(() => {});
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreateBackup = async () => {
     setBackupLoading(true);
@@ -63,7 +64,7 @@ function DataTab({ user }) {
       await axios.delete(`${API}/backups/${filename}`);
       toast.success("Backup delete ho gaya");
       fetchBackups();
-    } catch { toast.error("Delete mein error"); }
+    } catch (e) { logger.error(e); toast.error("Delete mein error"); }
   };
 
   return (
@@ -98,7 +99,7 @@ function DataTab({ user }) {
                   setHealthLoading(true);
                   const res = await axios.post(`${API}/cash-book/auto-fix`);
                   setHealthResult({ ...res.data, ran_at: new Date().toISOString() });
-                } catch (e) { console.error(e); }
+                } catch (e) { logger.error(e); }
                 finally { setHealthLoading(false); }
               }}
               disabled={healthLoading}
@@ -113,7 +114,7 @@ function DataTab({ user }) {
                   setHealthLoading(true);
                   const res = await axios.post(`${API}/entries/recalculate-all?username=${user.username}&role=${user.role}`);
                   toast.success(`${res.data.updated} entries recalculate kiye (Total: ${res.data.total})`);
-                } catch (e) { toast.error("Recalculate failed"); console.error(e); }
+                } catch (e) { toast.error("Recalculate failed"); logger.error(e); }
                 finally { setHealthLoading(false); }
               }}
               disabled={healthLoading}

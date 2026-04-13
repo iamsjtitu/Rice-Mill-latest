@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Droplets, Upload, Type, Image } from "lucide-react";
 import { API } from "./settingsConstants";
+import logger from "../../utils/logger";
 
 function WatermarkTab() {
   const [settings, setSettings] = useState({ enabled: false, type: 'text', text: '', opacity: 0.06, font_size: 52, rotation: 45 });
@@ -15,14 +16,14 @@ function WatermarkTab() {
   const [saving, setSaving] = useState(false);
   const fileRef = useRef(null);
 
-  useEffect(() => { loadSettings(); }, []);
+  useEffect(() => { loadSettings(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadSettings = async () => {
     setLoading(true);
     try {
       const { data } = await axios.get(`${API}/settings/watermark`);
       setSettings(data);
-    } catch (e) { console.error('Watermark settings load error:', e); /* first time - use defaults */ }
+    } catch (e) { logger.error('Watermark settings load error:', e); /* first time - use defaults */ }
     setLoading(false);
   };
 
@@ -44,7 +45,7 @@ function WatermarkTab() {
       const { data } = await axios.post(`${API}/settings/watermark/upload`, fd);
       setSettings(prev => ({ ...prev, type: 'image', image_path: data.image_path }));
       toast.success('Image upload ho gayi');
-    } catch (e) { console.error('Watermark upload error:', e); toast.error('Upload failed'); }
+    } catch (e) { logger.error('Watermark upload error:', e); toast.error('Upload failed'); }
   };
 
   const opacityPercent = Math.round((settings.opacity || 0.06) * 100);

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Trash2, Plus, RefreshCw, Send, Scale, CheckCircle } from "lucide-react";
 import { API } from "./settingsConstants";
+import logger from "../../utils/logger";
 
 function MessagingTab() {
   // WhatsApp state
@@ -36,14 +37,14 @@ function MessagingTab() {
         group_schedule_time: res.data.group_schedule_time || "",
         enabled: res.data.enabled || false
       });
-    } catch (e) { console.error("WA settings fetch error:", e); }
+    } catch (e) { logger.error("WA settings fetch error:", e); }
   };
 
   const fetchTelegramConfig = async () => {
-    try { const res = await axios.get(`${API}/telegram/config`); setTelegramConfig(res.data); } catch (e) { console.error('Telegram config fetch error:', e); }
+    try { const res = await axios.get(`${API}/telegram/config`); setTelegramConfig(res.data); } catch (e) { logger.error('Telegram config fetch error:', e); }
   };
   const fetchTelegramLogs = async () => {
-    try { const res = await axios.get(`${API}/telegram/logs`); setTelegramLogs(res.data); } catch (e) { console.error('Telegram logs fetch error:', e); }
+    try { const res = await axios.get(`${API}/telegram/logs`); setTelegramLogs(res.data); } catch (e) { logger.error('Telegram logs fetch error:', e); }
   };
 
   useEffect(() => {
@@ -51,14 +52,14 @@ function MessagingTab() {
     fetchWaGroups();
     fetchTelegramConfig();
     fetchTelegramLogs();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchWaGroups = async () => {
     setWaGroupsLoading(true);
     try {
       const res = await axios.get(`${API}/whatsapp/groups`);
       if (res.data.success) setWaGroups(res.data.groups || []);
-    } catch (e) { console.error('WhatsApp groups fetch error:', e); }
+    } catch (e) { logger.error('WhatsApp groups fetch error:', e); }
     setWaGroupsLoading(false);
   };
 
@@ -128,7 +129,7 @@ function MessagingTab() {
                   });
                   window.dispatchEvent(new Event("messaging-config-changed"));
                   toast.success(newEnabled ? "WhatsApp ON!" : "WhatsApp OFF!");
-                } catch { toast.error("Save fail!"); setWaForm(prev => ({ ...prev, enabled: !newEnabled })); }
+                } catch (e) { logger.error(e); toast.error("Save fail!"); setWaForm(prev => ({ ...prev, enabled: !newEnabled })); }
               }}>
                 <div className={`w-12 h-6 rounded-full transition-colors ${waForm.enabled ? 'bg-green-600' : 'bg-slate-600'}`} />
                 <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${waForm.enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
@@ -250,7 +251,7 @@ function MessagingTab() {
                 toast.success("WhatsApp settings save ho gayi!");
                 fetchWaSettings();
                 window.dispatchEvent(new Event("messaging-config-changed"));
-              } catch { toast.error("Save fail!"); }
+              } catch (e) { logger.error(e); toast.error("Save fail!"); }
               finally { setWaLoading(false); }
             }}
             disabled={waLoading || !waForm.api_key}
@@ -360,7 +361,7 @@ function MessagingTab() {
             )}
 
             {(telegramConfig.chat_ids || []).map((item, idx) => (
-              <div key={idx} className="flex gap-2 items-center bg-slate-700/30 p-2 rounded-lg border border-slate-600" data-testid={`telegram-recipient-${idx}`}>
+              <div key={`tg-cfg-${item.chat_id || idx}`} className="flex gap-2 items-center bg-slate-700/30 p-2 rounded-lg border border-slate-600" data-testid={`telegram-recipient-${idx}`}>
                 <div className="flex-1">
                   <Input
                     value={item.label}
@@ -495,14 +496,14 @@ function AutoVWMessagingCard() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchWaGroups = async () => {
     setWaGroupsLoading(true);
     try {
       const res = await axios.get(`${API}/whatsapp/groups`);
       if (res.data.success) setWaGroups(res.data.groups || []);
-    } catch (e) { console.error('WhatsApp groups fetch error:', e); }
+    } catch (e) { logger.error('WhatsApp groups fetch error:', e); }
     setWaGroupsLoading(false);
   };
 
@@ -512,7 +513,7 @@ function AutoVWMessagingCard() {
     try {
       await axios.put(`${API}/vehicle-weight/auto-notify-setting`, { enabled: newVal });
       toast.success(newVal ? "Auto VW Messaging ON" : "Auto VW Messaging OFF");
-    } catch { toast.error("Setting save error"); setEnabled(!newVal); }
+    } catch (e) { logger.error(e); toast.error("Setting save error"); setEnabled(!newVal); }
   };
 
   const saveGroupConfig = async () => {
@@ -524,7 +525,7 @@ function AutoVWMessagingCard() {
         tg_chat_ids: tgChatIds,
       });
       toast.success("VW Messaging group config save ho gaya!");
-    } catch { toast.error("Save error"); }
+    } catch (e) { logger.error(e); toast.error("Save error"); }
     setSaving(false);
   };
 

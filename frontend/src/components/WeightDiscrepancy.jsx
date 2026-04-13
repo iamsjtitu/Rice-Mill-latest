@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FileSpreadsheet, FileText, AlertTriangle, Search } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
+import logger from "../utils/logger";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -26,7 +27,7 @@ export default function WeightDiscrepancy({ filters }) {
   useEffect(() => {
     axios.get(`${API}/suggestions/agents`).then(r => setAgentList(Array.isArray(r.data) ? r.data : r.data?.suggestions || [])).catch(() => {});
     axios.get(`${API}/suggestions/mandis`).then(r => setMandiList(Array.isArray(r.data) ? r.data : r.data?.suggestions || [])).catch(() => {});
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchData = async () => {
     setLoading(true);
@@ -40,7 +41,7 @@ export default function WeightDiscrepancy({ filters }) {
       if (mandi) params.set("mandi", mandi);
       const { data: d } = await axios.get(`${API}/reports/weight-discrepancy?${params}`);
       setData(d);
-    } catch { toast.error("Failed to load"); }
+    } catch (e) { logger.error(e); toast.error("Failed to load"); }
     setLoading(false);
   };
 

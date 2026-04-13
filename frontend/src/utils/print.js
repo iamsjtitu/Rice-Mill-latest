@@ -1,4 +1,5 @@
 // Safe print helper - uses iframe approach (works in Electron + browser)
+import logger from "./logger";
 export const safePrintHTML = (htmlContent) => {
   try {
     const isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -34,7 +35,7 @@ export const safePrintHTML = (htmlContent) => {
       }, 500);
     }
   } catch(e) {
-    console.error('Print failed, downloading as HTML:', e);
+    logger.error('Print failed, downloading as HTML:', e);
     const blob = new Blob([htmlContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

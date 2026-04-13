@@ -23,6 +23,7 @@ const API = `${BACKEND_URL}/api`;
 const fmtWt = (w) => w ? Number(w).toLocaleString() : "0";
 
 import { safePrintHTML } from "../utils/print";
+import logger from "../utils/logger";
 
 /* ─── Real Weighbridge Scale (Electron Serial Port) ─── */
 function useRealScale() {
@@ -51,9 +52,9 @@ function useRealScale() {
     });
 
     return () => { api.removeSerialListeners(); };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const scheduleNext = useCallback(() => {}, []);
+  const scheduleNext = useCallback(() => {}, []); // eslint-disable-line react-hooks/exhaustive-deps
   return { weight, stable, running: connected, connected, scheduleNext };
 }
 
@@ -74,14 +75,14 @@ function useLanScale() {
           setStable(d.stable || false);
           setConnected(d.connected || false);
         }
-      } catch { if (active) setConnected(false); }
+      } catch (e) { if (active) setConnected(false); }
     };
     poll();
     const iv = setInterval(poll, 500);
     return () => { active = false; clearInterval(iv); };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const scheduleNext = useCallback(() => {}, []);
+  const scheduleNext = useCallback(() => {}, []); // eslint-disable-line react-hooks/exhaustive-deps
   return { weight, stable, running: connected, connected, scheduleNext };
 }
 
@@ -107,7 +108,7 @@ function useSimulatorScale(active = true) {
       else if (c < 40) { setWeight(Math.round(target + (Math.random() - 0.5) * target * 0.02 * (1 - (c - 25) / 15))); }
       else { setWeight(target); setStable(true); clearInterval(ref.current); ref.current = null; }
     }, 80);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scheduleNext = useCallback(() => {
     if (autoRef.current) clearTimeout(autoRef.current);
@@ -177,9 +178,9 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
       try {
         const res = await axios.get(`${API}/settings/camera-config`);
         if (res.data && Object.keys(res.data).length > 0) { cfg = res.data; fromBackend = true; }
-      } catch { /* fallback */ }
+      } catch (e) { /* fallback */ }
       if (!fromBackend) {
-        try { cfg = JSON.parse(localStorage.getItem('camera_config') || '{}'); } catch { cfg = {}; }
+        try { cfg = JSON.parse(localStorage.getItem('camera_config') || '{}'); } catch (e) { cfg = {}; }
         // Auto-migrate to backend
         if (cfg && Object.keys(cfg).length > 0) { axios.put(`${API}/settings/camera-config`, cfg).catch(() => {}); }
       }
@@ -192,15 +193,15 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
       try {
         const res = await axios.get(`${API}/settings/camera-config`);
         if (res.data && Object.keys(res.data).length > 0) cfg = res.data;
-      } catch { /* fallback */ }
+      } catch (e) { /* fallback */ }
       if (!cfg || Object.keys(cfg).length === 0) {
-        try { cfg = JSON.parse(localStorage.getItem('camera_config') || '{}'); } catch { cfg = {}; }
+        try { cfg = JSON.parse(localStorage.getItem('camera_config') || '{}'); } catch (e) { cfg = {}; }
       }
       applyCameraConfig(cfg);
     };
     window.addEventListener('camera-config-changed', handleConfigChange);
     return () => window.removeEventListener('camera-config-changed', handleConfigChange);
-  }, [camKey]);
+  }, [camKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Get display URL - use proxy for RTSP, direct for VIGI
   const getStreamUrl = useCallback((url) => {
@@ -211,7 +212,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
       return `${API}/camera-stream?url=${encodeURIComponent(url)}`;
     }
     return url;
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getSnapshotUrl = useCallback((url) => {
     if (!url) return "";
@@ -232,7 +233,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
       return `${API}/camera-snapshot?url=${encodeURIComponent(url)}`;
     }
     return url;
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Expose captureFrame method to parent via ref
   useImperativeHandle(ref, () => ({
@@ -260,7 +261,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
               reader.readAsDataURL(blob);
             });
           }
-        } catch {}
+        } catch (e) { logger.error(e); }
         return null;
       }
 
@@ -320,7 +321,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
           streamRef.current = s;
           if (videoRef.current) { videoRef.current.srcObject = s; videoRef.current.play(); }
           setActive(true);
-        } catch { toast.error("Camera access nahi mila"); }
+        } catch (e) { logger.error(e); toast.error("Camera access nahi mila"); }
       }
     }
   }, [active, camType, camUrl]);
@@ -344,15 +345,15 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
   useEffect(() => () => {
     // CRITICAL CLEANUP: Kill ALL camera resources on unmount to prevent crash
     if (streamRef.current) {
-      try { streamRef.current.getTracks().forEach(t => t.stop()); } catch {}
+      try { streamRef.current.getTracks().forEach(t => t.stop()); } catch (e) { logger.error(e); }
       streamRef.current = null;
     }
     // Immediately disconnect MJPEG streams (kills ffmpeg on server)
     if (imgRef.current) { imgRef.current.src = ""; imgRef.current.removeAttribute('src'); }
     if (zoomImgRef.current) { zoomImgRef.current.src = ""; zoomImgRef.current.removeAttribute('src'); }
     // Force kill any lingering ffmpeg processes on server
-    try { axios.get(`${API}/camera-kill-all`).catch(() => {}); } catch {}
-  }, []);
+    try { axios.get(`${API}/camera-kill-all`).catch(() => {}); } catch (e) { logger.error(e); }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const renderFeed = (imgRefToUse, vidRefToUse, cssClass) => {
     if (camType === "ip" || camType === "vigi") {
@@ -507,7 +508,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
     try {
       const r = await axios.get(`${API}/suggestions/mandis?agent_name=${encodeURIComponent(agent)}`);
       setMandiSuggestions(r.data.suggestions || []);
-    } catch {}
+    } catch (e) { logger.error(e); }
   };
 
   const abortRef = useRef(null);
@@ -661,7 +662,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
         toast.success(`Auto Msg: ${r.data.message}`);
       }
     } catch (e) {
-      console.error("Auto-notify error:", e);
+      logger.error("Auto-notify error:", e);
     }
   };
   // Build complete weight text for messaging
@@ -704,7 +705,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
         send_to_numbers: true, send_to_group: false
       });
       toast.success("WhatsApp sent!");
-    } catch { toast.error("WA send error"); }
+    } catch (e) { logger.error(e); toast.error("WA send error"); }
   };
 
   const handleGroup = async (e) => {
@@ -717,7 +718,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
         send_to_numbers: false, send_to_group: true
       });
       toast.success("Group msg sent!");
-    } catch { toast.error("Group send error"); }
+    } catch (e) { logger.error(e); toast.error("Group send error"); }
   };
 
   // ── Edit entry ──
@@ -748,7 +749,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
       ]);
       const brandInfo = { company: br.data?.company_name || "NAVKAR AGRO", tagline: br.data?.tagline || "JOLKO, KESINGA - Mill Entry System", custom_fields: br.data?.custom_fields || [] };
       setPhotoDialog({ open: true, data: { ...r.data, _brand: brandInfo }, loading: false });
-    } catch {
+    } catch (e) {
       toast.error("Photos load nahi hue");
       setPhotoDialog({ open: false, data: null, loading: false });
     }
@@ -780,7 +781,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
           else belowFields.push(txt);
         });
       }
-    } catch {}
+    } catch (e) { logger.error(e); }
 
     const rst = e.rst_no;
     const gross = Number(e.gross_wt || e.first_wt || 0).toLocaleString();

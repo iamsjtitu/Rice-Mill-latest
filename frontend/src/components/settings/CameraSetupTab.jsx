@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Camera, CameraOff, Eye, EyeOff, RefreshCw, AlertCircle, CheckCircle, Trash2 } from "lucide-react";
 import { API } from "./settingsConstants";
+import logger from "../../utils/logger";
 
 function CameraSetupTab() {
   const [camType, setCamType] = useState("ip"); // "ip", "usb", or "vigi"
@@ -99,7 +100,7 @@ function CameraSetupTab() {
           saved = res.data;
           fromBackend = true;
         }
-      } catch (e) { console.error('Camera config backend load error:', e); /* fallback to localStorage */ }
+      } catch (e) { logger.error('Camera config backend load error:', e); /* fallback to localStorage */ }
       
       if (!fromBackend) {
         try {
@@ -108,7 +109,7 @@ function CameraSetupTab() {
           if (saved && Object.keys(saved).length > 0) {
             axios.put(`${API}/settings/camera-config`, saved).catch(() => {});
           }
-        } catch (e) { console.error('Camera config localStorage parse error:', e); saved = {}; }
+        } catch (e) { logger.error('Camera config localStorage parse error:', e); saved = {}; }
       }
       
       const type = saved.type || "ip";
@@ -134,7 +135,7 @@ function CameraSetupTab() {
     axios.get(`${API}/settings/image-cleanup`).then(r => {
       setCleanupDays(r.data.days || 0);
     }).catch(() => {});
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadDevices = async () => {
     try {
@@ -142,7 +143,7 @@ function CameraSetupTab() {
       const all = await navigator.mediaDevices.enumerateDevices();
       const vids = all.filter(d => d.kind === 'videoinput');
       setDevices(vids);
-    } catch (e) { console.error('Camera access error:', e); toast.error("Camera access nahi mila"); }
+    } catch (e) { logger.error('Camera access error:', e); toast.error("Camera access nahi mila"); }
   };
 
   useEffect(() => {
@@ -167,7 +168,7 @@ function CameraSetupTab() {
       });
       if (videoRef.current) { videoRef.current.srcObject = s; videoRef.current.play(); }
       setPreviewStream(p => ({ ...p, [key]: s }));
-    } catch (e) { console.error('Camera start error:', e); toast.error("Camera start nahi ho paya"); }
+    } catch (e) { logger.error('Camera start error:', e); toast.error("Camera start nahi ho paya"); }
   };
 
   const handleSave = async () => {
@@ -189,7 +190,7 @@ function CameraSetupTab() {
           front_ip: vigiFrontIp, side_ip: vigiSideIp,
           openapi_port: vigiOpenApiPort, enabled: true
         });
-      } catch (e) { console.error('Vigi config save error:', e); /* ignore on web */ }
+      } catch (e) { logger.error('Vigi config save error:', e); /* ignore on web */ }
     } else {
       configData = { type: "usb", frontId, sideId };
     }
@@ -198,11 +199,11 @@ function CameraSetupTab() {
     // Save to backend database (for all devices)
     try {
       await axios.put(`${API}/settings/camera-config`, configData);
-    } catch (e) { console.error('Camera config backend save error:', e); }
+    } catch (e) { logger.error('Camera config backend save error:', e); }
     window.dispatchEvent(new Event('camera-config-changed'));
     try {
       await axios.put(`${API}/settings/image-cleanup`, { days: cleanupDays });
-    } catch (e) { console.error('Image cleanup config save error:', e); }
+    } catch (e) { logger.error('Image cleanup config save error:', e); }
     toast.success("Camera config save ho gaya - sab devices pe sync hoga!");
   };
 
@@ -232,7 +233,7 @@ function CameraSetupTab() {
       } else {
         toast.info(r.data.message || "Cleanup disabled");
       }
-    } catch (e) { console.error('Cleanup error:', e); toast.error("Cleanup error"); }
+    } catch (e) { logger.error('Cleanup error:', e); toast.error("Cleanup error"); }
     setCleanupLoading(false);
   };
 

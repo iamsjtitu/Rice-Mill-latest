@@ -15,6 +15,7 @@ import {
   RefreshCw, Download, FileText, Search, Truck, Shield, ArrowRightLeft
 } from "lucide-react";
 import MandiCustodyRegister from "./MandiCustodyRegister";
+import logger from "../utils/logger";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -51,7 +52,7 @@ function PaddyCustodyRegister({ filters }) {
       params.append('group_by', viewMode);
       const res = await axios.get(`${API}/paddy-custody-register?${params}`);
       setRegister(res.data);
-    } catch { toast.error("Register load nahi hua"); } finally { setLoading(false); }
+    } catch (e) { logger.error(e); toast.error("Register load nahi hua"); } finally { setLoading(false); }
   }, [filters, viewMode]);
 
   useEffect(() => { fetchRegister(); }, [fetchRegister]);
@@ -163,7 +164,7 @@ function FormARegister({ filters }) {
       params.append("group_by", viewMode);
       const res = await axios.get(`${API}/govt-registers/form-a?${params}`);
       setData(res.data);
-    } catch { toast.error("Form A data load error"); }
+    } catch (e) { logger.error(e); toast.error("Form A data load error"); }
     setLoading(false);
   }, [filters, viewMode]);
 
@@ -270,7 +271,7 @@ function FormBRegister({ filters }) {
       if (filters.date_to) params.append("date_to", filters.date_to);
       const res = await axios.get(`${API}/govt-registers/form-b?${params}`);
       setData(res.data);
-    } catch { toast.error("Form B data load error"); }
+    } catch (e) { logger.error(e); toast.error("Form B data load error"); }
     setLoading(false);
   }, [filters]);
 
@@ -350,7 +351,7 @@ function FormERegister({ filters }) {
       if (filters.season) params.append("season", filters.season);
       const res = await axios.get(`${API}/govt-registers/form-e?${params}`);
       setData(res.data);
-    } catch { toast.error("Form E data load error"); }
+    } catch (e) { logger.error(e); toast.error("Form E data load error"); }
     setLoading(false);
   }, [filters]);
 
@@ -431,7 +432,7 @@ function FormFRegister({ filters }) {
       if (filters.season) params.append("season", filters.season);
       const res = await axios.get(`${API}/govt-registers/form-f?${params}`);
       setData(res.data);
-    } catch { toast.error("Form F data load error"); }
+    } catch (e) { logger.error(e); toast.error("Form F data load error"); }
     setLoading(false);
   }, [filters]);
 
@@ -516,7 +517,7 @@ function FrkRegister({ filters, user }) {
       if (filters.season) params.append("season", filters.season);
       const res = await axios.get(`${API}/govt-registers/frk?${params}`);
       setEntries(res.data);
-    } catch { toast.error("FRK data load error"); }
+    } catch (e) { logger.error(e); toast.error("FRK data load error"); }
     setLoading(false);
   }, [filters]);
 
@@ -569,7 +570,7 @@ function FrkRegister({ filters, user }) {
       await axios.delete(`${API}/govt-registers/frk/${id}?username=${user.username}&role=${user.role}`);
       toast.success("FRK entry delete ho gayi!");
       fetchData();
-    } catch { toast.error("Delete error"); }
+    } catch (e) { logger.error(e); toast.error("Delete error"); }
   };
 
   const handleExcel = () => {
@@ -700,7 +701,7 @@ function GunnyBagRegister({ filters, user }) {
       if (filters.season) params.append("season", filters.season);
       const res = await axios.get(`${API}/govt-registers/gunny-bags?${params}`);
       setEntries(res.data);
-    } catch { toast.error("Gunny bag data load error"); }
+    } catch (e) { logger.error(e); toast.error("Gunny bag data load error"); }
     setLoading(false);
   }, [filters]);
 
@@ -756,7 +757,7 @@ function GunnyBagRegister({ filters, user }) {
       await axios.delete(`${API}/govt-registers/gunny-bags/${id}?username=${user.username}&role=${user.role}`);
       toast.success("Gunny bag entry delete ho gayi!");
       fetchData();
-    } catch { toast.error("Delete error"); }
+    } catch (e) { logger.error(e); toast.error("Delete error"); }
   };
 
   const handleExcel = () => {
@@ -884,7 +885,7 @@ function TransitPassRegister({ filters }) {
       if (tpFilters.agent_name) params.append("agent_name", tpFilters.agent_name);
       const res = await axios.get(`${API}/govt-registers/transit-pass?${params}`);
       setData(res.data);
-    } catch { toast.error("Transit Pass data load error"); }
+    } catch (e) { logger.error(e); toast.error("Transit Pass data load error"); }
     setLoading(false);
   }, [filters, tpFilters]);
 
@@ -911,7 +912,7 @@ function TransitPassRegister({ filters }) {
         if (filters.season) params.append("season", filters.season);
         const res = await axios.get(`${API}/govt-registers/transit-pass?${params}`);
         setAllOptions(res.data.filter_options || { mandis: [], agents: [] });
-      } catch {}
+      } catch (e) { logger.error(e); }
     })();
   }, [filters.kms_year, filters.season]);
 
@@ -1045,7 +1046,7 @@ function CmrDeliveryTracker({ filters, user }) {
       if (filters.date_to) params.append("date_to", filters.date_to);
       const res = await axios.get(`${API}/govt-registers/cmr-delivery?${params}`);
       setData(res.data);
-    } catch { toast.error("CMR data load error"); }
+    } catch (e) { logger.error(e); toast.error("CMR data load error"); }
     setLoading(false);
   }, [filters]);
 
@@ -1075,7 +1076,7 @@ function CmrDeliveryTracker({ filters, user }) {
 
   const handleDelete = async (id) => {
     if (!window.confirm("Kya aap sure hain?")) return;
-    try { await axios.delete(`${API}/govt-registers/cmr-delivery/${id}?username=${user.username}&role=${user.role}`); toast.success("Deleted!"); fetchData(); } catch { toast.error("Delete error"); }
+    try { await axios.delete(`${API}/govt-registers/cmr-delivery/${id}?username=${user.username}&role=${user.role}`); toast.success("Deleted!"); fetchData(); } catch (e) { logger.error(e); toast.error("Delete error"); }
   };
 
   const handleExcel = () => {
@@ -1214,7 +1215,7 @@ function SecurityDepositManager({ filters, user }) {
       if (filters.kms_year) params.append("kms_year", filters.kms_year);
       const res = await axios.get(`${API}/govt-registers/security-deposit?${params}`);
       setData(res.data);
-    } catch { toast.error("Security deposit data load error"); }
+    } catch (e) { logger.error(e); toast.error("Security deposit data load error"); }
     setLoading(false);
   }, [filters.kms_year]);
 
@@ -1244,7 +1245,7 @@ function SecurityDepositManager({ filters, user }) {
 
   const handleDelete = async (id) => {
     if (!window.confirm("Kya aap sure hain?")) return;
-    try { await axios.delete(`${API}/govt-registers/security-deposit/${id}?username=${user.username}&role=${user.role}`); toast.success("Deleted!"); fetchData(); } catch { toast.error("Delete error"); }
+    try { await axios.delete(`${API}/govt-registers/security-deposit/${id}?username=${user.username}&role=${user.role}`); toast.success("Deleted!"); fetchData(); } catch (e) { logger.error(e); toast.error("Delete error"); }
   };
 
   const handleExcel = () => {

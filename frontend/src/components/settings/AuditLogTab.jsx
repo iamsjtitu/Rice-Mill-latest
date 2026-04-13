@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "sonner";
+import logger from "../../utils/logger";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,10 +29,10 @@ function AuditLogTab({ user }) {
       const res = await axios.get(url);
       setLogs(res.data.logs || []);
       setTotal(res.data.total || 0);
-    } catch { toast.error("Audit log load nahi ho saka"); }
+    } catch (e) { logger.error('Audit log load error:', e); toast.error("Audit log load nahi ho saka"); }
   };
 
-  useEffect(() => { fetchLogs(); }, [page, filterUser, filterCollection, filterDate]);
+  useEffect(() => { fetchLogs(); }, [page, filterUser, filterCollection, filterDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleClearAll = async () => {
     if (!await showConfirm("Clear All Audit Logs", "Kya aap sure hain? Saare audit logs delete ho jayenge!")) return;

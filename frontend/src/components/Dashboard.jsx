@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useConfirm } from "./ConfirmProvider";
 import { downloadFile } from "../utils/download";
+import logger from "../utils/logger";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -85,9 +86,9 @@ export const Dashboard = ({ filters, user }) => {
         ]);
         setRiceStock(riceRes.data);
         setPaddyStock(paddyRes.data);
-      } catch (e) { console.error("Stock fetch error:", e); }
+      } catch (e) { logger.error("Stock fetch error:", e); }
     } catch (error) {
-      console.error("Dashboard fetch error:", error);
+      logger.error("Dashboard fetch error:", error);
     } finally {
       setLoading(false);
     }
@@ -101,7 +102,7 @@ export const Dashboard = ({ filters, user }) => {
       if (filters.season) params.append('season', filters.season);
       const res = await axios.get(`${API}/reports/season-pnl?${params}`);
       setPlData(res.data);
-    } catch { setPlData(null); }
+    } catch (e) { setPlData(null); }
     finally { setPlLoading(false); }
   }, [filters.kms_year, filters.season]);
 
@@ -515,7 +516,7 @@ export const Dashboard = ({ filters, user }) => {
           {filteredTargets.length > 0 ? (
             <div className="space-y-4">
               {filteredTargets.map((target, idx) => (
-                <div key={idx} className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
+                <div key={target.id || `target-${target.mandi_name}-${idx}`} className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
                   <div className="flex items-center justify-between mb-2">
                     <div>
                       <h4 className="text-white font-semibold">{target.mandi_name}</h4>

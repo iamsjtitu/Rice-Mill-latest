@@ -21,6 +21,7 @@ import {
 import { downloadFile } from "../utils/download";
 import RoundOffInput from "./common/RoundOffInput";
 import { useConfirm } from "./ConfirmProvider";
+import logger from "../utils/logger";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
@@ -92,7 +93,7 @@ export default function PurchaseVouchers({ filters, user }) {
       setVouchers(res.data);
       setBankAccounts(bRes.data || []);
       setStockItems(sRes.data || []);
-    } catch { toast.error("Data load nahi hua"); }
+    } catch (e) { logger.error(e); toast.error("Data load nahi hua"); }
     finally { setLoading(false); }
   }, [filters.kms_year, searchText]);
 
@@ -100,15 +101,15 @@ export default function PurchaseVouchers({ filters, user }) {
     try {
       const res = await axios.get(`${API}/purchase-book/item-suggestions`);
       setSuggestions(res.data || []);
-    } catch { /* ignore */ }
-  }, []);
+    } catch (e) { /* ignore */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchGstSettings = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/gst-settings`);
       setGstSettings(res.data);
-    } catch { /* ignore */ }
-  }, []);
+    } catch (e) { /* ignore */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchSuggestions(); fetchGstSettings(); }, [fetchSuggestions, fetchGstSettings]);
@@ -225,7 +226,7 @@ export default function PurchaseVouchers({ filters, user }) {
     try {
       await axios.delete(`${API}/purchase-book/${id}?username=${user.username}&role=${user.role}`);
       toast.success("Deleted!"); setSelectedIds(prev => prev.filter(x => x !== id)); fetchData();
-    } catch { toast.error("Delete nahi hua"); }
+    } catch (e) { logger.error(e); toast.error("Delete nahi hua"); }
   };
 
   const handleBulkDelete = async () => {

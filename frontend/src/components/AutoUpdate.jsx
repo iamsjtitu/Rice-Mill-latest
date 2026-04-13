@@ -35,7 +35,7 @@ const AutoUpdate = () => {
       setState("error");
       setTimeout(() => setState("idle"), 4000);
     });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (state === "idle" || dismissed) return null;
 

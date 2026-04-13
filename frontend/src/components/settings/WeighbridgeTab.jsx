@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Scale } from "lucide-react";
+import logger from "../../utils/logger";
 
 function WeighbridgeConfigCard() {
   const isElectronApp = typeof window !== 'undefined' && window.electronAPI?.serialGetConfig;
@@ -37,7 +38,7 @@ function WeighbridgeConfigCard() {
     try {
       await window.electronAPI.serialSaveConfig(config);
       toast.success("Weighbridge config saved!");
-    } catch (e) { console.error('Weighbridge save error:', e); toast.error("Save error"); }
+    } catch (e) { logger.error('Weighbridge save error:', e); toast.error("Save error"); }
   };
 
   const handleConnect = () => {

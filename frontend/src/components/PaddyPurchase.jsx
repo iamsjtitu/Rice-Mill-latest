@@ -24,6 +24,7 @@ import { useConfirm } from "./ConfirmProvider";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import RecordHistory from "./RecordHistory";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
+import logger from "../utils/logger";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
@@ -93,7 +94,7 @@ export const PaddyPurchase = ({ filters, user }) => {
       if (filters.season) p.append('season', filters.season);
       const res = await axios.get(`${API}/private-paddy?${p}`);
       setItems(res.data);
-    } catch { toast.error("Data load nahi hua"); }
+    } catch (e) { logger.error(e); toast.error("Data load nahi hua"); }
     finally { setLoading(false); }
   }, [filters.kms_year, filters.season]);
 
@@ -167,7 +168,7 @@ export const PaddyPurchase = ({ filters, user }) => {
       await Promise.all(selectedIds.map(id => axios.delete(`${API}/private-paddy/${id}`)));
       toast.success(`${selectedIds.length} entries deleted!`);
       setSelectedIds([]); fetchData();
-    } catch { toast.error("Kuch delete nahi hue"); }
+    } catch (e) { logger.error(e); toast.error("Kuch delete nahi hue"); }
   };
 
   const toggleSelect = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -214,7 +215,7 @@ export const PaddyPurchase = ({ filters, user }) => {
     try {
       const res = await axios.get(`${API}/private-paddy/${item.id}/history`);
       setHistoryDialog({ open: true, item, history: res.data.history || [] });
-    } catch { toast.error("History load nahi hua"); }
+    } catch (e) { logger.error(e); toast.error("History load nahi hua"); }
   };
 
   const totals = useMemo(() => {
@@ -639,7 +640,7 @@ export const PartySummary = ({ filters, onNavigate }) => {
       if (searchText) p.append('search', searchText);
       const res = await axios.get(`${API}/private-trading/party-summary?${p}`);
       setData(res.data);
-    } catch { toast.error("Data load nahi hua"); }
+    } catch (e) { logger.error(e); toast.error("Data load nahi hua"); }
     finally { setLoading(false); }
   }, [filters.kms_year, filters.season, dateFrom, dateTo, searchText]);
 

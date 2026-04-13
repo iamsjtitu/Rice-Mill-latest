@@ -107,7 +107,7 @@ export default function FeatureDemo() {
                 {invoice.items.map((it, idx) => {
                   const c = calcItem(it);
                   return (
-                    <tr key={idx} className="border-b border-slate-800">
+                    <tr key={`item-${it.name}-${idx}`} className="border-b border-slate-800">
                       <td className="py-1 px-1">
                         <select value={it.name} onChange={e => updateItem(idx, "name", e.target.value)}
                           className="bg-slate-800 border border-slate-600 text-white rounded px-2 py-1 w-full text-sm" data-testid={`item-name-${idx}`}>
@@ -221,7 +221,7 @@ export default function FeatureDemo() {
                 {invoice.items.map((it, idx) => {
                   const c = calcItem(it);
                   return (
-                    <tr key={idx}>
+                    <tr key={`prev-${it.name}-${idx}`}>
                       <td className="border px-2 py-1">{idx + 1}</td>
                       <td className="border px-2 py-1">{it.name || "—"}</td>
                       <td className="border px-2 py-1 text-center">{it.hsn}</td>

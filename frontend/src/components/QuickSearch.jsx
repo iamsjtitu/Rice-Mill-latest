@@ -20,7 +20,7 @@ function useTheme() {
     const obs = new MutationObserver(check);
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     return () => obs.disconnect();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return isDark;
 }
 
@@ -103,9 +103,9 @@ export default function QuickSearch({ open, onOpenChange, onNavigate }) {
       const { data } = await axios.get(`${API}/quick-search`, { params: { q, limit: 8 } });
       setResults(data.results || []);
       setSelectedIdx(0);
-    } catch { setResults([]); }
+    } catch (e) { setResults([]); }
     finally { setLoading(false); }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleInputChange = (val) => {
     setQuery(val);

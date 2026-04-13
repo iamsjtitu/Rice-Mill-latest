@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, RefreshCw, Trash2 } from "lucide-react";
 import { API } from "./settingsConstants";
+import logger from "../../utils/logger";
 
 function ErrorLogTab() {
   const [errorLog, setErrorLog] = useState("");
@@ -12,10 +13,10 @@ function ErrorLogTab() {
     try {
       const res = await axios.get(`${API}/error-log`);
       setErrorLog(res.data.content || "");
-    } catch { setErrorLog(""); }
+    } catch (e) { setErrorLog(""); }
   };
 
-  useEffect(() => { fetchErrorLog(); }, []);
+  useEffect(() => { fetchErrorLog(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-4">
@@ -40,7 +41,7 @@ function ErrorLogTab() {
                 try {
                   await fetch(`${API}/error-log`, { method: 'DELETE' });
                   setErrorLog("Log clear ho gaya. Koi error nahi hai.");
-                } catch (e) { console.error(e); }
+                } catch (e) { logger.error(e); }
               }}
               variant="outline" size="sm"
               className="border-amber-600 text-amber-400 hover:bg-amber-900/30" data-testid="clear-error-log-btn">

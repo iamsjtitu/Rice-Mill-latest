@@ -1,4 +1,5 @@
 import axios from 'axios';
+import logger from "./logger";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -18,18 +19,18 @@ export const downloadFile = async (url, filename) => {
     // Method 1: IPC - main process fetches and saves directly
     if (window.electronAPI && typeof window.electronAPI.downloadAndSave === 'function') {
       try {
-        console.log('[downloadFile] IPC downloadAndSave:', fullUrl, finalName);
+        logger.log('[downloadFile] IPC downloadAndSave:', fullUrl, finalName);
         const result = await window.electronAPI.downloadAndSave(fullUrl, finalName);
-        console.log('[downloadFile] IPC result:', JSON.stringify(result));
+        logger.log('[downloadFile] IPC result:', JSON.stringify(result));
         if (result && result.success) return;
         if (result && result.reason === 'cancelled') return;
-        console.warn('[downloadFile] IPC failed, falling back to window.open');
+        logger.warn('[downloadFile] IPC failed, falling back to window.open');
       } catch (ipcErr) {
-        console.error('[downloadFile] IPC error:', ipcErr);
+        logger.error('[downloadFile] IPC error:', ipcErr);
       }
     }
     // Method 2: Fallback - window.open triggers setWindowOpenHandler → downloadURL
-    console.log('[downloadFile] Using window.open fallback:', fullUrl);
+    logger.log('[downloadFile] Using window.open fallback:', fullUrl);
     window.open(fullUrl, '_blank');
     return;
   }
@@ -38,7 +39,7 @@ export const downloadFile = async (url, filename) => {
     const res = await axios.get(fullUrl, { responseType: 'blob' });
     _saveBlobBrowser(res.data, res.headers['content-type'], finalName);
   } catch (e) {
-    console.error('Download failed, trying direct open:', e);
+    logger.error('Download failed, trying direct open:', e);
     window.open(fullUrl, '_blank');
   }
 };
@@ -64,7 +65,7 @@ export const downloadPost = async (url, body, filename) => {
 
     _saveBlobBrowser(res.data, contentType, finalName);
   } catch (e) {
-    console.error('POST download failed:', e);
+    logger.error('POST download failed:', e);
     throw e;
   }
 };
@@ -79,7 +80,7 @@ function _saveBlobBrowser(blobData, contentType, filename) {
   document.body.appendChild(a);
   a.click();
   setTimeout(() => {
-    try { document.body.removeChild(a); } catch (e) { console.error('Cleanup error:', e); }
+    try { document.body.removeChild(a); } catch (e) { logger.error('Cleanup error:', e); }
     window.URL.revokeObjectURL(blobUrl);
   }, 30000);
 }

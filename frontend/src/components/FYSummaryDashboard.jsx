@@ -7,6 +7,7 @@ import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
 import { useConfirm } from './ConfirmProvider';
 import { downloadFile } from '../utils/download';
+import logger from "../utils/logger";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
@@ -67,12 +68,12 @@ export default function FYSummaryDashboard({ filters }) {
       const res = await axios.get(`${API}/fy-summary?${p}`);
       setData(res.data);
     } catch (err) {
-      console.error('FY Summary fetch error:', err);
+      logger.error('FY Summary fetch error:', err);
     }
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, [filters.kms_year]);
+  useEffect(() => { fetchData(); }, [filters.kms_year]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const downloadPdf = () => {
     const p = new URLSearchParams();

@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, Edit, Users, Calendar, IndianRupee, RefreshCw, Check, X, Clock, Sun, Calculator, Download, FileText } from "lucide-react";
 import RoundOffInput from "./common/RoundOffInput";
 import { useConfirm } from "./ConfirmProvider";
+import logger from "../utils/logger";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
 
@@ -34,7 +35,7 @@ const StaffMaster = ({ staff, fetchStaff }) => {
       setShowAdd(false); setEditId(null);
       setForm({ name: "", salary_type: "monthly", salary_amount: "" });
       fetchStaff();
-    } catch { toast.error("Error saving staff"); }
+    } catch (e) { logger.error(e); toast.error("Error saving staff"); }
   };
 
   const remove = async (id) => {
@@ -117,7 +118,7 @@ const Attendance = ({ staff, filters }) => {
       const map = {};
       res.data.forEach(a => { map[a.staff_id] = a.status; });
       setRecords(map);
-    } catch { toast.error("Attendance load nahi hua"); }
+    } catch (e) { logger.error(e); toast.error("Attendance load nahi hua"); }
     finally { setLoading(false); }
   }, [date]);
 
@@ -134,7 +135,7 @@ const Attendance = ({ staff, filters }) => {
         date, records: recs, kms_year: filters.kms_year || "", season: filters.season || ""
       });
       toast.success("Attendance saved!");
-    } catch { toast.error("Save failed"); }
+    } catch (e) { logger.error(e); toast.error("Save failed"); }
   };
 
   const exportAtt = async (fmt) => {
@@ -258,7 +259,7 @@ const QuickMonthlyReport = ({ staff, filters }) => {
         return { ...s, P, A, H, CH, daysWorked, perDay: Math.round(perDay), estSalary, totalDays: dates.length, advanceTotal: Math.round(advTotal) };
       });
       setData(summary);
-    } catch { toast.error("Report load nahi hua"); }
+    } catch (e) { logger.error(e); toast.error("Report load nahi hua"); }
     finally { setLoading(false); }
   }, [dateFrom, dateTo]);
 
@@ -418,7 +419,7 @@ const AdvanceSection = ({ staff, filters, fetchAdvances, advances, payments }) =
       toast.success("Advance added"); setShowAdd(false);
       setForm({ staff_id: "", amount: "", date: new Date().toISOString().split('T')[0], description: "" });
       fetchAdvances();
-    } catch { toast.error("Error"); }
+    } catch (e) { logger.error(e); toast.error("Error"); }
   };
 
   const remove = async (id) => {
@@ -494,7 +495,7 @@ const AdvanceSection = ({ staff, filters, fetchAdvances, advances, payments }) =
           ledger: ledger.map(l => ({ date: l.date, staff_name: l.staff_name, description: l.description, debit: l.type === 'debit' ? l.amount : 0, credit: l.type === 'credit' ? l.amount : 0, balance: l.balance })),
           staff_name: staffName, kms_year: filters.kms_year, season: filters.season
         }, `advance_ledger_${staffName}.xlsx`);
-      } catch { toast.error("Excel export failed"); }
+      } catch (e) { logger.error(e); toast.error("Excel export failed"); }
     }
   };
 
@@ -622,7 +623,7 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
             
             const res = await axios.get(`${API}/staff/salary-calculate?${p}`);
             results.push({ ...res.data, staff_name: s.name, staff_id: s.id });
-          } catch {}
+          } catch (e) { logger.error(e); }
         }
         setAllCalcData(results);
         setCalcData(null);
@@ -637,7 +638,7 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
         const autoDeduct = Math.min(res.data.advance_balance || 0, res.data.gross_salary || 0);
         setAdvDeduct(Math.max(0, autoDeduct));
       }
-    } catch { toast.error("Calculate nahi hua"); }
+    } catch (e) { logger.error(e); toast.error("Calculate nahi hua"); }
     finally { setCalculating(false); }
   };
 
@@ -666,7 +667,7 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
       toast.success(`₹${net.toLocaleString('en-IN')} payment done + Cash Book entry created!`);
       setCalcData(null); setStaffId(""); setPeriodFrom(""); setPeriodTo(""); setRoundOff("");
       fetchPayments();
-    } catch { toast.error("Payment error"); }
+    } catch (e) { logger.error(e); toast.error("Payment error"); }
   };
 
   const settleAll = async () => {
@@ -692,7 +693,7 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
           kms_year: filters.kms_year || "", season: filters.season || ""
         });
         success++;
-      } catch {}
+      } catch (e) { logger.error(e); }
     }
     setSettlingAll(false);
     toast.success(`${success}/${allCalcData.length} staff salary settled!`);
@@ -920,8 +921,8 @@ const StaffManagement = ({ filters, user }) => {
   const [payments, setPayments] = useState([]);
 
   const fetchStaff = useCallback(async () => {
-    try { const res = await axios.get(`${API}/staff`); setStaff(res.data); } catch {}
-  }, []);
+    try { const res = await axios.get(`${API}/staff`); setStaff(res.data); } catch (e) { logger.error(e); }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchAdvances = useCallback(async () => {
     try {
@@ -930,7 +931,7 @@ const StaffManagement = ({ filters, user }) => {
       
       const res = await axios.get(`${API}/staff/advance?${p}`);
       setAdvances(res.data);
-    } catch {}
+    } catch (e) { logger.error(e); }
   }, [filters.kms_year]);
 
   const fetchPayments = useCallback(async () => {
@@ -940,7 +941,7 @@ const StaffManagement = ({ filters, user }) => {
       
       const res = await axios.get(`${API}/staff/payments?${p}`);
       setPayments(res.data);
-    } catch {}
+    } catch (e) { logger.error(e); }
   }, [filters.kms_year]);
 
   useEffect(() => { fetchStaff(); fetchAdvances(); fetchPayments(); }, [fetchStaff, fetchAdvances, fetchPayments]);

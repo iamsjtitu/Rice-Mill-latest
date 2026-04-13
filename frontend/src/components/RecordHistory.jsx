@@ -25,7 +25,7 @@ export default function RecordHistory({ recordId, label }) {
     try {
       const res = await axios.get(`${API}/audit-log/record/${recordId}`);
       setLogs(res.data.logs || []);
-    } catch { setLogs([]); }
+    } catch (e) { setLogs([]); }
     setLoading(false);
   };
 

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
+import logger from "../utils/logger";
 import {
   RefreshCw, Download, FileText, AlertCircle, Truck, Users,
   IndianRupee, FileSpreadsheet, BookOpen, ClipboardList, Receipt, Wallet, Send
@@ -562,7 +563,7 @@ const GSTLedger = ({ filters }) => {
       
       const res = await axios.get(`${API}/gst-ledger?${p}`);
       setData(res.data);
-    } catch { toast.error("GST Ledger load failed"); }
+    } catch (e) { logger.error(e); toast.error("GST Ledger load failed"); }
     finally { setLoading(false); }
   }, [filters.kms_year]);
 
@@ -574,7 +575,7 @@ const GSTLedger = ({ filters }) => {
       const res = await axios.get(`${API}/gst-ledger/opening-balance?kms_year=${ky}`);
       setObForm({ igst: String(res.data.igst || 0), sgst: String(res.data.sgst || 0), cgst: String(res.data.cgst || 0) });
       setShowObDialog(true);
-    } catch { toast.error("OB load failed"); }
+    } catch (e) { logger.error(e); toast.error("OB load failed"); }
   };
 
   const saveOb = async () => {
@@ -584,7 +585,7 @@ const GSTLedger = ({ filters }) => {
         kms_year: ky, igst: parseFloat(obForm.igst) || 0, sgst: parseFloat(obForm.sgst) || 0, cgst: parseFloat(obForm.cgst) || 0
       });
       toast.success("GST Opening Balance saved!"); setShowObDialog(false); fetchData();
-    } catch { toast.error("Save failed"); }
+    } catch (e) { logger.error(e); toast.error("Save failed"); }
   };
 
   if (loading) return <p className="text-slate-400 text-center py-8">Loading...</p>;

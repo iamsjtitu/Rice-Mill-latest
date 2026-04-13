@@ -23,7 +23,7 @@ export function ConfirmProvider({ children }) {
         onCancel: () => { setState(prev => ({ ...prev, open: false })); resolve(false); },
       });
     });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <ConfirmContext.Provider value={showConfirm}>

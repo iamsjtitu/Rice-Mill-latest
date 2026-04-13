@@ -36,6 +36,7 @@ const API = `${BACKEND_URL}/api`;
 const _isElectronEnv = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 
 import { safePrintHTML } from "../utils/print";
+import logger from "../utils/logger";
 
 export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsumed }) => {
   const showConfirm = useConfirm();
@@ -90,7 +91,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
       setTruckPayments(truckRes.data || []);
       setAgentPayments(agentRes.data || []);
     } catch (error) {
-      console.error("Payments fetch error:", error);
+      logger.error("Payments fetch error:", error);
       toast.error("Payments load karne mein error");
     } finally {
       setLoading(false);

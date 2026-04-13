@@ -19,6 +19,7 @@ const API = `${BACKEND_URL}/api`;
 const fmtWt = (w) => w ? Number(w).toLocaleString() : "0";
 
 import { safePrintHTML } from "../utils/print";
+import logger from "../utils/logger";
 
 function getLast7DaysDate() {
   const d = new Date();
@@ -114,7 +115,7 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
           else belowFields.push(txt);
         });
       }
-    } catch {}
+    } catch (e) { logger.error(e); }
 
     const rst = e.rst_no;
     const gross = Number(e.gross_wt || e.first_wt || 0).toLocaleString();
@@ -223,7 +224,7 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
       ]);
       const brandInfo = { company: br.data?.company_name || "NAVKAR AGRO", tagline: br.data?.tagline || "JOLKO, KESINGA - Mill Entry System", custom_fields: br.data?.custom_fields || [] };
       setPhotoDialog({ open: true, data: { ...r.data, _brand: brandInfo }, loading: false });
-    } catch {
+    } catch (e) {
       toast.error("Photos load nahi hue");
       setPhotoDialog({ open: false, data: null, loading: false });
     }

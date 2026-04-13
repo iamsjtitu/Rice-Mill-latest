@@ -136,14 +136,14 @@ function MainApp({ user, setUser, onLogout }) {
   // Kill camera streams when switching away from vehicle-weight
   const setActiveTabSafe = useCallback((tab) => {
     if (activeTab === "entries" && entriesSubTab === "vehicle-weight" && tab !== "entries") {
-      try { axios.get(`${API}/camera-kill-all`).catch(() => {}); } catch {}
+      try { axios.get(`${API}/camera-kill-all`).catch(() => {}); } catch (e) { logger.error(e); }
     }
     setActiveTab(tab);
   }, [activeTab, entriesSubTab]);
 
   const setEntriesSubTabSafe = useCallback((sub) => {
     if (entriesSubTab === "vehicle-weight" && sub !== "vehicle-weight") {
-      try { axios.get(`${API}/camera-kill-all`).catch(() => {}); } catch {}
+      try { axios.get(`${API}/camera-kill-all`).catch(() => {}); } catch (e) { logger.error(e); }
     }
     setEntriesSubTab(sub);
   }, [entriesSubTab]);
@@ -162,7 +162,7 @@ function MainApp({ user, setUser, onLogout }) {
         setViewEntryData(res.data);
       }
     } catch (err) {
-      console.error("Entry fetch failed:", err);
+      logger.error("Entry fetch failed:", err);
     }
   }, [filters, setEntriesSubTabSafe]);
 
@@ -213,7 +213,7 @@ function MainApp({ user, setUser, onLogout }) {
     };
     window.addEventListener('data-conflict-refresh', handleConflictRefresh);
     return () => window.removeEventListener('data-conflict-refresh', handleConflictRefresh);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Suggestions state
   const [truckSuggestions, setTruckSuggestions] = useState([]);
@@ -320,7 +320,7 @@ function MainApp({ user, setUser, onLogout }) {
     removeBadge();
     const timeout = setTimeout(removeBadge, 3000);
     return () => clearTimeout(timeout);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   // Fetch suggestions
@@ -341,9 +341,9 @@ function MainApp({ user, setUser, onLogout }) {
         setMandiSuggestions(mandisRes.data.suggestions || []);
       }
     } catch (error) {
-      if (!ctrl.signal.aborted) console.error("Suggestions fetch error:", error);
+      if (!ctrl.signal.aborted) logger.error("Suggestions fetch error:", error);
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchMandisForAgent = async (agentName) => {
     try {
@@ -352,7 +352,7 @@ function MainApp({ user, setUser, onLogout }) {
         setMandiSuggestions(response.data.suggestions);
       }
     } catch (error) {
-      console.error("Agent mandis fetch error:", error);
+      logger.error("Agent mandis fetch error:", error);
     }
   };
 
@@ -365,7 +365,7 @@ function MainApp({ user, setUser, onLogout }) {
       const kms = filters.kms_year || '';
       const r = await axios.get(`${API}/vehicle-weight/pending-count?kms_year=${kms}`);
       setPendingVwCount(r.data.pending_count || 0);
-    } catch { /* ignore */ }
+    } catch (e) { /* ignore */ }
   }, [filters.kms_year]);
   useEffect(() => { fetchPendingVwCount(); }, [fetchPendingVwCount]);
   const fetchVehicleWeightByRst = useCallback(async (rstNo) => {
@@ -399,7 +399,7 @@ function MainApp({ user, setUser, onLogout }) {
         toast.success(`RST #${rstNo} से auto-fill: ${vw.vehicle_no} | ${vw.party_name}${netInfo}${cashInfo}`);
         setRstFetched(true);
       }
-    } catch {
+    } catch (e) {
       // RST not found in vehicle weight - ignore silently
     }
   }, [filters.kms_year, findMandiCutting]);
@@ -442,7 +442,7 @@ function MainApp({ user, setUser, onLogout }) {
       setEntriesTotalCount(data.total || 0);
       setEntriesPage(data.page || 1);
     } catch (error) {
-      if (!ctrl.signal.aborted) { toast.error("Entries load karne mein error"); console.error(error); }
+      if (!ctrl.signal.aborted) { toast.error("Entries load karne mein error"); logger.error(error); }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
@@ -466,7 +466,7 @@ function MainApp({ user, setUser, onLogout }) {
       const response = await axios.get(`${API}/totals?${params.toString()}`, { signal: ctrl.signal });
       if (!ctrl.signal.aborted) setTotals(response.data);
     } catch (error) {
-      if (!ctrl.signal.aborted) console.error("Totals fetch error:", error);
+      if (!ctrl.signal.aborted) logger.error("Totals fetch error:", error);
     }
   }, [filters]);
 
@@ -497,7 +497,7 @@ function MainApp({ user, setUser, onLogout }) {
       }).catch(() => {});
     }, 300);
     return () => { clearTimeout(timer); if (mainFetchAbortRef.current) mainFetchAbortRef.current.abort(); };
-  }, [fetchEntries, fetchTotals, fetchSuggestions, filters.kms_year]);
+  }, [fetchEntries, fetchTotals, fetchSuggestions, filters.kms_year]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset selection when entries change
   useEffect(() => {
@@ -513,11 +513,11 @@ function MainApp({ user, setUser, onLogout }) {
         const data = { ...response.data, custom_fields: response.data.custom_fields || [] };
         setBranding(data);
       } catch (error) {
-        console.error("Branding fetch error:", error);
+        logger.error("Branding fetch error:", error);
       }
     };
     fetchBranding();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   // ---- BACKUP FUNCTIONS ----
@@ -714,7 +714,7 @@ function MainApp({ user, setUser, onLogout }) {
       fetchPendingVwCount();
     } catch (error) {
       toast.error(error.response?.data?.detail || "Entry save karne mein error");
-      console.error(error);
+      logger.error(error);
     }
   };
 
@@ -777,7 +777,7 @@ function MainApp({ user, setUser, onLogout }) {
         fetchPendingVwCount();
       } catch (error) {
         toast.error(error.response?.data?.detail || "Delete karne mein error");
-        console.error(error);
+        logger.error(error);
       }
     }
   };
@@ -1102,6 +1102,7 @@ function MainApp({ user, setUser, onLogout }) {
 }
 
 import { ConfirmProvider } from "@/components/ConfirmProvider";
+import logger from "@/utils/logger";
 
 // Main App with Auth
 function App() {

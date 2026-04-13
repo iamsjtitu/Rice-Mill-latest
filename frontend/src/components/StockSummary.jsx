@@ -10,6 +10,7 @@ import {
   RefreshCw, FileText, FileSpreadsheet, Package, Wheat, ShoppingBag, Box,
 } from "lucide-react";
 import { downloadFile } from "../utils/download";
+import logger from "../utils/logger";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
@@ -34,7 +35,7 @@ export default function StockSummary({ filters }) {
       if (filters.season) p.append('season', filters.season);
       const res = await axios.get(`${API}/stock-summary?${p}`);
       setItems(res.data.items || []);
-    } catch { toast.error("Stock data load nahi hua"); }
+    } catch (e) { logger.error(e); toast.error("Stock data load nahi hua"); }
     finally { setLoading(false); }
   }, [filters.kms_year, filters.season]);
 

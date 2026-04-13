@@ -11,6 +11,7 @@ import { Plus, Trash2, Edit, Users, IndianRupee, RefreshCw, Undo2, Download, Fil
 import { fmtDate } from "@/utils/date";
 import RoundOffInput from "@/components/common/RoundOffInput";
 import { useConfirm } from "./ConfirmProvider";
+import logger from "../utils/logger";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
 
@@ -42,7 +43,7 @@ const ItemsConfig = ({ items, fetchItems }) => {
     try {
       await axios.delete(`${API}/hemali/items/${id}`);
       toast.success("Item deactivated"); fetchItems();
-    } catch { toast.error("Error"); }
+    } catch (e) { logger.error(e); toast.error("Error"); }
   };
 
   return (
@@ -143,7 +144,7 @@ const MonthlySummary = ({ filters }) => {
       if (filterMonth) params.append("month", filterMonth);
       const res = await axios.get(`${API}/hemali/monthly-summary?${params}`);
       setData(res.data || []);
-    } catch { toast.error("Monthly summary load error"); }
+    } catch (e) { logger.error(e); toast.error("Monthly summary load error"); }
     setLoading(false);
   }, [filters.kms_year, filterSardar, filterMonth]);
 
@@ -286,8 +287,8 @@ export default function HemaliPayment({ filters, user }) {
     try {
       const res = await axios.get(`${API}/hemali/items`);
       setItems(res.data || []);
-    } catch { /* ignore */ }
-  }, []);
+    } catch (e) { /* ignore */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchPayments = useCallback(async () => {
     setLoading(true);
@@ -300,7 +301,7 @@ export default function HemaliPayment({ filters, user }) {
       if (filterSardar) params.append("sardar_name", filterSardar);
       const res = await axios.get(`${API}/hemali/payments?${params}`);
       setPayments(res.data || []);
-    } catch { toast.error("Payments load error"); }
+    } catch (e) { logger.error(e); toast.error("Payments load error"); }
     setLoading(false);
   }, [filters.kms_year, dateFrom, dateTo, filterSardar]);
 
@@ -308,8 +309,8 @@ export default function HemaliPayment({ filters, user }) {
     try {
       const res = await axios.get(`${API}/hemali/sardars`);
       setSardars(res.data || []);
-    } catch { /* ignore */ }
-  }, []);
+    } catch (e) { /* ignore */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchItems(); fetchSardars(); }, [fetchItems, fetchSardars]);
   useEffect(() => { fetchPayments(); }, [fetchPayments]);
@@ -320,7 +321,7 @@ export default function HemaliPayment({ filters, user }) {
     try {
       const res = await axios.get(`${API}/hemali/advance?sardar_name=${encodeURIComponent(name.trim())}&kms_year=${filters.kms_year || ""}`);
       setAdvanceInfo(res.data);
-    } catch { setAdvanceInfo({ advance: 0, sardar_name: name }); }
+    } catch (e) { setAdvanceInfo({ advance: 0, sardar_name: name }); }
   }, [filters.kms_year]);
 
   // Auto-fetch advance when sardar name changes in form

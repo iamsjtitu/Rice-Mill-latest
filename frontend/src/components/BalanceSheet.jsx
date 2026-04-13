@@ -4,6 +4,7 @@ import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { FileDown, FileSpreadsheet, ChevronDown, ChevronRight, RefreshCw, Printer } from 'lucide-react';
 import { downloadFile } from '../utils/download';
+import logger from "../utils/logger";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
@@ -71,11 +72,11 @@ export default function BalanceSheet({ filters }) {
       if (filters.season) p.append('season', filters.season);
       const res = await axios.get(`${API}/fy-summary/balance-sheet?${p}`);
       setData(res.data);
-    } catch (err) { console.error('Balance Sheet error:', err); }
+    } catch (err) { logger.error('Balance Sheet error:', err); }
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, [filters.kms_year, filters.season]);
+  useEffect(() => { fetchData(); }, [filters.kms_year, filters.season]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleGroup = useCallback((groupName) => {
     setExpandedGroups(prev => {
@@ -83,7 +84,7 @@ export default function BalanceSheet({ filters }) {
       if (next.has(groupName)) next.delete(groupName); else next.add(groupName);
       return next;
     });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Build flat navigable list for a side
   const buildFlatList = useCallback((groups) => {

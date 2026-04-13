@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Trash2, GripVertical, Star, Pencil, Check, X } from "lucide-react";
+import logger from "../../utils/logger";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -22,9 +23,9 @@ export default function ByProductCategoriesTab() {
     try {
       const res = await axios.get(`${API}/byproduct-categories`);
       setCategories(res.data);
-    } catch { toast.error("Categories load nahi hui"); }
+    } catch (e) { logger.error(e); toast.error("Categories load nahi hui"); }
     setLoading(false);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
 
@@ -45,7 +46,7 @@ export default function ByProductCategoriesTab() {
       await axios.delete(`${API}/byproduct-categories/${cat.id}`);
       toast.success(`${cat.name} delete ho gaya!`);
       fetchCategories();
-    } catch { toast.error("Delete error"); }
+    } catch (e) { logger.error(e); toast.error("Delete error"); }
   };
 
   const handleSetAuto = async (cat) => {
@@ -53,7 +54,7 @@ export default function ByProductCategoriesTab() {
       await axios.put(`${API}/byproduct-categories/${cat.id}`, { is_auto: true });
       toast.success(`${cat.name} ab auto-calculated hoga (100% - others)`);
       fetchCategories();
-    } catch { toast.error("Update error"); }
+    } catch (e) { logger.error(e); toast.error("Update error"); }
   };
 
   const startEdit = (cat) => {
@@ -69,7 +70,7 @@ export default function ByProductCategoriesTab() {
       toast.success("Updated!");
       setEditingId(null);
       fetchCategories();
-    } catch { toast.error("Update error"); }
+    } catch (e) { logger.error(e); toast.error("Update error"); }
   };
 
   const moveUp = async (idx) => {
@@ -79,7 +80,7 @@ export default function ByProductCategoriesTab() {
     try {
       await axios.put(`${API}/byproduct-categories-reorder`, { order });
       fetchCategories();
-    } catch { toast.error("Reorder error"); }
+    } catch (e) { logger.error(e); toast.error("Reorder error"); }
   };
 
   const moveDown = async (idx) => {
@@ -89,7 +90,7 @@ export default function ByProductCategoriesTab() {
     try {
       await axios.put(`${API}/byproduct-categories-reorder`, { order });
       fetchCategories();
-    } catch { toast.error("Reorder error"); }
+    } catch (e) { logger.error(e); toast.error("Reorder error"); }
   };
 
   if (loading) return <div className="text-center py-8 text-slate-400">Loading...</div>;

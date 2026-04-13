@@ -10,6 +10,7 @@ import { RefreshCw, Download, FileText, AlertTriangle, Truck, Wheat, IndianRupee
 import { SendToGroupDialog } from "../SendToGroupDialog";
 import { useMessagingEnabled } from "../../hooks/useMessagingEnabled";
 import { API } from "./constants";
+import logger from "../../utils/logger";
 
 const DailyReport = ({ filters }) => {
   const { wa, tg } = useMessagingEnabled();
@@ -26,7 +27,7 @@ const DailyReport = ({ filters }) => {
       if (filters.season) p.append('season', filters.season);
       const res = await axios.get(`${API}/reports/daily?${p}`);
       setData(res.data);
-    } catch { toast.error("Daily report load nahi hua"); }
+    } catch (e) { logger.error(e); toast.error("Daily report load nahi hua"); }
     finally { setLoading(false); }
   }, [date, mode, filters.kms_year, filters.season]);
 
@@ -54,7 +55,7 @@ const DailyReport = ({ filters }) => {
     try {
       const res = await axios.get(`${API}/telegram/config`);
       setTgRecipients(res.data.chat_ids || []);
-    } catch {
+    } catch (e) {
       setTgRecipients([]);
     } finally { setTgLoading(false); }
   };

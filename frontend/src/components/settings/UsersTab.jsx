@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "sonner";
+import logger from "../../utils/logger";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,9 +27,9 @@ function UsersTab({ user, setUser }) {
       const res = await axios.get(`${API}/users?username=${user.username}&role=${user.role}`);
       setUsers(res.data.users || []);
       setStaffList(res.data.staff || []);
-    } catch { toast.error("Users load nahi ho sake"); }
+    } catch (e) { logger.error('Users load error:', e); toast.error("Users load nahi ho sake"); }
   };
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { fetchUsers(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openAdd = () => {
     setEditingUser(null);

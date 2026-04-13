@@ -16,23 +16,23 @@ export default function SessionIndicator({ onDataRefresh }) {
     try {
       const res = await fetch(`${API}/session-status`);
       if (res.ok) setStatus(await res.json());
-    } catch { /* ignore */ }
-  }, []);
+    } catch (e) { /* ignore */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchLan = useCallback(async () => {
     if (!_isElectron) return;
     try {
       const res = await fetch(`${API}/lan-clients`);
       if (res.ok) setLanInfo(await res.json());
-    } catch { /* ignore */ }
-  }, []);
+    } catch (e) { /* ignore */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchSync = useCallback(async () => {
     try {
       const res = await fetch(`${API}/sync-status`);
       if (res.ok) setSyncInfo(await res.json());
-    } catch { /* ignore */ }
-  }, []);
+    } catch (e) { /* ignore */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchStatus();
@@ -49,7 +49,7 @@ export default function SessionIndicator({ onDataRefresh }) {
     try {
       await fetch(`${API}/data-refresh`, { method: "POST" });
       if (onDataRefresh) onDataRefresh();
-    } catch { /* ignore */ }
+    } catch (e) { /* ignore */ }
     setTimeout(() => setRefreshing(false), 1000);
   };
 

@@ -17,6 +17,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Trash2, Edit, Plus, RefreshCw, Filter, X, ShoppingCart, Package, Download, FileText, ClipboardList, Scissors } from "lucide-react";
 import { useConfirm } from "./ConfirmProvider";
+import logger from "../utils/logger";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
@@ -581,7 +582,7 @@ const PaddyChalnaTab = ({ filters }) => {
       ]);
       setEntries(eRes.data.entries || []);
       setSummary(sRes.data);
-    } catch { /* */ }
+    } catch (e) { /* ignore */ }
     setLoading(false);
   }, [filters.kms_year, filters.season, dateFrom, dateTo]);
 
@@ -608,7 +609,7 @@ const PaddyChalnaTab = ({ filters }) => {
 
   const handleDelete = async (id) => {
     if (!await showConfirm("Delete", "Kya aap ye cutting entry delete karna chahte hain?")) return;
-    try { await axios.delete(`${API}/paddy-cutting/${id}`); toast.success("Deleted"); fetchData(); } catch { toast.error("Error"); }
+    try { await axios.delete(`${API}/paddy-cutting/${id}`); toast.success("Deleted"); fetchData(); } catch (e) { logger.error(e); toast.error("Error"); }
   };
 
   const handleExport = async (type) => {
@@ -623,7 +624,7 @@ const PaddyChalnaTab = ({ filters }) => {
       const a = document.createElement('a'); a.href = url;
       a.download = `paddy_chalna.${type === 'excel' ? 'xlsx' : 'pdf'}`;
       a.click(); window.URL.revokeObjectURL(url);
-    } catch { toast.error("Export failed"); }
+    } catch (e) { logger.error(e); toast.error("Export failed"); }
   };
 
   const s = summary || {};

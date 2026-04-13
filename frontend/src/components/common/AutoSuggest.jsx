@@ -34,7 +34,7 @@ const AutoSuggest = ({ value, onChange, suggestions, placeholder, onSelect, onBl
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (activeIndex >= 0 && listRef.current) {
@@ -117,7 +117,7 @@ const AutoSuggest = ({ value, onChange, suggestions, placeholder, onSelect, onBl
         >
           {filteredSuggestions.map((suggestion, index) => (
             <div
-              key={index}
+              key={`${suggestion}-${index}`}
               className={`px-3 py-2 cursor-pointer text-slate-100 text-sm transition-colors ${
                 index === activeIndex 
                   ? 'bg-amber-100 text-amber-800' 

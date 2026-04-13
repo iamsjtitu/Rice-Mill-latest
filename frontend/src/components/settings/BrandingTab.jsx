@@ -19,7 +19,7 @@ function BrandingTab({ user, onBrandingUpdate }) {
       setBrandingForm(data);
       setLoaded(true);
     }).catch(() => setLoaded(true));
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = async () => {
     try {

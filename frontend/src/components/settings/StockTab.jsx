@@ -21,7 +21,7 @@ function StockTab({ kmsYear, user }) {
         if (kmsYear) params.append('kms_year', kmsYear);
         const res = await axios.get(`${API}/opening-stock?${params}`);
         setStocks(res.data?.stocks || {});
-      } catch { setStocks({}); }
+      } catch (e) { setStocks({}); }
       setLoaded(true);
     };
     fetchStock();

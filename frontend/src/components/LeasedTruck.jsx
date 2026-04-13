@@ -14,6 +14,7 @@ import { fmtDate } from "../utils/date";
 import { downloadFile } from "../utils/download";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
+import logger from "../utils/logger";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = BACKEND_URL + "/api";
@@ -65,8 +66,8 @@ export default function LeasedTruck({ filters }) {
   }, [filters.kms_year, filters.season]);
 
   const fetchBankAccounts = useCallback(async () => {
-    try { const res = await axios.get(`${API}/bank-accounts`); setBankAccounts(res.data); } catch {}
-  }, []);
+    try { const res = await axios.get(`${API}/bank-accounts`); setBankAccounts(res.data); } catch (e) { logger.error(e); }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchLeases(); }, [fetchLeases]);
   useEffect(() => { fetchBankAccounts(); }, [fetchBankAccounts]);

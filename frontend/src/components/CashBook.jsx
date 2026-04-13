@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { useConfirm } from "./ConfirmProvider";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
+import logger from "../utils/logger";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -113,7 +114,7 @@ const CashBook = ({ filters, user }) => {
       const res = await axios.get(`${API}/cash-book/categories`);
       setCustomCategories(res.data);
     } catch (e) { /* ignore */ }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchAgentNames = useCallback(async () => {
     try {
@@ -129,7 +130,7 @@ const CashBook = ({ filters, user }) => {
       const res = await axios.get(`${API}/bank-accounts`);
       setBankAccounts(res.data);
     } catch (e) { /* ignore */ }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cbAbortRef = useRef(null);
   const fetchData = useCallback(async (fetchPage) => {
@@ -173,7 +174,7 @@ const CashBook = ({ filters, user }) => {
       try {
         const obRes = await axios.get(`${API}/opening-balances?kms_year=${filters.kms_year || ''}`, { signal: ctrl.signal });
         if (!ctrl.signal.aborted) setObList(obRes.data);
-      } catch {}
+      } catch (e) { logger.error(e); }
     } catch (e) { if (!ctrl.signal.aborted) toast.error("Cash book load nahi hua"); }
     finally { if (!ctrl.signal.aborted) setLoading(false); }
   }, [filters.kms_year, txnFilters, activeView, page]);
@@ -387,7 +388,7 @@ const CashBook = ({ filters, user }) => {
     try {
       await axios.delete(`${API}/opening-balances/${id}?username=${user.username}&role=${user.role}`);
       toast.success("Deleted"); fetchData();
-    } catch { toast.error("Delete error"); }
+    } catch (e) { logger.error(e); toast.error("Delete error"); }
   };
 
   const openSvPayDialog = async () => {
@@ -400,7 +401,7 @@ const CashBook = ({ filters, user }) => {
       setSvVouchers(pending);
       setSvPayForm({ voucher_id: "", party_name: "", amount: "", date: new Date().toISOString().split('T')[0], notes: "", account: "cash", bank_name: "" });
       setIsSvPayOpen(true);
-    } catch { toast.error("Sale vouchers load nahi hue"); }
+    } catch (e) { logger.error(e); toast.error("Sale vouchers load nahi hue"); }
   };
 
   const handleSvPaySubmit = async () => {
@@ -433,7 +434,7 @@ const CashBook = ({ filters, user }) => {
       setPvVouchers(pending);
       setPvPayForm({ voucher_id: "", party_name: "", amount: "", date: new Date().toISOString().split('T')[0], notes: "", account: "cash", bank_name: "" });
       setIsPvPayOpen(true);
-    } catch { toast.error("Purchase vouchers load nahi hue"); }
+    } catch (e) { logger.error(e); toast.error("Purchase vouchers load nahi hue"); }
   };
 
   const handlePvPaySubmit = async () => {
@@ -478,7 +479,7 @@ const CashBook = ({ filters, user }) => {
             bankAccounts.forEach(b => { merged[b.name] = String(bd[b.name] || 0); });
             setObBankDetails(merged);
             setIsObSettingsOpen(true);
-          } catch { toast.error("Opening balance load failed"); }
+          } catch (e) { logger.error(e); toast.error("Opening balance load failed"); }
         }} variant="outline" size="sm" className="border-purple-600 text-purple-400 hover:bg-purple-900/30" data-testid="ob-settings-btn">
           <Wallet className="w-3 h-3 mr-1" /> Set Opening Balance
         </Button>
@@ -745,7 +746,7 @@ const CashBook = ({ filters, user }) => {
                     bank_details: bankDet,
                   });
                   toast.success("Opening balance save ho gaya!"); setIsObSettingsOpen(false); fetchData();
-                } catch { toast.error("Save failed"); }
+                } catch (e) { logger.error(e); toast.error("Save failed"); }
               }}>
               Save Opening Balance
             </Button>

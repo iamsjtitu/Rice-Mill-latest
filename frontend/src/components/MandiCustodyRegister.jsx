@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FileSpreadsheet, FileText, Search, Loader2 } from "lucide-react";
+import logger from "../utils/logger";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -28,12 +29,12 @@ export default function MandiCustodyRegister({ filters }) {
     } catch (err) {
       const msg = err?.response?.data?.detail || err?.response?.data?.error_message || err?.message || "Unknown error";
       toast.error(`Data load nahi hua: ${msg}`);
-      console.error("MandiCustodyRegister fetch error:", err);
+      logger.error("MandiCustodyRegister fetch error:", err);
     }
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, [filters?.kms_year, filters?.season]);
+  useEffect(() => { fetchData(); }, [filters?.kms_year, filters?.season]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const exportPdf = () => {
     const params = new URLSearchParams();

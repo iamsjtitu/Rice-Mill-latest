@@ -17,6 +17,7 @@ import { fmtDate } from "@/utils/date";
 import { useConfirm } from "./ConfirmProvider";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
+import logger from "../utils/logger";
 const HSN_MAP = {
   "Rice (Usna)": "1006 30 20", "Rice (Raw)": "1006 30 10",
   "Broken": "1006 40 00", "Kanki": "1006 40 00",
@@ -90,7 +91,7 @@ export default function SaleBook({ filters, user }) {
       setStockItems(sRes.data);
       setObList(obRes.data);
       setBankAccounts(bRes.data || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { logger.error(e); }
   }, [p, filters.kms_year, searchQuery]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -181,7 +182,7 @@ export default function SaleBook({ filters, user }) {
     try {
       await axios.delete(`${API}/sale-book/${id}?username=${user.username}&role=${user.role}`);
       toast.success("Voucher delete ho gaya"); setSelectedIds(prev => prev.filter(x => x !== id)); fetchData();
-    } catch { toast.error("Delete error"); }
+    } catch (e) { logger.error(e); toast.error("Delete error"); }
   };
 
   const handleBulkDelete = async () => {
@@ -210,7 +211,7 @@ export default function SaleBook({ filters, user }) {
       const { downloadFile } = await import('../utils/download');
       downloadFile(`/api/sale-book/export/excel?${p}${searchParam}`, `sale_book_${new Date().toISOString().split('T')[0]}.xlsx`);
       toast.success("Excel export ho gaya!");
-    } catch { toast.error("Excel export failed"); }
+    } catch (e) { logger.error(e); toast.error("Excel export failed"); }
   };
 
   const handlePayment = async () => {
@@ -268,7 +269,7 @@ export default function SaleBook({ filters, user }) {
     try {
       await axios.delete(`${API}/opening-balances/${id}?username=${user.username}&role=${user.role}`);
       toast.success("Deleted"); fetchData();
-    } catch { toast.error("Delete error"); }
+    } catch (e) { logger.error(e); toast.error("Delete error"); }
   };
 
   // WhatsApp Sale Voucher Send

@@ -41,7 +41,7 @@ const DCEntries = ({ filters, user }) => {
       if (filters.season) p.append('season', filters.season);
       const [dcRes, sumRes] = await Promise.all([axios.get(`${API}/dc-entries?${p}`), axios.get(`${API}/dc-summary?${p}`)]);
       setDcs(dcRes.data); setSummary(sumRes.data);
-      try { const stockRes = await axios.get(`${API}/rice-stock?${p}`); setRiceStockAvail(stockRes.data.available_qntl); setRiceStockByType({ parboiled: stockRes.data.parboiled_available_qntl, raw: stockRes.data.raw_available_qntl }); } catch { setRiceStockAvail(null); setRiceStockByType({ parboiled: null, raw: null }); }
+      try { const stockRes = await axios.get(`${API}/rice-stock?${p}`); setRiceStockAvail(stockRes.data.available_qntl); setRiceStockByType({ parboiled: stockRes.data.parboiled_available_qntl, raw: stockRes.data.raw_available_qntl }); } catch (e) { setRiceStockAvail(null); setRiceStockByType({ parboiled: null, raw: null }); }
     } catch (e) { toast.error("DC data load nahi hua"); }
     finally { setLoading(false); }
   }, [filters.kms_year, filters.season]);
@@ -868,7 +868,7 @@ export const GunnyBags = ({ filters, user }) => {
             ) : historyData.length > 0 ? (
               <div className="max-h-[300px] overflow-y-auto space-y-2">
                 {historyData.map((record, idx) => (
-                  <div key={idx} className="p-3 rounded-lg border bg-slate-700/50 border-slate-600">
+                  <div key={record.id || record.date || `dc-hist-${idx}`} className="p-3 rounded-lg border bg-slate-700/50 border-slate-600">
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="text-emerald-400 font-bold">+Rs.{Math.abs(record.amount).toLocaleString('en-IN')}</p>
