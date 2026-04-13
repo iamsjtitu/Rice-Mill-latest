@@ -303,17 +303,28 @@ module.exports = function(database) {
   }));
 
   // ===== OPENING STOCK =====
-  const STOCK_ITEMS = ['paddy', 'rice_usna', 'rice_raw', 'bran', 'kunda', 'broken', 'kanki', 'husk', 'frk'];
+  const STOCK_ITEMS_BASE = ['paddy', 'rice_usna', 'rice_raw', 'frk'];
+  function getStockItemsList() {
+    const cats = database.data.byproduct_categories && database.data.byproduct_categories.length > 0
+      ? [...database.data.byproduct_categories].sort((a,b) => (a.order||0)-(b.order||0))
+      : [{id:'bran'},{id:'kunda'},{id:'broken'},{id:'kanki'},{id:'husk'}];
+    const bpIds = cats.map(c => c.id);
+    return [...STOCK_ITEMS_BASE.slice(0,3), ...bpIds, STOCK_ITEMS_BASE[3]];
+  }
 
   router.get('/api/opening-stock', safeSync(async (req, res) => {
     const kms_year = req.query.kms_year || '';
     const financial_year = req.query.financial_year || '';
     if (!database.data.opening_stock) database.data.opening_stock = [];
-    const key = kms_year || financial_year;
     const found = database.data.opening_stock.find(s => s.kms_year === kms_year || s.financial_year === financial_year);
-    if (found) return res.json(found);
+    if (found) {
+      // Ensure all dynamic items exist in response
+      const stockItems = getStockItemsList();
+      stockItems.forEach(i => { if (!(i in (found.stocks || {}))) { if (!found.stocks) found.stocks = {}; found.stocks[i] = 0; } });
+      return res.json(found);
+    }
     const defaults = {};
-    STOCK_ITEMS.forEach(i => defaults[i] = 0);
+    getStockItemsList().forEach(i => defaults[i] = 0);
     res.json({ kms_year, financial_year, stocks: defaults });
   }));
 
@@ -321,7 +332,10 @@ module.exports = function(database) {
     const { kms_year = '', financial_year = '', stocks = {} } = req.body;
     if (!database.data.opening_stock) database.data.opening_stock = [];
     const cleanStocks = {};
-    STOCK_ITEMS.forEach(item => {
+    // Allow ALL known + dynamic items + any extra keys from stocks
+    const stockItems = getStockItemsList();
+    const allKeys = new Set([...stockItems, ...Object.keys(stocks)]);
+    allKeys.forEach(item => {
       const val = stocks[item];
       cleanStocks[item] = val ? parseFloat(val) || 0 : 0;
     });
@@ -353,13 +367,15 @@ module.exports = function(database) {
     const obPaddy = parseFloat(ob.paddy || 0);
     const obUsna = parseFloat(ob.rice_usna || ob.rice || 0);
     const obRaw = parseFloat(ob.rice_raw || 0);
-    const obBran = parseFloat(ob.bran || 0);
-    const obKunda = parseFloat(ob.kunda || 0);
-    const obBroken = parseFloat(ob.broken || 0);
-    const obKanki = parseFloat(ob.kanki || 0);
-    const obHusk = parseFloat(ob.husk || 0);
     const obFrk = parseFloat(ob.frk || 0);
-    const bpObMap = { bran: obBran, kunda: obKunda, broken: obBroken, kanki: obKanki, husk: obHusk };
+
+    // Dynamic by-product categories
+    const bpCatsCF = database.data.byproduct_categories && database.data.byproduct_categories.length > 0
+      ? [...database.data.byproduct_categories].sort((a,b) => (a.order||0)-(b.order||0))
+      : [{id:'bran',name:'Bran'},{id:'kunda',name:'Kunda'},{id:'broken',name:'Broken'},{id:'kanki',name:'Kanki'},{id:'husk',name:'Husk'}];
+    const byProducts = bpCatsCF.map(c => c.id);
+    const bpObMap = {};
+    byProducts.forEach(p => { bpObMap[p] = parseFloat(ob[p] || 0); });
 
     const milling = filterByKms(database.data.milling_entries);
     const dc = filterByKms(database.data.dc_entries);
@@ -385,7 +401,6 @@ module.exports = function(database) {
     const pvBought = {};
     purchaseVouchers.forEach(pv => (pv.items || []).forEach(i => { const n = i.item_name || ''; pvBought[n] = (pvBought[n] || 0) + (parseFloat(i.quantity) || 0); }));
 
-    const byProducts = ['bran', 'kunda', 'broken', 'kanki', 'husk'];
     const bpProduced = {};
     byProducts.forEach(p => { bpProduced[p] = round2(milling.reduce((s, e) => s + (e[`${p}_qntl`] || 0), 0)); });
     const bpSoldMap = {};
@@ -408,10 +423,12 @@ module.exports = function(database) {
 
     const bpClosing = {};
     byProducts.forEach(p => {
+      const cat = bpCatsCF.find(c => c.id === p);
+      const displayName = cat ? cat.name : p.charAt(0).toUpperCase() + p.slice(1);
       const produced = bpProduced[p] || 0;
       const soldBp = round2(bpSoldMap[p] || 0);
-      const soldSb = sbSold[p.charAt(0).toUpperCase() + p.slice(1)] || 0;
-      const purchased = pvBought[p.charAt(0).toUpperCase() + p.slice(1)] || 0;
+      const soldSb = (sbSold[displayName] || 0) + (sbSold[p.charAt(0).toUpperCase() + p.slice(1)] || 0) + (sbSold[p] || 0);
+      const purchased = (pvBought[displayName] || 0) + (pvBought[p.charAt(0).toUpperCase() + p.slice(1)] || 0) + (pvBought[p] || 0);
       const itemOb = bpObMap[p] || 0;
       bpClosing[p] = round2(itemOb + produced + purchased - soldBp - soldSb);
     });
@@ -421,21 +438,18 @@ module.exports = function(database) {
     const frkSoldSb = sbSold['FRK'] || 0;
     const frkAvail = round2(obFrk + frkTotalIn - frkSoldSb);
 
-    // Map closing stock to opening stock keys
+    // Map closing stock to opening stock keys - dynamic
     const closing = {
       paddy: paddyAvail,
       rice_usna: usnaAvail,
       rice_raw: rawAvail,
-      bran: bpClosing.bran || 0,
-      kunda: bpClosing.kunda || 0,
-      broken: bpClosing.broken || 0,
-      kanki: bpClosing.kanki || 0,
-      husk: bpClosing.husk || 0,
       frk: frkAvail
     };
+    // Add dynamic by-product closing values
+    byProducts.forEach(p => { closing[p] = bpClosing[p] || 0; });
 
-    // Ensure all keys exist
-    STOCK_ITEMS.forEach(k => { if (!(k in closing)) closing[k] = 0; });
+    // Ensure all stock items exist
+    getStockItemsList().forEach(k => { if (!(k in closing)) closing[k] = 0; });
 
     const doc = {
       kms_year: target_kms_year,
