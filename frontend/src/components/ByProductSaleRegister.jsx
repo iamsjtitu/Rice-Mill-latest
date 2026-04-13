@@ -111,6 +111,11 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const advance = parseFloat(form.advance) || 0;
   const balance = Math.round((total - advance) * 100) / 100;
 
+  // When editing, add back original entry's weight to available stock
+  const editingEntry = editingId ? sales.find(s => s.id === editingId) : null;
+  const editingQtl = editingEntry ? parseFloat(editingEntry.net_weight_qtl) || 0 : 0;
+  const effectiveAvailQtl = stockInfo ? (stockInfo.available_qntl + editingQtl) : 0;
+
   const openNew = () => {
     setEditingId(null);
     setForm({ ...blankForm, product, kms_year: filters.kms_year || "", season: filters.season || "" });
@@ -467,12 +472,12 @@ export default function ByProductSaleRegister({ filters, user, product }) {
 
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <Label className="text-[10px] text-slate-400">N/W (Kg) {stockInfo && <span className={`font-bold ${(stockInfo.available_qntl - nwQtl) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((stockInfo.available_qntl - nwQtl) * 100) / 100} Qtl)</span>}</Label>
+                <Label className="text-[10px] text-slate-400">N/W (Kg) {stockInfo && <span className={`font-bold ${(effectiveAvailQtl - nwQtl) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((effectiveAvailQtl - nwQtl) * 100) / 100} Qtl)</span>}</Label>
                 <Input type="number" step="0.01" value={form.net_weight_kg}
                   onChange={e => setForm(p => ({ ...p, net_weight_kg: e.target.value }))}
                   className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-nw" />
                 {nwKg > 0 && <p className="text-[9px] text-slate-500 mt-0.5">= {nwQtl.toFixed(2)} Qtl</p>}
-                {stockInfo && nwQtl > stockInfo.available_qntl && <p className="text-red-400 text-[9px] mt-0.5">Stock se zyada!</p>}
+                {stockInfo && nwQtl > effectiveAvailQtl && <p className="text-red-400 text-[9px] mt-0.5">Stock se zyada!</p>}
               </div>
               <div>
                 <Label className="text-[10px] text-slate-400">Bags</Label>
