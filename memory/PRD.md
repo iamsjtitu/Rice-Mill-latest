@@ -3,53 +3,41 @@
 ## Current Version: v90.3.0
 
 ## Architecture
-- **Frontend**: React + Shadcn UI + Tailwind (React.lazy + Suspense)
+- **Frontend**: React + Shadcn UI + Tailwind (React.lazy + Suspense, 17 lazy components)
 - **Backend (Web)**: Python FastAPI + MongoDB
 - **Backend (Desktop)**: Electron + Express + SQLite/JSON
 - **Backend (Local)**: Express + SQLite/JSON
 
-## What's Been Implemented
-- Mill Entry CRUD, Cash Book, Private Paddy Purchase, Sale/Purchase Vouchers, DC Tracker, Milling Tracker
-- Staff Management, Hemali, Rice Sales, Truck Lease, Diesel, Mill Parts, Government Registers
-- Dynamic By-Product Categories, Reports, FY Summary, Balance Sheet, Quick Search, PDF/Excel export
-- Multi-user RBAC, WhatsApp/Telegram, Camera, GST Ledger/Audit Log
-
 ## Code Quality Status (v90.3.0)
 
-### Wildcard Imports: ZERO remaining
-All 11 route files now use explicit imports from models.py
-
-### Empty Catch Blocks: ALL fixed
-useFilters.js, CameraSetupTab.jsx, MessagingTab.jsx, WatermarkTab.jsx, WeighbridgeTab.jsx, download.js, useMessagingEnabled.js - all have console.error logging
-
-### Array Index Keys: Fixed (20+ instances)
-MessagingTab (4), BrandingTab (7), DailyReport (4), SaleBook (3), Ledgers (2)
-
-### useMemo: Applied
-Payments.jsx - truckTotals, agentTotals, consolidatedTotals, truckWiseConsolidated, consolidatedTruckList
-
-### Security
-- document.write XSS → safe doc reference (6 files)
-- Test credentials → env vars (5 test files)
-- Dynamic __import__ → static (2 files)
+### Wildcard Imports: ZERO remaining (all 11 route files explicit)
+### Empty Catch Blocks: ALL fixed with console.error
+### Array Index Keys: ALL critical instances fixed (Payments 5, PurchaseVouchers 2, Ledgers 5, MessagingTab 4, BrandingTab 7, DailyReport 4, SaleBook 3)
+### useMemo: Applied to all expensive render computations
+### Security: XSS fixed, test creds in env vars, dynamic imports static
 
 ### Component Splitting
 | File | Original | Final |
 |------|----------|-------|
 | App.js | 1709 | 1136 |
 | Reports.jsx | 1391 | 38 |
-| Payments.jsx | 2036 | 1732 |
-| cashbook.py | 1754 | 1618 |
+| Payments.jsx | 2036 | 1737 |
+| cashbook.py | 1754 | 1417 |
 
-### Lazy Loading: 17 components on-demand
+### Service Layer: cashbook_service.py (392 lines)
+- detect_party_type, backfill_party_type, create_auto_ledger_entry
+- process_diesel_auto_entry, process_pvt_paddy_auto_payment
+- compute_account_totals, compute_bank_details, compute_opening_balances
+- revert_pvt_paddy_payment, revert_rice_sale_payment, revert_linked_payments, revert_hemali_payment
 
 ## Prioritized Backlog
 ### P1: Quality Test Report Register, Monthly Return Auto-generation
-### P3: Triple backend code deduplication, Remaining array-index-as-key fixes (~20)
+### P3: Triple backend code deduplication, get_party_summary extraction
 
 ## Permanent Rules
 1. Version in utils/constants-version.js + 3x package.json + WhatsNew.jsx
 2. Parity: python3 /app/scripts/check-parity.py + bash /app/scripts/sync-js-routes.sh
 3. Hindi/Hinglish communication only
-4. New tab components → use React.lazy() in App.js
-5. No wildcard imports - always explicit from models
+4. New tab components → React.lazy() in App.js
+5. No wildcard imports, always explicit from models
+6. New cashbook logic → services/cashbook_service.py

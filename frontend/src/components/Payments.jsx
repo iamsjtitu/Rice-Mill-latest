@@ -1047,7 +1047,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                 </TableHeader>
                 <TableBody>
                   {filteredTruckPayments.map((payment, idx) => (
-                    <TableRow key={idx} className="border-slate-700 hover:bg-slate-700/50">
+                    <TableRow key={payment.entry_id || `truck-${idx}`} className="border-slate-700 hover:bg-slate-700/50">
                       <TableCell className="text-white text-xs">{fmtDate(payment.date)}</TableCell>
                       <TableCell className="text-white font-semibold">
                         {payment.truck_no}
@@ -1217,7 +1217,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                   </TableHeader>
                   <TableBody>
                     {consolidatedTruckList.map((truckData, idx) => (
-                      <TableRow key={idx} className="border-slate-700 hover:bg-slate-700/50">
+                      <TableRow key={truckData.truck_no || `cons-${idx}`} className="border-slate-700 hover:bg-slate-700/50">
                         <TableCell className="text-white font-bold text-lg">
                           {truckData.truck_no}
                           {truckData.has_pvt && <span className="ml-2 px-1.5 py-0.5 text-[10px] rounded bg-purple-900/60 text-purple-300 font-medium align-middle">Pvt</span>}
@@ -1406,7 +1406,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                   </TableHeader>
                   <TableBody>
                     {agentPayments.map((payment, idx) => (
-                      <TableRow key={idx} className="border-slate-700 hover:bg-slate-700/50">
+                      <TableRow key={`${payment.mandi_name}-${payment.agent_name}-${idx}`} className="border-slate-700 hover:bg-slate-700/50">
                         <TableCell className="text-white font-semibold">{payment.mandi_name}</TableCell>
                         <TableCell className="text-slate-300 text-xs">{payment.agent_name}</TableCell>
                         <TableCell className="text-amber-400 text-right">{payment.target_qntl} QNTL</TableCell>
@@ -1527,7 +1527,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
               <div className="max-h-[300px] overflow-y-auto space-y-2">
                 {paymentHistory.map((record, idx) => (
                   <div 
-                    key={idx} 
+                    key={record.id || record.date || `hist-${idx}`} 
                     className={`p-3 rounded-lg border ${
                       record.amount < 0 
                         ? 'bg-red-900/20 border-red-600/50' 
@@ -1709,7 +1709,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
             {ownerHistory.length === 0 ? (
               <p className="text-slate-400 text-center py-4">Koi payment history nahi hai</p>
             ) : ownerHistory.map((h, idx) => (
-              <div key={idx} className={`p-2 rounded border text-sm ${h.amount >= 0 ? 'bg-emerald-900/20 border-emerald-700/30' : 'bg-red-900/20 border-red-700/30'}`}>
+              <div key={h.id || h.date || `oh-${idx}`} className={`p-2 rounded border text-sm ${h.amount >= 0 ? 'bg-emerald-900/20 border-emerald-700/30' : 'bg-red-900/20 border-red-700/30'}`}>
                 <div className="flex justify-between items-center">
                   <span className={`font-bold ${h.amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                     {h.amount >= 0 ? '+' : ''}₹{Math.abs(h.amount).toLocaleString()}

@@ -96,7 +96,7 @@ export const OutstandingReport = ({ filters }) => {
                 </TableHeader>
                 <TableBody>
                   {dc.items.map((item, idx) => (
-                    <TableRow key={idx} className="border-slate-700">
+                    <TableRow key={item.dc_number || `dc-${idx}`} className="border-slate-700">
                       <TableCell className="text-white font-semibold">{item.dc_number}</TableCell>
                       <TableCell className="text-right text-slate-300">{item.allotted}</TableCell>
                       <TableCell className="text-right text-emerald-400">{item.delivered}</TableCell>
@@ -244,7 +244,7 @@ export const OutstandingReport = ({ filters }) => {
                 </TableHeader>
                 <TableBody>
                   {data.frk_parties.map((f, idx) => (
-                    <TableRow key={idx} className="border-slate-700">
+                    <TableRow key={f.party_name || `frk-${idx}`} className="border-slate-700">
                       <TableCell className="text-white font-semibold">{f.party_name}</TableCell>
                       <TableCell className="text-right text-amber-400">{f.total_qty}</TableCell>
                       <TableCell className="text-right text-emerald-400">₹{f.total_amount.toLocaleString()}</TableCell>
@@ -396,7 +396,7 @@ const PartyLedger = ({ filters }) => {
             <SelectItem value="all" className="text-white">All Parties</SelectItem>
             {(data.party_list || [])
               .map((p, i) => (
-                <SelectItem key={i} value={p.name} className="text-white">
+                <SelectItem key={p.name || `party-${i}`} value={p.name} className="text-white">
                   {p.name} ({p.type})
                 </SelectItem>
               ))}
@@ -495,7 +495,7 @@ const PartyLedger = ({ filters }) => {
                 </TableHeader>
                 <TableBody>
                   {ledger.map((item, idx) => (
-                    <TableRow key={idx} className="border-slate-700">
+                    <TableRow key={item.id || `ledger-${idx}`} className="border-slate-700">
                       <TableCell className="text-white text-xs">{fmtDate(item.date)}</TableCell>
                       <TableCell className="text-white font-semibold">{item.party_name}</TableCell>
                       <TableCell>
@@ -647,7 +647,7 @@ const GSTLedger = ({ filters }) => {
         <TableBody>
           {entries.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Koi GST transaction nahi hai</TableCell></TableRow>
           : entries.map((e, i) => (
-            <TableRow key={i} className="border-slate-700">
+            <TableRow key={e.id || `gst-${i}`} className="border-slate-700">
               <TableCell className="text-slate-200 text-xs">{e.date}</TableCell>
               <TableCell className="text-xs">
                 <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${e.direction === 'credit' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>

@@ -507,7 +507,7 @@ export default function PurchaseVouchers({ filters, user }) {
                     const isCustom = item._custom;
                     const amt = (parseFloat(item.quantity) || 0) * (parseFloat(item.rate) || 0);
                     return (
-                      <TableRow key={idx} className="border-slate-600">
+                      <TableRow key={`pv-item-${idx}-${item.item_name || 'empty'}`} className="border-slate-600">
                         <TableCell className="p-1">
                           {isCustom ? (
                             <div className="flex gap-1">
@@ -753,7 +753,7 @@ export default function PurchaseVouchers({ filters, user }) {
             ) : historyData.length > 0 ? (
               <div className="max-h-[300px] overflow-y-auto space-y-2">
                 {historyData.map((record, idx) => (
-                  <div key={idx} className="p-3 rounded-lg border bg-slate-700/50 border-slate-600">
+                  <div key={record.id || record.date || `pv-hist-${idx}`} className="p-3 rounded-lg border bg-slate-700/50 border-slate-600">
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="text-emerald-400 font-bold">+Rs.{Math.abs(record.amount).toLocaleString('en-IN')}</p>

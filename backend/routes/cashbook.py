@@ -133,69 +133,27 @@ async def get_cash_transactions(kms_year: Optional[str] = None, season: Optional
 
 @router.get("/cash-book/summary")
 async def get_cash_book_summary(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from services.cashbook_service import compute_account_totals, compute_bank_details, compute_opening_balances
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     txns = await db.cash_transactions.find(query, {"_id": 0}).to_list(10000)
     
-    # Exclude Round Off entries from cash/bank balance - round off is discount, not actual cash
-    real_txns = [t for t in txns if t.get('party_type') != 'Round Off']
-    cash_in = sum(t['amount'] for t in real_txns if t.get('account') == 'cash' and t.get('txn_type') == 'jama')
-    cash_out = sum(t['amount'] for t in real_txns if t.get('account') == 'cash' and t.get('txn_type') == 'nikasi')
-    bank_in = sum(t['amount'] for t in real_txns if t.get('account') == 'bank' and t.get('txn_type') == 'jama')
-    bank_out = sum(t['amount'] for t in real_txns if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi')
+    totals = compute_account_totals(txns)
+    cash_in, cash_out = totals["cash_in"], totals["cash_out"]
+    bank_in, bank_out = totals["bank_in"], totals["bank_out"]
     
-    # Per-bank breakdowns
     bank_accounts = await db.bank_accounts.find({}, {"_id": 0}).sort("name", 1).to_list(100)
     bank_names = [b["name"] for b in bank_accounts]
-    bank_details = {}
-    for bn in bank_names:
-        b_in = sum(t['amount'] for t in real_txns if t.get('account') == 'bank' and t.get('txn_type') == 'jama' and t.get('bank_name') == bn)
-        b_out = sum(t['amount'] for t in real_txns if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi' and t.get('bank_name') == bn)
-        bank_details[bn] = {"in": round(b_in, 2), "out": round(b_out, 2), "balance": round(b_in - b_out, 2)}
-    # Also capture bank txns without a bank_name
-    unlinked_in = sum(t['amount'] for t in real_txns if t.get('account') == 'bank' and t.get('txn_type') == 'jama' and not t.get('bank_name'))
-    unlinked_out = sum(t['amount'] for t in real_txns if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi' and not t.get('bank_name'))
-    if unlinked_in > 0 or unlinked_out > 0:
-        bank_details["Other"] = {"in": round(unlinked_in, 2), "out": round(unlinked_out, 2), "balance": round(unlinked_in - unlinked_out, 2)}
+    bank_details = compute_bank_details(totals["real_txns"], bank_names)
     
-    # Compute opening balance
-    opening_cash = 0.0
-    opening_bank = 0.0
-    opening_bank_details = {}
-    if kms_year:
-        saved_ob = await db.opening_balances.find_one({"kms_year": kms_year}, {"_id": 0})
-        if saved_ob:
-            opening_cash = saved_ob.get("cash", 0.0)
-            opening_bank = saved_ob.get("bank", 0.0)
-            opening_bank_details = saved_ob.get("bank_details", {})
-        else:
-            parts = kms_year.split('-')
-            if len(parts) == 2:
-                try:
-                    prev_fy = f"{int(parts[0])-1}-{int(parts[1])-1}"
-                    prev_txns = await db.cash_transactions.find({"kms_year": prev_fy}, {"_id": 0}).to_list(10000)
-                    prev_real = [t for t in prev_txns if t.get('party_type') != 'Round Off']
-                    prev_cash_in = sum(t['amount'] for t in prev_real if t.get('account') == 'cash' and t.get('txn_type') == 'jama')
-                    prev_cash_out = sum(t['amount'] for t in prev_real if t.get('account') == 'cash' and t.get('txn_type') == 'nikasi')
-                    prev_bank_in = sum(t['amount'] for t in prev_real if t.get('account') == 'bank' and t.get('txn_type') == 'jama')
-                    prev_bank_out = sum(t['amount'] for t in prev_real if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi')
-                    prev_ob = await db.opening_balances.find_one({"kms_year": prev_fy}, {"_id": 0})
-                    if prev_ob:
-                        opening_cash = round((prev_ob.get("cash", 0) + prev_cash_in - prev_cash_out), 2)
-                        opening_bank = round((prev_ob.get("bank", 0) + prev_bank_in - prev_bank_out), 2)
-                    else:
-                        opening_cash = round(prev_cash_in - prev_cash_out, 2)
-                        opening_bank = round(prev_bank_in - prev_bank_out, 2)
-                except (ValueError, IndexError):
-                    pass
+    opening_cash, opening_bank, opening_bank_details = await compute_opening_balances(kms_year)
     
     # Add opening balances per bank to bank_details
     for bn in bank_details:
         ob_val = opening_bank_details.get(bn, 0)
         bank_details[bn]["opening"] = ob_val
         bank_details[bn]["balance"] = round(ob_val + bank_details[bn]["in"] - bank_details[bn]["out"], 2)
-    # Add banks that have opening balance but no transactions yet
     for bn, ob_val in opening_bank_details.items():
         if bn not in bank_details and (ob_val or 0) > 0:
             bank_details[bn] = {"in": 0, "out": 0, "opening": ob_val, "balance": ob_val}
@@ -204,11 +162,9 @@ async def get_cash_book_summary(kms_year: Optional[str] = None, season: Optional
         "opening_cash": opening_cash,
         "opening_bank": opening_bank,
         "opening_bank_details": opening_bank_details,
-        "cash_in": round(cash_in, 2),
-        "cash_out": round(cash_out, 2),
+        "cash_in": round(cash_in, 2), "cash_out": round(cash_out, 2),
         "cash_balance": round(opening_cash + cash_in - cash_out, 2),
-        "bank_in": round(bank_in, 2),
-        "bank_out": round(bank_out, 2),
+        "bank_in": round(bank_in, 2), "bank_out": round(bank_out, 2),
         "bank_balance": round(opening_bank + bank_in - bank_out, 2),
         "bank_details": bank_details,
         "total_balance": round((opening_cash + cash_in - cash_out) + (opening_bank + bank_in - bank_out), 2),
@@ -283,186 +239,29 @@ async def delete_cash_transactions_bulk(request: Request):
 
 @router.delete("/cash-book/{txn_id}")
 async def delete_cash_transaction(txn_id: str, username: str = ""):
-    # Find the transaction first to check if we need to revert payment amounts
+    from services.cashbook_service import revert_pvt_paddy_payment, revert_rice_sale_payment, revert_linked_payments, revert_hemali_payment
     txn = await db.cash_transactions.find_one({"id": txn_id}, {"_id": 0})
     if not txn:
         raise HTTPException(status_code=404, detail="Transaction not found")
     
     await log_audit("cash_transactions", txn_id, "delete", username, old_data=txn)
     
-    ref = txn.get("reference", "")
-    linked_pay_id = txn.get("linked_payment_id", "")
     party_type = txn.get("party_type", "")
-    linked_entry_id = txn.get("linked_entry_id", "")
 
-    # === Pvt Paddy Purchase: Handle ALL types of payment deletion ===
+    # Revert linked payment amounts based on party_type
     if party_type == "Pvt Paddy Purchase":
-        rev_amount = round(txn.get('amount', 0), 2)
-        pvt_entry = None
-        
-        # --- Case 1: Payment dialog entry (has linked_payment_id = UUID) ---
-        if linked_pay_id and not linked_pay_id.startswith("mark_paid:"):
-            # Find and delete the private_payment record
-            pay_doc = await db.private_payments.find_one({"id": linked_pay_id}, {"_id": 0})
-            if pay_doc:
-                pvt_entry = await db.private_paddy.find_one({"id": pay_doc.get("ref_id")}, {"_id": 0})
-                rev_amount = round(pay_doc.get("amount", 0) + pay_doc.get("round_off", 0), 2)
-                await db.private_payments.delete_one({"id": linked_pay_id})
-            # Delete paired ledger entry (same linked_payment_id)
-            await db.cash_transactions.delete_many({"linked_payment_id": linked_pay_id, "account": "ledger"})
-        
-        # --- Case 2: Mark Paid entry (linked_payment_id starts with mark_paid:) ---
-        elif linked_pay_id and linked_pay_id.startswith("mark_paid:"):
-            entry_id_prefix = linked_pay_id.replace("mark_paid:", "")
-            pvt_entry = await db.private_paddy.find_one({"id": {"$regex": f"^{entry_id_prefix}"}}, {"_id": 0})
-            # Delete paired ledger entry
-            await db.cash_transactions.delete_many({"linked_payment_id": linked_pay_id, "account": "ledger"})
-            # Also reset payment_status
-            if pvt_entry:
-                await db.private_paddy.update_one({"id": pvt_entry["id"]}, {"$set": {"payment_status": "pending"}})
-        
-        # --- Case 3: Advance entry (reference starts with pvt_paddy_adv:) ---
-        elif ref.startswith("pvt_paddy_adv:"):
-            if linked_entry_id:
-                pvt_entry = await db.private_paddy.find_one({"id": linked_entry_id}, {"_id": 0})
-            # Delete paired ledger entry (pvt_paddy_advl:*)
-            ledger_ref = ref.replace("pvt_paddy_adv:", "pvt_paddy_advl:")
-            await db.cash_transactions.delete_many({"reference": ledger_ref})
-        
-        # --- Case 4: Manual/unlinked cash entry (no linked_payment_id) ---
-        elif not linked_pay_id and txn.get('account') in ('cash', 'bank'):
-            import re as _re
-            cat = txn.get('category', '')
-            if txn.get('cashbook_pvt_linked'):
-                pvt_entry = await db.private_paddy.find_one({"id": txn['cashbook_pvt_linked']}, {"_id": 0})
-            if not pvt_entry and cat:
-                parts = cat.split(" - ", 1)
-                if len(parts) == 2:
-                    pvt_entry = await db.private_paddy.find_one(
-                        {"party_name": {"$regex": f"^{_re.escape(parts[0].strip())}$", "$options": "i"},
-                         "mandi_name": {"$regex": f"^{_re.escape(parts[1].strip())}$", "$options": "i"}},
-                        {"_id": 0}
-                    )
-                if not pvt_entry:
-                    pvt_entry = await db.private_paddy.find_one({"party_name": {"$regex": _re.escape(cat), "$options": "i"}}, {"_id": 0})
-        
-        # Update paddy purchase paid_amount
-        if pvt_entry and rev_amount > 0:
-            new_paid = round(max(0, pvt_entry.get("paid_amount", 0) - rev_amount), 2)
-            new_balance = round(pvt_entry.get("total_amount", 0) - new_paid, 2)
-            await db.private_paddy.update_one(
-                {"id": pvt_entry["id"]},
-                {"$set": {"paid_amount": new_paid, "balance": new_balance, "payment_status": "pending" if new_paid < pvt_entry.get("total_amount", 0) else "paid"}}
-            )
-    
-    # === Rice Sale: Handle payment deletion ===
+        await revert_pvt_paddy_payment(txn)
     elif party_type == "Rice Sale":
-        rev_amount = round(txn.get('amount', 0), 2)
-        rice_entry = None
-        
-        if linked_pay_id and not linked_pay_id.startswith("mark_paid"):
-            pay_doc = await db.private_payments.find_one({"id": linked_pay_id}, {"_id": 0})
-            if pay_doc:
-                rice_entry = await db.rice_sales.find_one({"id": pay_doc.get("ref_id")}, {"_id": 0})
-                rev_amount = round(pay_doc.get("amount", 0) + pay_doc.get("round_off", 0), 2)
-                await db.private_payments.delete_one({"id": linked_pay_id})
-            await db.cash_transactions.delete_many({"linked_payment_id": linked_pay_id, "account": "ledger"})
-        elif linked_pay_id and linked_pay_id.startswith("mark_paid_rice:"):
-            entry_id_prefix = linked_pay_id.replace("mark_paid_rice:", "")
-            rice_entry = await db.rice_sales.find_one({"id": {"$regex": f"^{entry_id_prefix}"}}, {"_id": 0})
-            await db.cash_transactions.delete_many({"linked_payment_id": linked_pay_id, "account": "ledger"})
-            if rice_entry:
-                await db.rice_sales.update_one({"id": rice_entry["id"]}, {"$set": {"payment_status": "pending"}})
-        
-        if rice_entry and rev_amount > 0:
-            new_paid = round(max(0, rice_entry.get("paid_amount", 0) - rev_amount), 2)
-            new_balance = round(rice_entry.get("total_amount", 0) - new_paid, 2)
-            await db.rice_sales.update_one(
-                {"id": rice_entry["id"]},
-                {"$set": {"paid_amount": new_paid, "balance": new_balance, "payment_status": "pending" if new_paid < rice_entry.get("total_amount", 0) else "paid"}}
-            )
+        await revert_rice_sale_payment(txn)
+
+    # Revert truck/agent/lease payment amounts
+    await revert_linked_payments(txn)
     
-    # Revert truck_payments paid_amount if this was a truck payment entry
-    linked_id = txn.get('linked_payment_id', '')
-    if linked_id.startswith('truck:'):
-        entry_id = linked_id.replace('truck:', '')
-        tp_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
-        if tp_doc:
-            rev_amount = round(txn.get('amount', 0), 2)
-            new_paid = round(max(0, tp_doc.get("paid_amount", 0) - rev_amount), 2)
-            history = tp_doc.get("payments_history", [])
-            # Remove matching history entry (latest with same amount)
-            for i in range(len(history) - 1, -1, -1):
-                if round(history[i].get("amount", 0), 2) == rev_amount:
-                    history.pop(i)
-                    break
-            await db.truck_payments.update_one(
-                {"entry_id": entry_id},
-                {"$set": {"paid_amount": new_paid, "payments_history": history, "updated_at": datetime.now(timezone.utc).isoformat()}}
-            )
-        # Also delete the linked ledger entry
-        ref_prefix = txn.get('reference', '').replace('truck_pay:', 'truck_pay_ledger:')
-        if ref_prefix:
-            await db.cash_transactions.delete_many({"reference": ref_prefix})
-    
-    # Revert agent_payments paid_amount if this was an agent payment entry
-    if linked_id.startswith('agent:'):
-        parts = linked_id.split(':')
-        if len(parts) >= 4:
-            mandi_name = parts[1]
-            kms_year = parts[2]
-            season = parts[3]
-            ap_doc = await db.agent_payments.find_one(
-                {"mandi_name": mandi_name, "kms_year": kms_year, "season": season}, {"_id": 0}
-            )
-            if ap_doc:
-                rev_amount = round(txn.get('amount', 0), 2)
-                new_paid = round(max(0, ap_doc.get("paid_amount", 0) - rev_amount), 2)
-                history = ap_doc.get("payments_history", [])
-                for i in range(len(history) - 1, -1, -1):
-                    if round(history[i].get("amount", 0), 2) == rev_amount:
-                        history.pop(i)
-                        break
-                await db.agent_payments.update_one(
-                    {"mandi_name": mandi_name, "kms_year": kms_year, "season": season},
-                    {"$set": {"paid_amount": new_paid, "payments_history": history, "updated_at": datetime.now(timezone.utc).isoformat()}}
-                )
-            # Also delete the linked ledger entry
-            ref_prefix = txn.get('reference', '').replace('agent_pay:', 'agent_pay_ledger:')
-            if ref_prefix:
-                await db.cash_transactions.delete_many({"reference": ref_prefix})
-    
-    # Revert truck_lease_payments if this was a lease payment entry
-    if linked_id.startswith('truck_lease:'):
-        parts = linked_id.split(':')
-        if len(parts) >= 4:
-            lease_id = parts[1]
-            payment_id = parts[3] if len(parts) > 3 else ""
-            if payment_id:
-                await db.truck_lease_payments.delete_one({"id": payment_id})
-            # Also delete linked ledger entry
-            ref_prefix = txn.get('reference', '').replace('lease_pay:', 'auto_ledger:')
-            if ref_prefix:
-                await db.cash_transactions.delete_many({"reference": ref_prefix})
-    
-    # Also delete auto-created ledger entry
+    # Delete auto-created ledger entry
     await db.cash_transactions.delete_many({"reference": f"auto_ledger:{txn_id[:8]}"})
 
-    # Revert hemali payment to unpaid if this was a hemali cashbook entry
-    ref = txn.get("reference", "")
-    if ref.startswith("hemali_payment:"):
-        hemali_pid = ref.replace("hemali_payment:", "")
-        await db.hemali_payments.update_one(
-            {"id": hemali_pid},
-            {"$set": {"status": "unpaid", "updated_at": datetime.now(timezone.utc).isoformat()}}
-        )
-        # Remove linked ledger entries + local party entries
-        await db.cash_transactions.delete_many({
-            "reference": {"$in": [f"hemali_work:{hemali_pid}", f"hemali_paid:{hemali_pid}"]}
-        })
-        await db.local_party_accounts.delete_many({
-            "reference": f"hemali_paid:{hemali_pid}"
-        })
+    # Revert hemali payment
+    await revert_hemali_payment(txn)
 
     await db.cash_transactions.delete_one({"id": txn_id})
     return {"message": "Transaction deleted", "id": txn_id}
