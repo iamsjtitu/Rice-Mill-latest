@@ -564,7 +564,8 @@ async def carry_forward_stock(data: dict, username: str = "", role: str = ""):
             closing[key] = round(item.get("available", 0), 2)
 
     # Ensure all keys exist
-    for k in STOCK_ITEMS:
+    stock_keys = await get_stock_items_list()
+    for k in stock_keys:
         if k not in closing:
             closing[k] = 0
 

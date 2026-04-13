@@ -397,7 +397,11 @@ async def get_purchase_stock_items(kms_year: Optional[str] = None, season: Optio
     pvt_sold_raw = calc_pvt_rice_sold(pvt_sales, 'raw')
     sb_sold = calc_sale_voucher_items(sale_vouchers)
     pv_bought = calc_purchase_voucher_items(purchase_vouchers)
-    bp_produced = calc_byproduct_produced(milling)
+    # Dynamic by-product categories
+    bp_cats = await db.byproduct_categories.find({}, {"_id": 0}).sort("order", 1).to_list(100)
+    if not bp_cats:
+        bp_cats = [{"id": p, "name": p.title()} for p in BY_PRODUCTS]
+    bp_produced = calc_byproduct_produced(milling, categories=bp_cats)
     bp_sold_map = calc_byproduct_sold(bp_sales)
 
     items = []
@@ -413,13 +417,15 @@ async def get_purchase_stock_items(kms_year: Optional[str] = None, season: Optio
     items.append({"name": "Rice (Raw)", "available_qntl": raw_avail, "unit": "Qntl"})
 
     # By-products
-    for p in products:
+    for cat in bp_cats:
+        p = cat["id"]
+        display_name = cat.get("name", p.title())
         produced = bp_produced.get(p, 0)
         sold_bp = round(bp_sold_map.get(p, 0), 2)
-        sold_sb = sb_sold.get(p.title(), 0)
-        purchased = pv_bought.get(p.title(), 0)
+        sold_sb = sb_sold.get(display_name, 0) + sb_sold.get(p.title(), 0) + sb_sold.get(p, 0)
+        purchased = pv_bought.get(display_name, 0) + pv_bought.get(p.title(), 0) + pv_bought.get(p, 0)
         avail = round(produced + purchased - sold_bp - sold_sb, 2)
-        items.append({"name": p.title(), "available_qntl": avail, "unit": "Qntl"})
+        items.append({"name": display_name, "available_qntl": avail, "unit": "Qntl"})
 
     # FRK
     frk_purchases = await db.frk_purchases.find(query, {"_id": 0}).to_list(10000) if await db.frk_purchases.count_documents(query) > 0 else []
@@ -435,7 +441,7 @@ async def get_purchase_stock_items(kms_year: Optional[str] = None, season: Optio
         items.append({"name": "FRK Rice", "available_qntl": round(frk_rice_bought - frk_rice_sold, 2), "unit": "Qntl"})
 
     # Custom items from previous purchases (not already covered)
-    known_items = {"Paddy", "Rice (Usna)", "Rice (Raw)", "FRK", "FRK Rice"} | {p.title() for p in products}
+    known_items = {"Paddy", "Rice (Usna)", "Rice (Raw)", "FRK", "FRK Rice"} | {cat.get("name", cat["id"].title()) for cat in bp_cats} | {cat["id"] for cat in bp_cats} | {cat["id"].title() for cat in bp_cats}
     for item_name, qty in pv_bought.items():
         if item_name not in known_items and item_name:
             sold = sb_sold.get(item_name, 0)
@@ -495,9 +501,11 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
     pvt_sold_raw = calc_pvt_rice_sold(pvt_sales, 'raw')
     sb_sold = calc_sale_voucher_items(sale_vouchers)
     pv_bought = calc_purchase_voucher_items(purchase_vouchers)
-    bp_produced = calc_byproduct_produced(milling)
+    bp_cats = await db.byproduct_categories.find({}, {"_id": 0}).sort("order", 1).to_list(100)
+    if not bp_cats:
+        bp_cats = [{"id": p, "name": p.title()} for p in BY_PRODUCTS]
+    bp_produced = calc_byproduct_produced(milling, categories=bp_cats)
     bp_sold_map = calc_byproduct_sold(bp_sales)
-    products = BY_PRODUCTS
 
     frk_purchases = []
     if await db.frk_purchases.count_documents(query) > 0:
@@ -579,7 +587,7 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
     })
 
     # Custom items from purchase vouchers (not already covered above)
-    known_items = {"Paddy", "Rice (Usna)", "Rice (Raw)", "FRK"} | {p.title() for p in products}
+    known_items = {"Paddy", "Rice (Usna)", "Rice (Raw)", "FRK"} | {cat.get("name", cat["id"].title()) for cat in bp_cats} | {cat["id"] for cat in bp_cats} | {cat["id"].title() for cat in bp_cats}
     for item_name, qty in pv_bought.items():
         if item_name not in known_items:
             sold = sb_sold.get(item_name, 0)

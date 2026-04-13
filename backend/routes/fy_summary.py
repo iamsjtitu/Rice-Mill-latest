@@ -41,6 +41,20 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
     saved_ob = None
     if kms_year:
         saved_ob = await db.opening_balances.find_one({"kms_year": kms_year}, {"_id": 0})
+        # Fallback: also check opening_stock (from Settings) and merge
+        if not saved_ob:
+            os_doc = await db.opening_stock.find_one({"kms_year": kms_year}, {"_id": 0})
+            if os_doc and os_doc.get("stocks"):
+                st = os_doc["stocks"]
+                saved_ob = {
+                    "kms_year": kms_year,
+                    "paddy_stock": float(st.get("paddy", 0)),
+                    "rice_usna": float(st.get("rice_usna", 0)),
+                    "rice_raw": float(st.get("rice_raw", 0)),
+                    "frk_stock": float(st.get("frk", 0)),
+                    "byproducts": {k: float(v) for k, v in st.items() if k not in ("paddy", "rice_usna", "rice_raw", "frk")},
+                    "from_settings": True
+                }
 
     # ===== 1. CASH & BANK =====
     cash_txns = await db.cash_transactions.find(query, {"_id": 0}).to_list(100000)

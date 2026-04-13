@@ -140,7 +140,11 @@ async def get_stock_items(kms_year: Optional[str] = None, season: Optional[str] 
     pvt_sold_raw = calc_pvt_rice_sold(pvt_sales, 'raw')
     sb_sold = calc_sale_voucher_items(sale_vouchers)
     pv_bought = calc_purchase_voucher_items(purchase_vouchers)
-    bp_produced = calc_byproduct_produced(milling)
+    # Dynamic by-product categories (fetch early for calc_byproduct_produced)
+    cats = await db.byproduct_categories.find({}, {"_id": 0}).sort("order", 1).to_list(100)
+    if not cats:
+        cats = [{"id": "bran", "name": "Bran"}, {"id": "kunda", "name": "Kunda"}, {"id": "broken", "name": "Broken"}, {"id": "kanki", "name": "Kanki"}, {"id": "husk", "name": "Husk"}]
+    bp_produced = calc_byproduct_produced(milling, categories=cats)
     bp_sold_map = calc_byproduct_sold(bp_sales)
 
     items = []
@@ -149,10 +153,6 @@ async def get_stock_items(kms_year: Optional[str] = None, season: Optional[str] 
     items.append({"name": "Rice (Usna)", "available_qntl": usna_avail, "unit": "Qntl"})
     items.append({"name": "Rice (Raw)", "available_qntl": raw_avail, "unit": "Qntl"})
 
-    # Dynamic by-product categories
-    cats = await db.byproduct_categories.find({}, {"_id": 0}).sort("order", 1).to_list(100)
-    if not cats:
-        cats = [{"id": "bran", "name": "Bran"}, {"id": "kunda", "name": "Kunda"}, {"id": "broken", "name": "Broken"}, {"id": "kanki", "name": "Kanki"}, {"id": "husk", "name": "Husk"}]
     for cat in cats:
         p = cat["id"]
         display_name = cat.get("name", p.title())
@@ -172,7 +172,7 @@ async def get_stock_items(kms_year: Optional[str] = None, season: Optional[str] 
     items.append({"name": "FRK", "available_qntl": round(ob_frk + frk_in + frk_pv - frk_sold_sb, 2), "unit": "Qntl"})
 
     # Custom items from Purchase Vouchers not already covered
-    known_items = {"Rice (Usna)", "Rice (Raw)", "FRK"} | {p.title() for p in BY_PRODUCTS}
+    known_items = {"Rice (Usna)", "Rice (Raw)", "FRK"} | {cat.get("name", cat["id"].title()) for cat in cats} | {cat["id"] for cat in cats} | {cat["id"].title() for cat in cats}
     for item_name, qty in pv_bought.items():
         if item_name not in known_items and item_name:
             sold = sb_sold.get(item_name, 0)

@@ -1,0 +1,55 @@
+{
+  "summary": "Dynamic By-Product Categories v90.3.0 - All 13 backend tests PASSED, Frontend UI verified. Custom categories like 'rejection_rice' now appear everywhere: Milling Entry save, Stock Summary, Sale Voucher dropdown, FY Summary, Purchase Book. Opening Stock from Settings reflects in FY Summary.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_dynamic_byproduct_categories.py",
+    "/app/test_reports/pytest/pytest_results_iteration186.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_dynamic_byproduct_categories.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 tests passed)",
+    "frontend": "100% (All UI elements verified)"
+  },
+  "test_credentials": "admin/admin123",
+  "seed_data_creation": "Created and cleaned up test milling entry with rejection_rice_percent=5",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Dynamic by-product categories feature is fully working. Custom categories like 'rejection_rice' are properly saved in milling entries, appear in stock summaries, sale/purchase book dropdowns, and FY summary. Opening stock from Settings collection correctly falls back to FY Summary. The opening-stock API requires username=admin&role=admin query params for PUT requests.",
+  "tests_executed": {
+    "backend_api_tests": [
+      "GET /api/byproduct-categories - PASS (includes rejection_rice)",
+      "POST /api/milling-entries with rejection_rice_percent=5 - PASS (rejection_rice_qntl=5.0 calculated)",
+      "GET /api/milling-entries/{id} - PASS (has rejection_rice_qntl)",
+      "GET /api/byproduct-stock?kms_year=2025-26 - PASS (rejection_rice in stock)",
+      "GET /api/sale-book/stock-items?kms_year=2025-26 - PASS (Rejection Rice in list)",
+      "GET /api/purchase-book/stock-items?kms_year=2025-26 - PASS (Rejection Rice in list)",
+      "PUT /api/opening-stock with rejection_rice=50 - PASS",
+      "GET /api/opening-stock?kms_year=2025-26 - PASS (rejection_rice=50)",
+      "GET /api/fy-summary?kms_year=2025-26 - PASS (rejection_rice opening_stock=50)",
+      "GET /api/stock-summary?kms_year=2025-26 - PASS (Rejection Rice in items)",
+      "GET /api/milling-summary?kms_year=2025-26 - PASS (total_rejection_rice_qntl present)",
+      "DELETE /api/milling-entries/{id} - PASS (cleanup)",
+      "PUT /api/opening-stock reset - PASS (cleanup)"
+    ],
+    "frontend_ui_tests": [
+      "Login with admin/admin123 - PASS",
+      "Settings -> By-Products tab shows Rejection Rice - PASS",
+      "Milling (CMR) -> New Milling Entry form has Rejection Rice% field - PASS",
+      "Milling Entries table has Rejection Rice(Q) column - PASS",
+      "Live Preview in form shows Rejection Rice - PASS"
+    ]
+  },
+  "version_tested": "v90.3.0"
+}

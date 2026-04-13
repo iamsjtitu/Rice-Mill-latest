@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "90.2.0";
+const APP_VERSION = "90.3.0";
 
 const CHANGELOG = [
+  {
+    version: "90.3.0",
+    date: "Apr 2026",
+    title: "v90.3.0 - Dynamic By-Products Fix + Opening Stock in FY Summary",
+    items: [
+      { type: "fix", text: "Custom By-Products (jaise Rejection Rice) ab Milling Entry mein save hoti hain aur Stock Summary/Sale Voucher mein dikhti hain" },
+      { type: "fix", text: "Opening Stock (Settings se) ab FY Summary/Balance Sheet mein reflect hoti hai" },
+      { type: "fix", text: "Purchase Book aur Sale Book stock items mein bhi dynamic categories sahi se aati hain" },
+      { type: "fix", text: "Local Server aur Desktop App mein bhi dynamic by-products fix kiya" },
+    ]
+  },
   {
     version: "90.0.0",
     date: "Apr 2026",
