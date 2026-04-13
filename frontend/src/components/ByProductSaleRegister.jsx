@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Edit, Search, Download } from "lucide-react";
+import { Plus, Trash2, Edit, Search, Download, Eye } from "lucide-react";
 import { fmtDate } from "@/utils/date";
 import { useConfirm } from "./ConfirmProvider";
 import logger from "../utils/logger";
@@ -22,6 +22,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewSale, setViewSale] = useState(null);
   const [billFromSugg, setBillFromSugg] = useState([]);
   const [partySugg, setPartySugg] = useState([]);
   const [destSugg, setDestSugg] = useState([]);
@@ -174,51 +175,48 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       <Card className="bg-slate-800/50 border-slate-700">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <Table className="min-w-[1200px]">
+            <Table className="min-w-[1100px]">
               <TableHeader>
                 <TableRow className="border-slate-700 hover:bg-transparent">
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[75px]">Date</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px]">Bill No</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[50px]">RST</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[90px]">Vehicle</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px]">Date</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px]">Bill No</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px]">Bill Date</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px]">RST</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[85px]">Vehicle</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[90px]">Bill From</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[100px]">Party</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[80px]">Destination</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">N/W(Kg)</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px] text-right">Bags</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[55px] text-right">Rate/Q</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px] text-right">Amount</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px] text-right">Tax</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px] text-right">Total</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[50px] text-right">Cash</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[50px] text-right">Diesel</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px] text-right">Adv</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[75px]">Destination</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[60px] text-right">N/W(Kg)</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[40px] text-right">Bags</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[50px] text-right">Rate/Q</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Amount</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Total</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Balance</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[50px]"></TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={17} className="text-center text-slate-400 py-6">Koi sale nahi</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={15} className="text-center text-slate-400 py-6">Koi sale nahi</TableCell></TableRow>
                 ) : filtered.map(s => (
                   <TableRow key={s.id} className="border-slate-700 hover:bg-slate-700/30">
                     <TableCell className="text-white text-[10px] px-2 whitespace-nowrap">{fmtDate(s.date)}</TableCell>
                     <TableCell className="text-slate-300 text-[10px] px-2 whitespace-nowrap">{s.bill_number}</TableCell>
+                    <TableCell className="text-slate-400 text-[10px] px-2 whitespace-nowrap">{fmtDate(s.billing_date)}</TableCell>
                     <TableCell className="text-amber-400 text-[10px] px-2 font-medium">{s.rst_no}</TableCell>
                     <TableCell className="text-slate-300 text-[10px] px-2 whitespace-nowrap">{s.vehicle_no}</TableCell>
+                    <TableCell className="text-slate-400 text-[10px] px-2 whitespace-nowrap truncate max-w-[90px]">{s.bill_from}</TableCell>
                     <TableCell className="text-white text-[10px] px-2 font-medium whitespace-nowrap">{s.party_name}</TableCell>
                     <TableCell className="text-slate-300 text-[10px] px-2 whitespace-nowrap">{s.destination}</TableCell>
                     <TableCell className="text-blue-300 text-[10px] px-2 text-right">{s.net_weight_kg}</TableCell>
                     <TableCell className="text-slate-300 text-[10px] px-2 text-right">{s.bags}</TableCell>
                     <TableCell className="text-slate-300 text-[10px] px-2 text-right">{s.rate_per_qtl}</TableCell>
                     <TableCell className="text-emerald-400 text-[10px] px-2 text-right whitespace-nowrap">{(s.amount || 0).toLocaleString()}</TableCell>
-                    <TableCell className="text-orange-300 text-[10px] px-2 text-right">{(s.tax_amount || 0).toLocaleString()}</TableCell>
                     <TableCell className="text-emerald-400 text-[10px] px-2 text-right font-bold whitespace-nowrap">{(s.total || 0).toLocaleString()}</TableCell>
-                    <TableCell className="text-green-300 text-[10px] px-2 text-right">{s.cash_paid || 0}</TableCell>
-                    <TableCell className="text-orange-300 text-[10px] px-2 text-right">{s.diesel_paid || 0}</TableCell>
-                    <TableCell className="text-sky-300 text-[10px] px-2 text-right">{s.advance || 0}</TableCell>
                     <TableCell className={`text-[10px] px-2 text-right font-bold whitespace-nowrap ${(s.balance || 0) > 0 ? 'text-red-400' : 'text-green-400'}`}>{(s.balance || 0).toLocaleString()}</TableCell>
                     <TableCell className="px-1">
                       <div className="flex gap-0.5">
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-400 hover:text-white" onClick={() => setViewSale(s)} data-testid={`bp-view-${s.id}`}><Eye className="w-3 h-3" /></Button>
                         <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-400" onClick={() => openEdit(s)}><Edit className="w-3 h-3" /></Button>
                         {user.role === "admin" && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400" onClick={() => handleDelete(s.id)}><Trash2 className="w-3 h-3" /></Button>}
                       </div>
@@ -230,6 +228,49 @@ export default function ByProductSaleRegister({ filters, user, product }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* View Detail Dialog */}
+      <Dialog open={!!viewSale} onOpenChange={() => setViewSale(null)}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg" data-testid="bp-sale-view">
+          <DialogHeader>
+            <DialogTitle className="text-amber-400">{product} Sale Detail</DialogTitle>
+          </DialogHeader>
+          {viewSale && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                {viewSale.bill_number && <div><span className="text-slate-400 text-xs">Bill No:</span> <span className="text-white font-medium">{viewSale.bill_number}</span></div>}
+                {viewSale.billing_date && <div><span className="text-slate-400 text-xs">Billing Date:</span> <span className="text-white">{fmtDate(viewSale.billing_date)}</span></div>}
+                {viewSale.date && <div><span className="text-slate-400 text-xs">Date:</span> <span className="text-white">{fmtDate(viewSale.date)}</span></div>}
+                {viewSale.rst_no && <div><span className="text-slate-400 text-xs">RST No:</span> <span className="text-amber-400 font-medium">{viewSale.rst_no}</span></div>}
+                {viewSale.vehicle_no && <div><span className="text-slate-400 text-xs">Vehicle:</span> <span className="text-white">{viewSale.vehicle_no}</span></div>}
+                {viewSale.bill_from && <div><span className="text-slate-400 text-xs">Bill From:</span> <span className="text-white">{viewSale.bill_from}</span></div>}
+                {viewSale.party_name && <div><span className="text-slate-400 text-xs">Party:</span> <span className="text-white font-medium">{viewSale.party_name}</span></div>}
+                {viewSale.destination && <div><span className="text-slate-400 text-xs">Destination:</span> <span className="text-white">{viewSale.destination}</span></div>}
+              </div>
+              <div className="border-t border-slate-600 pt-2 grid grid-cols-3 gap-x-4 gap-y-2">
+                {viewSale.net_weight_kg > 0 && <div><span className="text-slate-400 text-xs">N/W:</span> <span className="text-blue-300 font-medium">{viewSale.net_weight_kg} Kg ({(viewSale.net_weight_qtl || 0).toFixed(2)} Q)</span></div>}
+                {viewSale.bags > 0 && <div><span className="text-slate-400 text-xs">Bags:</span> <span className="text-white">{viewSale.bags}</span></div>}
+                {viewSale.rate_per_qtl > 0 && <div><span className="text-slate-400 text-xs">Rate/Q:</span> <span className="text-white">{viewSale.rate_per_qtl}</span></div>}
+              </div>
+              <div className="border-t border-slate-600 pt-2 space-y-1">
+                {viewSale.amount > 0 && <div className="flex justify-between"><span className="text-slate-400">Amount</span><span className="text-emerald-400">{(viewSale.amount || 0).toLocaleString()}</span></div>}
+                {viewSale.tax_amount > 0 && <div className="flex justify-between"><span className="text-slate-400">Tax ({viewSale.gst_percent || 0}%)</span><span className="text-orange-400">{(viewSale.tax_amount || 0).toLocaleString()}</span></div>}
+                <div className="flex justify-between font-bold"><span className="text-white">Total</span><span className="text-emerald-400 text-base">{(viewSale.total || 0).toLocaleString()}</span></div>
+              </div>
+              <div className="border-t border-slate-600 pt-2 grid grid-cols-2 gap-x-4 gap-y-1">
+                {viewSale.cash_paid > 0 && <div className="flex justify-between"><span className="text-green-400 text-xs">Cash (Truck ko)</span><span className="text-green-300">{(viewSale.cash_paid || 0).toLocaleString()}</span></div>}
+                {viewSale.diesel_paid > 0 && <div className="flex justify-between"><span className="text-orange-400 text-xs">Diesel (Pump se)</span><span className="text-orange-300">{(viewSale.diesel_paid || 0).toLocaleString()}</span></div>}
+                {viewSale.advance > 0 && <div className="flex justify-between"><span className="text-sky-400 text-xs">Advance (Party se)</span><span className="text-sky-300">{(viewSale.advance || 0).toLocaleString()}</span></div>}
+                <div className="flex justify-between font-bold col-span-2 border-t border-slate-600 pt-1 mt-1">
+                  <span className="text-slate-300">Balance (Party par baki)</span>
+                  <span className={`text-base ${(viewSale.balance || 0) > 0 ? 'text-red-400' : 'text-green-400'}`}>{(viewSale.balance || 0).toLocaleString()}</span>
+                </div>
+              </div>
+              {viewSale.remark && <div className="border-t border-slate-600 pt-2"><span className="text-slate-400 text-xs">Remark:</span> <span className="text-slate-300">{viewSale.remark}</span></div>}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Sale Form Dialog */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
