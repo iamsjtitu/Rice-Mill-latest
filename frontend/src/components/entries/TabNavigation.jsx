@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   FileSpreadsheet, FileText, BarChart3, TrendingUp, Truck,
   Users, IndianRupee, Key, Wheat, Wallet, Package, UserCheck,
-  Menu, X, Landmark
+  Menu, X, Landmark, ChevronLeft, ChevronRight
 } from "lucide-react";
 
 export function TabNavigation({ activeTab, setActiveTabSafe, user }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const scrollRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
   const perms = user.permissions || {};
   const isAdmin = user.role === 'admin';
 
@@ -31,28 +34,86 @@ export function TabNavigation({ activeTab, setActiveTabSafe, user }) {
     tabs.push({ id: "settings", label: "Settings", icon: Key });
   }
 
+  const checkScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 5);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 5);
+  }, []);
+
+  useEffect(() => {
+    checkScroll();
+    const el = scrollRef.current;
+    if (el) { el.addEventListener('scroll', checkScroll); window.addEventListener('resize', checkScroll); }
+    return () => { if (el) el.removeEventListener('scroll', checkScroll); window.removeEventListener('resize', checkScroll); };
+  }, [checkScroll]);
+
+  // Scroll active tab into view
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const activeBtn = el.querySelector(`[data-testid="tab-${activeTab}"]`);
+    if (activeBtn) activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    setTimeout(checkScroll, 300);
+  }, [activeTab, checkScroll]);
+
+  const scroll = (dir) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir === 'left' ? -200 : 200, behavior: 'smooth' });
+  };
+
+  // Keyboard Left/Right to scroll tabs
+  useEffect(() => {
+    const handleKey = (e) => {
+      const tag = (e.target.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+      if (document.querySelector('[role="dialog"]')) return;
+      if (e.key === 'ArrowLeft') { e.preventDefault(); scroll('left'); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); scroll('right'); }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
+
   const activeLabel = tabs.find(t => t.id === activeTab)?.label || "Menu";
   const ActiveIcon = tabs.find(t => t.id === activeTab)?.icon || Menu;
 
   return (
     <>
-      {/* Desktop - horizontal scrollable tabs */}
-      <div className="hidden md:flex gap-2 mt-4 border-b border-slate-700 pb-2 overflow-x-auto scrollbar-hide">
-        {tabs.map(({ id, label, icon: Icon }) => (
-          <Button
-            key={id}
-            onClick={() => setActiveTabSafe(id)}
-            variant={activeTab === id ? "default" : "ghost"}
-            size="sm"
-            className={`whitespace-nowrap ${activeTab === id
-              ? id === "settings" ? "bg-purple-500 hover:bg-purple-600 text-white" : "bg-amber-500 hover:bg-amber-600 text-slate-900"
-              : "text-slate-300 hover:bg-slate-700"}`}
-            data-testid={`tab-${id}`}
-          >
-            <Icon className="w-4 h-4 mr-1" />
-            {label}
-          </Button>
-        ))}
+      {/* Desktop - horizontal scrollable tabs with arrow buttons */}
+      <div className="hidden md:flex items-center gap-1 mt-4 border-b border-slate-700 pb-2">
+        {canScrollLeft && (
+          <button onClick={() => scroll('left')}
+            className="flex-shrink-0 p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+            data-testid="tab-scroll-left">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        )}
+        <div ref={scrollRef} className="flex gap-2 overflow-x-auto scrollbar-hide flex-1" style={{ scrollbarWidth: 'none' }}>
+          {tabs.map(({ id, label, icon: Icon }) => (
+            <Button
+              key={id}
+              onClick={() => setActiveTabSafe(id)}
+              variant={activeTab === id ? "default" : "ghost"}
+              size="sm"
+              className={`whitespace-nowrap ${activeTab === id
+                ? id === "settings" ? "bg-purple-500 hover:bg-purple-600 text-white" : "bg-amber-500 hover:bg-amber-600 text-slate-900"
+                : "text-slate-300 hover:bg-slate-700"}`}
+              data-testid={`tab-${id}`}
+            >
+              <Icon className="w-4 h-4 mr-1" />
+              {label}
+            </Button>
+          ))}
+        </div>
+        {canScrollRight && (
+          <button onClick={() => scroll('right')}
+            className="flex-shrink-0 p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+            data-testid="tab-scroll-right">
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Mobile - hamburger menu */}
