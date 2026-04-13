@@ -106,10 +106,11 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
     } catch (error) { toast.error("Error: " + (error.response?.data?.detail || error.message)); }
   };
 
-  // When editing, add back the original entry's paddy to available stock
   const editingEntry = editingId ? entries.find(e => e.id === editingId) : null;
   const editingPaddy = editingEntry ? parseFloat(editingEntry.paddy_input_qntl) || 0 : 0;
+  const editingFrk = editingEntry ? parseFloat(editingEntry.frk_used_qntl) || 0 : 0;
   const effectiveAvailPaddy = paddyStock ? paddyStock.available_paddy_qntl + editingPaddy : 0;
+  const effectiveAvailFrk = frkStock ? frkStock.available_qntl + editingFrk : 0;
 
   const handleEdit = (entry) => {
     const fd = { date: entry.date, rice_type: entry.rice_type, paddy_input_qntl: entry.paddy_input_qntl.toString(),
@@ -306,10 +307,10 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
               {(ricePct + manualPcts) > 100 && <p className="text-red-400 text-xs">100% se zyada! ({(ricePct + manualPcts).toFixed(2)}%)</p>}
             </div>
             <div className="border border-cyan-800/40 rounded p-3">
-              <p className="text-xs text-cyan-400 font-medium mb-1">FRK from Stock / स्टॉक से FRK {frkStock && <span className="text-green-400">(Avl: {frkStock.available_qntl} Q)</span>}</p>
+              <p className="text-xs text-cyan-400 font-medium mb-1">FRK from Stock / स्टॉक से FRK {frkStock && <span className="text-green-400">(Avl: {Math.round((effectiveAvailFrk - frkUsed) * 100) / 100} Q)</span>}</p>
               <Input type="number" step="0.01" value={formData.frk_used_qntl} onChange={(e) => setFormData(p => ({ ...p, frk_used_qntl: e.target.value }))}
                 placeholder="0" className="bg-slate-700 border-slate-600 text-white h-7 text-xs" data-testid="milling-form-frk-used" />
-              {frkStock && frkUsed > frkStock.available_qntl && <p className="text-red-400 text-xs mt-1">FRK stock se zyada!</p>}
+              {frkStock && frkUsed > effectiveAvailFrk && <p className="text-red-400 text-xs mt-1">FRK stock se zyada!</p>}
             </div>
             <div className="border border-slate-600 rounded p-3 bg-slate-900/50">
               <p className="text-xs text-green-400 font-medium mb-2">Live Preview</p>
