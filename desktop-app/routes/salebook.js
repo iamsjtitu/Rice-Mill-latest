@@ -462,13 +462,15 @@ module.exports = function(database) {
     const obPaddy = parseFloat(ob.paddy || 0);
     const obUsna = parseFloat(ob.rice_usna || ob.rice || 0);
     const obRaw = parseFloat(ob.rice_raw || 0);
-    const obBran = parseFloat(ob.bran || 0);
-    const obKunda = parseFloat(ob.kunda || 0);
-    const obBroken = parseFloat(ob.broken || 0);
-    const obKanki = parseFloat(ob.kanki || 0);
-    const obHusk = parseFloat(ob.husk || 0);
     const obFrk = parseFloat(ob.frk || 0);
-    const bpObMap = { bran: obBran, kunda: obKunda, broken: obBroken, kanki: obKanki, husk: obHusk };
+
+    // Dynamic by-product categories
+    const bpCats = database.data.byproduct_categories && database.data.byproduct_categories.length > 0
+      ? [...database.data.byproduct_categories].sort((a,b) => (a.order||0)-(b.order||0))
+      : [{id:'bran',name:'Bran'},{id:'kunda',name:'Kunda'},{id:'broken',name:'Broken'},{id:'kanki',name:'Kanki'},{id:'husk',name:'Husk'}];
+    const products = bpCats.map(c => c.id);
+    const bpObMap = {};
+    products.forEach(p => { bpObMap[p] = parseFloat(ob[p] || 0); });
 
     const milling = filter(database.data.milling_entries, kms_year, season);
     const dc = filter(database.data.dc_entries, kms_year, season);
@@ -494,7 +496,11 @@ module.exports = function(database) {
     const pvBought = {};
     purchaseVouchers.forEach(pv => (pv.items || []).forEach(i => { const n = i.item_name || ''; pvBought[n] = (pvBought[n] || 0) + (parseFloat(i.quantity) || 0); }));
 
-    const products = ['bran', 'kunda', 'broken', 'kanki', 'husk'];
+    // Dynamic by-product categories
+    const bpCatsMain = database.data.byproduct_categories && database.data.byproduct_categories.length > 0
+      ? [...database.data.byproduct_categories].sort((a,b) => (a.order||0)-(b.order||0))
+      : [{id:'bran',name:'Bran'},{id:'kunda',name:'Kunda'},{id:'broken',name:'Broken'},{id:'kanki',name:'Kanki'},{id:'husk',name:'Husk'}];
+    const products = bpCatsMain.map(c => c.id);
     const bpProduced = {};
     products.forEach(p => { bpProduced[p] = round2(milling.reduce((s, e) => s + (e[`${p}_qntl`] || 0), 0)); });
     const bpSoldMap = {};
@@ -519,16 +525,18 @@ module.exports = function(database) {
     const rawSoldTotal = round2(pvtSoldRaw + (sbSold['Rice (Raw)'] || 0));
     stockItems.push({ name: 'Rice (Raw)', category: 'Finished', opening: obRaw, in_qty: round2(rawProduced + pvRaw), out_qty: rawSoldTotal, available: round2(obRaw + rawProduced + pvRaw - rawSoldTotal), unit: 'Qntl', details: `OB: ${obRaw}Q + Milling: ${rawProduced}Q + Purchase: ${pvRaw}Q - Pvt: ${pvtSoldRaw}Q - Sale: ${sbSold['Rice (Raw)'] || 0}Q` });
 
-    // By-products (with opening)
+    // By-products (with opening) - dynamic categories
     products.forEach(p => {
+      const cat = bpCats.find(c => c.id === p);
+      const displayName = cat ? cat.name : p.charAt(0).toUpperCase() + p.slice(1);
       const produced = bpProduced[p] || 0;
       const soldBp = round2(bpSoldMap[p] || 0);
-      const soldSb = sbSold[p.charAt(0).toUpperCase() + p.slice(1)] || 0;
-      const purchased = pvBought[p.charAt(0).toUpperCase() + p.slice(1)] || 0;
+      const soldSb = (sbSold[displayName] || 0) + (sbSold[p.charAt(0).toUpperCase() + p.slice(1)] || 0) + (sbSold[p] || 0);
+      const purchased = (pvBought[displayName] || 0) + (pvBought[p.charAt(0).toUpperCase() + p.slice(1)] || 0) + (pvBought[p] || 0);
       const itemOb = bpObMap[p] || 0;
       const totalIn = round2(produced + purchased);
       const totalOut = round2(soldBp + soldSb);
-      stockItems.push({ name: p.charAt(0).toUpperCase() + p.slice(1), category: 'By-Product', opening: itemOb, in_qty: totalIn, out_qty: totalOut, available: round2(itemOb + totalIn - totalOut), unit: 'Qntl', details: `OB: ${itemOb}Q + Milling: ${produced}Q + Purchased: ${purchased}Q - Sold: ${soldBp}Q - Sale Voucher: ${soldSb}Q` });
+      stockItems.push({ name: displayName, category: 'By-Product', opening: itemOb, in_qty: totalIn, out_qty: totalOut, available: round2(itemOb + totalIn - totalOut), unit: 'Qntl', details: `OB: ${itemOb}Q + Milling: ${produced}Q + Purchased: ${purchased}Q - Sold: ${soldBp}Q - Sale Voucher: ${soldSb}Q` });
     });
 
     // FRK (with opening)
@@ -537,10 +545,11 @@ module.exports = function(database) {
     const frkSoldSb = sbSold['FRK'] || 0;
     stockItems.push({ name: 'FRK', category: 'By-Product', opening: obFrk, in_qty: frkTotalIn, out_qty: frkSoldSb, available: round2(obFrk + frkTotalIn - frkSoldSb), unit: 'Qntl', details: `OB: ${obFrk}Q + FRK Purchase: ${frkIn}Q + Purchase Voucher: ${frkPurchasedPv}Q - Sale Voucher: ${frkSoldSb}Q` });
 
-    // Custom items
-    const knownItems = new Set(['Paddy', 'Rice (Usna)', 'Rice (Raw)', 'FRK', ...products.map(p => p.charAt(0).toUpperCase() + p.slice(1))]);
+    // Custom items - exclude known dynamic categories
+    const knownItemNames = new Set(['Paddy', 'Rice (Usna)', 'Rice (Raw)', 'FRK']);
+    bpCats.forEach(c => { knownItemNames.add(c.name); knownItemNames.add(c.id.charAt(0).toUpperCase() + c.id.slice(1)); knownItemNames.add(c.id); });
     for (const [itemName, qty] of Object.entries(pvBought)) {
-      if (!knownItems.has(itemName)) {
+      if (!knownItemNames.has(itemName)) {
         const sold = sbSold[itemName] || 0;
         stockItems.push({ name: itemName, category: 'Custom', opening: 0, in_qty: round2(qty), out_qty: round2(sold), available: round2(qty - sold), unit: 'Qntl', details: `Purchased: ${qty}Q - Sold: ${sold}Q` });
       }
@@ -574,7 +583,11 @@ module.exports = function(database) {
     const pvtSoldRaw = round2(pvtSales.filter(s => (s.rice_type || '').toLowerCase() === 'raw').reduce((s, e) => s + (e.quantity_qntl || 0), 0));
     const sbSold = {}; saleVouchers.forEach(sv => (sv.items || []).forEach(i => { const n = i.item_name || ''; sbSold[n] = (sbSold[n] || 0) + (parseFloat(i.quantity) || 0); }));
     const pvBought = {}; purchaseVouchers.forEach(pv => (pv.items || []).forEach(i => { const n = i.item_name || ''; pvBought[n] = (pvBought[n] || 0) + (parseFloat(i.quantity) || 0); }));
-    const products = ['bran', 'kunda', 'broken', 'kanki', 'husk'];
+    // Dynamic by-product categories
+    const bpCatsH = database.data.byproduct_categories && database.data.byproduct_categories.length > 0
+      ? [...database.data.byproduct_categories].sort((a,b) => (a.order||0)-(b.order||0))
+      : [{id:'bran',name:'Bran'},{id:'kunda',name:'Kunda'},{id:'broken',name:'Broken'},{id:'kanki',name:'Kanki'},{id:'husk',name:'Husk'}];
+    const products = bpCatsH.map(c => c.id);
     const bpProduced = {}; products.forEach(p => { bpProduced[p] = round2(milling.reduce((s, e) => s + (e[`${p}_qntl`] || 0), 0)); });
     const bpSoldMap = {}; bpSales.forEach(s => { const p = s.product || ''; bpSoldMap[p] = (bpSoldMap[p] || 0) + (s.quantity_qntl || 0); });
     const frkIn = round2((frkPurchases || []).reduce((s, e) => s + (e.quantity_qntl || e.quantity || 0), 0));
@@ -589,18 +602,21 @@ module.exports = function(database) {
     const rawSoldTotal = round2(pvtSoldRaw + (sbSold['Rice (Raw)'] || 0));
     stockItems.push({ name: 'Rice (Raw)', category: 'Finished', in_qty: round2(rawProduced + pvRaw), out_qty: rawSoldTotal, available: round2(rawProduced + pvRaw - rawSoldTotal), unit: 'Qntl', details: `Milling: ${rawProduced}Q + Purchase: ${pvRaw}Q - Pvt: ${pvtSoldRaw}Q - Sale: ${sbSold['Rice (Raw)'] || 0}Q` });
     products.forEach(p => {
+      const cat = bpCatsH.find(c => c.id === p);
+      const displayName = cat ? cat.name : p.charAt(0).toUpperCase() + p.slice(1);
       const produced = bpProduced[p] || 0; const soldBp = round2(bpSoldMap[p] || 0);
-      const soldSb = sbSold[p.charAt(0).toUpperCase() + p.slice(1)] || 0;
-      const purchased = pvBought[p.charAt(0).toUpperCase() + p.slice(1)] || 0;
+      const soldSb = (sbSold[displayName] || 0) + (sbSold[p.charAt(0).toUpperCase() + p.slice(1)] || 0) + (sbSold[p] || 0);
+      const purchased = (pvBought[displayName] || 0) + (pvBought[p.charAt(0).toUpperCase() + p.slice(1)] || 0) + (pvBought[p] || 0);
       const totalIn = round2(produced + purchased); const totalOut = round2(soldBp + soldSb);
-      stockItems.push({ name: p.charAt(0).toUpperCase() + p.slice(1), category: 'By-Product', in_qty: totalIn, out_qty: totalOut, available: round2(totalIn - totalOut), unit: 'Qntl', details: `Milling: ${produced}Q + Purchased: ${purchased}Q - Sold: ${soldBp}Q - Sale Voucher: ${soldSb}Q` });
+      stockItems.push({ name: displayName, category: 'By-Product', in_qty: totalIn, out_qty: totalOut, available: round2(totalIn - totalOut), unit: 'Qntl', details: `Milling: ${produced}Q + Purchased: ${purchased}Q - Sold: ${soldBp}Q - Sale Voucher: ${soldSb}Q` });
     });
     const frkPurchasedPv = pvBought['FRK'] || 0;
     const frkTotalIn = round2(frkIn + frkPurchasedPv); const frkSoldSb = sbSold['FRK'] || 0;
     stockItems.push({ name: 'FRK', category: 'By-Product', in_qty: frkTotalIn, out_qty: frkSoldSb, available: round2(frkTotalIn - frkSoldSb), unit: 'Qntl', details: `FRK Purchase: ${frkIn}Q + Purchase Voucher: ${frkPurchasedPv}Q - Sale Voucher: ${frkSoldSb}Q` });
-    const knownItems = new Set(['Paddy', 'Rice (Usna)', 'Rice (Raw)', 'FRK', ...products.map(p => p.charAt(0).toUpperCase() + p.slice(1))]);
+    const knownItemsH = new Set(['Paddy', 'Rice (Usna)', 'Rice (Raw)', 'FRK']);
+    bpCatsH.forEach(c => { knownItemsH.add(c.name); knownItemsH.add(c.id.charAt(0).toUpperCase() + c.id.slice(1)); knownItemsH.add(c.id); });
     for (const [itemName, qty] of Object.entries(pvBought)) {
-      if (!knownItems.has(itemName)) { const sold = sbSold[itemName] || 0; stockItems.push({ name: itemName, category: 'Custom', in_qty: round2(qty), out_qty: round2(sold), available: round2(qty - sold), unit: 'Qntl', details: `Purchased: ${qty}Q - Sold: ${sold}Q` }); }
+      if (!knownItemsH.has(itemName)) { const sold = sbSold[itemName] || 0; stockItems.push({ name: itemName, category: 'Custom', in_qty: round2(qty), out_qty: round2(sold), available: round2(qty - sold), unit: 'Qntl', details: `Purchased: ${qty}Q - Sold: ${sold}Q` }); }
     }
     const gunnyIn = gunnyEntries.filter(e => e.txn_type === 'in').reduce((s, e) => s + (e.quantity || 0), 0);
     const gunnyOut = gunnyEntries.filter(e => e.txn_type === 'out').reduce((s, e) => s + (e.quantity || 0), 0);

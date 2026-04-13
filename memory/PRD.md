@@ -41,6 +41,8 @@ Suppresses all output in production, forwards to console in development.
 - All backends (Python, Desktop JS, Local JS) read categories dynamically
 - Milling entries, stock calculations, exports, and frontend UI all use dynamic categories
 - No hardcoded product arrays anywhere (was ['bran','kunda','broken','kanki','husk'], now dynamic)
+- **Stock Summary API** (both Python and JS) uses dynamic categories for by-product stock items
+- **Opening Stock** merges dynamic category values without losing custom keys
 
 ## Prioritized Backlog
 ### P3: Triple backend code deduplication, Python type hints improvement
