@@ -1,8 +1,9 @@
 /* Mill Entry System Styles */
 
-/* Smooth scrolling */
+/* Global font size increase */
 html {
   scroll-behavior: smooth;
+  font-size: 17px;
 }
 
 /* Custom scrollbar - dark mode */

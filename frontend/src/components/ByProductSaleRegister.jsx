@@ -467,11 +467,12 @@ export default function ByProductSaleRegister({ filters, user, product }) {
 
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <Label className="text-[10px] text-slate-400">N/W (Kg)</Label>
+                <Label className="text-[10px] text-slate-400">N/W (Kg) {stockInfo && <span className={`font-bold ${(stockInfo.available_qntl - nwQtl) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((stockInfo.available_qntl - nwQtl) * 100) / 100} Qtl)</span>}</Label>
                 <Input type="number" step="0.01" value={form.net_weight_kg}
                   onChange={e => setForm(p => ({ ...p, net_weight_kg: e.target.value }))}
                   className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-nw" />
                 {nwKg > 0 && <p className="text-[9px] text-slate-500 mt-0.5">= {nwQtl.toFixed(2)} Qtl</p>}
+                {stockInfo && nwQtl > stockInfo.available_qntl && <p className="text-red-400 text-[9px] mt-0.5">Stock se zyada!</p>}
               </div>
               <div>
                 <Label className="text-[10px] text-slate-400">Bags</Label>
