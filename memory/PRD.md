@@ -3,7 +3,7 @@
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with React frontend, Python FastAPI web backend, and Electron/Express desktop app. Triple backend architecture with MongoDB (web) and SQLite/JSON (desktop/local). Requires double-entry accounting, advanced reporting, offline-first desktop, and cross-device sync.
 
-## Current Version: v90.0.0
+## Current Version: v90.3.0
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind
@@ -36,7 +36,7 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Mandi Wise Custody Register (QNTL, professional Excel)
 - Paddy Custody Register (Final W)
 
-### Government Registers (NEW v89.1.0, Updated v89.3.0)
+### Government Registers (v89.1.0 - v89.3.0)
 - **Paddy Custody Register** - Moved from Milling Tracker (includes Mandi Wise Custody Register toggle)
 - **Transit Pass Register** - Auto-generated from Mill Entries where TP No. exists (view-only)
 - **CMR Delivery Tracker** - OSCSC/RRC delivery tracking with OTR auto-calculation (CRUD)
@@ -49,6 +49,14 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - **Security Deposit Management** - Bank Guarantee tracking (SD ratio 1:1/1:3/1:6, auto-expiry, CRUD)
 - All registers have government-format Excel export
 - Odisha OSCSC KMS 2025-26 compliance ready
+
+### Dynamic By-Product Categories (v90.0.0 - v90.3.0)
+- Settings mein 'By-Products' tab - custom categories banao (add/edit/delete/reorder)
+- Categories automatically populate in Milling Form, Stock Summary, Sale Voucher, FY Summary
+- Auto-percentage category support (100% - others = auto%)
+- Default: Bran, Kunda, Broken, Kanki, Husk (Auto)
+- Custom categories (e.g., Rejection Rice) fully save in milling entries
+- Opening Stock from Settings reflects in FY Summary/Balance Sheet (v90.3.0)
 
 ### Features
 - Quick Search with entry detail dialog
@@ -65,16 +73,16 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 
 ## Prioritized Backlog
 
+### P1 (High)
+- Quality Test Report Register
+- Monthly Return Auto-generation (Collector ko 15th tak)
+
 ### P2 (Medium)
 - Python backend service layer refactoring
 - Triple backend code deduplication
 
 ### P3 (Low)
 - Payment logic centralized service layer
-
-### Future - Government Registers
-- Monthly Return Auto-generation (Collector ko 15th tak)
-- Quality Test Report Register
 
 ## Key Technical Notes
 - Triple Backend: Any change to Python MUST be replicated in desktop-app and local-server JS routes
@@ -83,6 +91,8 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Watermark: Python uses reportlab monkey-patch, JS uses drawWatermark in addPdfHeader + createPdfDoc helper
 - Collection mapping: MongoDB `mill_entries` = JS `entries`, `milling_entries` = milling process data
 - Govt registers: `gunny_bag_register` (Python/MongoDB) = `govt_gunny_bag_register` (JS, to avoid conflict with existing `gunny_bags` collection)
+- Dynamic By-Products: Models accept raw dict for Milling Entries to bypass strict Pydantic stripping
+- Opening Stock: Settings saves to `opening_stock` collection, FY Summary reads `opening_balances` with fallback to `opening_stock`
 
 ## Deployment Notes
 - **Desktop App (.exe)**: GitHub Actions auto-builds on push to main
