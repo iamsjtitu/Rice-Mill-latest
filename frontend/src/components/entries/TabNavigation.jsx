@@ -63,18 +63,29 @@ export function TabNavigation({ activeTab, setActiveTabSafe, user }) {
     el.scrollBy({ left: dir === 'left' ? -200 : 200, behavior: 'smooth' });
   };
 
-  // Keyboard Left/Right to scroll tabs
+  // Keyboard Left/Right to navigate between tabs
   useEffect(() => {
     const handleKey = (e) => {
       const tag = (e.target.tagName || '').toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
       if (document.querySelector('[role="dialog"]')) return;
-      if (e.key === 'ArrowLeft') { e.preventDefault(); scroll('left'); }
-      if (e.key === 'ArrowRight') { e.preventDefault(); scroll('right'); }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const idx = tabs.findIndex(t => t.id === activeTab);
+        const newIdx = idx <= 0 ? tabs.length - 1 : idx - 1;
+        setActiveTabSafe(tabs[newIdx].id);
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        const idx = tabs.findIndex(t => t.id === activeTab);
+        const newIdx = idx >= tabs.length - 1 ? 0 : idx + 1;
+        setActiveTabSafe(tabs[newIdx].id);
+      }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, tabs.length]);
 
   const activeLabel = tabs.find(t => t.id === activeTab)?.label || "Menu";
   const ActiveIcon = tabs.find(t => t.id === activeTab)?.icon || Menu;
