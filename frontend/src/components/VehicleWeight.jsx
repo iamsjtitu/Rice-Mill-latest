@@ -1029,8 +1029,8 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       <SelectTrigger className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-product"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {(form.trans_type === "Dispatch(Sale)"
-                          ? ["RICE","RICE BRAN","MOTA KUNDA","BROKEN RICE","REJECTION RICE","PIN BROKEN RICE","POLL","BHUSA","FRK","OTHER"]
-                          : ["GOVT PADDY","PADDY","FRK","OTHER"]
+                          ? ["RICE (USNA)","RICE (RAW)","RICE BRAN","MOTA KUNDA","BROKEN RICE","REJECTION RICE","PIN BROKEN RICE","POLL","BHUSA","OTHER"]
+                          : ["GOVT PADDY","PADDY","RICE (USNA)","RICE (RAW)","OTHER"]
                         ).map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -1044,7 +1044,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                     <Select value={form.trans_type} onValueChange={v => setForm(p => ({
                       ...p,
                       trans_type: v,
-                      product: v === "Dispatch(Sale)" ? "RICE" : "GOVT PADDY"
+                      product: v === "Dispatch(Sale)" ? "RICE (USNA)" : "GOVT PADDY"
                     }))}>
                       <SelectTrigger className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-trans"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -1426,8 +1426,8 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                   <SelectTrigger className="h-9 text-sm border-slate-600" data-testid="edit-product"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {(editForm.trans_type === "Dispatch(Sale)"
-                      ? ["RICE","RICE BRAN","MOTA KUNDA","BROKEN RICE","REJECTION RICE","PIN BROKEN RICE","POLL","BHUSA","FRK","OTHER"]
-                      : ["GOVT PADDY","PADDY","FRK","OTHER"]
+                      ? ["RICE (USNA)","RICE (RAW)","RICE BRAN","MOTA KUNDA","BROKEN RICE","REJECTION RICE","PIN BROKEN RICE","POLL","BHUSA","OTHER"]
+                      : ["GOVT PADDY","PADDY","RICE (USNA)","RICE (RAW)","OTHER"]
                     ).map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                   </SelectContent>
                 </Select>
