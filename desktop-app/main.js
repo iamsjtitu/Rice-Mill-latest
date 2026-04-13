@@ -1242,6 +1242,7 @@ function createApiServer(database) {
     { name: 'vigi_proxy', load: () => require('./routes/vigi_proxy')(require('express').Router(), database) },
     { name: 'quick_search', load: () => require('./routes/quick_search')(database) },
     { name: 'govt_registers', load: () => require('./routes/govt_registers')(database) },
+    { name: 'bp_sale_register', load: () => require('./routes/bp_sale_register')(database) },
   ];
 
   let loadedCount = 0;

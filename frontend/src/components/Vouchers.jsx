@@ -5,6 +5,7 @@ import SaleBook from "./SaleBook";
 import PurchaseVouchers from "./PurchaseVouchers";
 import StockSummary from "./StockSummary";
 import { PaddyPurchase, PartySummary } from "./PaddyPurchase";
+import ByProductSaleRegister from "./ByProductSaleRegister";
 
 const tabs = [
   { id: "sale", label: "Sales Register", icon: FileText, activeClass: "bg-amber-500 hover:bg-amber-600 text-slate-900" },
@@ -15,21 +16,22 @@ const tabs = [
 ];
 
 const SALE_CATEGORIES = [
-  { id: "all", label: "All", itemName: null },
-  { id: "govt_rice", label: "Govt Rice", itemName: "Rice (Usna)" },
-  { id: "private_rice", label: "Private Rice", itemName: "Rice (Raw)" },
-  { id: "bhusa", label: "Bhusa", itemName: "Bhusa" },
-  { id: "rice_bran", label: "Rice Bran", itemName: "Rice Bran" },
-  { id: "mota_kunda", label: "Mota Kunda", itemName: "Mota Kunda" },
-  { id: "broken_rice", label: "Broken Rice", itemName: "Broken Rice" },
-  { id: "rejection_rice", label: "Rejection Rice", itemName: "Rejection Rice" },
-  { id: "pin_broken_rice", label: "Pin Broken Rice", itemName: "Pin Broken Rice" },
-  { id: "poll", label: "Poll", itemName: "Poll" },
+  { id: "govt_rice", label: "Govt Rice", type: "salebook", itemName: "Rice (Usna)" },
+  { id: "private_rice", label: "Private Rice", type: "salebook", itemName: "Rice (Raw)" },
+  { id: "rice_bran", label: "Rice Bran", type: "bp", product: "Rice Bran" },
+  { id: "mota_kunda", label: "Mota Kunda", type: "bp", product: "Mota Kunda" },
+  { id: "broken_rice", label: "Broken Rice", type: "bp", product: "Broken Rice" },
+  { id: "rejection_rice", label: "Rejection Rice", type: "bp", product: "Rejection Rice" },
+  { id: "pin_broken_rice", label: "Pin Broken Rice", type: "bp", product: "Pin Broken Rice" },
+  { id: "poll", label: "Poll", type: "bp", product: "Poll" },
+  { id: "bhusa", label: "Bhusa", type: "bp", product: "Bhusa" },
 ];
 
 export default function Vouchers({ filters, user, onNavigate }) {
   const [activeTab, setActiveTab] = useState("sale");
-  const [saleCat, setSaleCat] = useState("all");
+  const [saleCat, setSaleCat] = useState("govt_rice");
+
+  const activeCat = SALE_CATEGORIES.find(c => c.id === saleCat);
 
   return (
     <div className="space-y-4" data-testid="vouchers-page">
@@ -62,12 +64,11 @@ export default function Vouchers({ filters, user, onNavigate }) {
               </button>
             ))}
           </div>
-          <SaleBook
-            key={saleCat}
-            filters={filters}
-            user={user}
-            category={SALE_CATEGORIES.find(c => c.id === saleCat)?.itemName || null}
-          />
+          {activeCat?.type === "salebook" ? (
+            <SaleBook key={saleCat} filters={filters} user={user} category={activeCat.itemName} />
+          ) : activeCat?.type === "bp" ? (
+            <ByProductSaleRegister key={saleCat} filters={filters} user={user} product={activeCat.product} />
+          ) : null}
         </div>
       ) : activeTab === "purchase" ? (
         <PurchaseVouchers filters={filters} user={user} />

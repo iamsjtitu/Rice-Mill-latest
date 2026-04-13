@@ -1010,6 +1010,9 @@ async function startServer() {
     const govtRegistersRoutes = require('./routes/govt_registers')(database);
     app.use(govtRegistersRoutes);
 
+    const bpSaleRegisterRoutes = require('./routes/bp_sale_register')(database);
+    app.use(bpSaleRegisterRoutes);
+
     console.log('  [Routes] All modular routes loaded successfully');
 
     // ===== DATE FORMAT VALIDATOR - Startup Health Check =====
