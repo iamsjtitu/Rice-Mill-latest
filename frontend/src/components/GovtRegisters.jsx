@@ -193,7 +193,18 @@ function FormARegister({ filters }) {
             <button onClick={() => setViewMode("weekly")} className={`px-3 py-1 rounded text-xs font-medium transition ${viewMode === "weekly" ? "bg-amber-600 text-white" : "text-slate-400 hover:text-white"}`} data-testid="form-a-weekly-btn">Weekly</button>
           </div>
           <Button onClick={handleExcel} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="form-a-excel-btn">
-            <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel Export
+            <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+          </Button>
+          <Button onClick={() => {
+            const params = new URLSearchParams();
+            if (filters.kms_year) params.append("kms_year", filters.kms_year);
+            if (filters.season) params.append("season", filters.season);
+            if (filters.date_from) params.append("date_from", filters.date_from);
+            if (filters.date_to) params.append("date_to", filters.date_to);
+            params.append("group_by", viewMode);
+            window.open(`${API}/govt-registers/form-a/pdf?${params}`, "_blank");
+          }} size="sm" className="bg-red-700 hover:bg-red-600" data-testid="form-a-pdf-btn">
+            <FileText className="w-4 h-4 mr-1" /> PDF
           </Button>
         </div>
       </div>

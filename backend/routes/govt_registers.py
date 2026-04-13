@@ -5,9 +5,13 @@ from datetime import datetime, timezone, timedelta
 from database import db
 from utils.date_format import fmt_date
 import uuid, io
+from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.pdfgen import canvas
+from reportlab.lib import colors
 
 router = APIRouter()
 
@@ -248,6 +252,100 @@ async def export_form_a_excel(kms_year: Optional[str] = None, season: Optional[s
     buf.seek(0)
     fname = f"Form_A_Paddy_Register_{kms_year or 'all'}.xlsx"
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
+@router.get("/govt-registers/form-a/pdf")
+async def export_form_a_pdf(kms_year: Optional[str] = None, season: Optional[str] = None,
+                             date_from: Optional[str] = None, date_to: Optional[str] = None,
+                             group_by: Optional[str] = "daily"):
+    data = await get_form_a(kms_year, season, date_from, date_to, group_by)
+    company, _ = await get_company_name()
+    rows = data["rows"]
+    summary = data["summary"]
+
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=landscape(A4))
+    w, h = landscape(A4)
+
+    # Watermark settings
+    wm_doc = await db.app_settings.find_one({"setting_id": "watermark"}, {"_id": 0})
+    wm = wm_doc or {}
+
+    def draw_tiled_watermark():
+        if not wm.get("enabled") or wm.get("type") != "text" or not wm.get("text"): return
+        c.saveState()
+        c.setFont("Helvetica", 28)
+        c.setFillAlpha(wm.get("opacity", 0.06))
+        c.setFillColor(colors.HexColor("#94A3B8"))
+        for yi in range(0, int(h) + 80, 80):
+            for xi in range(0, int(w) + 200, 200):
+                c.saveState(); c.translate(xi, yi); c.rotate(30); c.drawString(0, 0, wm["text"]); c.restoreState()
+        c.restoreState()
+
+    def draw_page_header(pg_num=1):
+        draw_tiled_watermark()
+        c.setFont("Helvetica-Bold", 14)
+        c.drawCentredString(w / 2, h - 30, company)
+        c.setFont("Helvetica", 10)
+        title = f"Form A - Paddy Received from State Procuring Agency | {kms_year or 'All'}"
+        if season: title += f" | {season}"
+        c.drawCentredString(w / 2, h - 46, title)
+        c.setFont("Helvetica", 7)
+        c.drawRightString(w - 25, h - 46, f"Page {pg_num}")
+
+    headers = ["Date", "Opening Bal (Q)", "Paddy Recd (Q)", "Bags", "Total Paddy (Q)", "Paddy Milled (Q)", "Closing Bal (Q)"]
+    col_widths = [90 if group_by == "weekly" else 70, 85, 90, 50, 90, 90, 85]
+    table_start_x = 40
+    y_start = h - 70
+
+    def draw_table_header(y):
+        c.setFillColor(colors.HexColor("#1F4E79"))
+        c.rect(table_start_x, y - 14, sum(col_widths), 18, fill=True, stroke=False)
+        c.setFillColor(colors.white)
+        c.setFont("Helvetica-Bold", 7.5)
+        x = table_start_x + 4
+        for i, hdr in enumerate(headers):
+            c.drawString(x, y - 10, hdr)
+            x += col_widths[i]
+        return y - 18
+
+    pg = 1
+    draw_page_header(pg)
+    y = draw_table_header(y_start)
+
+    for idx, row in enumerate(rows):
+        if y < 50:
+            c.showPage(); pg += 1; draw_page_header(pg); y = draw_table_header(y_start)
+        if idx % 2 == 0:
+            c.setFillColor(colors.HexColor("#F8FAFC"))
+            c.rect(table_start_x, y - 12, sum(col_widths), 15, fill=True, stroke=False)
+        c.setFillColor(colors.black)
+        c.setFont("Helvetica", 7)
+        x = table_start_x + 4
+        vals = [row.get("date", ""), f"{row.get('opening_balance', 0):.2f}", f"{row.get('received_qntl', 0):.2f}",
+                str(row.get("bags", 0)), f"{row.get('total_paddy', 0):.2f}", f"{row.get('milled_qntl', 0):.2f}", f"{row.get('closing_balance', 0):.2f}"]
+        for i, val in enumerate(vals):
+            c.drawString(x, y - 8, str(val))
+            x += col_widths[i]
+        y -= 15
+
+    # Totals row
+    if y < 50: c.showPage(); pg += 1; draw_page_header(pg); y = draw_table_header(y_start)
+    c.setFillColor(colors.HexColor("#1F4E79"))
+    c.rect(table_start_x, y - 12, sum(col_widths), 16, fill=True, stroke=False)
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica-Bold", 7.5)
+    x = table_start_x + 4
+    totals = ["TOTAL", "", f"{summary.get('total_received', 0):.2f}", "", "", f"{summary.get('total_milled', 0):.2f}", f"{summary.get('final_balance', 0):.2f}"]
+    for i, val in enumerate(totals):
+        c.drawString(x, y - 8, val)
+        x += col_widths[i]
+
+    c.save()
+    buf.seek(0)
+    fname = f"Form_A_Paddy_Register_{kms_year or 'all'}.pdf"
+    return StreamingResponse(buf, media_type="application/pdf",
                              headers={"Content-Disposition": f"attachment; filename={fname}"})
 
 

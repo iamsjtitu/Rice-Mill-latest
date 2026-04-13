@@ -3,7 +3,8 @@ const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const ExcelJS = require('exceljs');
-const { fmtDate } = require('./pdf_helpers');
+const PDFDocument = require('pdfkit');
+const { fmtDate, addPdfHeader, addPdfTable, addTotalsRow, safePdfPipe } = require('./pdf_helpers');
 
 module.exports = function(database) {
 
@@ -190,6 +191,90 @@ module.exports = function(database) {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=Form_A_Paddy_Register_${kms_year || 'all'}.xlsx`);
     await wb.xlsx.write(res); res.end();
+  }));
+
+  // Form A PDF Export
+  router.get('/api/govt-registers/form-a/pdf', safeAsync(async (req, res) => {
+    const { kms_year, season, date_from, date_to, group_by } = req.query;
+    const groupBy = group_by || 'daily';
+
+    let entries = [...(database.data.entries || [])];
+    if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
+    if (season) entries = entries.filter(e => e.season === season);
+    if (date_from) entries = entries.filter(e => (e.date || '') >= date_from);
+    if (date_to) entries = entries.filter(e => (e.date || '') <= date_to);
+
+    let millingEntries = [...(database.data.milling_entries || [])];
+    if (kms_year) millingEntries = millingEntries.filter(e => e.kms_year === kms_year);
+    if (season) millingEntries = millingEntries.filter(e => e.season === season);
+
+    const dailyReceived = {};
+    for (const e of entries) {
+      const d = e.date || ''; if (!d) continue;
+      if (!dailyReceived[d]) dailyReceived[d] = { received_qntl: 0, bags: 0 };
+      let fw = parseFloat(e.final_w || 0) / 100; if (fw === 0) fw = parseFloat(e.kg || 0) / 100;
+      dailyReceived[d].received_qntl += fw; dailyReceived[d].bags += parseInt(e.bag || 0);
+    }
+    const dailyMilled = {};
+    for (const m of millingEntries) {
+      const d = m.date || ''; if (!d) continue;
+      if (!dailyMilled[d]) dailyMilled[d] = 0; dailyMilled[d] += parseFloat(m.paddy_input_qntl || 0);
+    }
+
+    const allDates = [...new Set([...Object.keys(dailyReceived), ...Object.keys(dailyMilled)])].sort();
+    const dailyRows = [];
+    let ob = 0, tr = 0, tm = 0;
+    for (const d of allDates) {
+      const recv = Math.round((dailyReceived[d]?.received_qntl || 0) * 100) / 100;
+      const bags = dailyReceived[d]?.bags || 0;
+      const mil = Math.round((dailyMilled[d] || 0) * 100) / 100;
+      const tot = Math.round((ob + recv) * 100) / 100;
+      const cb = Math.round((tot - mil) * 100) / 100;
+      tr += recv; tm += mil;
+      dailyRows.push({ date: d, ob: Math.round(ob * 100) / 100, recv, bags, tot, mil, cb });
+      ob = cb;
+    }
+
+    // Weekly grouping
+    let pdfRows;
+    if (groupBy === 'weekly' && dailyRows.length > 0) {
+      const weeklyRows = [];
+      let wd = null;
+      for (const r of dailyRows) {
+        let wk;
+        try { const dt = new Date(r.date); const day = dt.getDay(); const diff = dt.getDate() - day + (day === 0 ? -6 : 1); const ws = new Date(dt.setDate(diff)); wk = ws.toISOString().split('T')[0]; } catch (e) { wk = r.date; }
+        if (!wd || wd._wk !== wk) {
+          if (wd) weeklyRows.push(wd);
+          const ws = new Date(wk); const we = new Date(ws); we.setDate(we.getDate() + 6);
+          const fD = (d) => `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+          wd = { _wk: wk, date: `${fD(ws)} to ${fD(we)}`, ob: r.ob, recv: 0, bags: 0, tot: 0, mil: 0, cb: 0 };
+        }
+        wd.recv = Math.round((wd.recv + r.recv) * 100) / 100;
+        wd.bags += r.bags;
+        wd.mil = Math.round((wd.mil + r.mil) * 100) / 100;
+        wd.tot = Math.round((wd.ob + wd.recv) * 100) / 100;
+        wd.cb = Math.round((wd.tot - wd.mil) * 100) / 100;
+      }
+      if (wd) weeklyRows.push(wd);
+      pdfRows = weeklyRows.map(r => [r.date, r.ob.toFixed(2), r.recv.toFixed(2), String(r.bags), r.tot.toFixed(2), r.mil.toFixed(2), r.cb.toFixed(2)]);
+    } else {
+      pdfRows = dailyRows.map(r => [fmtDate(r.date), r.ob.toFixed(2), r.recv.toFixed(2), String(r.bags), r.tot.toFixed(2), r.mil.toFixed(2), r.cb.toFixed(2)]);
+    }
+
+    const branding = database.getBranding ? database.getBranding() : { company_name: 'NAVKAR AGRO' };
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=Form_A_Paddy_Register_${kms_year || 'all'}.pdf`);
+    safePdfPipe(doc, res);
+
+    addPdfHeader(doc, `Form A - Paddy Received from State Procuring Agency | ${kms_year || 'All'}${season ? ' | ' + season : ''}`, branding);
+
+    const headers = ['Date / Period', 'Opening Bal (Q)', 'Paddy Recd (Q)', 'Bags', 'Total Paddy (Q)', 'Paddy Milled (Q)', 'Closing Bal (Q)'];
+    const colW = [groupBy === 'weekly' ? 110 : 60, 75, 80, 45, 80, 80, 75];
+    addPdfTable(doc, headers, pdfRows, colW, { fontSize: 8 });
+    addTotalsRow(doc, ['TOTAL', '', (Math.round(tr * 100) / 100).toFixed(2), '', '', (Math.round(tm * 100) / 100).toFixed(2), (Math.round(ob * 100) / 100).toFixed(2)], colW);
+
+    doc.end();
   }));
 
   // ============ FORM B: CMR Produced and Delivered ============
@@ -619,6 +704,46 @@ module.exports = function(database) {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=Transit_Pass_Register_${kms_year || 'all'}.xlsx`);
     await wb.xlsx.write(res); res.end();
+  }));
+
+  // Transit Pass PDF
+  router.get('/api/govt-registers/transit-pass/pdf', safeAsync(async (req, res) => {
+    const { kms_year, season, date_from, date_to, mandi_name, agent_name } = req.query;
+    let entries = [...(database.data.entries || [])];
+    if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
+    if (season) entries = entries.filter(e => e.season === season);
+    if (date_from) entries = entries.filter(e => (e.date || '') >= date_from);
+    if (date_to) entries = entries.filter(e => (e.date || '') <= date_to);
+    if (mandi_name) entries = entries.filter(e => (e.mandi_name || '').toLowerCase() === mandi_name.toLowerCase());
+    if (agent_name) entries = entries.filter(e => (e.agent_name || '').toLowerCase() === agent_name.toLowerCase());
+    entries = entries.filter(e => e.tp_no && String(e.tp_no).trim()).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+    const branding = database.getBranding ? database.getBranding() : { company_name: 'NAVKAR AGRO' };
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=Transit_Pass_Register_${kms_year || 'all'}.pdf`);
+    safePdfPipe(doc, res);
+
+    addPdfHeader(doc, `Transit Pass Register | ${kms_year || 'All'}${season ? ' | ' + season : ''}`, branding);
+
+    const headers = ['#', 'Date', 'TP No.', 'RST No.', 'Vehicle', 'Agent', 'Mandi', 'Qty (Q)', 'TP Wt', 'Bags'];
+    const colW = [25, 55, 55, 55, 65, 80, 80, 55, 55, 40];
+    const rows = [];
+    let tq = 0, tw = 0, tb = 0;
+
+    entries.forEach((e, i) => {
+      let fw = parseFloat(e.final_w || 0) / 100;
+      if (fw === 0) fw = parseFloat(e.kg || 0) / 100;
+      const bags = parseInt(e.bag || 0);
+      const tpWt = Math.round(parseFloat(e.tp_weight || 0) * 100) / 100;
+      tq += fw; tw += tpWt; tb += bags;
+      rows.push([String(i + 1), fmtDate(e.date), String(e.tp_no), String(e.rst_no || ''), e.truck_no || '', e.agent_name || '', e.mandi_name || '', (Math.round(fw * 100) / 100).toFixed(2), tpWt.toFixed(2), String(bags)]);
+    });
+
+    addPdfTable(doc, headers, rows, colW, { fontSize: 7.5 });
+    addTotalsRow(doc, ['', `Total: ${entries.length}`, '', '', '', '', '', (Math.round(tq * 100) / 100).toFixed(2), (Math.round(tw * 100) / 100).toFixed(2), String(tb)], colW);
+
+    doc.end();
   }));
 
   // ============ CMR DELIVERY TRACKER ============

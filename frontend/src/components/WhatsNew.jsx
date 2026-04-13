@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "90.6.0",
+    date: "Apr 2026",
+    title: "v90.6.0 - Form A PDF + Transit Pass PDF Fix + Opening Stock Fix",
+    items: [
+      { type: "new", text: "Form A - Paddy Stock Register ab PDF export bhi support karta hai (professional look)" },
+      { type: "fix", text: "Transit Pass Register PDF download ab sahi PDF file download hota hai (pehle json aa raha tha)" },
+      { type: "fix", text: "Settings → Opening Stock mai ab custom By-Products (jaise Rejection Rice) bhi dikhte hain" },
+    ]
+  },
+  {
     version: "90.5.0",
     date: "Apr 2026",
     title: "v90.5.0 - Transit Pass Fix + Settings Bug Fix",
