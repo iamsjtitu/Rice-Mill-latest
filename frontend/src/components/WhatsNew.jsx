@@ -7,6 +7,27 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "90.9.0",
+    date: "Apr 2026",
+    title: "v90.9.0 - Sales Register + Vehicle Weight + UI Improvements",
+    items: [
+      { type: "new", text: "Sales Register mein 9 sub-tabs: Govt Rice, Private Rice, Rice Bran, Mota Kunda, Broken Rice, Rejection Rice, Pin Broken Rice, Poll, Bhusa" },
+      { type: "new", text: "By-Product Sale Register - dedicated form with Bill No, RST auto-fetch, N/W(Kg), Rate/Qtl, GST, Cash/Diesel/Advance/Balance" },
+      { type: "new", text: "Real-time stock display in sale form - available stock minus hota hai jaise weight dalte ho" },
+      { type: "new", text: "View button (eye icon) for sale detail with Cash/Diesel/Advance breakdown" },
+      { type: "new", text: "Filters: Date, Billing Date, RST, Vehicle, Bill From, Party, Destination - PDF/Excel bhi filtered" },
+      { type: "new", text: "PDF/Excel export mein sirf filled columns dikhte hain (0 wale hidden)" },
+      { type: "new", text: "Keyboard Left/Right arrow se menu tabs switch, ESC se filters close" },
+      { type: "new", text: "Menu scroll arrows (< >) mouse ke liye" },
+      { type: "fix", text: "Vouchers renamed to Register, Sale Vouchers to Sales Register, Purchase Vouchers to Purchase Register" },
+      { type: "fix", text: "Vehicle Weight: Dispatch(Sale) pe Source->Destination, TP/G.Issued hidden, product list updated (USNA/RAW)" },
+      { type: "fix", text: "Milling edit mein Paddy/FRK stock minus fix - apni entry double count nahi hoti" },
+      { type: "fix", text: "Balance = Total - Advance (Cash/Diesel se deduct nahi hota)" },
+      { type: "fix", text: "Font size 1 step badhaya poore app mein" },
+      { type: "fix", text: "Stock linked: By-Product sale register ka sold data Stock Summary mein reflect hota hai" },
+    ]
+  },
+  {
     version: "90.8.0",
     date: "Apr 2026",
     title: "v90.8.0 - By-Products Renamed + New Products",
