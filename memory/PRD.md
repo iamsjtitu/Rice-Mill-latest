@@ -37,72 +37,55 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Paddy Custody Register (Final W)
 
 ### Government Registers (v89.1.0 - v89.3.0)
-- **Paddy Custody Register** - Moved from Milling Tracker (includes Mandi Wise Custody Register toggle)
-- **Transit Pass Register** - Auto-generated from Mill Entries where TP No. exists (view-only)
-- **CMR Delivery Tracker** - OSCSC/RRC delivery tracking with OTR auto-calculation (CRUD)
-- **Form A** - Paddy Stock Register (OSCSC paddy, linked from Mill Entries, daily running balance)
-- **Form B** - CMR Register (Custom Milled Rice produced & delivered, linked from Milling + Sale Book)
-- **Form E** - Miller's Own Paddy (Private paddy purchases, linked from Private Trading)
-- **Form F** - Miller's Own Rice Sale (linked from Sale Book)
-- **FRK Blending Register** - Fortified Rice Kernel batch tracking (CRUD with opening/closing balance)
-- **Gunny Bag Stock Register** - Bag type wise stock management (New/Old/Plastic, CRUD)
-- **Security Deposit Management** - Bank Guarantee tracking (SD ratio 1:1/1:3/1:6, auto-expiry, CRUD)
-- All registers have government-format Excel export
-- Odisha OSCSC KMS 2025-26 compliance ready
+- Paddy Custody Register, Transit Pass Register, CMR Delivery Tracker
+- Form A/B/E/F, FRK Blending Register, Gunny Bag Stock Register
+- Security Deposit Management
+- All registers with government-format Excel export
 
 ### Dynamic By-Product Categories (v90.0.0 - v90.3.0)
-- Settings mein 'By-Products' tab - custom categories banao (add/edit/delete/reorder)
-- Categories automatically populate in Milling Form, Stock Summary, Sale Voucher, FY Summary
-- Auto-percentage category support (100% - others = auto%)
-- Default: Bran, Kunda, Broken, Kanki, Husk (Auto)
-- Custom categories (e.g., Rejection Rice) fully save in milling entries
-- Opening Stock from Settings reflects in FY Summary/Balance Sheet (v90.3.0)
+- Settings mein 'By-Products' tab - custom categories
+- Categories auto-populate in Milling Form, Stock Summary, Sale Voucher, FY Summary
+- Opening Stock from Settings reflects in FY Summary/Balance Sheet
+
+### Code Quality Fixes (v90.3.0)
+- Replaced wildcard imports with explicit imports (auth.py, cashbook.py, dc_payments.py, milling.py)
+- Fixed dynamic __import__ calls → static imports (milling.py uuid, govt_registers.py timedelta)
+- Fixed document.write XSS → safe doc reference patterns (print.js, PrintButton, LocalPartyAccount, StaffManagement, BalanceSheet)
+- Added console.error logging to all empty catch blocks (MessagingTab, WatermarkTab, WeighbridgeTab, download.js, useMessagingEnabled)
+- Added useMemo for expensive computations (Payments.jsx truckWiseConsolidated)
+- Replaced array index keys with stable unique keys (SaleBook.jsx)
+- Moved test credentials to environment variables
 
 ### Features
-- Quick Search with entry detail dialog
-- PDF/Excel export with global tiled watermark
-- FY Summary Dashboard
-- Balance Sheet
-- Branding/Settings customization
-- Auto-update for desktop
-- WhatsApp/Telegram messaging
-- Camera integration
-- GST Ledger / Audit Log
-- Multi-user with role-based access
-- Bags mandatory validation on Mill Entry
+- Quick Search, PDF/Excel export with watermark, FY Summary Dashboard, Balance Sheet
+- Branding/Settings, Auto-update, WhatsApp/Telegram, Camera, GST Ledger/Audit Log
+- Multi-user with role-based access, Bags validation
 
 ## Prioritized Backlog
 
 ### P1 (High)
 - Quality Test Report Register
-- Monthly Return Auto-generation (Collector ko 15th tak)
+- Monthly Return Auto-generation
 
 ### P2 (Medium)
+- Large component splitting (App.js, Payments.jsx, CashBook.jsx, Reports.jsx)
+- Cashbook routes complexity refactoring (add_cash_transaction → smaller functions)
 - Python backend service layer refactoring
 - Triple backend code deduplication
 
 ### P3 (Low)
 - Payment logic centralized service layer
+- Remaining array-index-as-key fixes (55 instances, ~40 remaining)
 
 ## Key Technical Notes
-- Triple Backend: Any change to Python MUST be replicated in desktop-app and local-server JS routes
-- Desktop paths: Use `os.homedir()` not `Program Files` for dynamic files
+- Triple Backend: Python changes must be replicated in desktop-app and local-server JS routes
 - Auth: Session-cookie based, no JWT
-- Watermark: Python uses reportlab monkey-patch, JS uses drawWatermark in addPdfHeader + createPdfDoc helper
-- Collection mapping: MongoDB `mill_entries` = JS `entries`, `milling_entries` = milling process data
-- Govt registers: `gunny_bag_register` (Python/MongoDB) = `govt_gunny_bag_register` (JS, to avoid conflict with existing `gunny_bags` collection)
-- Dynamic By-Products: Models accept raw dict for Milling Entries to bypass strict Pydantic stripping
-- Opening Stock: Settings saves to `opening_stock` collection, FY Summary reads `opening_balances` with fallback to `opening_stock`
-
-## Deployment Notes
-- **Desktop App (.exe)**: GitHub Actions auto-builds on push to main
-- **Web Server (mill.9x.design)**: User deploys Python FastAPI backend manually
-- **IMPORTANT**: After every code change, user must deploy to BOTH desktop (new .exe build) AND web server (git pull + restart)
+- Collection mapping: MongoDB `mill_entries` = JS `entries`
+- Dynamic By-Products: Models accept raw dict for Milling Entries
+- Opening Stock: `opening_stock` collection (Settings) falls back to `opening_balances` (FY Summary)
 
 ## Permanent Rules
-1. **Version Bump + WhatsNew**: Har fix/feature ke baad version bump (3 package.json) + WhatsNew.jsx update MANDATORY
-2. **Parity Check**: Har fix/feature ke baad `python3 /app/scripts/check-parity.py` run karna MANDATORY
-3. **Route Sync**: JS routes change karne ke baad `bash /app/scripts/sync-js-routes.sh` run karna MANDATORY
-4. **Collection Name Mapping**: MongoDB `mill_entries` = JS `entries` (NOT `milling_entries`)
-5. **Hindi/Hinglish**: User se SIRF Hindi/Hinglish mein baat karo
-6. **Frontend API Pattern**: Use Electron-aware relative path pattern, never hardcode `process.env.REACT_APP_BACKEND_URL`
+1. Version Bump + WhatsNew: Every fix/feature
+2. Parity Check: `python3 /app/scripts/check-parity.py`
+3. Route Sync: `bash /app/scripts/sync-js-routes.sh`
+4. Hindi/Hinglish communication only
