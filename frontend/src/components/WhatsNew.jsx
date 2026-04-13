@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "90.7.0",
+    date: "Apr 2026",
+    title: "v90.7.0 - Dynamic By-Product Categories Everywhere",
+    items: [
+      { type: "new", text: "Custom by-product categories (jaise Rejection Rice) ab Milling Report, PDF/Excel exports, Stock Summary, aur By-Product Sales sabhi jagah dikhte hain" },
+      { type: "fix", text: "Milling Excel/PDF export mein sirf Bran, Kunda, Husk dikhta tha - ab saari dynamic categories show hoti hain" },
+      { type: "fix", text: "By-Product Stock cards aur Sale dropdown ab dynamic categories se populate hote hain" },
+    ]
+  },
+  {
     version: "90.6.2",
     date: "Apr 2026",
     title: "v90.6.2 - Opening Stock Data Loss Fix",

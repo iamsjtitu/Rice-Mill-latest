@@ -1,6 +1,5 @@
-## Test Credentials
+# Test Credentials
 
-### Admin Account
+## Admin Account
 - Username: admin
 - Password: admin123
-- Role: admin
