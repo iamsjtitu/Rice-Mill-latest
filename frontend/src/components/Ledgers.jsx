@@ -169,8 +169,8 @@ export const OutstandingReport = ({ filters }) => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.trucks.filter(t => t.truck_no).map((t, idx) => (
-                    <TableRow key={idx} className="border-slate-700">
+                  {data.trucks.filter(t => t.truck_no).map((t) => (
+                    <TableRow key={t.truck_no} className="border-slate-700">
                       <TableCell className="text-white font-semibold">{t.truck_no}</TableCell>
                       <TableCell className="text-right text-slate-300">{t.total_trips}</TableCell>
                       <TableCell className="text-right text-amber-400 font-semibold">{t.total_qty_qntl}</TableCell>
@@ -207,8 +207,8 @@ export const OutstandingReport = ({ filters }) => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.agents.filter(a => a.agent_name !== "Unknown").map((a, idx) => (
-                    <TableRow key={idx} className="border-slate-700">
+                  {data.agents.filter(a => a.agent_name !== "Unknown").map((a) => (
+                    <TableRow key={a.agent_name} className="border-slate-700">
                       <TableCell className="text-white font-semibold">{a.agent_name}</TableCell>
                       <TableCell className="text-right text-slate-300">{a.total_entries}</TableCell>
                       <TableCell className="text-right text-amber-400 font-semibold">{a.total_qty_qntl}</TableCell>

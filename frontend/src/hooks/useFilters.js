@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
-import { toast } from "sonner";
-import { FY_YEARS, CURRENT_FY, initialFormState } from "../utils/constants";
+import { FY_YEARS, CURRENT_FY } from "../utils/constants";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -18,7 +17,11 @@ export function useFilters() {
   const [mandiCuttingMap, setMandiCuttingMap] = useState({});
   const [mandiTargets, setMandiTargets] = useState([]);
 
-  // Load saved FY setting on mount
+  // Refs for stable references in mount-only effects
+  const mandiCuttingMapRef = useRef(mandiCuttingMap);
+  mandiCuttingMapRef.current = mandiCuttingMap;
+
+  // Load saved FY setting on mount (run once)
   useEffect(() => {
     const loadFySetting = async () => {
       try {
@@ -31,21 +34,21 @@ export function useFilters() {
             const season = res.data.season || '';
             if (season) localStorage.setItem("mill_season", season);
             setFilters(prev => ({ ...prev, kms_year: CURRENT_FY, season: res.data.season || prev.season }));
-            axios.put(`${API}/fy-settings`, { active_fy: CURRENT_FY, season: res.data.season || 'Kharif' }).catch(() => {});
+            axios.put(`${API}/fy-settings`, { active_fy: CURRENT_FY, season: res.data.season || 'Kharif' }).catch(e => console.error('FY settings save error:', e));
           } else {
             if (res.data.season) localStorage.setItem("mill_season", res.data.season);
             setFilters(prev => ({ ...prev, kms_year: savedFy, season: res.data.season || prev.season }));
           }
         }
-      } catch {}
+      } catch (e) { console.error('FY settings load error:', e); }
     };
     loadFySetting();
     axios.post(`${API}/cash-book/auto-fix`).then(r => {
       if (r.data?.total_fixes > 0) console.log(`[Auto-Fix] Fixed ${r.data.total_fixes} issues:`, r.data.details);
-    }).catch(() => {});
-  }, []);
+    }).catch(e => console.error('Cash book auto-fix error:', e));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mount-only: API/CURRENT_FY are module constants
 
-  // Load mandi cutting map from backend on mount
+  // Load mandi cutting map from backend on mount (run once)
   useEffect(() => {
     const loadCuttingMap = async () => {
       try {
@@ -58,24 +61,25 @@ export function useFilters() {
           if (Object.keys(saved).length > 0) {
             setMandiCuttingMap(saved);
             for (const [key, value] of Object.entries(saved)) {
-              axios.put(`${API}/settings/mandi-cutting-map`, { key, value }).catch(() => {});
+              axios.put(`${API}/settings/mandi-cutting-map`, { key, value }).catch(e => console.error('Mandi cutting sync error:', e));
             }
           }
         }
-      } catch {
+      } catch (e) {
+        console.error('Mandi cutting map load error:', e);
         try {
           const saved = JSON.parse(localStorage.getItem('mandi_cutting_map') || '{}');
           setMandiCuttingMap(saved);
           if (Object.keys(saved).length > 0) {
             for (const [key, value] of Object.entries(saved)) {
-              axios.put(`${API}/settings/mandi-cutting-map`, { key, value }).catch(() => {});
+              axios.put(`${API}/settings/mandi-cutting-map`, { key, value }).catch(e2 => console.error('Mandi cutting sync error:', e2));
             }
           }
-        } catch { /* ignore */ }
+        } catch (e2) { console.error('Mandi cutting localStorage fallback error:', e2); }
       }
     };
     loadCuttingMap();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mount-only
 
   const handleFyChange = useCallback(async (newFy, newSeason) => {
     if (newSeason !== undefined) localStorage.setItem("mill_season", newSeason);
@@ -90,7 +94,7 @@ export function useFilters() {
         active_fy: newFy !== undefined ? newFy : filters.kms_year,
         season: newSeason !== undefined ? newSeason : filters.season,
       });
-    } catch {}
+    } catch (e) { console.error('FY change save error:', e); }
   }, [filters.kms_year, filters.season]);
 
   const findMandiCutting = useCallback((mandiName) => {
@@ -100,11 +104,11 @@ export function useFilters() {
       const target = mandiTargets.find(t => (t.mandi_name || '').toLowerCase().trim() === searchName);
       if (target && target.cutting_percent != null && target.cutting_percent !== 0) return target;
     }
-    if (mandiCuttingMap[searchName] && mandiCuttingMap[searchName] > 0) {
-      return { mandi_name: mandiName, cutting_percent: mandiCuttingMap[searchName] };
+    if (mandiCuttingMapRef.current[searchName] && mandiCuttingMapRef.current[searchName] > 0) {
+      return { mandi_name: mandiName, cutting_percent: mandiCuttingMapRef.current[searchName] };
     }
     return null;
-  }, [mandiTargets, mandiCuttingMap]);
+  }, [mandiTargets]);
 
   const saveCuttingToLocal = useCallback((mandiName, cuttingPercent) => {
     if (!mandiName || !cuttingPercent || parseFloat(cuttingPercent) <= 0) return;
@@ -115,8 +119,8 @@ export function useFilters() {
       const saved = JSON.parse(localStorage.getItem('mandi_cutting_map') || '{}');
       saved[key] = val;
       localStorage.setItem('mandi_cutting_map', JSON.stringify(saved));
-    } catch {}
-    axios.put(`${API}/settings/mandi-cutting-map`, { key, value: val }).catch(() => {});
+    } catch (e) { console.error('Mandi cutting localStorage save error:', e); }
+    axios.put(`${API}/settings/mandi-cutting-map`, { key, value: val }).catch(e => console.error('Mandi cutting API save error:', e));
   }, []);
 
   const clearFilters = useCallback(() => {

@@ -694,6 +694,11 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   }, {}), [filteredTruckPayments]);
 
   const consolidatedTruckList = useMemo(() => Object.values(truckWiseConsolidated), [truckWiseConsolidated]);
+  const consolidatedTotals = useMemo(() => ({
+    net: consolidatedTruckList.reduce((sum, t) => sum + t.total_net, 0),
+    paid: consolidatedTruckList.reduce((sum, t) => sum + t.total_paid, 0),
+    balance: consolidatedTruckList.reduce((sum, t) => sum + t.total_balance, 0),
+  }), [consolidatedTruckList]);
 
   // Print Consolidated Truck Invoice
   const handlePrintConsolidatedInvoice = (truckData) => {
@@ -831,18 +836,18 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
     safePrintHTML(invoiceContent);
   };
 
-  // Calculate totals for filtered truck payments
-  const truckTotals = {
+  // Calculate totals for filtered truck payments (memoized)
+  const truckTotals = useMemo(() => ({
     netAmount: filteredTruckPayments.reduce((sum, p) => sum + p.net_amount, 0),
     paid: filteredTruckPayments.reduce((sum, p) => sum + p.paid_amount, 0),
     balance: filteredTruckPayments.reduce((sum, p) => sum + p.balance_amount, 0)
-  };
+  }), [filteredTruckPayments]);
 
-  const agentTotals = {
+  const agentTotals = useMemo(() => ({
     totalAmount: agentPayments.reduce((sum, p) => sum + p.total_amount, 0),
     paid: agentPayments.reduce((sum, p) => sum + p.paid_amount, 0),
     balance: agentPayments.reduce((sum, p) => sum + p.balance_amount, 0)
-  };
+  }), [agentPayments]);
 
   if (loading) {
     return (
@@ -1321,19 +1326,19 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                     <div>
                       <p className="text-slate-400 text-xs">Total Net Payable</p>
                       <p className="text-white font-bold text-xl">
-                        ₹{consolidatedTruckList.reduce((sum, t) => sum + t.total_net, 0).toLocaleString()}
+                        ₹{consolidatedTotals.net.toLocaleString()}
                       </p>
                     </div>
                     <div>
                       <p className="text-slate-400 text-xs">Total Paid</p>
                       <p className="text-emerald-400 font-bold text-xl">
-                        ₹{consolidatedTruckList.reduce((sum, t) => sum + t.total_paid, 0).toLocaleString()}
+                        ₹{consolidatedTotals.paid.toLocaleString()}
                       </p>
                     </div>
                     <div>
                       <p className="text-slate-400 text-xs">Total Balance</p>
                       <p className="text-red-400 font-bold text-xl">
-                        ₹{consolidatedTruckList.reduce((sum, t) => sum + t.total_balance, 0).toLocaleString()}
+                        ₹{consolidatedTotals.balance.toLocaleString()}
                       </p>
                     </div>
                   </div>

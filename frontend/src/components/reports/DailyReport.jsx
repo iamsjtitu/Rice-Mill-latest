@@ -96,7 +96,7 @@ const DailyReport = ({ filters }) => {
       <table className="w-full"><thead><tr className="border-b border-slate-700 text-slate-400">
         {headers.map(h => <th key={h.key} className={`py-1.5 px-2 ${h.align === 'right' ? 'text-right' : 'text-left'}`}>{h.label}</th>)}
       </tr></thead><tbody>
-        {rows.map((r,i) => <tr key={i} className="border-b border-slate-700/50">{r}</tr>)}
+        {rows.map((r,i) => <tr key={`row-${i}`} className="border-b border-slate-700/50">{r}</tr>)}
       </tbody></table>
     </div>
   );
@@ -782,7 +782,7 @@ const DailyReport = ({ filters }) => {
               {isDetail && data.byproducts.details && data.byproducts.details.length > 0 && (
                 <div className="mt-1 space-y-0.5">
                   {data.byproducts.details.map((d,i) => (
-                    <p key={i} className="text-[10px] text-slate-400">{d.type} - {d.buyer}: ₹{d.amount?.toLocaleString('en-IN')}</p>
+                    <p key={`bp-${d.type}-${d.buyer}-${i}`} className="text-[10px] text-slate-400">{d.type} - {d.buyer}: ₹{d.amount?.toLocaleString('en-IN')}</p>
                   ))}
                 </div>
               )}
@@ -836,7 +836,7 @@ const DailyReport = ({ filters }) => {
               ) : tgRecipients.length > 0 ? (
                 <div className="space-y-1.5">
                   {tgRecipients.map((r, i) => (
-                    <div key={i} className="flex items-center gap-2 bg-slate-700/50 px-3 py-1.5 rounded text-sm">
+                    <div key={`tg-r-${r.chat_id || i}`} className="flex items-center gap-2 bg-slate-700/50 px-3 py-1.5 rounded text-sm">
                       <Send className="w-3 h-3 text-blue-400 shrink-0" />
                       <span className="text-white">{r.label || r.chat_id}</span>
                       <span className="text-slate-500 text-xs ml-auto">{r.chat_id}</span>

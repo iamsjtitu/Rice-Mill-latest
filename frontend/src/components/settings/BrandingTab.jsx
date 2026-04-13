@@ -93,7 +93,7 @@ function BrandingTab({ user, onBrandingUpdate }) {
           <p className="text-xs text-slate-500">Max 6 fields. GST Number, Phone, Address jaise details add karein.</p>
 
           {(brandingForm.custom_fields || []).map((cf, idx) => (
-            <div key={idx} className="grid grid-cols-12 gap-2 items-end" data-testid={`custom-field-row-${idx}`}>
+            <div key={`cf-${cf.label || ''}-${idx}`} className="grid grid-cols-12 gap-2 items-end" data-testid={`custom-field-row-${idx}`}>
               <div className="col-span-3">
                 {idx === 0 && <Label className="text-slate-400 text-xs mb-1 block">Label (optional)</Label>}
                 <Input
@@ -189,17 +189,17 @@ function BrandingTab({ user, onBrandingUpdate }) {
             <div className="flex justify-between text-xs text-slate-300 border-b border-slate-700 pb-2 mb-2">
               <div className="text-left">
                 {(brandingForm.custom_fields || []).filter(f => f.position === 'left' && f.placement === 'above' && f.value).map((f, i) => (
-                  <div key={i}>{f.label ? <><span className="font-semibold">{f.label}:</span> {f.value}</> : f.value}</div>
+                  <div key={`prev-${f.label}-${f.value}-${i}`}>{f.label ? <><span className="font-semibold">{f.label}:</span> {f.value}</> : f.value}</div>
                 ))}
               </div>
               <div className="text-center">
                 {(brandingForm.custom_fields || []).filter(f => f.position === 'center' && f.placement === 'above' && f.value).map((f, i) => (
-                  <div key={i}>{f.label ? <><span className="font-semibold">{f.label}:</span> {f.value}</> : f.value}</div>
+                  <div key={`prev-${f.label}-${f.value}-${i}`}>{f.label ? <><span className="font-semibold">{f.label}:</span> {f.value}</> : f.value}</div>
                 ))}
               </div>
               <div className="text-right">
                 {(brandingForm.custom_fields || []).filter(f => f.position === 'right' && f.placement === 'above' && f.value).map((f, i) => (
-                  <div key={i}>{f.label ? <><span className="font-semibold">{f.label}:</span> {f.value}</> : f.value}</div>
+                  <div key={`prev-${f.label}-${f.value}-${i}`}>{f.label ? <><span className="font-semibold">{f.label}:</span> {f.value}</> : f.value}</div>
                 ))}
               </div>
             </div>
@@ -212,17 +212,17 @@ function BrandingTab({ user, onBrandingUpdate }) {
             <div className="flex justify-between text-xs text-slate-300 border-b border-slate-700 pb-2">
               <div className="text-left">
                 {(brandingForm.custom_fields || []).filter(f => f.position === 'left' && (f.placement || 'below') === 'below' && f.value).map((f, i) => (
-                  <div key={i}>{f.label ? <><span className="font-semibold">{f.label}:</span> {f.value}</> : f.value}</div>
+                  <div key={`prev-${f.label}-${f.value}-${i}`}>{f.label ? <><span className="font-semibold">{f.label}:</span> {f.value}</> : f.value}</div>
                 ))}
               </div>
               <div className="text-center">
                 {(brandingForm.custom_fields || []).filter(f => f.position === 'center' && (f.placement || 'below') === 'below' && f.value).map((f, i) => (
-                  <div key={i}>{f.label ? <><span className="font-semibold">{f.label}:</span> {f.value}</> : f.value}</div>
+                  <div key={`prev-${f.label}-${f.value}-${i}`}>{f.label ? <><span className="font-semibold">{f.label}:</span> {f.value}</> : f.value}</div>
                 ))}
               </div>
               <div className="text-right">
                 {(brandingForm.custom_fields || []).filter(f => f.position === 'right' && (f.placement || 'below') === 'below' && f.value).map((f, i) => (
-                  <div key={i}>{f.label ? <><span className="font-semibold">{f.label}:</span> {f.value}</> : f.value}</div>
+                  <div key={`prev-${f.label}-${f.value}-${i}`}>{f.label ? <><span className="font-semibold">{f.label}:</span> {f.value}</> : f.value}</div>
                 ))}
               </div>
             </div>

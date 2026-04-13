@@ -99,7 +99,7 @@ function CameraSetupTab() {
           saved = res.data;
           fromBackend = true;
         }
-      } catch { /* fallback to localStorage */ }
+      } catch (e) { console.error('Camera config backend load error:', e); /* fallback to localStorage */ }
       
       if (!fromBackend) {
         try {
@@ -108,7 +108,7 @@ function CameraSetupTab() {
           if (saved && Object.keys(saved).length > 0) {
             axios.put(`${API}/settings/camera-config`, saved).catch(() => {});
           }
-        } catch { saved = {}; }
+        } catch (e) { console.error('Camera config localStorage parse error:', e); saved = {}; }
       }
       
       const type = saved.type || "ip";
@@ -142,7 +142,7 @@ function CameraSetupTab() {
       const all = await navigator.mediaDevices.enumerateDevices();
       const vids = all.filter(d => d.kind === 'videoinput');
       setDevices(vids);
-    } catch { toast.error("Camera access nahi mila"); }
+    } catch (e) { console.error('Camera access error:', e); toast.error("Camera access nahi mila"); }
   };
 
   useEffect(() => {
@@ -167,7 +167,7 @@ function CameraSetupTab() {
       });
       if (videoRef.current) { videoRef.current.srcObject = s; videoRef.current.play(); }
       setPreviewStream(p => ({ ...p, [key]: s }));
-    } catch { toast.error("Camera start nahi ho paya"); }
+    } catch (e) { console.error('Camera start error:', e); toast.error("Camera start nahi ho paya"); }
   };
 
   const handleSave = async () => {
@@ -189,7 +189,7 @@ function CameraSetupTab() {
           front_ip: vigiFrontIp, side_ip: vigiSideIp,
           openapi_port: vigiOpenApiPort, enabled: true
         });
-      } catch { /* ignore on web */ }
+      } catch (e) { console.error('Vigi config save error:', e); /* ignore on web */ }
     } else {
       configData = { type: "usb", frontId, sideId };
     }
@@ -198,11 +198,11 @@ function CameraSetupTab() {
     // Save to backend database (for all devices)
     try {
       await axios.put(`${API}/settings/camera-config`, configData);
-    } catch { /* ignore */ }
+    } catch (e) { console.error('Camera config backend save error:', e); }
     window.dispatchEvent(new Event('camera-config-changed'));
     try {
       await axios.put(`${API}/settings/image-cleanup`, { days: cleanupDays });
-    } catch { /* ignore */ }
+    } catch (e) { console.error('Image cleanup config save error:', e); }
     toast.success("Camera config save ho gaya - sab devices pe sync hoga!");
   };
 
@@ -232,7 +232,7 @@ function CameraSetupTab() {
       } else {
         toast.info(r.data.message || "Cleanup disabled");
       }
-    } catch { toast.error("Cleanup error"); }
+    } catch (e) { console.error('Cleanup error:', e); toast.error("Cleanup error"); }
     setCleanupLoading(false);
   };
 

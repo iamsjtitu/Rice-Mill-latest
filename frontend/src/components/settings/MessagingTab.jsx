@@ -442,7 +442,7 @@ function MessagingTab() {
               <p className="text-slate-300 text-sm font-semibold">Recent Sends:</p>
               <div className="max-h-40 overflow-y-auto space-y-1">
                 {telegramLogs.map((log, idx) => (
-                  <div key={idx} className={`flex items-center justify-between text-xs p-2 rounded ${log.status === 'success' ? 'bg-green-900/20 border border-green-800/30' : 'bg-red-900/20 border border-red-800/30'}`} data-testid={`telegram-log-${idx}`}>
+                  <div key={`tg-log-${log.date}-${idx}`} className={`flex items-center justify-between text-xs p-2 rounded ${log.status === 'success' ? 'bg-green-900/20 border border-green-800/30' : 'bg-red-900/20 border border-red-800/30'}`} data-testid={`telegram-log-${idx}`}>
                     <span className="text-slate-300">{log.date} - {log.type === 'scheduled' ? 'Auto' : 'Manual'}{log.sent_to ? ` (${log.sent_to}/${log.total})` : ''}</span>
                     <span className={log.status === 'success' ? 'text-green-400' : 'text-red-400'}>
                       {log.status === 'success' ? 'Sent' : 'Failed'}
@@ -584,7 +584,7 @@ function AutoVWMessagingCard() {
           {waGroups.length > 0 && (
             <div className="max-h-32 overflow-y-auto space-y-1 bg-slate-900/50 rounded p-2">
               {waGroups.map((g, i) => (
-                <div key={i}
+                <div key={g.id || `wa-group-${i}`}
                   className={`text-xs p-1.5 rounded cursor-pointer ${waGroupId === g.id ? 'bg-green-900/50 text-green-300 border border-green-600' : 'text-slate-300 hover:bg-slate-700'}`}
                   onClick={() => { setWaGroupId(g.id); setWaGroupName(g.name || g.id); }}
                   data-testid={`vw-wa-group-option-${i}`}>
@@ -602,7 +602,7 @@ function AutoVWMessagingCard() {
           {tgChatIds.length > 0 && (
             <div className="space-y-1">
               {tgChatIds.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-2 bg-slate-900/50 p-2 rounded text-xs">
+                <div key={`vw-tg-${item.chat_id || idx}`} className="flex items-center gap-2 bg-slate-900/50 p-2 rounded text-xs">
                   <span className="text-blue-300 flex-1">{item.name}</span>
                   <span className="text-slate-400 font-mono">{item.chat_id}</span>
                   <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-red-400 hover:text-red-600"
@@ -655,3 +655,4 @@ function AutoVWMessagingCard() {
 }
 
 export default MessagingTab;
+ngTab;

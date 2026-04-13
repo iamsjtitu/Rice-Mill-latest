@@ -3,7 +3,7 @@
 ## Current Version: v90.3.0
 
 ## Architecture
-- **Frontend**: React + Shadcn UI + Tailwind (with React.lazy + Suspense)
+- **Frontend**: React + Shadcn UI + Tailwind (React.lazy + Suspense)
 - **Backend (Web)**: Python FastAPI + MongoDB
 - **Backend (Desktop)**: Electron + Express + SQLite/JSON
 - **Backend (Local)**: Express + SQLite/JSON
@@ -14,30 +14,42 @@
 - Dynamic By-Product Categories, Reports, FY Summary, Balance Sheet, Quick Search, PDF/Excel export
 - Multi-user RBAC, WhatsApp/Telegram, Camera, GST Ledger/Audit Log
 
-## Refactoring Summary (v90.3.0)
+## Code Quality Status (v90.3.0)
 
-### Component Splitting (Total: -2367 lines from monoliths)
-| File | Original | Final | Extracted To |
-|------|----------|-------|-------------|
-| App.js | 1709 | 1136 | useFilters, useKeyboardShortcuts, AppHeader |
-| Reports.jsx | 1391 | 38 | CMRvsDC, SeasonPnL, DailyReport, AgentMandiReport |
-| Payments.jsx | 2036 | 1731 | DieselAccount |
-| cashbook.py | 1754 | 1618 | cashbook_service.py |
+### Wildcard Imports: ZERO remaining
+All 11 route files now use explicit imports from models.py
 
-### Lazy Loading (17 components)
-**Eager (instant):** LoginPage, Dashboard, Payments, MillingTracker, CashBook, ErrorBoundary, EntryTable, AppHeader
-**Lazy (on-demand):** Reports, DCTracker, Ledgers, MillPartsStock, StaffManagement, FYSummaryDashboard, BalanceSheet, Vouchers, HemaliPayment, GovtRegisters, Settings, VehicleWeight, AutoWeightEntries, PaddyPurchaseRegister, WhatsNew
+### Empty Catch Blocks: ALL fixed
+useFilters.js, CameraSetupTab.jsx, MessagingTab.jsx, WatermarkTab.jsx, WeighbridgeTab.jsx, download.js, useMessagingEnabled.js - all have console.error logging
 
-### Security Fixes
-- Wildcard → explicit imports, Dynamic __import__ → static, document.write XSS → safe patterns
-- Empty catch → console.error, Test credentials → env vars
+### Array Index Keys: Fixed (20+ instances)
+MessagingTab (4), BrandingTab (7), DailyReport (4), SaleBook (3), Ledgers (2)
+
+### useMemo: Applied
+Payments.jsx - truckTotals, agentTotals, consolidatedTotals, truckWiseConsolidated, consolidatedTruckList
+
+### Security
+- document.write XSS → safe doc reference (6 files)
+- Test credentials → env vars (5 test files)
+- Dynamic __import__ → static (2 files)
+
+### Component Splitting
+| File | Original | Final |
+|------|----------|-------|
+| App.js | 1709 | 1136 |
+| Reports.jsx | 1391 | 38 |
+| Payments.jsx | 2036 | 1732 |
+| cashbook.py | 1754 | 1618 |
+
+### Lazy Loading: 17 components on-demand
 
 ## Prioritized Backlog
 ### P1: Quality Test Report Register, Monthly Return Auto-generation
-### P3: Triple backend code deduplication, Remaining array-index-as-key fixes
+### P3: Triple backend code deduplication, Remaining array-index-as-key fixes (~20)
 
 ## Permanent Rules
-1. Version in `utils/constants-version.js` + 3x package.json + WhatsNew.jsx
-2. Parity: `python3 /app/scripts/check-parity.py` + `bash /app/scripts/sync-js-routes.sh`
+1. Version in utils/constants-version.js + 3x package.json + WhatsNew.jsx
+2. Parity: python3 /app/scripts/check-parity.py + bash /app/scripts/sync-js-routes.sh
 3. Hindi/Hinglish communication only
 4. New tab components → use React.lazy() in App.js
+5. No wildcard imports - always explicit from models
