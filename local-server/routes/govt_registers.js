@@ -556,26 +556,45 @@ module.exports = function(database) {
 
   // ============ TRANSIT PASS REGISTER (Auto from entries) ============
   router.get('/api/govt-registers/transit-pass', safeSync(async (req, res) => {
-    const { kms_year, season, date_from, date_to } = req.query;
+    const { kms_year, season, date_from, date_to, mandi_name, agent_name } = req.query;
     let entries = [...(database.data.entries || [])];
     if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
     if (season) entries = entries.filter(e => e.season === season);
     if (date_from) entries = entries.filter(e => (e.date || '') >= date_from);
     if (date_to) entries = entries.filter(e => (e.date || '') <= date_to);
+    if (mandi_name) entries = entries.filter(e => (e.mandi_name || '').toLowerCase() === mandi_name.toLowerCase());
+    if (agent_name) entries = entries.filter(e => (e.agent_name || '').toLowerCase() === agent_name.toLowerCase());
     entries = entries.filter(e => e.tp_no && String(e.tp_no).trim());
     entries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
     const rows = [];
     let totalQty = 0, totalBags = 0, totalTpWeight = 0;
+    const mandis = new Set(), agents = new Set();
     for (const e of entries) {
       let finalW = parseFloat(e.final_w || 0) / 100; // KG to QNTL
       if (finalW === 0) finalW = parseFloat(e.kg || 0) / 100;
       const bags = parseInt(e.bag || 0);
       const tpWt = Math.round(parseFloat(e.tp_weight || 0) * 100) / 100;
       totalQty += finalW; totalBags += bags; totalTpWeight += tpWt;
-      rows.push({ date: e.date || '', tp_no: String(e.tp_no), rst_no: String(e.rst_no || ''), truck_no: e.truck_no || '', agent_name: e.agent_name || '', mandi_name: e.mandi_name || '', qty_qntl: Math.round(finalW * 100) / 100, tp_weight: tpWt, bags, status: 'Accepted', remark: e.remark || '' });
+      const mName = e.mandi_name || '';
+      const aName = e.agent_name || '';
+      if (mName) mandis.add(mName);
+      if (aName) agents.add(aName);
+      rows.push({ date: e.date || '', tp_no: String(e.tp_no), rst_no: String(e.rst_no || ''), truck_no: e.truck_no || '', agent_name: aName, mandi_name: mName, qty_qntl: Math.round(finalW * 100) / 100, tp_weight: tpWt, bags, status: 'Accepted', remark: e.remark || '' });
     }
-    res.json({ rows, summary: { total_entries: rows.length, total_qty: Math.round(totalQty * 100) / 100, total_tp_weight: Math.round(totalTpWeight * 100) / 100, total_bags: totalBags } });
+
+    // For filter_options, get ALL TP entries (unfiltered by mandi/agent) to populate dropdowns
+    let allTpEntries = [...(database.data.entries || [])];
+    if (kms_year) allTpEntries = allTpEntries.filter(e => e.kms_year === kms_year);
+    if (season) allTpEntries = allTpEntries.filter(e => e.season === season);
+    allTpEntries = allTpEntries.filter(e => e.tp_no && String(e.tp_no).trim());
+    const allMandis = new Set(), allAgents = new Set();
+    for (const e of allTpEntries) {
+      if (e.mandi_name) allMandis.add(e.mandi_name);
+      if (e.agent_name) allAgents.add(e.agent_name);
+    }
+
+    res.json({ rows, summary: { total_entries: rows.length, total_qty: Math.round(totalQty * 100) / 100, total_tp_weight: Math.round(totalTpWeight * 100) / 100, total_bags: totalBags }, filter_options: { mandis: [...allMandis].sort(), agents: [...allAgents].sort() } });
   }));
 
   router.get('/api/govt-registers/transit-pass/excel', safeAsync(async (req, res) => {
