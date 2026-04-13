@@ -71,6 +71,8 @@ import { EntryTable } from "@/components/entries/EntryTable";
 import { TabNavigation } from "@/components/entries/TabNavigation";
 import { FilterPanel } from "@/components/entries/FilterPanel";
 import { ShortcutsDialog, BackupReminderDialog, PasswordChangeDialog } from "@/components/entries/HeaderDialogs";
+import { useFilters } from "./hooks/useFilters";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import QuickSearch from "@/components/QuickSearch";
 import SearchDetailDialog from "@/components/SearchDetailDialog";
 
@@ -134,8 +136,16 @@ function MainApp({ user, setUser, onLogout }) {
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [passwordData, setPasswordData] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("entries"); // "entries", "dashboard", "payments", "milling", "settings"
-  const [entriesSubTab, setEntriesSubTab] = useState("mill-entries"); // "mill-entries" | "vehicle-weight" | "auto-weight-entries"
+  const [activeTab, setActiveTab] = useState("entries");
+  const [entriesSubTab, setEntriesSubTab] = useState("mill-entries");
+
+  // Use extracted filter hook
+  const {
+    filters, setFilters, showFilters, setShowFilters,
+    mandiTargets, setMandiTargets,
+    handleFyChange, findMandiCutting, saveCuttingToLocal,
+    clearFilters, hasActiveFilters, todayStr,
+  } = useFilters();
 
   // Kill camera streams when switching away from vehicle-weight
   const setActiveTabSafe = useCallback((tab) => {
@@ -155,6 +165,30 @@ function MainApp({ user, setUser, onLogout }) {
   const [paymentsInitSubTab, setPaymentsInitSubTab] = useState(null);
   const [viewEntryData, setViewEntryData] = useState(null);
   const [savedFiltersBeforeView, setSavedFiltersBeforeView] = useState(null);
+
+  // Navigate from PPR to Mill Entries and open View dialog
+  const navigateToMillEntry = useCallback(async (entryId) => {
+    try {
+      const res = await axios.get(`${API}/entries/${entryId}`);
+      if (res.data) {
+        setSavedFiltersBeforeView({ ...filters });
+        setEntriesSubTabSafe("mill-entries");
+        setViewEntryData(res.data);
+      }
+    } catch (err) {
+      console.error("Entry fetch failed:", err);
+    }
+  }, [filters, setEntriesSubTabSafe]);
+
+  // Called when View dialog is closed after PPR navigation
+  const handleCloseViewEntry = useCallback(() => {
+    setViewEntryData(null);
+    if (savedFiltersBeforeView) {
+      setFilters(savedFiltersBeforeView);
+      setSavedFiltersBeforeView(null);
+    }
+  }, [savedFiltersBeforeView, setFilters]);
+
   const [quickSearchOpen, setQuickSearchOpen] = useState(false);
   const [searchDetailItem, setSearchDetailItem] = useState(null);
   const { wa, tg } = useMessagingEnabled();
@@ -200,97 +234,7 @@ function MainApp({ user, setUser, onLogout }) {
   const [leasedTruckNos, setLeasedTruckNos] = useState(new Set());
   const [agentSuggestions, setAgentSuggestions] = useState([]);
   const [mandiSuggestions, setMandiSuggestions] = useState([]);
-  const [mandiTargets, setMandiTargets] = useState([]);
 
-  // Filter state - default to current FY and today's date
-  const todayStr = new Date().toISOString().split("T")[0];
-  const [filters, setFilters] = useState({
-    truck_no: "",
-    rst_no: "",
-    tp_no: "",
-    agent_name: "",
-    mandi_name: "",
-    kms_year: CURRENT_FY,
-    season: localStorage.getItem("mill_season") || "",
-    date_from: todayStr,
-    date_to: todayStr
-  });
-  const [showFilters, setShowFilters] = useState(false);
-  const [showShortcuts, setShowShortcuts] = useState(false);
-
-  // Navigate from PPR to Mill Entries and open View dialog
-  const navigateToMillEntry = useCallback(async (entryId) => {
-    try {
-      const res = await axios.get(`${API}/entries/${entryId}`);
-      if (res.data) {
-        setSavedFiltersBeforeView({ ...filters });
-        setEntriesSubTabSafe("mill-entries");
-        setViewEntryData(res.data);
-      }
-    } catch (err) {
-      console.error("Entry fetch failed:", err);
-    }
-  }, [filters, setEntriesSubTabSafe]);
-
-  // Called when View dialog is closed after PPR navigation
-  const handleCloseViewEntry = useCallback(() => {
-    setViewEntryData(null);
-    if (savedFiltersBeforeView) {
-      setFilters(savedFiltersBeforeView);
-      setSavedFiltersBeforeView(null);
-    }
-  }, [savedFiltersBeforeView]);
-
-  // Load saved FY setting on mount
-  useEffect(() => {
-    const loadFySetting = async () => {
-      try {
-        const res = await axios.get(`${API}/fy-settings`);
-        if (res.data?.active_fy) {
-          const savedFy = res.data.active_fy;
-          // Auto-detect new FY: if saved FY is older than current FY, auto-switch
-          const savedStart = parseInt(savedFy.split('-')[0]) || 0;
-          const currentStart = parseInt(CURRENT_FY.split('-')[0]) || 0;
-          if (savedStart < currentStart) {
-            // New FY started - auto-update to current FY
-            const season = res.data.season || prev.season;
-            if (season) localStorage.setItem("mill_season", season);
-            setFilters(prev => ({ ...prev, kms_year: CURRENT_FY, season: res.data.season || prev.season }));
-            // Save the new FY to server
-            axios.put(`${API}/fy-settings`, { active_fy: CURRENT_FY, season: res.data.season || 'Kharif' }).catch(() => {});
-          } else {
-            if (res.data.season) localStorage.setItem("mill_season", res.data.season);
-            setFilters(prev => ({ ...prev, kms_year: savedFy, season: res.data.season || prev.season }));
-          }
-        }
-      } catch {}
-    };
-    loadFySetting();
-    // Auto-fix: run on every startup to fix any data inconsistencies
-    axios.post(`${API}/cash-book/auto-fix`).then(r => {
-      if (r.data?.total_fixes > 0) {
-        console.log(`[Auto-Fix] Fixed ${r.data.total_fixes} issues:`, r.data.details);
-      }
-    }).catch(() => {});
-  }, []);
-
-  // Save FY setting when year changes
-  const handleFyChange = useCallback(async (newFy, newSeason) => {
-    if (newSeason !== undefined) localStorage.setItem("mill_season", newSeason);
-    setFilters(prev => {
-      const updated = { ...prev };
-      if (newFy !== undefined) updated.kms_year = newFy;
-      if (newSeason !== undefined) updated.season = newSeason;
-      return updated;
-    });
-    try {
-      await axios.put(`${API}/fy-settings`, {
-        active_fy: newFy !== undefined ? newFy : filters.kms_year,
-        season: newSeason !== undefined ? newSeason : filters.season,
-      });
-    } catch {}
-  }, [filters.kms_year, filters.season]);
-  
   // Selection state for bulk delete
   const [selectedEntries, setSelectedEntries] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -377,81 +321,6 @@ function MainApp({ user, setUser, onLogout }) {
       }));
     }
   }, [formData.bag, formData.g_deposite]);
-
-  // Helper: Find cutting % from mandi targets OR backend/localStorage (case-insensitive)
-  const [mandiCuttingMap, setMandiCuttingMap] = useState({});
-  
-  // Load mandi cutting map from backend on mount
-  useEffect(() => {
-    const loadCuttingMap = async () => {
-      try {
-        const res = await axios.get(`${API}/settings/mandi-cutting-map`);
-        if (res.data && Object.keys(res.data).length > 0) {
-          setMandiCuttingMap(res.data);
-          localStorage.setItem('mandi_cutting_map', JSON.stringify(res.data));
-        } else {
-          // Backend empty - migrate from localStorage
-          const saved = JSON.parse(localStorage.getItem('mandi_cutting_map') || '{}');
-          if (Object.keys(saved).length > 0) {
-            setMandiCuttingMap(saved);
-            // Sync each entry to backend
-            for (const [key, value] of Object.entries(saved)) {
-              axios.put(`${API}/settings/mandi-cutting-map`, { key, value }).catch(() => {});
-            }
-          }
-        }
-      } catch {
-        try {
-          const saved = JSON.parse(localStorage.getItem('mandi_cutting_map') || '{}');
-          setMandiCuttingMap(saved);
-          // Try to migrate on next opportunity
-          if (Object.keys(saved).length > 0) {
-            for (const [key, value] of Object.entries(saved)) {
-              axios.put(`${API}/settings/mandi-cutting-map`, { key, value }).catch(() => {});
-            }
-          }
-        } catch { /* ignore */ }
-      }
-    };
-    loadCuttingMap();
-  }, []);
-
-  const findMandiCutting = useCallback((mandiName) => {
-    if (!mandiName) return null;
-    const searchName = mandiName.toLowerCase().trim();
-    
-    // Source 1: Check mandi targets (primary)
-    if (mandiTargets.length > 0) {
-      const target = mandiTargets.find(t => 
-        (t.mandi_name || '').toLowerCase().trim() === searchName
-      );
-      if (target && target.cutting_percent != null && target.cutting_percent !== 0) return target;
-    }
-    
-    // Source 2: Check synced mandi cutting map
-    if (mandiCuttingMap[searchName] && mandiCuttingMap[searchName] > 0) {
-      return { mandi_name: mandiName, cutting_percent: mandiCuttingMap[searchName] };
-    }
-    
-    return null;
-  }, [mandiTargets, mandiCuttingMap]);
-
-  // Save mandi→cutting mapping to backend + localStorage
-  const saveCuttingToLocal = useCallback((mandiName, cuttingPercent) => {
-    if (!mandiName || !cuttingPercent || parseFloat(cuttingPercent) <= 0) return;
-    const key = mandiName.toLowerCase().trim();
-    const val = parseFloat(cuttingPercent);
-    // Update local state
-    setMandiCuttingMap(prev => ({ ...prev, [key]: val }));
-    // Save to localStorage
-    try {
-      const saved = JSON.parse(localStorage.getItem('mandi_cutting_map') || '{}');
-      saved[key] = val;
-      localStorage.setItem('mandi_cutting_map', JSON.stringify(saved));
-    } catch {}
-    // Save to backend
-    axios.put(`${API}/settings/mandi-cutting-map`, { key, value: val }).catch(() => {});
-  }, []);
 
   // Remove external badges - run only on Electron (desktop app)
   useEffect(() => {
@@ -707,180 +576,13 @@ function MainApp({ user, setUser, onLogout }) {
   };
 
 
-  // Global Keyboard Shortcuts
-  useEffect(() => {
-    const handleGlobalKeyDown = (e) => {
-      const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable;
-
-      // Prevent browser back navigation on Backspace (when not typing in editable field)
-      if (e.key === 'Backspace' && !inInput) {
-        e.preventDefault();
-        return;
-      }
-
-      // Also prevent on readonly inputs
-      if (e.key === 'Backspace' && e.target.readOnly) {
-        e.preventDefault();
-        return;
-      }
-
-      // Backspace on empty field = go to previous EDITABLE field (skip readonly/auto fields)
-      if (e.key === 'Backspace' && inInput && !e.ctrlKey && !e.altKey) {
-        const el = e.target;
-        const val = el.value || el.textContent || '';
-        if (val === '' || el.readOnly) {
-          e.preventDefault();
-          // Search in dialog first, then form, then any parent container (same priority as Enter)
-          const container = el.closest('[role="dialog"]') || el.closest('form') || el.closest('.space-y-4, .space-y-3, .grid');
-          if (container) {
-            const fields = Array.from(container.querySelectorAll(
-              'input:not([type="hidden"]):not([disabled]):not([readonly]), textarea:not([disabled]), select:not([disabled])'
-            )).filter(f => f.offsetParent !== null && f.offsetWidth > 0);
-            const idx = fields.indexOf(el);
-            if (idx > 0) {
-              fields[idx - 1].focus();
-              if (fields[idx - 1].select) fields[idx - 1].select();
-            }
-          }
-          return;
-        }
-      }
-
-      // Enter key = move to next field (Tab behavior). On last field = focus save button.
-      if (e.key === 'Enter' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-        // If a button is focused, let the browser handle it (Enter = click)
-        if (e.target.tagName === 'BUTTON') return;
-        if (!inInput) return;
-        if (e.target.tagName === 'TEXTAREA') return;
-        const el = e.target;
-        // Search in dialog first, then form, then any parent container
-        const container = el.closest('[role="dialog"]') || el.closest('form') || el.closest('.space-y-4, .space-y-3, .grid');
-        if (container) {
-          const fields = Array.from(container.querySelectorAll(
-            'input:not([type="hidden"]):not([disabled]):not([readonly]), textarea:not([disabled]), button[type="submit"], [data-testid="save-btn"]'
-          )).filter(f => f.offsetParent !== null && f.offsetWidth > 0);
-          const idx = fields.indexOf(el);
-          if (idx >= 0 && idx < fields.length - 1) {
-            e.preventDefault();
-            e.stopPropagation();
-            fields[idx + 1].focus();
-            if (fields[idx + 1].select) fields[idx + 1].select();
-            return;
-          }
-          // Last field — find submit button and click it
-          if (idx === fields.length - 1) {
-            e.preventDefault();
-            e.stopPropagation();
-            const submitBtn = container.querySelector('button[type="submit"], [data-testid="save-btn"], [data-testid="submit-btn"]');
-            if (submitBtn) submitBtn.click();
-            return;
-          }
-        }
-      }
-
-      // Ctrl+S: Save/Submit active form (works even in input fields)
-      if (e.ctrlKey && e.key === 's') {
-        e.preventDefault();
-        const submitBtn = document.querySelector('form button[type="submit"], [data-testid="save-btn"], [data-testid="submit-btn"]');
-        if (submitBtn) {
-          submitBtn.click();
-          toast.info("Save (Ctrl+S)");
-        }
-        return;
-      }
-
-      // Ctrl+N: New Entry/Transaction (works even in input)
-      if (e.ctrlKey && e.key === 'n') {
-        e.preventDefault();
-        if (activeTab === "entries") {
-          setIsDialogOpen(true); setEditingId(null); setFormData({...initialFormState, kms_year: filters.kms_year || CURRENT_FY, season: filters.season || "Kharif"});
-        } else {
-          // Click any visible "Add" button on current tab (exclude whats-new-btn)
-          const addBtn = document.querySelector('[data-testid$="-add-btn"]');
-          if (addBtn) addBtn.click();
-        }
-        toast.info("New (Ctrl+N)");
-        return;
-      }
-
-      // Ctrl+F: Search/Filter (works even in input)
-      if (e.ctrlKey && e.key === 'f') {
-        e.preventDefault();
-        setShowFilters(true);
-        toast.info("Filters (Ctrl+F)");
-        return;
-      }
-
-      // Ctrl+R: Refresh
-      if (e.ctrlKey && e.key === 'r') {
-        e.preventDefault();
-        fetchEntries(); fetchTotals();
-        toast.info("Refreshed (Ctrl+R)");
-        return;
-      }
-
-      // Ctrl+P: Print current view
-      if (e.ctrlKey && e.key === 'p') {
-        e.preventDefault();
-        window.print();
-        return;
-      }
-
-      // Ctrl+K: Quick Search
-      if (e.ctrlKey && e.key === 'k') {
-        e.preventDefault();
-        setQuickSearchOpen(true);
-        return;
-      }
-
-      // Ctrl+Delete / Ctrl+Backspace: Delete selected entries
-      if (e.ctrlKey && (e.key === 'Delete' || e.key === 'Backspace') && !inInput) {
-        e.preventDefault();
-        if (selectedEntries.length > 0) {
-          const delBtn = document.querySelector('[data-testid="bulk-delete-btn"]');
-          if (delBtn) delBtn.click();
-        }
-        return;
-      }
-
-      // Don't trigger remaining shortcuts when typing
-      if (inInput) return;
-
-      // Escape: Close form/dialogs
-      if (e.key === 'Escape') {
-        setIsDialogOpen(false); setShowFilters(false); setShowShortcuts(false);
-      }
-      // ?: Show shortcuts help
-      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
-        e.preventDefault(); setShowShortcuts(true);
-      }
-
-      // Alt + tab navigation (existing)
-      if (e.altKey) {
-        const tabMap = {
-          'e': 'entries', 'd': 'dashboard', 'p': 'payments', 'm': 'milling',
-          'b': 'cashbook', 't': 'dctracker', 'o': 'reports', 'g': 'vouchers',
-          'k': 'mill-parts', 's': 'staff', 'i': 'settings', 'y': 'fy-summary',
-        };
-        const tabNames = {
-          'entries': 'Entries', 'dashboard': 'Dashboard', 'payments': 'Payments', 'milling': 'Milling',
-          'cashbook': 'Cash Book', 'dctracker': 'DC Tracker', 'reports': 'Reports', 'vouchers': 'Vouchers',
-          'mill-parts': 'Mill Parts', 'staff': 'Staff', 'settings': 'Settings', 'fy-summary': 'FY Summary',
-        };
-        if (tabMap[e.key]) {
-          e.preventDefault();
-          setActiveTabSafe(tabMap[e.key]);
-          toast.info(`${tabNames[tabMap[e.key]]} (Alt+${e.key.toUpperCase()})`);
-        }
-        if (e.key === 'n') { e.preventDefault(); setActiveTabSafe("entries"); setIsDialogOpen(true); setEditingId(null); setFormData({...initialFormState, kms_year: filters.kms_year || CURRENT_FY, season: filters.season || "Kharif"}); toast.info("New Entry (Alt+N)"); }
-        if (e.key === 'r') { e.preventDefault(); fetchEntries(); fetchTotals(); toast.info("Refreshed (Alt+R)"); }
-        if (e.key === 'f') { e.preventDefault(); setShowFilters(true); toast.info("Filters (Alt+F)"); }
-      }
-    };
-
-    document.addEventListener('keydown', handleGlobalKeyDown);
-    return () => document.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [fetchEntries, fetchTotals, activeTab, selectedEntries]);
+  // Global Keyboard Shortcuts (extracted hook)
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  useKeyboardShortcuts({
+    activeTab, setActiveTabSafe, selectedEntries, fetchEntries, fetchTotals,
+    setIsDialogOpen, setEditingId, setFormData, setShowFilters, setShowShortcuts,
+    setQuickSearchOpen, filters
+  });
 
   // Handle select all
   const handleSelectAll = () => {
@@ -1205,22 +907,6 @@ function MainApp({ user, setUser, onLogout }) {
       toast.error(error.response?.data?.detail || "Password change mein error");
     }
   };
-
-  const clearFilters = () => {
-    setFilters({ 
-      truck_no: "", 
-      rst_no: "",
-      tp_no: "",
-      agent_name: "", 
-      mandi_name: "", 
-      kms_year: CURRENT_FY,
-      season: "",
-      date_from: todayStr,
-      date_to: todayStr
-    });
-  };
-
-  const hasActiveFilters = filters.truck_no || filters.rst_no || filters.tp_no || filters.agent_name || filters.mandi_name || filters.season || (filters.date_from && filters.date_from !== todayStr) || (filters.date_to && filters.date_to !== todayStr);
 
   return (
     <div className={`min-h-screen ${theme === 'light' ? 'bg-gradient-to-br from-slate-100 via-white to-slate-50' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900'}`} data-theme={theme}>

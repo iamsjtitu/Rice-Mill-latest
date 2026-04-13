@@ -68,6 +68,10 @@ class CashTransaction(BaseModel):
 
 @router.post("/cash-book")
 async def add_cash_transaction(txn: CashTransaction, username: str = "", role: str = "", round_off: float = 0):
+    from services.cashbook_service import (
+        detect_party_type, backfill_party_type,
+        create_auto_ledger_entry, process_diesel_auto_entry, process_pvt_paddy_auto_payment
+    )
     txn_dict = txn.model_dump()
     txn_dict['created_by'] = username
     txn_dict['amount'] = round(txn_dict['amount'], 2)
@@ -75,161 +79,22 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
     
     # Auto-detect party_type if not provided
     if not txn_dict.get('party_type') and category:
-        import re
-        cat_rgx = {"$regex": f"^{re.escape(category)}$", "$options": "i"}
-        cat_contains = {"$regex": re.escape(category), "$options": "i"}
-        
-        # 1. Check existing cash_transactions (case-insensitive exact match)
-        existing = await db.cash_transactions.find_one(
-            {"category": cat_rgx, "party_type": {"$nin": ["", None]}},
-            {"_id": 0, "party_type": 1}
-        )
-        if existing and existing.get('party_type'):
-            txn_dict['party_type'] = existing['party_type']
-        else:
-            # 2. Cross-collection lookup (case-insensitive)
-            if await db.private_paddy.find_one({"party_name": cat_rgx}):
-                txn_dict['party_type'] = "Pvt Paddy Purchase"
-            elif await db.rice_sales.find_one({"party_name": cat_rgx}):
-                txn_dict['party_type'] = "Rice Sale"
-            elif await db.diesel_accounts.find_one({"pump_name": cat_rgx}):
-                txn_dict['party_type'] = "Diesel"
-            elif await db.local_party_accounts.find_one({"party_name": cat_rgx}):
-                txn_dict['party_type'] = "Local Party"
-            elif await db.truck_payments.find_one({"truck_no": cat_rgx}):
-                txn_dict['party_type'] = "Truck"
-            elif await db.mandi_targets.find_one({"mandi_name": cat_rgx}):
-                txn_dict['party_type'] = "Agent"
-            elif await db.staff.find_one({"name": cat_rgx, "active": True}):
-                txn_dict['party_type'] = "Staff"
-            # 3. Fuzzy contains match (category found inside party name or vice-versa)
-            elif await db.private_paddy.find_one({"party_name": cat_contains}):
-                txn_dict['party_type'] = "Pvt Paddy Purchase"
-            elif await db.rice_sales.find_one({"party_name": cat_contains}):
-                txn_dict['party_type'] = "Rice Sale"
-            elif await db.diesel_accounts.find_one({"pump_name": cat_contains}):
-                txn_dict['party_type'] = "Diesel"
-            elif await db.local_party_accounts.find_one({"party_name": cat_contains}):
-                txn_dict['party_type'] = "Local Party"
-            elif await db.mandi_targets.find_one({"mandi_name": cat_contains}):
-                txn_dict['party_type'] = "Agent"
-            elif await db.staff.find_one({"name": cat_contains, "active": True}):
-                txn_dict['party_type'] = "Staff"
-            # 4. Check private_payments (pvt trading payments)
-            elif await db.private_payments.find_one({"party_name": cat_rgx}):
-                txn_dict['party_type'] = "Pvt Paddy Purchase"
-            else:
-                txn_dict['party_type'] = "Cash Party"
-        
-        # Retroactive fix: update ALL old entries for this category that have empty party_type
+        txn_dict['party_type'] = await detect_party_type(category)
         if txn_dict.get('party_type'):
-            await db.cash_transactions.update_many(
-                {"category": cat_rgx, "$or": [{"party_type": ""}, {"party_type": None}, {"party_type": {"$exists": False}}]},
-                {"$set": {"party_type": txn_dict['party_type']}}
-            )
+            await backfill_party_type(category, txn_dict['party_type'])
     
     await db.cash_transactions.insert_one(stamp_version(txn_dict))
     await log_audit("cash_transactions", txn_dict["id"], "create", txn_dict.get("created_by", ""), new_data=txn_dict)
     txn_dict.pop('_id', None)
     
-    # Auto-create corresponding ledger entry if this is a cash/bank transaction
-    # Double-entry: Cash movement creates same-direction ledger entry for the party
-    # Cash In (Jama) from party = party paid us → Ledger Jama (Cr) for party
-    # Cash Out (Nikasi) to party = we paid them → Ledger Nikasi (Dr) for party
-    if txn_dict.get('account') in ('cash', 'bank') and category:
-        ledger_amount = round(txn_dict['amount'] + round_off, 2) if round_off else txn_dict['amount']
-        ledger_entry = {**txn_dict}
-        ledger_entry['id'] = str(uuid.uuid4())
-        ledger_entry['account'] = 'ledger'
-        # Keep same txn_type for party ledger (Jama from party = Jama in their khata)
-        ledger_entry['amount'] = ledger_amount
-        ledger_entry['reference'] = f"auto_ledger:{txn_dict.get('id', '')[:8]}"
-        # Auto-generate description if empty
-        if not ledger_entry.get('description'):
-            acct = txn_dict.get('account', 'cash').capitalize()
-            ttype = txn_dict.get('txn_type', '')
-            if ttype == 'jama':
-                ledger_entry['description'] = f"{acct} received from {category}"
-            else:
-                ledger_entry['description'] = f"{acct} payment to {category}"
-        ledger_entry['created_at'] = datetime.now(timezone.utc).isoformat()
-        ledger_entry['updated_at'] = datetime.now(timezone.utc).isoformat()
-        await db.cash_transactions.insert_one(ledger_entry)
-        ledger_entry.pop('_id', None)
+    # Auto-create double-entry ledger entry
+    await create_auto_ledger_entry(txn_dict, round_off)
     
-    # Auto-create diesel_accounts payment entry when Cash Book payment is for a Diesel pump
-    detected_party_type = txn_dict.get('party_type', '')
-    if detected_party_type == "Diesel" and category and txn_dict.get('account') in ('cash', 'bank'):
-        import re as _re
-        cat_rgx = _re.compile(f"^{_re.escape(category)}$", _re.IGNORECASE)
-        pump = await db.diesel_pumps.find_one({"name": cat_rgx}, {"_id": 0})
-        if not pump:
-            cat_contains = {"$regex": _re.escape(category), "$options": "i"}
-            pump = await db.diesel_pumps.find_one({"name": cat_contains}, {"_id": 0})
-        if pump:
-            total_settled = round(txn_dict['amount'] + round_off, 2) if round_off else round(txn_dict['amount'], 2)
-            diesel_pay = {
-                "id": str(uuid.uuid4()),
-                "date": txn_dict.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
-                "pump_id": pump["id"],
-                "pump_name": pump["name"],
-                "truck_no": "", "agent_name": "",
-                "amount": total_settled,
-                "txn_type": "payment",
-                "description": f"Payment: Rs.{txn_dict['amount']}" + (f" (Round Off: {'+' if round_off > 0 else ''}{round_off})" if round_off else "") + (f" - {txn_dict.get('description','')}" if txn_dict.get('description') else ""),
-                "kms_year": txn_dict.get("kms_year", ""),
-                "season": txn_dict.get("season", ""),
-                "created_by": username or "system",
-                "source": "cashbook",
-                "linked_cashbook_id": txn_dict.get("id", ""),
-                "created_at": datetime.now(timezone.utc).isoformat()
-            }
-            await db.diesel_accounts.insert_one(diesel_pay)
-            diesel_pay.pop('_id', None)
-
-    # Auto-update private_paddy paid_amount when cashbook payment is made for Pvt Paddy Purchase party
-    detected_party_type = txn_dict.get('party_type', '')
-    if detected_party_type == "Pvt Paddy Purchase" and category and txn_dict.get('account') in ('cash', 'bank'):
-        import re as _re
-        # Category format could be "PartyName - MandiName" or "PartyName (MandiName)"
-        pvt_entry = None
-        parts = category.split(" - ", 1)
-        if len(parts) == 2:
-            pvt_entry = await db.private_paddy.find_one(
-                {"party_name": {"$regex": f"^{_re.escape(parts[0].strip())}$", "$options": "i"},
-                 "mandi_name": {"$regex": f"^{_re.escape(parts[1].strip())}$", "$options": "i"},
-                 "balance": {"$gt": 0}},
-                {"_id": 0}
-            )
-        if not pvt_entry:
-            cat_rgx = _re.compile(f"^{_re.escape(category)}$", _re.IGNORECASE)
-            pvt_entry = await db.private_paddy.find_one({"party_name": cat_rgx, "balance": {"$gt": 0}}, {"_id": 0})
-        if not pvt_entry:
-            # Also try partial match for agent_extra format "Agent (Mandi)"
-            pvt_entry = await db.private_paddy.find_one(
-                {"party_name": {"$regex": _re.escape(category), "$options": "i"}, "balance": {"$gt": 0}},
-                {"_id": 0}
-            )
-        if pvt_entry:
-            pay_amount = round(txn_dict.get('amount', 0), 2)
-            new_paid = round(pvt_entry.get("paid_amount", 0) + pay_amount, 2)
-            new_balance = round(pvt_entry.get("total_amount", 0) - new_paid, 2)
-            new_status = "paid" if new_balance <= 0 else ("partial" if new_paid > 0 else "pending")
-            await db.private_paddy.update_one(
-                {"id": pvt_entry["id"]},
-                {"$set": {"paid_amount": new_paid, "balance": new_balance, "status": new_status}}
-            )
-            txn_dict['cashbook_pvt_linked'] = pvt_entry["id"]
-            # Persist the link in DB (was inserted before this line)
-            await db.cash_transactions.update_one({"id": txn_dict["id"]}, {"$set": {"cashbook_pvt_linked": pvt_entry["id"]}})
-            # Also update the auto_ledger entry with same link
-            await db.cash_transactions.update_one(
-                {"reference": f"auto_ledger:{txn_dict['id'][:8]}"},
-                {"$set": {"cashbook_pvt_linked": pvt_entry["id"]}}
-            )
+    # Auto-create diesel payment entry
+    await process_diesel_auto_entry(txn_dict, round_off, username)
     
-    # Round off info is already included in the main transaction's ledger entry amount
-    # and in the description text. No separate round_off entry needed.
+    # Auto-update private paddy payment
+    await process_pvt_paddy_auto_payment(txn_dict)
 
     return txn_dict
 
