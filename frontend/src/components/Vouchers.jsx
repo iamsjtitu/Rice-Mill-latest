@@ -30,6 +30,7 @@ const SALE_CATEGORIES = [
 export default function Vouchers({ filters, user, onNavigate }) {
   const [activeTab, setActiveTab] = useState("sale");
   const [saleCat, setSaleCat] = useState("govt_rice");
+  useArrowSubTabNav(tabs.map(t => t.id), activeTab, setActiveTab);
 
   const activeCat = SALE_CATEGORIES.find(c => c.id === saleCat);
 
