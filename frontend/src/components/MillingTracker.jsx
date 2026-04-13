@@ -17,6 +17,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Trash2, Edit, Plus, RefreshCw, Filter, X, ShoppingCart, Package, Download, FileText, ClipboardList, Scissors } from "lucide-react";
 import { useConfirm } from "./ConfirmProvider";
+import { useCloseFiltersOnEsc } from "../utils/useCloseFiltersOnEsc";
 import logger from "../utils/logger";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -48,6 +49,7 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
   const [editingId, setEditingId] = useState(null);
   const [millingFilters, setMillingFilters] = useState({ rice_type: "", date_from: "", date_to: "" });
   const [showFilters, setShowFilters] = useState(false);
+  useCloseFiltersOnEsc(setShowFilters);
 
   const fetchEntries = useCallback(async () => {
     try {

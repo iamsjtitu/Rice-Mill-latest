@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
 import { FY_YEARS, CURRENT_FY } from "../utils/constants";
 import logger from "../utils/logger";
+import { useCloseFiltersOnEsc } from "../utils/useCloseFiltersOnEsc";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -15,6 +16,7 @@ export function useFilters() {
     date_from: todayStr, date_to: todayStr
   });
   const [showFilters, setShowFilters] = useState(false);
+  useCloseFiltersOnEsc(setShowFilters);
   const [mandiCuttingMap, setMandiCuttingMap] = useState({});
   const [mandiTargets, setMandiTargets] = useState([]);
 

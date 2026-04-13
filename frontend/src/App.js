@@ -133,6 +133,17 @@ function MainApp({ user, setUser, onLogout }) {
     clearFilters, hasActiveFilters, todayStr,
   } = useFilters();
 
+  // Global ESC key handler - dispatch custom event to close filters everywhere
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        window.dispatchEvent(new CustomEvent('close-filters'));
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
+
   // Kill camera streams when switching away from vehicle-weight
   const setActiveTabSafe = useCallback((tab) => {
     if (activeTab === "entries" && entriesSubTab === "vehicle-weight" && tab !== "entries") {

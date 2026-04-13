@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Edit, Search, Download, Eye, Filter } from "lucide-react";
 import { fmtDate } from "@/utils/date";
 import { useConfirm } from "./ConfirmProvider";
+import { useCloseFiltersOnEsc } from "../utils/useCloseFiltersOnEsc";
 import logger from "../utils/logger";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -24,6 +25,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewSale, setViewSale] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
+  useCloseFiltersOnEsc(setShowFilters);
   const [filterValues, setFilterValues] = useState({ date_from: "", date_to: "", billing_date_from: "", billing_date_to: "", rst_no: "", vehicle_no: "", bill_from: "", party_name: "", destination: "" });
   const [billFromSugg, setBillFromSugg] = useState([]);
   const [partySugg, setPartySugg] = useState([]);

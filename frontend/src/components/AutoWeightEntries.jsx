@@ -20,6 +20,7 @@ const fmtWt = (w) => w ? Number(w).toLocaleString() : "0";
 
 import { safePrintHTML } from "../utils/print";
 import logger from "../utils/logger";
+import { useCloseFiltersOnEsc } from "../utils/useCloseFiltersOnEsc";
 
 function getLast7DaysDate() {
   const d = new Date();
@@ -38,6 +39,8 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
   const [totalCount, setTotalCount] = useState(0);
   const [linkedRst, setLinkedRst] = useState(new Set());
   const [showFilters, setShowFilters] = useState(true);
+  useCloseFiltersOnEsc(setShowFilters);
+  useCloseFiltersOnEsc(setShowFilters);
   const [editEntry, setEditEntry] = useState(null);
   const [photoDialog, setPhotoDialog] = useState({ open: false, data: null, loading: false });
   const [zoomImg, setZoomImg] = useState(null);

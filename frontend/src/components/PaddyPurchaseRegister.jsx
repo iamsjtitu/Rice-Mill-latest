@@ -9,6 +9,7 @@ import { useMessagingEnabled } from "@/hooks/useMessagingEnabled";
 import { SendToGroupDialog } from "@/components/SendToGroupDialog";
 import ViewEntryDialog from "@/components/ViewEntryDialog";
 import { fmtDate } from "../utils/date";
+import { useCloseFiltersOnEsc } from "../utils/useCloseFiltersOnEsc";
 
 const _isElectron = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? "" : (process.env.REACT_APP_BACKEND_URL || "");
@@ -33,6 +34,7 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState("");
   const [showFilters, setShowFilters] = useState(true);
+  useCloseFiltersOnEsc(setShowFilters);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
