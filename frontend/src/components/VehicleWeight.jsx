@@ -992,7 +992,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                   <div>
                     {secondWtMode ? (
                       <>
-                        <Label className="text-slate-400 text-[10px] mb-0.5 block">Source * <span className="text-amber-400">(Locked)</span></Label>
+                        <Label className="text-slate-400 text-[10px] mb-0.5 block">{form.trans_type === "Dispatch(Sale)" ? "Destination *" : "Source *"} <span className="text-amber-400">(Locked)</span></Label>
                         <Input value={form.farmer_name} disabled className="bg-slate-700 border-slate-500 text-slate-200 h-8 text-xs opacity-70 cursor-not-allowed" data-testid="vw-farmer" />
                       </>
                     ) : (
@@ -1000,9 +1000,9 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       value={form.farmer_name}
                       onChange={e => setForm(p => ({ ...p, farmer_name: e.target.value }))}
                       suggestions={mandiSuggestions}
-                      placeholder="Source"
+                      placeholder={form.trans_type === "Dispatch(Sale)" ? "Destination" : "Source"}
                       onSelect={(val) => setForm(p => ({ ...p, farmer_name: val }))}
-                      label="Source *"
+                      label={form.trans_type === "Dispatch(Sale)" ? "Destination *" : "Source *"}
                       testId="vw-farmer"
                       labelClassName="text-slate-400 text-[10px] mb-0.5 block"
                       inputClassName="bg-slate-700 border-slate-500 text-white h-8 text-xs"
@@ -1060,28 +1060,34 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       placeholder="0" className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-bags" />
                   </div>
                 </div>
-                <div className="grid grid-cols-6 gap-2">
+                <div className={`grid gap-2 ${form.trans_type === "Dispatch(Sale)" ? "grid-cols-3" : "grid-cols-6"}`}>
+                  {form.trans_type !== "Dispatch(Sale)" && (
                   <div>
                     <Label className="text-slate-400 text-[10px] mb-0.5 block">TP No.</Label>
                     <Input value={form.tp_no} onChange={e => { setForm(p => ({ ...p, tp_no: e.target.value })); checkTpDuplicate(e.target.value); }}
                       placeholder="Optional" className={`bg-slate-700 border-slate-500 text-white h-8 text-xs ${tpWarning ? 'border-red-500 ring-1 ring-red-500' : ''}`} data-testid="vw-tp-no" />
                     {tpWarning && <p className="text-red-400 text-[9px] mt-0.5">{tpWarning}</p>}
                   </div>
+                  )}
+                  {form.trans_type !== "Dispatch(Sale)" && (
                   <div>
                     <Label className="text-slate-400 text-[10px] mb-0.5 block">TP Weight</Label>
                     <Input type="number" value={form.tp_weight} onChange={e => setForm(p => ({ ...p, tp_weight: e.target.value }))}
                       placeholder="QNTL" className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-tp-weight" />
                   </div>
+                  )}
                   <div>
                     <Label className="text-slate-400 text-[10px] mb-0.5 block">Remark</Label>
                     <Input value={form.remark} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))}
                       placeholder="Optional" className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-remark" />
                   </div>
+                  {form.trans_type !== "Dispatch(Sale)" && (
                   <div>
                     <Label className="text-slate-400 text-[10px] mb-0.5 block">G.Issued</Label>
                     <Input type="number" value={form.g_issued} onChange={e => setForm(p => ({ ...p, g_issued: e.target.value }))}
                       placeholder="0" className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-g-issued" />
                   </div>
+                  )}
                   <div>
                     <Label className="text-green-700 text-[10px] mb-0.5 block font-semibold">Cash Paid</Label>
                     <Input type="number" value={form.cash_paid} onChange={e => setForm(p => ({ ...p, cash_paid: e.target.value }))}
