@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import "@/App.css";
 import axios from "axios";
 import { Toaster } from "@/components/ui/sonner";
@@ -18,39 +18,49 @@ import {
   FileSpreadsheet, 
   Users, CheckCircle, 
   Send, Scale, ClipboardList,
+  Loader2,
 } from "lucide-react";
 
-// Import extracted components
+// Eagerly loaded (used on initial render / always needed)
 import LoginPage from "@/components/LoginPage";
 import Dashboard from "@/components/Dashboard";
 import Payments from "@/components/Payments";
 import MillingTracker from "@/components/MillingTracker";
 import CashBook from "@/components/CashBook";
-import DCTracker from "@/components/DCTracker";
-import Reports from "@/components/Reports";
-import Ledgers from "@/components/Ledgers";
-import MillPartsStock from "@/components/MillPartsStock";
-import StaffManagement from "@/components/StaffManagement";
-import FYSummaryDashboard from "@/components/FYSummaryDashboard";
-import BalanceSheet from "@/components/BalanceSheet";
-import ExcelImport from "@/components/ExcelImport";
-import Vouchers from "@/components/Vouchers";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import RecordHistory from "@/components/RecordHistory";
-import HemaliPayment from "@/components/HemaliPayment";
-import WhatsNew, { APP_VERSION } from "@/components/WhatsNew";
+import { APP_VERSION } from "@/utils/constants-version";
 import AutoUpdate from "@/components/AutoUpdate";
 import { SendToGroupDialog } from "@/components/SendToGroupDialog";
 import { useMessagingEnabled } from "./hooks/useMessagingEnabled";
-import Settings from "@/components/Settings";
-import GovtRegisters from "@/components/GovtRegisters";
-import VehicleWeight from "@/components/VehicleWeight";
-import AutoWeightEntries from "@/components/AutoWeightEntries";
-import PaddyPurchaseRegister from "@/components/PaddyPurchaseRegister";
 import { useFilters } from "./hooks/useFilters";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { EntryTable } from "@/components/entries/EntryTable";
 import { AppHeader } from "@/components/entries/AppHeader";
+
+// Lazy loaded (tab-only, not needed at startup)
+const Reports = lazy(() => import("@/components/Reports"));
+const DCTracker = lazy(() => import("@/components/DCTracker"));
+const Ledgers = lazy(() => import("@/components/Ledgers"));
+const MillPartsStock = lazy(() => import("@/components/MillPartsStock"));
+const StaffManagement = lazy(() => import("@/components/StaffManagement"));
+const FYSummaryDashboard = lazy(() => import("@/components/FYSummaryDashboard"));
+const BalanceSheet = lazy(() => import("@/components/BalanceSheet"));
+const Vouchers = lazy(() => import("@/components/Vouchers"));
+const HemaliPayment = lazy(() => import("@/components/HemaliPayment"));
+const GovtRegisters = lazy(() => import("@/components/GovtRegisters"));
+const Settings = lazy(() => import("@/components/Settings"));
+const VehicleWeight = lazy(() => import("@/components/VehicleWeight"));
+const AutoWeightEntries = lazy(() => import("@/components/AutoWeightEntries"));
+const PaddyPurchaseRegister = lazy(() => import("@/components/PaddyPurchaseRegister"));
+const WhatsNew = lazy(() => import("@/components/WhatsNew"));
+
+// Suspense fallback for lazy components
+const LazyFallback = () => (
+  <div className="flex items-center justify-center py-16">
+    <Loader2 className="w-8 h-8 text-amber-400 animate-spin" />
+    <span className="ml-3 text-slate-400 text-sm">Loading...</span>
+  </div>
+);
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -927,6 +937,7 @@ function MainApp({ user, setUser, onLogout }) {
           </div>
         </div>
         <ErrorBoundary key={activeTab}>
+        <Suspense fallback={<LazyFallback />}>
         {activeTab === "dashboard" ? (
           <Dashboard filters={filters} user={user} />
         ) : activeTab === "payments" ? (
@@ -1041,6 +1052,7 @@ function MainApp({ user, setUser, onLogout }) {
             )}
           </>
         )}
+        </Suspense>
         </ErrorBoundary>
       </main>
 
@@ -1061,8 +1073,10 @@ function MainApp({ user, setUser, onLogout }) {
       </footer>
 
       {/* What's New Dialog - auto shows on version update */}
-      <WhatsNew />
-      {showWhatsNew && <WhatsNew forceOpen onClose={() => setShowWhatsNew(false)} />}
+      <Suspense fallback={null}>
+        <WhatsNew />
+        {showWhatsNew && <WhatsNew forceOpen onClose={() => setShowWhatsNew(false)} />}
+      </Suspense>
 
       {/* Auto Update Notification */}
       <AutoUpdate />
