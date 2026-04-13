@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "90.5.0",
+    date: "Apr 2026",
+    title: "v90.5.0 - Transit Pass Fix + Settings Bug Fix",
+    items: [
+      { type: "fix", text: "Transit Pass Register mai Mandi aur Agent dropdown ab sahi kaam karta hai (filter_options added)" },
+      { type: "fix", text: "Settings page crash fix - ab sab tabs properly khulte hain" },
+    ]
+  },
+  {
     version: "90.4.0",
     date: "Apr 2026",
     title: "v90.4.0 - Code Quality + Performance Overhaul",
