@@ -66,7 +66,7 @@ const AgentMandiReport = ({ filters }) => {
       // Pass expanded mandi names so PDF/Excel only includes those
       const expanded = Object.keys(expandedMandis).filter(k => expandedMandis[k]);
       if (expanded.length > 0) p.append('mandis', expanded.join(','));
-      const { downloadFile } = await import('../utils/download');
+      const { downloadFile } = await import('../../utils/download');
       downloadFile(`/api/reports/agent-mandi-wise/${format}?${p}`, `agent_mandi_report.${format === 'excel' ? 'xlsx' : 'pdf'}`);
     } catch (e) { toast.error("Export failed"); }
   };

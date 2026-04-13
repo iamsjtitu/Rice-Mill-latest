@@ -14,21 +14,36 @@
 - Dynamic By-Product Categories, Reports, FY Summary, Balance Sheet, Quick Search, PDF/Excel export
 - Multi-user RBAC, WhatsApp/Telegram, Camera, GST Ledger/Audit Log
 
-## Refactoring Summary (v90.3.0)
+## Complete Refactoring Summary (v90.3.0)
 
-### Component Splitting (Total: -911 lines from monoliths)
-| File | Before | After | Extracted To |
-|------|--------|-------|-------------|
-| App.js | 1709 | 1394 | useFilters (137), useKeyboardShortcuts (130) |
-| Payments.jsx | 2036 | 1731 | payments/DieselAccount.jsx (316) |
-| Reports.jsx | 1391 | 1236 | reports/CMRvsDC.jsx (84), reports/SeasonPnL.jsx (83) |
-| cashbook.py | 1754 | 1618 | services/cashbook_service.py (164) |
+### Component Splitting Results
+| File | Original | Final | Reduction | Extracted To |
+|------|----------|-------|-----------|-------------|
+| App.js | 1709 | 1136 | -573 | useFilters, useKeyboardShortcuts, AppHeader |
+| Reports.jsx | 1391 | 38 | -1353 | CMRvsDC, SeasonPnL, DailyReport, AgentMandiReport |
+| Payments.jsx | 2036 | 1731 | -305 | DieselAccount |
+| cashbook.py | 1754 | 1618 | -136 | cashbook_service.py |
+| **Total** | **6890** | **4523** | **-2367** | |
+
+### New Files Created
+| File | Lines | Purpose |
+|------|-------|---------|
+| hooks/useFilters.js | 137 | Filter state, FY settings, mandi cutting map |
+| hooks/useKeyboardShortcuts.js | 130 | All keyboard shortcut handlers |
+| entries/AppHeader.jsx | 281 | Header + FY selector + admin dropdown + action bar |
+| reports/CMRvsDC.jsx | 84 | CMR vs DC comparison report |
+| reports/SeasonPnL.jsx | 83 | Season Profit & Loss report |
+| reports/DailyReport.jsx | 872 | Daily operational report |
+| reports/AgentMandiReport.jsx | 337 | Agent & Mandi wise report |
+| payments/DieselAccount.jsx | 316 | Diesel account management |
+| services/cashbook_service.py | 164 | Cashbook transaction helpers |
 
 ### Security Fixes
-- Wildcard → explicit imports (auth.py, cashbook.py, dc_payments.py, milling.py)
-- Dynamic __import__ → static imports (milling.py, govt_registers.py)
+- Wildcard → explicit imports (4 backend files)
+- Dynamic __import__ → static imports (2 files)
 - document.write XSS → safe patterns (6 frontend files)
-- Empty catch → console.error (5 files), test credentials → env vars (5 test files)
+- Empty catch → console.error (5 files)
+- Test credentials → env vars (5 test files)
 
 ### Performance
 - useMemo for truckWiseConsolidated in Payments.jsx
@@ -39,11 +54,6 @@
 ### P1 (High)
 - Quality Test Report Register
 - Monthly Return Auto-generation
-
-### P2 (Medium)
-- Further App.js splitting (1394 lines → EntriesActionBar, AppHeader)
-- DailyReport + AgentMandiReport extraction from Reports.jsx (1236 lines)
-- Truck/Agent invoice print HTML templates extraction to utils
 
 ### P3 (Low)
 - Triple backend code deduplication
