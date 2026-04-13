@@ -14,21 +14,6 @@ module.exports = function(database) {
     _addPdfHeader(doc, title, branding);
   }
 
-  const DEFAULT_BP_CATS = [
-    {id:"bran",name:"Bran",name_hi:"भूसी",is_auto:false,order:1},
-    {id:"kunda",name:"Kunda",name_hi:"कुंडा",is_auto:false,order:2},
-    {id:"broken",name:"Broken",name_hi:"टूटा",is_auto:false,order:3},
-    {id:"kanki",name:"Kanki",name_hi:"कंकी",is_auto:false,order:4},
-    {id:"husk",name:"Husk",name_hi:"भूसा",is_auto:true,order:5},
-  ];
-  function getBpCats() {
-    if (!database.data.byproduct_categories || database.data.byproduct_categories.length === 0) {
-      database.data.byproduct_categories = JSON.parse(JSON.stringify(DEFAULT_BP_CATS));
-      database.save();
-    }
-    return [...database.data.byproduct_categories].sort((a,b) => (a.order||0)-(b.order||0));
-  }
-
   // ===== ENTRIES EXPORT =====
   router.get('/api/export/excel', safeAsync(async (req, res) => {
     try {
@@ -340,32 +325,22 @@ module.exports = function(database) {
   router.get('/api/milling-report/excel', safeAsync(async (req, res) => {
     try {
       const entries = database.getMillingEntries(req.query);
-      const cats = getBpCats();
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Milling Report');
-      // Dynamic columns
-      const baseCols = [
+      ws.columns = [
         { header: 'Date', key: 'date', width: 12 }, { header: 'Type', key: 'rice_type', width: 10 },
         { header: 'Paddy (Q)', key: 'paddy', width: 12 }, { header: 'Rice %', key: 'rice_pct', width: 9 },
         { header: 'Rice (Q)', key: 'rice', width: 10 }, { header: 'FRK (Q)', key: 'frk', width: 9 },
         { header: 'CMR (Q)', key: 'cmr', width: 10 }, { header: 'Outturn %', key: 'outturn', width: 10 },
+        { header: 'Bran (Q)', key: 'bran', width: 9 }, { header: 'Kunda (Q)', key: 'kunda', width: 9 },
+        { header: 'Husk %', key: 'husk_pct', width: 9 }, { header: 'Note', key: 'note', width: 14 }
       ];
-      const bpCols = cats.map(c => ({
-        header: c.is_auto ? `${c.name} %` : `${c.name} (Q)`,
-        key: c.is_auto ? `${c.id}_pct` : `${c.id}_qntl`,
-        width: 11
-      }));
-      ws.columns = [...baseCols, ...bpCols, { header: 'Note', key: 'note', width: 14 }];
       entries.forEach(e => {
-        const row = { date: fmtDate(e.date), rice_type: (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1),
+        ws.addRow({ date: fmtDate(e.date), rice_type: (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1),
           paddy: e.paddy_input_qntl||0, rice_pct: e.rice_percent||0, rice: e.rice_qntl||0,
-          frk: e.frk_used_qntl||0, cmr: e.cmr_delivery_qntl||0, outturn: e.outturn_ratio||0, note: e.note||'' };
-        cats.forEach(c => {
-          if (c.is_auto) row[`${c.id}_pct`] = e[`${c.id}_percent`] || 0;
-          else row[`${c.id}_qntl`] = e[`${c.id}_qntl`] || 0;
-        });
-        ws.addRow(row);
+          frk: e.frk_used_qntl||0, cmr: e.cmr_delivery_qntl||0, outturn: e.outturn_ratio||0,
+          bran: e.bran_qntl||0, kunda: e.kunda_qntl||0, husk_pct: e.husk_percent||0, note: e.note||'' });
       });
-      addExcelTitle(ws, 'Milling Report', baseCols.length + bpCols.length + 1, database); styleExcelHeader(ws); styleExcelData(ws, 5);
+      addExcelTitle(ws, 'Milling Report', 12, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
@@ -375,30 +350,16 @@ module.exports = function(database) {
   router.get('/api/milling-report/pdf', safeSync(async (req, res) => {
     try {
       const entries = database.getMillingEntries(req.query);
-      const cats = getBpCats();
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.pdf`);
       addPdfHeader(doc, 'Milling Report');
-      // Dynamic headers
-      const baseHeaders = ['Date','Type','Paddy(Q)','Rice%','Rice(Q)','FRK(Q)','CMR(Q)','Outturn%'];
-      const bpHeaders = cats.map(c => c.is_auto ? `${c.name}%` : `${c.name}(Q)`);
-      const headers = [...baseHeaders, ...bpHeaders, 'Note'];
-      const rows = entries.map(e => {
-        const baseRow = [fmtDate(e.date), (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1),
-          (e.paddy_input_qntl||0), (e.rice_percent||0)+'%', (e.rice_qntl||0), (e.frk_used_qntl||0),
-          (e.cmr_delivery_qntl||0), (e.outturn_ratio||0)+'%'];
-        cats.forEach(c => {
-          if (c.is_auto) baseRow.push((e[`${c.id}_percent`]||0)+'%');
-          else baseRow.push(e[`${c.id}_qntl`]||0);
-        });
-        baseRow.push((e.note||'').substring(0,15));
-        return baseRow;
-      });
-      const baseWidths = [50,45,45,35,40,35,40,40];
-      const bpWidths = cats.map(() => 35);
-      addPdfTable(doc, headers, rows, [...baseWidths, ...bpWidths, 50]);
+      const headers = ['Date','Type','Paddy(Q)','Rice%','Rice(Q)','FRK(Q)','CMR(Q)','Outturn%','Bran(Q)','Husk%','Note'];
+      const rows = entries.map(e => [fmtDate(e.date), (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1),
+        (e.paddy_input_qntl||0), (e.rice_percent||0)+'%', (e.rice_qntl||0), (e.frk_used_qntl||0),
+        (e.cmr_delivery_qntl||0), (e.outturn_ratio||0)+'%', (e.bran_qntl||0), (e.husk_percent||0)+'%', (e.note||'').substring(0,15)]);
+      addPdfTable(doc, headers, rows, [50,45,45,35,40,35,40,40,35,35,60]);
       await safePdfPipe(doc, res);
     } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
   }));
@@ -459,9 +420,7 @@ module.exports = function(database) {
       if (req.query.season) sales = sales.filter(s => s.season === req.query.season);
       sales.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)));
       const millingEntries = database.getMillingEntries(req.query);
-      // Dynamic categories
-      const cats = getBpCats();
-      const products = cats.map(c => c.id);
+      const products = ['bran','kunda','broken','kanki','husk'];
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('By-Product Sales');
       ws.columns = [
         { header: 'Product', key: 'product', width: 14 }, { header: 'Produced (Q)', key: 'produced', width: 14 },
@@ -469,13 +428,11 @@ module.exports = function(database) {
         { header: 'Revenue (Rs.)', key: 'revenue', width: 14 }
       ];
       products.forEach(p => {
-        const cat = cats.find(c => c.id === p);
-        const label = cat ? cat.name : p.charAt(0).toUpperCase()+p.slice(1);
         const produced = +millingEntries.reduce((s,e)=>s+(e[`${p}_qntl`]||0),0).toFixed(2);
         const pSales = sales.filter(s => s.product === p);
         const sold = +pSales.reduce((s,e)=>s+(e.quantity_qntl||0),0).toFixed(2);
         const revenue = +pSales.reduce((s,e)=>s+(e.total_amount||0),0).toFixed(2);
-        ws.addRow({ product: label, produced, sold, available: +(produced-sold).toFixed(2), revenue });
+        ws.addRow({ product: p.charAt(0).toUpperCase()+p.slice(1), produced, sold, available: +(produced-sold).toFixed(2), revenue });
       });
       ws.addRow({});
       const detailHeaderRow = ws.addRow({ product: 'Date', produced: 'Product', sold: 'Qty (Q)', available: 'Rate (Rs./Q)', revenue: 'Amount (Rs.)' });
@@ -498,9 +455,7 @@ module.exports = function(database) {
       if (req.query.season) sales = sales.filter(s => s.season === req.query.season);
       sales.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)));
       const millingEntries = database.getMillingEntries(req.query);
-      // Dynamic categories
-      const cats = getBpCats();
-      const products = cats.map(c => c.id);
+      const products = ['bran','kunda','broken','kanki','husk'];
       const doc = new PDFDocument({ size: 'A4', margin: 30 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
@@ -508,13 +463,11 @@ module.exports = function(database) {
       addPdfHeader(doc, 'By-Product Stock & Sales Report');
       const sHeaders = ['Product','Produced(Q)','Sold(Q)','Available(Q)','Revenue(Rs.)'];
       const sRows = products.map(p => {
-        const cat = cats.find(c => c.id === p);
-        const label = cat ? cat.name : p.charAt(0).toUpperCase()+p.slice(1);
         const produced = +millingEntries.reduce((s,e)=>s+(e[`${p}_qntl`]||0),0).toFixed(2);
         const pSales = sales.filter(s => s.product === p);
         const sold = +pSales.reduce((s,e)=>s+(e.quantity_qntl||0),0).toFixed(2);
         const revenue = +pSales.reduce((s,e)=>s+(e.total_amount||0),0).toFixed(2);
-        return [label, produced, sold, +(produced-sold).toFixed(2), revenue];
+        return [p.charAt(0).toUpperCase()+p.slice(1), produced, sold, +(produced-sold).toFixed(2), revenue];
       });
       addPdfTable(doc, sHeaders, sRows, [70, 70, 60, 70, 70]);
       doc.moveDown(1);

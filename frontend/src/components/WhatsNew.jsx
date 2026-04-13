@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "90.7.3",
+    date: "Apr 2026",
+    title: "v90.7.3 - Stability Restore",
+    items: [
+      { type: "fix", text: "By-Product categories wapas stable hardcoded (Bran, Kunda, Broken, Kanki, Husk) - dynamic category feature hata diya" },
+      { type: "fix", text: "Settings se By-Products tab remove kiya" },
+      { type: "fix", text: "Saare PDF/Excel exports stable - Bran, Kunda, Husk columns hardcoded" },
+    ]
+  },
+  {
     version: "90.7.2",
     date: "Apr 2026",
     title: "v90.7.2 - Category Data Persistence Fix",

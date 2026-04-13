@@ -16,6 +16,12 @@ const BASE_ITEMS = [
   { key: "paddy", label: "Paddy / धान", unit: "Qntl" },
   { key: "rice_usna", label: "Rice Usna / उसना चावल", unit: "Qntl" },
   { key: "rice_raw", label: "Rice Raw / कच्चा चावल", unit: "Qntl" },
+  { key: "bran", label: "Bran / भूसी", unit: "Qntl" },
+  { key: "kunda", label: "Kunda / कुंडा", unit: "Qntl" },
+  { key: "broken", label: "Broken / टूटा", unit: "Qntl" },
+  { key: "kanki", label: "Kanki / कंकी", unit: "Qntl" },
+  { key: "husk", label: "Husk / भूसा", unit: "Qntl" },
+  { key: "frk", label: "FRK", unit: "Qntl" },
 ];
 
 function StockTab({ kmsYear, user }) {
@@ -23,34 +29,18 @@ function StockTab({ kmsYear, user }) {
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [carrying, setCarrying] = useState(false);
-  const [stockItems, setStockItems] = useState(BASE_ITEMS);
 
-  // Fetch dynamic byproduct categories + opening stock
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch byproduct categories to build dynamic stock items
-        const catRes = await axios.get(`${API}/byproduct-categories`);
-        const cats = catRes.data || [];
-        const dynamicItems = [
-          ...BASE_ITEMS,
-          ...cats.map(c => ({ key: c.id, label: `${c.name}${c.name_hi ? ' / ' + c.name_hi : ''}`, unit: "Qntl" })),
-          { key: "frk", label: "FRK", unit: "Qntl" },
-        ];
-        setStockItems(dynamicItems);
-
-        // Fetch opening stock values - merge with dynamic items
         const params = new URLSearchParams();
         if (kmsYear) params.append('kms_year', kmsYear);
         const res = await axios.get(`${API}/opening-stock?${params}`);
         const savedStocks = res.data?.stocks || {};
-        
-        // Initialize all dynamic items with 0 if not present, keep existing values
         const merged = {};
-        for (const item of dynamicItems) {
+        for (const item of BASE_ITEMS) {
           merged[item.key] = savedStocks[item.key] || 0;
         }
-        // Also keep any extra keys from saved data that might not be in current categories
         for (const [k, v] of Object.entries(savedStocks)) {
           if (!(k in merged)) merged[k] = v;
         }
@@ -59,7 +49,7 @@ function StockTab({ kmsYear, user }) {
       setLoaded(true);
     };
     fetchData();
-  }, [kmsYear]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [kmsYear]);
 
   const save = async () => {
     setSaving(true);
@@ -126,7 +116,7 @@ function StockTab({ kmsYear, user }) {
             </Button>
           </div>
           <div className="grid grid-cols-3 sm:grid-cols-3 gap-3">
-            {stockItems.map(item => (
+            {BASE_ITEMS.map(item => (
               <div key={item.key}>
                 <Label className="text-slate-300 text-xs">{item.label}</Label>
                 <div className="flex items-center gap-1">

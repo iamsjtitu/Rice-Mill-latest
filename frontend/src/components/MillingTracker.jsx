@@ -29,7 +29,9 @@ const CURRENT_KMS_YEAR = (() => {
   return now.getMonth() >= 3 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 })();
 
-// PRODUCT_LABELS is now built dynamically from bpCategories API
+const PRODUCT_LABELS = {
+  bran: "Bran (भूसी)", kunda: "Kunda (कुंडा)", broken: "Broken (टूटा)", kanki: "Kanki (कंकी)", husk: "Husk (भूसा)",
+};
 
 // ===== Sub-tab: Milling Entries =====
 const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) => {
@@ -447,44 +449,28 @@ const ByProductTab = ({ filters, user, onRefresh }) => {
   const showConfirm = useConfirm();
   const [stock, setStock] = useState(null);
   const [sales, setSales] = useState([]);
-  const [bpCategories, setBpCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSaleDialogOpen, setIsSaleDialogOpen] = useState(false);
-  const [saleForm, setSaleForm] = useState({ date: new Date().toISOString().split('T')[0], product: "", quantity_qntl: "", rate_per_qntl: "", buyer_name: "", note: "", kms_year: CURRENT_KMS_YEAR, season: "Kharif" });
+  const [saleForm, setSaleForm] = useState({ date: new Date().toISOString().split('T')[0], product: "bran", quantity_qntl: "", rate_per_qntl: "", buyer_name: "", note: "", kms_year: CURRENT_KMS_YEAR, season: "Kharif" });
 
   const fetchData = useCallback(async () => {
     try { setLoading(true);
       const params = new URLSearchParams();
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
       if (filters.season) params.append('season', filters.season);
-      const [stockRes, salesRes, catsRes] = await Promise.all([
-        axios.get(`${API}/byproduct-stock?${params}`),
-        axios.get(`${API}/byproduct-sales?${params}`),
-        axios.get(`${API}/byproduct-categories`),
-      ]);
+      const [stockRes, salesRes] = await Promise.all([axios.get(`${API}/byproduct-stock?${params}`), axios.get(`${API}/byproduct-sales?${params}`)]);
       setStock(stockRes.data); setSales(salesRes.data);
-      const cats = catsRes.data || [];
-      setBpCategories(cats);
-      // Set default product for sale form if not set
-      if (cats.length > 0 && !saleForm.product) {
-        setSaleForm(p => ({ ...p, product: cats[0].id }));
-      }
     } catch (e) { toast.error("Data load nahi hua"); } finally { setLoading(false); }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- saleForm.product only needed on mount
   }, [filters.kms_year, filters.season]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-
-  // Build dynamic labels from categories
-  const productLabels = {};
-  bpCategories.forEach(c => { productLabels[c.id] = c.name_hi ? `${c.name} (${c.name_hi})` : c.name; });
 
   const handleSaleSubmit = async (e) => {
     e.preventDefault();
     try {
       await axios.post(`${API}/byproduct-sales?username=${user.username}&role=${user.role}`, { ...saleForm, quantity_qntl: parseFloat(saleForm.quantity_qntl) || 0, rate_per_qntl: parseFloat(saleForm.rate_per_qntl) || 0 });
       toast.success("Sale save ho gayi!"); setIsSaleDialogOpen(false);
-      setSaleForm({ date: new Date().toISOString().split('T')[0], product: bpCategories[0]?.id || "", quantity_qntl: "", rate_per_qntl: "", buyer_name: "", note: "", kms_year: CURRENT_KMS_YEAR, season: "Kharif" });
+      setSaleForm({ date: new Date().toISOString().split('T')[0], product: "bran", quantity_qntl: "", rate_per_qntl: "", buyer_name: "", note: "", kms_year: CURRENT_KMS_YEAR, season: "Kharif" });
       fetchData(); onRefresh();
     } catch (error) { toast.error("Error: " + (error.response?.data?.detail || error.message)); }
   };
@@ -496,10 +482,10 @@ const ByProductTab = ({ filters, user, onRefresh }) => {
 
   return (
     <div className="space-y-4">
-      {stock && bpCategories.length > 0 && <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        {bpCategories.map(cat => { const key = cat.id; const s = stock[key] || {};
+      {stock && <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        {Object.entries(PRODUCT_LABELS).map(([key, label]) => { const s = stock[key] || {};
           return (<Card key={key} className="bg-slate-800 border-slate-700" data-testid={`byproduct-stock-${key}`}><CardContent className="p-3">
-            <p className="text-xs text-amber-400 font-medium mb-2">{productLabels[key] || cat.name}</p>
+            <p className="text-xs text-amber-400 font-medium mb-2">{label}</p>
             <div className="space-y-1 text-xs">
               <div className="flex justify-between"><span className="text-slate-400">Produced:</span><span className="text-green-400">{s.produced_qntl || 0} Q</span></div>
               <div className="flex justify-between"><span className="text-slate-400">Sold:</span><span className="text-orange-400">{s.sold_qntl || 0} Q</span></div>
@@ -518,7 +504,7 @@ const ByProductTab = ({ filters, user, onRefresh }) => {
       </div>
       <Card className="bg-slate-800 border-slate-700"><CardHeader className="pb-2 pt-3 px-4"><div className="flex justify-between items-center">
         <CardTitle className="text-sm text-amber-400">Recent Sales</CardTitle>
-        <Button onClick={() => { setSaleForm({ date: new Date().toISOString().split('T')[0], product: bpCategories[0]?.id || "", quantity_qntl: "", rate_per_qntl: "", buyer_name: "", note: "", kms_year: filters.kms_year || CURRENT_KMS_YEAR, season: filters.season || "Kharif" }); setIsSaleDialogOpen(true); }}
+        <Button onClick={() => { setSaleForm({ date: new Date().toISOString().split('T')[0], product: "bran", quantity_qntl: "", rate_per_qntl: "", buyer_name: "", note: "", kms_year: filters.kms_year || CURRENT_KMS_YEAR, season: filters.season || "Kharif" }); setIsSaleDialogOpen(true); }}
           size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900 h-7 text-xs"><Plus className="w-3 h-3 mr-1" /> New Sale</Button>
       </div></CardHeader>
       <CardContent className="p-0"><div className="overflow-x-auto">
@@ -529,7 +515,7 @@ const ByProductTab = ({ filters, user, onRefresh }) => {
           : sales.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center text-slate-400 py-6">Koi sale nahi</TableCell></TableRow>
           : sales.map(s => (<TableRow key={s.id} className="border-slate-700">
             <TableCell className="text-white text-xs">{fmtDate(s.date)}</TableCell>
-            <TableCell className="text-xs"><span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-400">{productLabels[s.product]||s.product}</span></TableCell>
+            <TableCell className="text-xs"><span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-400">{PRODUCT_LABELS[s.product]||s.product}</span></TableCell>
             <TableCell className="text-blue-300 text-xs">{s.quantity_qntl}</TableCell>
             <TableCell className="text-slate-300 text-xs">₹{s.rate_per_qntl}</TableCell>
             <TableCell className="text-emerald-400 text-xs font-bold">₹{(s.total_amount||0).toLocaleString()}</TableCell>
@@ -548,7 +534,7 @@ const ByProductTab = ({ filters, user, onRefresh }) => {
               <div><Label className="text-xs text-slate-400">Date</Label><Input type="date" value={saleForm.date} onChange={(e) => setSaleForm(p => ({...p, date: e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required /></div>
               <div><Label className="text-xs text-slate-400">Product</Label><Select value={saleForm.product} onValueChange={(v) => setSaleForm(p => ({...p, product: v}))}>
                 <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>{bpCategories.map(c => <SelectItem key={c.id} value={c.id}>{productLabels[c.id] || c.name}</SelectItem>)}</SelectContent></Select></div>
+                <SelectContent>{Object.entries(PRODUCT_LABELS).map(([k,v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent></Select></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-slate-400">Qty (QNTL) {stock && stock[saleForm.product] && <span className="text-green-400">(Avl: {stock[saleForm.product].available_qntl}Q)</span>}</Label>
