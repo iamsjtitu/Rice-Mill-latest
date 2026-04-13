@@ -343,7 +343,7 @@ module.exports = function(database) {
     const idx = database.data.opening_stock.findIndex(s => s.kms_year === kms_year);
     if (idx >= 0) database.data.opening_stock[idx] = doc;
     else database.data.opening_stock.push(doc);
-    database.save();
+    if (database.saveImmediate) database.saveImmediate(); else database.save();
     res.json({ success: true, message: 'Opening stock save ho gaya', data: doc });
   }));
 

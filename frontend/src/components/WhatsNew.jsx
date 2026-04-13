@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "90.7.2",
+    date: "Apr 2026",
+    title: "v90.7.2 - Category Data Persistence Fix",
+    items: [
+      { type: "fix", text: "Custom by-product category (Rejection Rice) ab software restart karne pe bhi rahegi - saveImmediate se turant disk pe likhta hai" },
+      { type: "fix", text: "App close karne pe pending saves flush hoti hain - data loss nahi hoga" },
+      { type: "fix", text: "Purane data files mein missing arrays (byproduct_categories, opening_stock etc.) automatically initialize hoti hain" },
+    ]
+  },
+  {
     version: "90.7.1",
     date: "Apr 2026",
     title: "v90.7.1 - Opening Stock Data Loss Fix",

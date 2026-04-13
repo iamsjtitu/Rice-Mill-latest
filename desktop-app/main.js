@@ -123,6 +123,13 @@ class JsonDatabase {
         }
         // Run data migration for old entries missing jama/nikasi
         this.migrateOldEntries(data);
+        // Ensure critical arrays exist (migration for older data files)
+        if (!Array.isArray(data.byproduct_categories)) data.byproduct_categories = [];
+        if (!Array.isArray(data.opening_stock)) data.opening_stock = [];
+        if (!Array.isArray(data.paddy_cutting)) data.paddy_cutting = [];
+        if (!Array.isArray(data.frk_purchases)) data.frk_purchases = [];
+        if (!Array.isArray(data.byproduct_sales)) data.byproduct_sales = [];
+        if (!Array.isArray(data.milling_entries)) data.milling_entries = [];
         return data;
       }
     } catch (e) {
@@ -176,6 +183,9 @@ class JsonDatabase {
       rice_sales: [],
       byproduct_sales: [],
       frk_purchases: [],
+      byproduct_categories: [],
+      opening_stock: [],
+      paddy_cutting: [],
       truck_leases: [],
       truck_lease_payments: [],
       staff: [],
@@ -1408,6 +1418,10 @@ function createApiServer(database) {
   process.on('SIGINT', () => { cleanupSession(); process.exit(); });
   app.on('before-quit', () => {
     cleanupSession();
+    // Flush any pending saves to disk before quitting
+    if (database && database.saveImmediate && database._pendingSave) {
+      try { database.saveImmediate(); } catch (e) { console.error('[Quit] Save error:', e.message); }
+    }
     // Stop file watcher
     if (database && database.stopFileWatcher) {
       database.stopFileWatcher();

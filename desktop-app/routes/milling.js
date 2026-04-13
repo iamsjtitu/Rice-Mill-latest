@@ -19,7 +19,7 @@ module.exports = function(database) {
   function getBpCats() {
     if (!database.data.byproduct_categories || database.data.byproduct_categories.length === 0) {
       database.data.byproduct_categories = JSON.parse(JSON.stringify(DEFAULT_BP_CATS));
-      database.save();
+      if (database.saveImmediate) database.saveImmediate(); else database.save();
     }
     return [...database.data.byproduct_categories].sort((a,b) => (a.order||0)-(b.order||0));
   }
@@ -30,7 +30,9 @@ module.exports = function(database) {
     if (cats.find(c => c.id === catId)) return res.status(400).json({detail:'Category already exists'});
     const newCat = {id:catId,name:d.name||'',name_hi:d.name_hi||'',is_auto:!!d.is_auto,order:Math.max(...cats.map(c=>c.order||0),0)+1};
     if (newCat.is_auto) database.data.byproduct_categories.forEach(c => c.is_auto = false);
-    database.data.byproduct_categories.push(newCat); database.save(); res.json(newCat);
+    database.data.byproduct_categories.push(newCat);
+    if (database.saveImmediate) database.saveImmediate(); else database.save();
+    res.json(newCat);
   }));
   router.put('/api/byproduct-categories/:id', safeSync(async (req, res) => {
     const cats = getBpCats(); const idx = database.data.byproduct_categories.findIndex(c => c.id === req.params.id);
@@ -39,18 +41,23 @@ module.exports = function(database) {
     if (d.name_hi !== undefined) database.data.byproduct_categories[idx].name_hi = d.name_hi;
     if (d.is_auto) { database.data.byproduct_categories.forEach(c => c.is_auto = false); database.data.byproduct_categories[idx].is_auto = true; }
     if (d.order !== undefined) database.data.byproduct_categories[idx].order = d.order;
-    database.save(); res.json({success:true});
+    if (database.saveImmediate) database.saveImmediate(); else database.save();
+    res.json({success:true});
   }));
   router.delete('/api/byproduct-categories/:id', safeSync(async (req, res) => {
     const len = database.data.byproduct_categories.length;
     database.data.byproduct_categories = database.data.byproduct_categories.filter(c => c.id !== req.params.id);
-    if (database.data.byproduct_categories.length < len) { database.save(); return res.json({success:true}); }
+    if (database.data.byproduct_categories.length < len) {
+      if (database.saveImmediate) database.saveImmediate(); else database.save();
+      return res.json({success:true});
+    }
     res.status(404).json({detail:'Not found'});
   }));
   router.put('/api/byproduct-categories-reorder', safeSync(async (req, res) => {
     const order = req.body.order || [];
     order.forEach((id, i) => { const c = database.data.byproduct_categories.find(c => c.id === id); if (c) c.order = i + 1; });
-    database.save(); res.json({success:true});
+    if (database.saveImmediate) database.saveImmediate(); else database.save();
+    res.json({success:true});
   }));
 
 
