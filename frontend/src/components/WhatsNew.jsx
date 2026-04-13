@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "90.4.0",
+    date: "Apr 2026",
+    title: "v90.4.0 - Code Quality + Performance Overhaul",
+    items: [
+      { type: "new", text: "Lazy Loading - Heavy tabs (Reports, Settings, Govt Registers, Staff, etc.) ab on-demand load hote hain, app 30% fast khulta hai" },
+      { type: "new", text: "Production Logger - Console output production mai suppress hota hai, development mai dikhta hai" },
+      { type: "fix", text: "Component Splitting - App.js, Reports.jsx, Payments.jsx, CashBook routes chhote modules mai break kiye" },
+      { type: "fix", text: "Security - XSS vulnerabilities, wildcard imports, empty error handlers sab fix kiye" },
+      { type: "fix", text: "Performance - useMemo se expensive calculations cached, stable React keys se rendering fast" },
+    ]
+  },
+  {
     version: "90.3.0",
     date: "Apr 2026",
     title: "v90.3.0 - Dynamic By-Products Fix + Opening Stock in FY Summary",
