@@ -166,12 +166,26 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       <Card className="bg-slate-800/50 border-slate-700">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="min-w-[1200px]">
               <TableHeader>
                 <TableRow className="border-slate-700 hover:bg-transparent">
-                  {["Date","Bill No","RST","Vehicle","Party","Destination","N/W(Kg)","Bags","Rate/Q","Amount","Tax","Total","Cash","Diesel","Adv","Balance",""].map(h =>
-                    <TableHead key={h} className="text-slate-300 text-[10px] py-2 px-2">{h}</TableHead>
-                  )}
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[75px]">Date</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px]">Bill No</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[50px]">RST</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[90px]">Vehicle</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[100px]">Party</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[80px]">Destination</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">N/W(Kg)</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px] text-right">Bags</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[55px] text-right">Rate/Q</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px] text-right">Amount</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px] text-right">Tax</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px] text-right">Total</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[50px] text-right">Cash</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[50px] text-right">Diesel</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px] text-right">Adv</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Balance</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -179,22 +193,22 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   <TableRow><TableCell colSpan={17} className="text-center text-slate-400 py-6">Koi sale nahi</TableCell></TableRow>
                 ) : filtered.map(s => (
                   <TableRow key={s.id} className="border-slate-700 hover:bg-slate-700/30">
-                    <TableCell className="text-white text-[10px] px-2">{fmtDate(s.date)}</TableCell>
-                    <TableCell className="text-slate-300 text-[10px] px-2">{s.bill_number}</TableCell>
+                    <TableCell className="text-white text-[10px] px-2 whitespace-nowrap">{fmtDate(s.date)}</TableCell>
+                    <TableCell className="text-slate-300 text-[10px] px-2 whitespace-nowrap">{s.bill_number}</TableCell>
                     <TableCell className="text-amber-400 text-[10px] px-2 font-medium">{s.rst_no}</TableCell>
-                    <TableCell className="text-slate-300 text-[10px] px-2">{s.vehicle_no}</TableCell>
-                    <TableCell className="text-white text-[10px] px-2 font-medium">{s.party_name}</TableCell>
-                    <TableCell className="text-slate-300 text-[10px] px-2">{s.destination}</TableCell>
+                    <TableCell className="text-slate-300 text-[10px] px-2 whitespace-nowrap">{s.vehicle_no}</TableCell>
+                    <TableCell className="text-white text-[10px] px-2 font-medium whitespace-nowrap">{s.party_name}</TableCell>
+                    <TableCell className="text-slate-300 text-[10px] px-2 whitespace-nowrap">{s.destination}</TableCell>
                     <TableCell className="text-blue-300 text-[10px] px-2 text-right">{s.net_weight_kg}</TableCell>
                     <TableCell className="text-slate-300 text-[10px] px-2 text-right">{s.bags}</TableCell>
                     <TableCell className="text-slate-300 text-[10px] px-2 text-right">{s.rate_per_qtl}</TableCell>
-                    <TableCell className="text-emerald-400 text-[10px] px-2 text-right">{(s.amount || 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-emerald-400 text-[10px] px-2 text-right whitespace-nowrap">{(s.amount || 0).toLocaleString()}</TableCell>
                     <TableCell className="text-orange-300 text-[10px] px-2 text-right">{(s.tax_amount || 0).toLocaleString()}</TableCell>
-                    <TableCell className="text-emerald-400 text-[10px] px-2 text-right font-bold">{(s.total || 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-emerald-400 text-[10px] px-2 text-right font-bold whitespace-nowrap">{(s.total || 0).toLocaleString()}</TableCell>
                     <TableCell className="text-green-300 text-[10px] px-2 text-right">{s.cash_paid || 0}</TableCell>
                     <TableCell className="text-orange-300 text-[10px] px-2 text-right">{s.diesel_paid || 0}</TableCell>
                     <TableCell className="text-sky-300 text-[10px] px-2 text-right">{s.advance || 0}</TableCell>
-                    <TableCell className={`text-[10px] px-2 text-right font-bold ${(s.balance || 0) > 0 ? 'text-red-400' : 'text-green-400'}`}>{(s.balance || 0).toLocaleString()}</TableCell>
+                    <TableCell className={`text-[10px] px-2 text-right font-bold whitespace-nowrap ${(s.balance || 0) > 0 ? 'text-red-400' : 'text-green-400'}`}>{(s.balance || 0).toLocaleString()}</TableCell>
                     <TableCell className="px-1">
                       <div className="flex gap-0.5">
                         <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-400" onClick={() => openEdit(s)}><Edit className="w-3 h-3" /></Button>
