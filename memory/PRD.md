@@ -48,3 +48,4 @@ Suppresses all output in production, forwards to console in development.
 5. All imports explicit - NO wildcard `from models import *`
 6. New tab components → React.lazy() in App.js
 7. New cashbook logic → services/cashbook_service.py
+8. **NEVER use sed/bash bulk replace on source code files. ALWAYS use search_replace tool file-by-file. sed breaks code silently (truncates lines, inserts inside import blocks, creates stray tokens). This has caused production bugs TWICE.**
