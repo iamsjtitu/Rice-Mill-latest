@@ -37,6 +37,7 @@
 - Dynamic PDF/Excel columns verified in Python backend (hides Cash/Diesel/Advance when all zero)
 - Desktop JS + Local Server dynamic export columns parity fix
 - Oil Premium Register: new backend (Python + Desktop JS + Local Server) + frontend component
+- Oil Premium PDF/Excel export with dynamic columns, party-wise summary, premium/deduction breakdown
 - Voucher No field added to ByProductSaleRegister form + table + all backends
 - Rice Bran sub-tabs: "Sales Register" | "Oil Premium"
 

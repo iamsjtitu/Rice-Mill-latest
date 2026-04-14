@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Edit, Search, Eye } from "lucide-react";
+import { Plus, Trash2, Edit, Search, Eye, Download } from "lucide-react";
 import { fmtDate } from "@/utils/date";
 import { useConfirm } from "./ConfirmProvider";
 import logger from "../utils/logger";
@@ -136,6 +136,13 @@ export default function OilPremiumRegister({ filters, user }) {
   const totalPremium = filtered.reduce((s, i) => s + (i.premium_amount || 0), 0);
   const totalQty = filtered.reduce((s, i) => s + (i.qty_qtl || 0), 0);
 
+  const buildExportParams = () => {
+    const params = new URLSearchParams();
+    if (filters.kms_year) params.append('kms_year', filters.kms_year);
+    if (filters.season) params.append('season', filters.season);
+    return params;
+  };
+
   return (
     <div className="space-y-3" data-testid="oil-premium-register">
       {/* Summary Cards */}
@@ -161,9 +168,20 @@ export default function OilPremiumRegister({ filters, user }) {
             onChange={e => setSearchQuery(e.target.value)}
             className="pl-8 bg-slate-800 border-slate-600 text-white h-8 text-xs" data-testid="oil-premium-search" />
         </div>
-        <Button onClick={openNew} size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900" data-testid="oil-premium-add">
-          <Plus className="w-4 h-4 mr-1" /> New Oil Premium
-        </Button>
+        <div className="flex gap-2 items-center">
+          <span className="text-xs text-slate-400">{filtered.length} entries | Qty: <span className="text-cyan-400 font-bold">{totalQty.toFixed(2)}</span> | Premium: <span className={`font-bold ${totalPremium >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{totalPremium.toLocaleString()}</span></span>
+          <Button onClick={async () => { try { const params = buildExportParams(); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/oil-premium/export/excel?${params}`, 'oil_premium.xlsx'); toast.success("Excel exported!"); } catch(e) { toast.error("Export failed"); }}}
+            variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700 h-7 text-[10px]" data-testid="oil-export-excel">
+            <Download className="w-3 h-3 mr-1" /> Excel
+          </Button>
+          <Button onClick={async () => { try { const params = buildExportParams(); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/oil-premium/export/pdf?${params}`, 'oil_premium.pdf'); toast.success("PDF exported!"); } catch(e) { toast.error("Export failed"); }}}
+            variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700 h-7 text-[10px]" data-testid="oil-export-pdf">
+            <Download className="w-3 h-3 mr-1" /> PDF
+          </Button>
+          <Button onClick={openNew} size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900" data-testid="oil-premium-add">
+            <Plus className="w-4 h-4 mr-1" /> New Oil Premium
+          </Button>
+        </div>
       </div>
 
       <Card className="bg-slate-800/50 border-slate-700">

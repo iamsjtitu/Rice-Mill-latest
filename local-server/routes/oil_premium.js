@@ -93,5 +93,111 @@ module.exports = function(database) {
     res.json(sale);
   });
 
+  // ---- EXCEL EXPORT ----
+  router.get('/api/oil-premium/export/excel', async (req, res) => {
+    try {
+      ensure();
+      const ExcelJS = require('exceljs');
+      const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
+      const { fmtDate } = require('./pdf_helpers');
+      let items = [...database.data.oil_premium];
+      const { kms_year, season, bran_type, date_from, date_to, party_name } = req.query;
+      if (kms_year) items = items.filter(i => i.kms_year === kms_year);
+      if (season) items = items.filter(i => i.season === season);
+      if (bran_type) items = items.filter(i => i.bran_type === bran_type);
+      if (date_from) items = items.filter(i => (i.date||'') >= date_from);
+      if (date_to) items = items.filter(i => (i.date||'') <= date_to);
+      if (party_name) items = items.filter(i => (i.party_name||'').toLowerCase().includes(party_name.toLowerCase()));
+      items.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+
+      const has = {
+        voucher: items.some(i => i.voucher_no), rst: items.some(i => i.rst_no),
+        remark: items.some(i => i.remark)
+      };
+
+      const cols = [{h:'S.No',k:'sno',w:5},{h:'Date',k:'date',w:10}];
+      if (has.voucher) cols.push({h:'Voucher',k:'voucher',w:10});
+      if (has.rst) cols.push({h:'RST',k:'rst',w:8});
+      cols.push({h:'Type',k:'type',w:8},{h:'Party',k:'party',w:18},{h:'Rate',k:'rate',w:10},
+        {h:'Qty(Qtl)',k:'qty',w:10},{h:'Std%',k:'std',w:9},{h:'Actual%',k:'actual',w:9},
+        {h:'Diff%',k:'diff',w:9},{h:'Premium',k:'premium',w:14});
+      if (has.remark) cols.push({h:'Remark',k:'remark',w:16});
+
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Oil Premium');
+      ws.columns = cols.map(c => ({header:c.h, key:c.k, width:c.w}));
+      items.forEach((item, i) => {
+        const row = {sno:i+1, date:fmtDate(item.date), type:item.bran_type||'', party:item.party_name||'',
+          rate:item.rate||0, qty:+(item.qty_qtl||0).toFixed(2), std:item.standard_oil_pct||0,
+          actual:item.actual_oil_pct||0, diff:+(item.difference_pct||0).toFixed(2),
+          premium:+(item.premium_amount||0).toFixed(2)};
+        if (has.voucher) row.voucher = item.voucher_no||'';
+        if (has.rst) row.rst = item.rst_no||'';
+        if (has.remark) row.remark = item.remark||'';
+        ws.addRow(row);
+      });
+      let ttl = `Oil Premium Register`;
+      if (kms_year) ttl += ` - FY ${kms_year}`;
+      addExcelTitle(ws, ttl, cols.length, database);
+      styleExcelHeader(ws); styleExcelData(ws, 5);
+      res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition',`attachment; filename=oil_premium_${Date.now()}.xlsx`);
+      await wb.xlsx.write(res); res.end();
+    } catch(e) { res.status(500).json({detail:'Export failed: '+e.message}); }
+  });
+
+  // ---- PDF EXPORT ----
+  router.get('/api/oil-premium/export/pdf', async (req, res) => {
+    try {
+      ensure();
+      const PDFDocument = require('pdfkit');
+      const { addPdfHeader: _addPdfHeader, addPdfTable, safePdfPipe, fmtDate } = require('./pdf_helpers');
+      const addPdfHeader = (doc, title) => _addPdfHeader(doc, title, database.getBranding ? database.getBranding() : {company_name:'Mill'});
+      let items = [...database.data.oil_premium];
+      const { kms_year, season, bran_type, date_from, date_to, party_name } = req.query;
+      if (kms_year) items = items.filter(i => i.kms_year === kms_year);
+      if (season) items = items.filter(i => i.season === season);
+      if (bran_type) items = items.filter(i => i.bran_type === bran_type);
+      if (date_from) items = items.filter(i => (i.date||'') >= date_from);
+      if (date_to) items = items.filter(i => (i.date||'') <= date_to);
+      if (party_name) items = items.filter(i => (i.party_name||'').toLowerCase().includes(party_name.toLowerCase()));
+      items.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+
+      const has = {
+        voucher: items.some(i => i.voucher_no), rst: items.some(i => i.rst_no)
+      };
+
+      const pc = [['S.No',22,'sno'],['Date',45,'date']];
+      if (has.voucher) pc.push(['Voucher',45,'voucher_no']);
+      if (has.rst) pc.push(['RST',30,'rst_no']);
+      pc.push(['Type',35,'bran_type'],['Party',80,'party_name'],['Rate',42,'rate'],
+        ['Qty(Q)',40,'qty_qtl'],['Std%',30,'standard_oil_pct'],['Actual%',38,'actual_oil_pct'],
+        ['Diff%',35,'difference_pct'],['Premium',60,'premium_amount']);
+
+      const doc = new PDFDocument({size:'A4',layout:'landscape',margin:20});
+      res.setHeader('Content-Type','application/pdf');
+      res.setHeader('Content-Disposition',`attachment; filename=oil_premium_${Date.now()}.pdf`);
+      let title = 'Oil Premium Register';
+      if (kms_year) title += ` - FY ${kms_year}`;
+      if (bran_type) title += ` (${bran_type})`;
+      addPdfHeader(doc, title);
+
+      const headers = pc.map(c => c[0]);
+      const colWidths = pc.map(c => c[1]);
+      const keys = pc.map(c => c[2]);
+      const rows = items.map((item,i) => keys.map(k => {
+        if (k === 'sno') return i+1;
+        if (k === 'date') return fmtDate(item.date);
+        if (k === 'party_name') return (item.party_name||'').substring(0,18);
+        if (k === 'difference_pct') { const d=item[k]||0; return `${d>0?'+':''}${d.toFixed(2)}%`; }
+        if (k === 'premium_amount') return Math.round(item[k]||0);
+        if (k === 'qty_qtl') return (item[k]||0).toFixed(2);
+        return item[k]||'';
+      }));
+      addPdfTable(doc, headers, rows, colWidths);
+      await safePdfPipe(doc, res);
+    } catch(e) { res.status(500).json({detail:'PDF failed: '+e.message}); }
+  });
+
   return router;
 };
