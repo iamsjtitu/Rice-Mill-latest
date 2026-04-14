@@ -487,7 +487,7 @@ export const GunnyBags = ({ filters, user }) => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const defaultForm = { date: new Date().toISOString().split('T')[0], bag_type: "old", txn_type: "in", quantity: "", source: "", party_name: "", rate: "", invoice_no: "", truck_no: "", rst_no: "", gst_type: "none", cgst_percent: "", sgst_percent: "", gst_percent: "", advance: "", reference: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" };
+  const defaultForm = { date: new Date().toISOString().split('T')[0], bag_type: "old", txn_type: "in", quantity: "", source: "", party_name: "", rate: "", invoice_no: "", truck_no: "", rst_no: "", gst_type: "none", cgst_percent: "", sgst_percent: "", gst_percent: "", advance: "", reference: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif", used_for_rice: "", used_for_bp: "", damaged: "", returned: "" };
   const [form, setForm] = useState(defaultForm);
   const [bagFilter, setBagFilter] = useState("all");
   const [txnFilter, setTxnFilter] = useState("all");
@@ -519,7 +519,8 @@ export const GunnyBags = ({ filters, user }) => {
       cgst_percent: entry.cgst_percent?.toString() || '', sgst_percent: entry.sgst_percent?.toString() || '',
       gst_percent: entry.gst_percent?.toString() || '',
       advance: entry.advance?.toString() || '', reference: entry.reference || '', notes: entry.notes || '',
-      kms_year: entry.kms_year || '', season: entry.season || ''
+      kms_year: entry.kms_year || '', season: entry.season || '',
+      used_for_rice: entry.used_for_rice?.toString() || '', used_for_bp: entry.used_for_bp || '', damaged: entry.damaged?.toString() || '', returned: entry.returned?.toString() || ''
     });
     setShowForm(true);
   };
@@ -544,10 +545,14 @@ export const GunnyBags = ({ filters, user }) => {
     if (!qty || qty <= 0) { toast.error("Quantity 0 se zyada honi chahiye"); return; }
     try {
       const payload = {
-        ...form, quantity: qty, rate, advance: parseFloat(form.advance) || 0,
-        cgst_percent: parseFloat(form.cgst_percent) || 0,
-        sgst_percent: parseFloat(form.sgst_percent) || 0,
-        gst_percent: parseFloat(form.gst_percent) || 0,
+        ...form, quantity: qty, rate: form.txn_type === 'out' ? 0 : rate, advance: form.txn_type === 'out' ? 0 : (parseFloat(form.advance) || 0),
+        cgst_percent: form.txn_type === 'out' ? 0 : (parseFloat(form.cgst_percent) || 0),
+        sgst_percent: form.txn_type === 'out' ? 0 : (parseFloat(form.sgst_percent) || 0),
+        gst_percent: form.txn_type === 'out' ? 0 : (parseFloat(form.gst_percent) || 0),
+        used_for_rice: parseInt(form.used_for_rice) || 0,
+        used_for_bp: form.used_for_bp || "",
+        damaged: parseInt(form.damaged) || 0,
+        returned: parseInt(form.returned) || 0,
       };
       if (editingId) {
         await axios.put(`${API}/gunny-bags/${editingId}?username=${user.username}`, payload);
@@ -709,7 +714,7 @@ export const GunnyBags = ({ filters, user }) => {
               <TableCell className="text-amber-400 text-xs text-right font-medium">{(e.total || e.amount || 0) > 0 ? `Rs.${(e.total || e.amount || 0).toLocaleString('en-IN')}` : '-'}</TableCell>
               <TableCell className="text-slate-400 text-xs text-right">{(e.gst_amount || 0) > 0 ? `Rs.${e.gst_amount}` : '-'}</TableCell>
               <TableCell className="text-emerald-400 text-xs text-right">{(e.ledger_paid || e.advance || 0) > 0 ? `Rs.${(e.ledger_paid || e.advance || 0).toLocaleString('en-IN')}` : '-'}</TableCell>
-              <TableCell className="text-xs"><span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${e.bag_type === 'new' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-orange-500/20 text-orange-400'}`}>{e.bag_type === 'new' ? 'Govt' : 'Market'}</span></TableCell>
+              <TableCell className="text-xs"><span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${e.bag_type === 'new' ? 'bg-emerald-500/20 text-emerald-400' : e.bag_type === 'bran_plastic' ? 'bg-purple-500/20 text-purple-400' : e.bag_type === 'broken_plastic' ? 'bg-blue-500/20 text-blue-400' : 'bg-orange-500/20 text-orange-400'}`}>{e.bag_type === 'new' ? 'Govt' : e.bag_type === 'bran_plastic' ? 'Bran Pkt' : e.bag_type === 'broken_plastic' ? 'Broken Pkt' : 'Market'}</span></TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
                   {e.linked_entry_id && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" data-testid={`gunny-auto-badge-${e.id}`}>Auto</span>}
@@ -752,7 +757,7 @@ export const GunnyBags = ({ filters, user }) => {
               <div><Label className="text-xs text-slate-400">Bag Type</Label>
                 <Select value={form.bag_type} onValueChange={v => setForm(p=>({...p,bag_type:v}))}>
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-bagtype"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="new">New (Govt)</SelectItem><SelectItem value="old">Old (Market)</SelectItem></SelectContent>
+                  <SelectContent><SelectItem value="new">New (Govt)</SelectItem><SelectItem value="old">Old (Market)</SelectItem><SelectItem value="bran_plastic">Bran Plastic Pkt</SelectItem><SelectItem value="broken_plastic">Broken Plastic Pkt</SelectItem></SelectContent>
                 </Select></div>
               <div><Label className="text-xs text-slate-400">In/Out</Label>
                 <Select value={form.txn_type} onValueChange={v => setForm(p=>({...p,txn_type:v}))}>
@@ -760,6 +765,9 @@ export const GunnyBags = ({ filters, user }) => {
                   <SelectContent><SelectItem value="in">In (Received)</SelectItem><SelectItem value="out">Out (Used)</SelectItem></SelectContent>
                 </Select></div>
             </div>
+            {/* Conditional fields based on In/Out */}
+            {form.txn_type === "in" ? (
+            <>
             {/* Row 2: Invoice No, RST No, Truck No */}
             <div className="grid grid-cols-3 gap-3">
               <div><Label className="text-xs text-slate-400">Invoice No.</Label>
@@ -800,6 +808,38 @@ export const GunnyBags = ({ filters, user }) => {
               <div><Label className="text-xs text-slate-400">Party Advance</Label>
                 <Input type="number" step="0.01" value={form.advance} onChange={e => setForm(p=>({...p,advance:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-advance" /></div>
             </div>
+            </>
+            ) : (
+            <>
+            {/* OUT fields: Used For Rice, Used For BP, Damaged, Return */}
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs text-slate-400">Quantity (bags)</Label>
+                <Input type="number" value={form.quantity} onChange={e => setForm(p=>({...p,quantity:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="gunny-form-qty" /></div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div><Label className="text-xs text-green-400">Used For Rice</Label>
+                <Input type="number" value={form.used_for_rice} onChange={e => setForm(p=>({...p,used_for_rice:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-used-rice" /></div>
+              <div><Label className="text-xs text-blue-400">Used For (By-Product)</Label>
+                <Select value={form.used_for_bp || "_none"} onValueChange={v => setForm(p=>({...p,used_for_bp: v === "_none" ? "" : v}))}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-used-bp"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">-- None --</SelectItem>
+                    <SelectItem value="Rice Bran">Rice Bran</SelectItem>
+                    <SelectItem value="Mota Kunda">Mota Kunda</SelectItem>
+                    <SelectItem value="Broken Rice">Broken Rice</SelectItem>
+                    <SelectItem value="Rejection Rice">Rejection Rice</SelectItem>
+                    <SelectItem value="Pin Broken Rice">Pin Broken Rice</SelectItem>
+                    <SelectItem value="Poll">Poll</SelectItem>
+                    <SelectItem value="Bhusa">Bhusa</SelectItem>
+                  </SelectContent>
+                </Select></div>
+              <div><Label className="text-xs text-red-400">Damaged</Label>
+                <Input type="number" value={form.damaged} onChange={e => setForm(p=>({...p,damaged:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-damaged" /></div>
+              <div><Label className="text-xs text-amber-400">Return</Label>
+                <Input type="number" value={form.returned} onChange={e => setForm(p=>({...p,returned:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-returned" /></div>
+            </div>
+            </>
+            )}
             {/* Row 5: Reference & Notes */}
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-slate-400">Reference</Label>
