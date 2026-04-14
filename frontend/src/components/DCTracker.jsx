@@ -507,6 +507,11 @@ export const GunnyBags = ({ filters, user }) => {
 
   const bagTypeLabel = { old: "Old (Market)", new: "New (Govt)", bran_plastic: "Bran P.Pkt", broken_plastic: "Broken P.Pkt" };
   const selectedBagStock = bagStock[form.bag_type] || 0;
+  const enteredQty = parseInt(form.quantity) || 0;
+  const previewStock = form.txn_type === "in" ? selectedBagStock + enteredQty : selectedBagStock - enteredQty;
+  const stockLabel = enteredQty > 0 
+    ? `Stock: ${selectedBagStock} → ${previewStock}` 
+    : `Stock: ${selectedBagStock}`;
 
   const fetchData = useCallback(async () => {
     try {
@@ -790,7 +795,7 @@ export const GunnyBags = ({ filters, user }) => {
             <div className="grid grid-cols-3 gap-3">
               <div><Label className="text-xs text-slate-400">Date</Label>
                 <Input type="date" value={form.date} onChange={e => setForm(p=>({...p,date:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="gunny-form-date" /></div>
-              <div><Label className="text-xs text-slate-400">Bag Type <span className={`ml-1 font-bold ${selectedBagStock > 0 ? 'text-emerald-400' : 'text-red-400'}`}>({selectedBagStock} bags)</span></Label>
+              <div><Label className="text-xs text-slate-400">Bag Type <span className={`ml-1 font-bold ${previewStock > 0 ? 'text-emerald-400' : previewStock < 0 ? 'text-red-400' : 'text-amber-400'}`}>({stockLabel})</span></Label>
                 <Select value={form.bag_type} onValueChange={v => setForm(p=>({...p,bag_type:v}))}>
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-bagtype"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -822,7 +827,7 @@ export const GunnyBags = ({ filters, user }) => {
             <div className="grid grid-cols-3 gap-3">
               <div><Label className="text-xs text-slate-400">Party Name</Label>
                 <Input value={form.party_name} onChange={e => setForm(p=>({...p,party_name:e.target.value}))} placeholder="Party / Supplier" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-party" /></div>
-              <div><Label className="text-xs text-slate-400">Quantity (bags) <span className={`ml-1 font-bold ${selectedBagStock > 0 ? 'text-emerald-400' : 'text-red-400'}`}>Stock: {selectedBagStock}</span></Label>
+              <div><Label className="text-xs text-slate-400">Quantity (bags) <span className={`ml-1 font-bold ${previewStock > 0 ? 'text-emerald-400' : previewStock < 0 ? 'text-red-400' : 'text-amber-400'}`}>{stockLabel}</span></Label>
                 <Input type="number" value={form.quantity} onChange={e => setForm(p=>({...p,quantity:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="gunny-form-qty" /></div>
               <div><Label className="text-xs text-slate-400">Rate (Rs./bag)</Label>
                 <Input type="number" step="0.01" value={form.rate} onChange={e => setForm(p=>({...p,rate:e.target.value}))} placeholder="0 for free" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-rate" /></div>
@@ -854,7 +859,7 @@ export const GunnyBags = ({ filters, user }) => {
             <>
             {/* OUT fields: Used For, Damaged, Return */}
             <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs text-slate-400">Quantity (bags) <span className={`ml-1 font-bold ${selectedBagStock > 0 ? 'text-emerald-400' : 'text-red-400'}`}>Stock: {selectedBagStock}</span></Label>
+              <div><Label className="text-xs text-slate-400">Quantity (bags) <span className={`ml-1 font-bold ${previewStock > 0 ? 'text-emerald-400' : previewStock < 0 ? 'text-red-400' : 'text-amber-400'}`}>{stockLabel}</span></Label>
                 <Input type="number" value={form.quantity} onChange={e => setForm(p=>({...p,quantity:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="gunny-form-qty" /></div>
               <div><Label className="text-xs text-blue-400">Used For</Label>
                 <Select value={form.used_for_bp || "_none"} onValueChange={v => setForm(p=>({...p,used_for_bp: v === "_none" ? "" : v}))}>
