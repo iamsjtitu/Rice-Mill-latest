@@ -24,6 +24,10 @@ const BASE_ITEMS = [
   { key: "poll", label: "Poll", unit: "Qntl" },
   { key: "husk", label: "Bhusa", unit: "Qntl" },
   { key: "frk", label: "FRK", unit: "Qntl" },
+  { key: "gunny_old", label: "Gunny Bags (Market)", unit: "Bags" },
+  { key: "gunny_govt", label: "Gunny Bags (Govt)", unit: "Bags" },
+  { key: "gunny_bran_ppkt", label: "Bran P.Pkt", unit: "Bags" },
+  { key: "gunny_broken_ppkt", label: "Broken P.Pkt", unit: "Bags" },
 ];
 
 function StockTab({ kmsYear, user }) {

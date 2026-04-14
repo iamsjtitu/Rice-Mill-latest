@@ -147,7 +147,7 @@ const LocalPartyAccount = ({ filters, user }) => {
     } catch (e) { toast.error(`${format.toUpperCase()} export failed`); }
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     if (!reportData) return;
     let html = `<html><head><title>${reportData.party_name} - Hisaab</title>
       <style>body{font-family:Arial,sans-serif;padding:20px;color:#000}
@@ -175,12 +175,8 @@ const LocalPartyAccount = ({ filters, user }) => {
       <span><b>Total Paid:</b> Rs.${reportData.total_paid}</span>
       <span style="color:red"><b>Balance:</b> Rs.${reportData.balance}</span></div></body></html>`;
     const w = window.open('', '_blank', 'width=800,height=600');
-    const doc = w.document;
-    doc.open();
-    doc.write(html);
-    doc.close();
-    w.focus();
-    setTimeout(() => w.print(), 300);
+    const { safePrintHTML } = await import('../../utils/print');
+    await safePrintHTML(html);
   };
 
   const partyInfo = summary?.parties?.find(p => p.party_name === selectedParty);

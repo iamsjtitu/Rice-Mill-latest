@@ -83,6 +83,14 @@ module.exports = function(database) {
     if (req.query.kms_year) entries = entries.filter(e=>e.kms_year===req.query.kms_year);
     if (req.query.season) entries = entries.filter(e=>e.season===req.query.season);
 
+    // Fetch opening stock
+    const obDoc = (database.data.opening_stock || []).find(o => o.kms_year === req.query.kms_year) || {};
+    const obStocks = obDoc.stocks || {};
+    const obOld = parseFloat(obStocks.gunny_old || 0);
+    const obGovt = parseFloat(obStocks.gunny_govt || 0);
+    const obBran = parseFloat(obStocks.gunny_bran_ppkt || 0);
+    const obBroken = parseFloat(obStocks.gunny_broken_ppkt || 0);
+
     const manual = entries.filter(e => !e.linked_entry_id);
     const auto = entries.filter(e => !!e.linked_entry_id);
 
@@ -123,14 +131,14 @@ module.exports = function(database) {
     if (req.query.season) paddyEntries = paddyEntries.filter(e=>e.season===req.query.season);
 
     const result = {
-      'new': { total_in: newIn, total_out: newOut, balance: newIn - newOut, total_cost: 0 },
-      old: { total_in: oldIn, total_out: oldOut, balance: oldIn - oldOut, total_cost: oldCost },
-      bran_plastic: { total_in: branIn, total_out: branOut, balance: branIn - branOut, total_cost: branCost },
-      broken_plastic: { total_in: brokenIn, total_out: brokenOut, balance: brokenIn - brokenOut, total_cost: brokenCost },
+      'new': { total_in: newIn, total_out: newOut, balance: obGovt + newIn - newOut, total_cost: 0, opening: obGovt },
+      old: { total_in: oldIn, total_out: oldOut, balance: obOld + oldIn - oldOut, total_cost: oldCost, opening: obOld },
+      bran_plastic: { total_in: branIn, total_out: branOut, balance: obBran + branIn - branOut, total_cost: branCost, opening: obBran },
+      broken_plastic: { total_in: brokenIn, total_out: brokenOut, balance: obBroken + brokenIn - brokenOut, total_cost: brokenCost, opening: obBroken },
       auto_mill: { total_in: autoIn, total_out: autoOut, balance: autoIn - autoOut },
       paddy_bags: { total: paddyEntries.reduce((s,e)=>s+(e.bag||0),0), label: 'Paddy Receive Bags' },
       ppkt: { total: paddyEntries.reduce((s,e)=>s+(e.plastic_bag||0),0), label: 'P.Pkt (Plastic Bags)' },
-      grand_total: allOldIn - allOldOut,
+      grand_total: obOld + allOldIn - allOldOut,
       g_issued_total: allOldOut,
     };
     res.json(result);

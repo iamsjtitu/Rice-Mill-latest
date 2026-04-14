@@ -34,7 +34,7 @@
 - Voucher No field added to all By-Product sale entries
 
 ## Recent Changes (Apr 2026)
-- v92.0.0: Major tab reorganization, Gunny Bag upgrade (Bran/Broken P.Pkt, OUT form, realtime stock), Watermark fix, Milling Register Season removed
+- v92.0.0: Major tab reorganization, Gunny Bag upgrade (Bran/Broken P.Pkt, OUT form, realtime stock, Opening Stock), Watermark fix + Print watermark, Milling Register Season removed
 - Paddy Custody Register: "Released (Qtl)" now sourced from `paddy_release` collection instead of `milling_entries` (all 3 backends)
 
 ## Previous Changes (Feb 2026)

@@ -189,15 +189,10 @@ export default function BalanceSheet({ filters }) {
     downloadFile(`${API}/fy-summary/balance-sheet/excel?${p}`, `balance_sheet_${filters.kms_year || 'all'}.xlsx`);
   };
 
-  const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+  const handlePrint = async () => {
     const html = buildPrintHtml(data);
-    const doc = printWindow.document;
-    doc.open();
-    doc.write(html);
-    doc.close();
-    printWindow.onload = () => { printWindow.print(); };
+    const { safePrintHTML } = await import('../utils/print');
+    await safePrintHTML(html);
   };
 
   if (loading) return <div className="text-center text-slate-400 py-20">Loading Balance Sheet...</div>;

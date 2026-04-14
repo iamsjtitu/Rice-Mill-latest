@@ -481,12 +481,8 @@ const AdvanceSection = ({ staff, filters, fetchAdvances, advances, payments }) =
       });
       html += `</tbody></table>
         <div class="summary"><b>Total Advance:</b> Rs.${totalDebit.toLocaleString('en-IN')} | <b>Total Deducted:</b> Rs.${totalCredit.toLocaleString('en-IN')} | <b style="color:red">Balance:</b> Rs.${balance.toLocaleString('en-IN')}</div></body></html>`;
-      const w = window.open('', '_blank');
-      const doc = w.document;
-      doc.open();
-      doc.write(html);
-      doc.close();
-      w.focus(); setTimeout(() => w.print(), 300);
+      const { safePrintHTML } = await import('../utils/print');
+      await safePrintHTML(html);
     } else {
       // Download as Excel from backend or generate client-side
       try {

@@ -492,9 +492,16 @@ export const GunnyBags = ({ filters, user }) => {
   const [bagFilter, setBagFilter] = useState("all");
   const [txnFilter, setTxnFilter] = useState("all");
 
-  // Compute realtime stock per bag type from entries
+  // Compute realtime stock per bag type from entries + opening stock
   const bagStock = useMemo(() => {
     const stock = { old: 0, new: 0, bran_plastic: 0, broken_plastic: 0 };
+    // Add opening stock from summary
+    if (summary) {
+      stock.old = summary.old?.opening || 0;
+      stock.new = summary.new?.opening || 0;
+      stock.bran_plastic = summary.bran_plastic?.opening || 0;
+      stock.broken_plastic = summary.broken_plastic?.opening || 0;
+    }
     entries.forEach(e => {
       const bt = e.bag_type || "old";
       if (stock[bt] !== undefined) {
@@ -503,7 +510,7 @@ export const GunnyBags = ({ filters, user }) => {
       }
     });
     return stock;
-  }, [entries]);
+  }, [entries, summary]);
 
   const bagTypeLabel = { old: "Old (Market)", new: "New (Govt)", bran_plastic: "Bran P.Pkt", broken_plastic: "Broken P.Pkt" };
   const selectedBagStock = bagStock[form.bag_type] || 0;
@@ -650,7 +657,7 @@ export const GunnyBags = ({ filters, user }) => {
           <Card className="border border-orange-200 dark:border-orange-800/30 bg-orange-50/50 dark:bg-orange-900/20"><CardContent className="p-2">
             <p className="text-[9px] text-orange-600 dark:text-orange-400 font-medium">Old Bags (Market)</p>
             <p className="text-lg font-bold text-orange-700 dark:text-orange-400">{summary.old?.balance || 0}</p>
-            <div className="flex gap-1.5 text-[8px] mt-0.5"><span className="text-green-600 dark:text-green-500">In: {summary.old?.total_in || 0}</span><span className="text-red-500 dark:text-red-400">Out: {summary.old?.total_out || 0}</span></div>
+            <div className="flex gap-1.5 text-[8px] mt-0.5">{summary.old?.opening ? <span className="text-slate-500">OB: {summary.old.opening}</span> : null}<span className="text-green-600 dark:text-green-500">In: {summary.old?.total_in || 0}</span><span className="text-red-500 dark:text-red-400">Out: {summary.old?.total_out || 0}</span></div>
           </CardContent></Card>
           <Card className="border border-red-200 dark:border-red-800/30 bg-red-50/50 dark:bg-red-900/20"><CardContent className="p-2">
             <p className="text-[9px] text-red-600 dark:text-red-400 font-medium">Total G.Issued</p>
@@ -665,17 +672,17 @@ export const GunnyBags = ({ filters, user }) => {
           <Card className="border border-emerald-200 dark:border-emerald-800/30 bg-emerald-50/50 dark:bg-emerald-900/20"><CardContent className="p-2">
             <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-medium">Govt Bags (Free)</p>
             <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{summary.new?.balance || 0}</p>
-            <div className="flex gap-1.5 text-[8px] mt-0.5"><span className="text-green-600 dark:text-green-500">In: {summary.new?.total_in || 0}</span><span className="text-red-500 dark:text-red-400">Out: {summary.new?.total_out || 0}</span></div>
+            <div className="flex gap-1.5 text-[8px] mt-0.5">{summary.new?.opening ? <span className="text-slate-500">OB: {summary.new.opening}</span> : null}<span className="text-green-600 dark:text-green-500">In: {summary.new?.total_in || 0}</span><span className="text-red-500 dark:text-red-400">Out: {summary.new?.total_out || 0}</span></div>
           </CardContent></Card>
           <Card className="border border-violet-200 dark:border-violet-800/30 bg-violet-50/50 dark:bg-violet-900/20"><CardContent className="p-2">
             <p className="text-[9px] text-violet-600 dark:text-violet-400 font-medium">Bran P.Pkt</p>
             <p className="text-lg font-bold text-violet-700 dark:text-violet-400">{summary.bran_plastic?.balance || 0}</p>
-            <div className="flex gap-1.5 text-[8px] mt-0.5"><span className="text-green-600 dark:text-green-500">In: {summary.bran_plastic?.total_in || 0}</span><span className="text-red-500 dark:text-red-400">Out: {summary.bran_plastic?.total_out || 0}</span></div>
+            <div className="flex gap-1.5 text-[8px] mt-0.5">{summary.bran_plastic?.opening ? <span className="text-slate-500">OB: {summary.bran_plastic.opening}</span> : null}<span className="text-green-600 dark:text-green-500">In: {summary.bran_plastic?.total_in || 0}</span><span className="text-red-500 dark:text-red-400">Out: {summary.bran_plastic?.total_out || 0}</span></div>
           </CardContent></Card>
           <Card className="border border-cyan-200 dark:border-cyan-800/30 bg-cyan-50/50 dark:bg-cyan-900/20"><CardContent className="p-2">
             <p className="text-[9px] text-cyan-600 dark:text-cyan-400 font-medium">Broken P.Pkt</p>
             <p className="text-lg font-bold text-cyan-700 dark:text-cyan-400">{summary.broken_plastic?.balance || 0}</p>
-            <div className="flex gap-1.5 text-[8px] mt-0.5"><span className="text-green-600 dark:text-green-500">In: {summary.broken_plastic?.total_in || 0}</span><span className="text-red-500 dark:text-red-400">Out: {summary.broken_plastic?.total_out || 0}</span></div>
+            <div className="flex gap-1.5 text-[8px] mt-0.5">{summary.broken_plastic?.opening ? <span className="text-slate-500">OB: {summary.broken_plastic.opening}</span> : null}<span className="text-green-600 dark:text-green-500">In: {summary.broken_plastic?.total_in || 0}</span><span className="text-red-500 dark:text-red-400">Out: {summary.broken_plastic?.total_out || 0}</span></div>
           </CardContent></Card>
         </div>
       )}
