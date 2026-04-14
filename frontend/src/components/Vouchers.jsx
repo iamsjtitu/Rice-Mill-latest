@@ -6,6 +6,7 @@ import PurchaseVouchers from "./PurchaseVouchers";
 import StockSummary from "./StockSummary";
 import { PaddyPurchase, PartySummary } from "./PaddyPurchase";
 import ByProductSaleRegister from "./ByProductSaleRegister";
+import OilPremiumRegister from "./OilPremiumRegister";
 
 const tabs = [
   { id: "sale", label: "Sales Register", icon: FileText, activeClass: "bg-amber-500 hover:bg-amber-600 text-slate-900" },
@@ -30,6 +31,7 @@ const SALE_CATEGORIES = [
 export default function Vouchers({ filters, user, onNavigate }) {
   const [activeTab, setActiveTab] = useState("sale");
   const [saleCat, setSaleCat] = useState("govt_rice");
+  const [branSubTab, setBranSubTab] = useState("sales");
 
   const activeCat = SALE_CATEGORIES.find(c => c.id === saleCat);
 
@@ -53,7 +55,7 @@ export default function Vouchers({ filters, user, onNavigate }) {
         <div className="space-y-3">
           <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
             {SALE_CATEGORIES.map(cat => (
-              <button key={cat.id} onClick={() => setSaleCat(cat.id)}
+              <button key={cat.id} onClick={() => { setSaleCat(cat.id); if (cat.id === 'rice_bran') setBranSubTab('sales'); }}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
                   saleCat === cat.id
                     ? "bg-amber-500 text-slate-900"
@@ -64,8 +66,31 @@ export default function Vouchers({ filters, user, onNavigate }) {
               </button>
             ))}
           </div>
+
+          {/* Rice Bran sub-tabs: Sales | Oil Premium */}
+          {saleCat === "rice_bran" && (
+            <div className="flex gap-2 border-b border-slate-700/50 pb-1.5">
+              <button onClick={() => setBranSubTab("sales")}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${branSubTab === "sales" ? "bg-amber-600/30 text-amber-400 border border-amber-500/50" : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"}`}
+                data-testid="bran-subtab-sales">
+                Sales Register
+              </button>
+              <button onClick={() => setBranSubTab("oil_premium")}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${branSubTab === "oil_premium" ? "bg-emerald-600/30 text-emerald-400 border border-emerald-500/50" : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"}`}
+                data-testid="bran-subtab-oil-premium">
+                Oil Premium
+              </button>
+            </div>
+          )}
+
           {activeCat?.type === "salebook" ? (
             <SaleBook key={saleCat} filters={filters} user={user} category={activeCat.itemName} />
+          ) : saleCat === "rice_bran" ? (
+            branSubTab === "oil_premium" ? (
+              <OilPremiumRegister filters={filters} user={user} />
+            ) : (
+              <ByProductSaleRegister key={saleCat} filters={filters} user={user} product="Rice Bran" />
+            )
           ) : activeCat?.type === "bp" ? (
             <ByProductSaleRegister key={saleCat} filters={filters} user={user} product={activeCat.product} />
           ) : null}

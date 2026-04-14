@@ -125,7 +125,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const openEdit = (s) => {
     setEditingId(s.id);
     setForm({
-      bill_number: s.bill_number || "", billing_date: s.billing_date || "", date: s.date || "",
+      voucher_no: s.voucher_no || "", bill_number: s.bill_number || "", billing_date: s.billing_date || "", date: s.date || "",
       rst_no: s.rst_no || "", vehicle_no: s.vehicle_no || "",
       bill_from: s.bill_from || "", party_name: s.party_name || "", destination: s.destination || "",
       net_weight_kg: s.net_weight_kg ? String(s.net_weight_kg) : "",
@@ -162,7 +162,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const filtered = sales.filter(s => {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      if (!(s.party_name || "").toLowerCase().includes(q) && !(s.bill_number || "").toLowerCase().includes(q) && !(s.vehicle_no || "").toLowerCase().includes(q)) return false;
+      if (!(s.party_name || "").toLowerCase().includes(q) && !(s.voucher_no || "").toLowerCase().includes(q) && !(s.bill_number || "").toLowerCase().includes(q) && !(s.vehicle_no || "").toLowerCase().includes(q)) return false;
     }
     const f = filterValues;
     if (f.date_from && (s.date || "") < f.date_from) return false;
@@ -317,6 +317,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
               <TableHeader>
                 <TableRow className="border-slate-700 hover:bg-transparent">
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px]">Date</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[60px]">Voucher</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px]">Bill No</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px]">Bill Date</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px]">RST</TableHead>
@@ -335,10 +336,11 @@ export default function ByProductSaleRegister({ filters, user, product }) {
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={15} className="text-center text-slate-400 py-6">Koi sale nahi</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={16} className="text-center text-slate-400 py-6">Koi sale nahi</TableCell></TableRow>
                 ) : filtered.map(s => (
                   <TableRow key={s.id} className="border-slate-700 hover:bg-slate-700/30">
                     <TableCell className="text-white text-[10px] px-2 whitespace-nowrap">{fmtDate(s.date)}</TableCell>
+                    <TableCell className="text-cyan-400 text-[10px] px-2 font-medium">{s.voucher_no}</TableCell>
                     <TableCell className="text-slate-300 text-[10px] px-2 whitespace-nowrap">{s.bill_number}</TableCell>
                     <TableCell className="text-slate-400 text-[10px] px-2 whitespace-nowrap">{fmtDate(s.billing_date)}</TableCell>
                     <TableCell className="text-amber-400 text-[10px] px-2 font-medium">{s.rst_no}</TableCell>
@@ -376,6 +378,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
           {viewSale && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                {viewSale.voucher_no && <div><span className="text-slate-400 text-xs">Voucher No:</span> <span className="text-cyan-400 font-medium">{viewSale.voucher_no}</span></div>}
                 {viewSale.bill_number && <div><span className="text-slate-400 text-xs">Bill No:</span> <span className="text-white font-medium">{viewSale.bill_number}</span></div>}
                 {viewSale.billing_date && <div><span className="text-slate-400 text-xs">Billing Date:</span> <span className="text-white">{fmtDate(viewSale.billing_date)}</span></div>}
                 {viewSale.date && <div><span className="text-slate-400 text-xs">Date:</span> <span className="text-white">{fmtDate(viewSale.date)}</span></div>}
@@ -417,7 +420,12 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             <DialogTitle className="text-amber-400">{editingId ? "Edit" : "New"} {product} Sale</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-4 gap-3">
+              <div>
+                <Label className="text-[10px] text-slate-400">Voucher No</Label>
+                <Input value={form.voucher_no} onChange={e => setForm(p => ({ ...p, voucher_no: e.target.value }))}
+                  className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-voucher-no" />
+              </div>
               <div>
                 <Label className="text-[10px] text-slate-400">Bill Number</Label>
                 <Input value={form.bill_number} onChange={e => setForm(p => ({ ...p, bill_number: e.target.value }))}

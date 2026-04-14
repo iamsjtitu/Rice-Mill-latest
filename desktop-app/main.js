@@ -1243,6 +1243,7 @@ function createApiServer(database) {
     { name: 'quick_search', load: () => require('./routes/quick_search')(database) },
     { name: 'govt_registers', load: () => require('./routes/govt_registers')(database) },
     { name: 'bp_sale_register', load: () => require('./routes/bp_sale_register')(database) },
+    { name: 'oil_premium', load: () => require('./routes/oil_premium')(database) },
   ];
 
   let loadedCount = 0;

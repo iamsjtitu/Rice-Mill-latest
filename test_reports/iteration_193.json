@@ -1,0 +1,84 @@
+{
+  "summary": "Oil Premium Register Feature - Iteration 193 PASSED. All 12 backend API tests passed. Frontend UI verified: Rice Bran sub-tabs (Sales Register / Oil Premium) visible, Oil Premium form with sale lookup, bran type selector, real-time premium calculation preview working, Voucher No column visible in By-Product Sale Register table.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_oil_premium.py",
+    "/app/test_reports/pytest/pytest_results_iteration193.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_oil_premium.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 tests passed)",
+    "frontend": "100% (All UI tests passed)"
+  },
+  "test_credentials": "admin/admin123",
+  "seed_data_creation": "None - test data created and cleaned up during tests",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Oil Premium Register feature verified. Key components: (1) Backend routes in /app/backend/routes/oil_premium.py with CRUD + lookup endpoints. (2) Frontend OilPremiumRegister.jsx component with form, calculation preview, and table. (3) Rice Bran sub-tabs in Vouchers.jsx (branSubTab state). (4) Voucher No field added to ByProductSaleRegister.jsx. Standard Oil% values: Raw=22%, Boiled=25%. Premium formula: Rate * (Actual% - Standard%) * Qty / Standard%.",
+  "tests_executed": {
+    "backend_api_tests": [
+      "GET /api/oil-premium - PASS (returns list)",
+      "POST /api/oil-premium (Boiled positive) - PASS (premium=24846.61 for Rate=3030, Actual=26.73%, Qty=118.50)",
+      "POST /api/oil-premium (Raw negative) - PASS (premium=-22727.27 for Rate=2500, Actual=20%, Qty=100)",
+      "PUT /api/oil-premium/:id - PASS (update and recalculation verified)",
+      "DELETE /api/oil-premium/:id - PASS (deletion verified)",
+      "DELETE /api/oil-premium (non-existent) - PASS (404)",
+      "GET /api/oil-premium with filters - PASS (kms_year, bran_type filters)",
+      "GET /api/oil-premium/lookup-sale (no params) - PASS (400)",
+      "GET /api/oil-premium/lookup-sale (not found) - PASS (404)",
+      "Premium calculation (Boiled positive) - PASS",
+      "Premium calculation (Raw negative) - PASS",
+      "GET /api/bp-sale-register - PASS (voucher_no field present)"
+    ],
+    "frontend_ui_tests": [
+      "1. Login with admin/admin123 - PASS",
+      "2. Navigate to Register > Sales Register > Rice Bran - PASS",
+      "3. Rice Bran sub-tabs visible (Sales Register / Oil Premium) - PASS",
+      "4. Voucher column in By-Product Sale Register table - PASS",
+      "5. Oil Premium Register component loads - PASS",
+      "6. New Oil Premium form opens - PASS",
+      "7. Form elements present (Voucher No, RST No, Bran Type, Party, Rate, Qty, Actual %) - PASS",
+      "8. Real-time premium calculation preview - PASS",
+      "9. Bran type dropdown (Raw 22% / Boiled 25%) - PASS"
+    ]
+  },
+  "oil_premium_feature_verified": {
+    "standard_oil_values": {
+      "Raw": "22%",
+      "Boiled": "25%"
+    },
+    "premium_formula": "Rate × (Actual% - Standard%) × Qty ÷ Standard%",
+    "test_cases": [
+      {
+        "scenario": "Boiled positive premium",
+        "inputs": {"rate": 3030, "actual": 26.73, "standard": 25, "qty": 118.50},
+        "expected_premium": 24846.61,
+        "result": "PASS"
+      },
+      {
+        "scenario": "Raw negative premium (deduction)",
+        "inputs": {"rate": 2500, "actual": 20, "standard": 22, "qty": 100},
+        "expected_premium": -22727.27,
+        "result": "PASS"
+      }
+    ],
+    "ui_components": {
+      "rice_bran_subtabs": ["Sales Register", "Oil Premium"],
+      "oil_premium_form_fields": ["voucher_no", "rst_no", "bran_type", "party_name", "rate", "qty_qtl", "actual_oil_pct", "remark"],
+      "sale_lookup": "Auto-fills form from bp_sale_register by voucher_no or rst_no"
+    }
+  },
+  "version_tested": "v90.9.0"
+}

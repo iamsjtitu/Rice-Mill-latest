@@ -1013,6 +1013,9 @@ async function startServer() {
     const bpSaleRegisterRoutes = require('./routes/bp_sale_register')(database);
     app.use(bpSaleRegisterRoutes);
 
+    const oilPremiumRoutes = require('./routes/oil_premium')(database);
+    app.use(oilPremiumRoutes);
+
     console.log('  [Routes] All modular routes loaded successfully');
 
     // ===== DATE FORMAT VALIDATOR - Startup Health Check =====
