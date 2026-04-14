@@ -1207,7 +1207,6 @@ export function MillingRegister({ filters, user }) {
                 <tr className="border-b border-slate-300 dark:border-slate-600 bg-blue-700 dark:bg-blue-800">
                   <th className="text-white py-1.5 px-2 text-left sticky left-0 bg-blue-700 dark:bg-blue-800 z-10 font-semibold">Date</th>
                   <th className="text-white py-1.5 px-1 text-left font-semibold">Milling Month</th>
-                  <th className="text-white py-1.5 px-1 text-left font-semibold">Season</th>
                   <th className="text-white py-1.5 px-1 text-right font-semibold">OB Paddy</th>
                   <th className="text-white py-1.5 px-1 text-right font-semibold">Rcvd from CM A/c</th>
                   <th className="text-white py-1.5 px-1 text-right font-semibold">Total Paddy</th>
@@ -1227,27 +1226,26 @@ export function MillingRegister({ filters, user }) {
               </thead>
               <tbody>
                 {data.rows.length === 0 ? (
-                  <tr><td colSpan={18} className="text-center text-slate-400 py-6">Koi data nahi - Paddy Release aur Milling entries se auto-generate hota hai</td></tr>
+                  <tr><td colSpan={17} className="text-center text-slate-400 py-6">Koi data nahi - Paddy Release aur Milling entries se auto-generate hota hai</td></tr>
                 ) : data.rows.map((r, i) => (
                   <tr key={r.date} className={`border-b border-slate-200 dark:border-slate-700/50 hover:bg-blue-50/50 dark:hover:bg-slate-700/30 ${i % 2 === 0 ? 'bg-white dark:bg-transparent' : 'bg-slate-50/80 dark:bg-slate-800/30'}`}>
                     <td className="text-slate-900 dark:text-white py-1.5 px-2 font-semibold sticky left-0 bg-inherit z-10 whitespace-nowrap">{fmtD(r.date)}</td>
-                    <td className="text-slate-600 dark:text-slate-400 py-1.5 px-1 whitespace-nowrap">{r.month || ''}</td>
-                    <td className="text-slate-600 dark:text-slate-400 py-1.5 px-1 whitespace-nowrap text-xs">{filters.season || ''}</td>
-                    <td className="text-slate-700 dark:text-slate-300 py-1.5 px-1 text-right">{r.ob_paddy || ''}</td>
-                    <td className={`py-1.5 px-1 text-right ${r.rcvd_from_cm ? 'text-blue-700 dark:text-blue-400 font-semibold' : 'text-slate-300 dark:text-slate-600'}`}>{r.rcvd_from_cm || ''}</td>
-                    <td className="text-slate-700 dark:text-slate-300 py-1.5 px-1 text-right font-medium">{r.total_paddy}</td>
-                    <td className={`py-1.5 px-1 text-right ${r.issue_for_milling ? 'text-orange-600 dark:text-orange-400 font-semibold' : 'text-slate-300 dark:text-slate-600'}`}>{r.issue_for_milling || ''}</td>
-                    <td className="text-slate-600 dark:text-slate-400 py-1.5 px-1 text-right">{r.prog_rcpt_paddy}</td>
-                    <td className="text-slate-600 dark:text-slate-400 py-1.5 px-1 text-right">{r.prog_milling_paddy}</td>
-                    <td className="text-orange-700 dark:text-amber-400 py-1.5 px-1 text-right font-bold">{r.cb_paddy}</td>
-                    <td className="text-slate-700 dark:text-slate-300 py-1.5 px-1 text-right">{r.ob_rice || ''}</td>
-                    <td className={`py-1.5 px-1 text-right ${r.rice_from_milling ? 'text-green-700 dark:text-emerald-400 font-semibold' : 'text-slate-300 dark:text-slate-600'}`}>{r.rice_from_milling || ''}</td>
-                    <td className="text-slate-700 dark:text-slate-300 py-1.5 px-1 text-right font-medium">{r.total_rice}</td>
-                    <td className={`py-1.5 px-1 text-right ${r.delivery_rrc ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-slate-300 dark:text-slate-600'}`}>{r.delivery_rrc || ''}</td>
-                    <td className={`py-1.5 px-1 text-right ${r.delivery_fci ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-slate-300 dark:text-slate-600'}`}>{r.delivery_fci || ''}</td>
-                    <td className="text-slate-600 dark:text-slate-400 py-1.5 px-1 text-right">{r.prog_rice_milling}</td>
-                    <td className="text-slate-600 dark:text-slate-400 py-1.5 px-1 text-right">{r.prog_rice_delivered}</td>
-                    <td className="text-orange-700 dark:text-amber-400 py-1.5 px-1 text-right font-bold">{r.cb_rice}</td>
+                    <td className="text-slate-600 dark:text-slate-400 py-1.5 px-1 whitespace-nowrap">{r.month || '-'}</td>
+                    <td className="text-slate-700 dark:text-slate-300 py-1.5 px-1 text-right">{r.ob_paddy || '-'}</td>
+                    <td className={`py-1.5 px-1 text-right ${r.rcvd_from_cm ? 'text-blue-700 dark:text-blue-400 font-semibold' : 'text-slate-400 dark:text-slate-600'}`}>{r.rcvd_from_cm || '-'}</td>
+                    <td className="text-slate-700 dark:text-slate-300 py-1.5 px-1 text-right font-medium">{r.total_paddy || '-'}</td>
+                    <td className={`py-1.5 px-1 text-right ${r.issue_for_milling ? 'text-orange-600 dark:text-orange-400 font-semibold' : 'text-slate-400 dark:text-slate-600'}`}>{r.issue_for_milling || '-'}</td>
+                    <td className="text-slate-600 dark:text-slate-400 py-1.5 px-1 text-right">{r.prog_rcpt_paddy || '-'}</td>
+                    <td className="text-slate-600 dark:text-slate-400 py-1.5 px-1 text-right">{r.prog_milling_paddy || '-'}</td>
+                    <td className="text-orange-700 dark:text-amber-400 py-1.5 px-1 text-right font-bold">{r.cb_paddy || '-'}</td>
+                    <td className="text-slate-700 dark:text-slate-300 py-1.5 px-1 text-right">{r.ob_rice || '-'}</td>
+                    <td className={`py-1.5 px-1 text-right ${r.rice_from_milling ? 'text-green-700 dark:text-emerald-400 font-semibold' : 'text-slate-400 dark:text-slate-600'}`}>{r.rice_from_milling || '-'}</td>
+                    <td className="text-slate-700 dark:text-slate-300 py-1.5 px-1 text-right font-medium">{r.total_rice || '-'}</td>
+                    <td className={`py-1.5 px-1 text-right ${r.delivery_rrc ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-slate-400 dark:text-slate-600'}`}>{r.delivery_rrc || '-'}</td>
+                    <td className={`py-1.5 px-1 text-right ${r.delivery_fci ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-slate-400 dark:text-slate-600'}`}>{r.delivery_fci || '-'}</td>
+                    <td className="text-slate-600 dark:text-slate-400 py-1.5 px-1 text-right">{r.prog_rice_milling || '-'}</td>
+                    <td className="text-slate-600 dark:text-slate-400 py-1.5 px-1 text-right">{r.prog_rice_delivered || '-'}</td>
+                    <td className="text-orange-700 dark:text-amber-400 py-1.5 px-1 text-right font-bold">{r.cb_rice || '-'}</td>
                   </tr>
                 ))}
               </tbody>

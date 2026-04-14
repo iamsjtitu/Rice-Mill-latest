@@ -1278,37 +1278,43 @@ async def export_milling_register_excel(kms_year: Optional[str] = None, season: 
     title = "MILLING REGISTER"
     if kms_year: title += f" - KMS {kms_year}"
     if season: title += f" ({season})"
-    ws.merge_cells('A3:R3')
+    ws.merge_cells('A3:Q3')
     c3 = ws.cell(row=3, column=1, value=title)
     c3.font = Font(bold=True, size=12, color="FFFFFF"); c3.fill = header_fill; c3.alignment = Alignment(horizontal='center')
 
     # Row 5: Column headers (single color, no partition)
-    headers = ['Date', 'Milling Month', 'Season', 'OB Paddy', 'Rcvd from CM A/c', 'Total Paddy',
+    headers = ['Date', 'Milling Month', 'OB Paddy', 'Rcvd from CM A/c', 'Total Paddy',
         'Issue For Milling', 'Prog Rcpt of Paddy', 'Prog Milling of Paddy', 'CB of Paddy',
         'OB Rice', 'Rice Rcpt from Milling', 'Total Rice',
         'Rice Delivery RRC', 'Rice Delivery FCI', 'Prog Rice Milling', 'Prog Rice Delivered', 'CB of Rice']
-    widths = [11, 10, 8, 10, 14, 10, 12, 14, 14, 10, 8, 14, 10, 12, 12, 12, 12, 10]
+    widths = [11, 10, 10, 14, 10, 12, 14, 14, 10, 8, 14, 10, 12, 12, 12, 12, 10]
     for ci, h in enumerate(headers, 1):
         cell = ws.cell(row=5, column=ci, value=h)
         cell.font = Font(bold=True, size=8, color="FFFFFF")
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal='center', wrap_text=True); cell.border = border
 
+    def _v(val):
+        """Return '-' for empty/zero values"""
+        if val is None or val == "" or val == 0:
+            return "-"
+        return val
+
     # Data rows
     for idx, r in enumerate(rows):
         row_num = 6 + idx
         fill = alt_fill if idx % 2 == 0 else None
-        vals = [_fmt_date_short(r.get("date","")), r.get("month","") or "", season or "",
-            r.get("ob_paddy",0), r.get("rcvd_from_cm",0), r.get("total_paddy",0),
-            r.get("issue_for_milling",0), r.get("prog_rcpt_paddy",0), r.get("prog_milling_paddy",0), r.get("cb_paddy",0),
-            r.get("ob_rice",0), r.get("rice_from_milling",0), r.get("total_rice",0),
-            r.get("delivery_rrc",0), r.get("delivery_fci",0), r.get("prog_rice_milling",0), r.get("prog_rice_delivered",0), r.get("cb_rice",0)]
+        vals = [_fmt_date_short(r.get("date","")), r.get("month","") or "-",
+            _v(r.get("ob_paddy",0)), _v(r.get("rcvd_from_cm",0)), _v(r.get("total_paddy",0)),
+            _v(r.get("issue_for_milling",0)), _v(r.get("prog_rcpt_paddy",0)), _v(r.get("prog_milling_paddy",0)), _v(r.get("cb_paddy",0)),
+            _v(r.get("ob_rice",0)), _v(r.get("rice_from_milling",0)), _v(r.get("total_rice",0)),
+            _v(r.get("delivery_rrc",0)), _v(r.get("delivery_fci",0)), _v(r.get("prog_rice_milling",0)), _v(r.get("prog_rice_delivered",0)), _v(r.get("cb_rice",0))]
         for ci, val in enumerate(vals, 1):
-            cell = ws.cell(row=row_num, column=ci, value=val if val else "")
+            cell = ws.cell(row=row_num, column=ci, value=val)
             cell.font = Font(size=9); cell.border = border
-            if ci >= 4: cell.alignment = Alignment(horizontal='right')
+            if ci >= 3: cell.alignment = Alignment(horizontal='right')
             if fill: cell.fill = fill
-            if ci in (10, 18): cell.font = Font(size=9, bold=True)
+            if ci in (9, 17): cell.font = Font(size=9, bold=True)
 
     for ci, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(ci)].width = w
@@ -1362,11 +1368,11 @@ async def export_milling_register_pdf(kms_year: Optional[str] = None, season: Op
     elements.append(Paragraph(title, t_style))
     elements.append(Spacer(1, 2))
 
-    headers = ['Date', 'Month', 'Season', 'OB\nPaddy', 'Rcvd from\nCM A/c', 'Total\nPaddy',
+    headers = ['Date', 'Month', 'OB\nPaddy', 'Rcvd from\nCM A/c', 'Total\nPaddy',
         'Issue For\nMilling', 'Prog Rcpt\nPaddy', 'Prog Mill\nPaddy', 'CB\nPaddy',
         'OB\nRice', 'Rice Rcpt\nMilling', 'Total\nRice',
         'Delivery\nRRC', 'Delivery\nFCI', 'Prog Rice\nMilling', 'Prog Rice\nDelivered', 'CB\nRice']
-    col_widths = [42, 28, 30, 36, 48, 38, 42, 45, 45, 38, 32, 45, 38, 40, 40, 45, 45, 38]
+    col_widths = [42, 28, 36, 48, 38, 42, 45, 45, 38, 32, 45, 38, 40, 40, 45, 45, 38]
 
     # Auto-fit
     usable = 818
@@ -1375,13 +1381,18 @@ async def export_milling_register_pdf(kms_year: Optional[str] = None, season: Op
         scale = usable / total_w
         col_widths = [round(w * scale) for w in col_widths]
 
+    def _pv(val):
+        if val is None or val == "" or val == 0:
+            return "-"
+        return val
+
     data = [headers]
     for r in rows:
-        data.append([_fmt_date_short(r.get("date","")), r.get("month","") or "", season or "",
-            r.get("ob_paddy","") or "", r.get("rcvd_from_cm","") or "", r.get("total_paddy",0),
-            r.get("issue_for_milling","") or "", r.get("prog_rcpt_paddy",0), r.get("prog_milling_paddy",0), r.get("cb_paddy",0),
-            r.get("ob_rice","") or "", r.get("rice_from_milling","") or "", r.get("total_rice",0),
-            r.get("delivery_rrc","") or "", r.get("delivery_fci","") or "", r.get("prog_rice_milling",0), r.get("prog_rice_delivered",0), r.get("cb_rice",0)])
+        data.append([_fmt_date_short(r.get("date","")), r.get("month","") or "-",
+            _pv(r.get("ob_paddy",0)), _pv(r.get("rcvd_from_cm",0)), _pv(r.get("total_paddy",0)),
+            _pv(r.get("issue_for_milling",0)), _pv(r.get("prog_rcpt_paddy",0)), _pv(r.get("prog_milling_paddy",0)), _pv(r.get("cb_paddy",0)),
+            _pv(r.get("ob_rice",0)), _pv(r.get("rice_from_milling",0)), _pv(r.get("total_rice",0)),
+            _pv(r.get("delivery_rrc",0)), _pv(r.get("delivery_fci",0)), _pv(r.get("prog_rice_milling",0)), _pv(r.get("prog_rice_delivered",0)), _pv(r.get("cb_rice",0))])
 
     nrows = len(data)
     table = RLTable(data, colWidths=col_widths, repeatRows=1)
@@ -1391,8 +1402,8 @@ async def export_milling_register_pdf(kms_year: Optional[str] = None, season: Op
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 0), 5.5),
         ('FONTSIZE', (0, 1), (-1, -1), 6),
-        ('ALIGN', (3, 0), (-1, -1), 'RIGHT'),
-        ('ALIGN', (0, 0), (2, -1), 'LEFT'),
+        ('ALIGN', (2, 0), (-1, -1), 'RIGHT'),
+        ('ALIGN', (0, 0), (1, -1), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#CCCCCC')),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#EBF1F8')]),
