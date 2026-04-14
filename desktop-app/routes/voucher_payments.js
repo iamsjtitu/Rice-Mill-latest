@@ -27,7 +27,7 @@ module.exports = function(database) {
     });
 
     // Get voucher and party name
-    const collections = { sale: 'sale_vouchers', purchase: 'purchase_vouchers', gunny_bag: 'gunny_bags' };
+    const collections = { sale: 'sale_vouchers', purchase: 'purchase_vouchers', gunny_bag: 'gunny_bags', bp_sale: 'bp_sale_register' };
     const col = collections[voucher_type];
     const voucher = col && database.data[col] ? database.data[col].find(v => v.id === voucher_id) : null;
     const party = (voucher && (voucher.party_name || voucher.source || '')) || '';
@@ -38,19 +38,20 @@ module.exports = function(database) {
     const roundOff = parseFloat(req.body.round_off) || 0;
     const totalSettled = Math.round((parseFloat(amount) + roundOff) * 100) / 100;
 
-    if (voucher_type === 'sale') {
-      const sourceLabel = `Sale #${voucherNo}`;
+    if (voucher_type === 'sale' || voucher_type === 'bp_sale') {
+      const sourceLabel = voucher_type === 'bp_sale' ? `${(voucher.product||'BP')} Sale #${voucherNo}` : `Sale #${voucherNo}`;
+      const partyType = voucher_type === 'bp_sale' ? 'BP Sale' : 'Sale Book';
       const desc = `Payment received - ${sourceLabel} - ${party}` + (notes ? ` (${notes})` : '');
       // Cash/Bank JAMA - actual cash
       const cashEntry = { id: uuidv4(), date: payDate, account: payAccount, txn_type: 'jama',
-        amount: parseFloat(amount), category: party, party_type: 'Sale Book',
+        amount: parseFloat(amount), category: party, party_type: partyType,
         description: desc, reference: `voucher_payment:${paymentId}`, ...base };
       if (payAccount === 'bank' && bank_name) cashEntry.bank_name = bank_name;
       database.data.cash_transactions.push(cashEntry);
       // Ledger NIKASI - total including round off
       database.data.cash_transactions.push({
         id: uuidv4(), date: payDate, account: 'ledger', txn_type: 'nikasi',
-        amount: totalSettled, category: party, party_type: 'Sale Book',
+        amount: totalSettled, category: party, party_type: partyType,
         description: `${desc} - Rs.${totalSettled}${roundOff ? ' (Cash: '+amount+', RoundOff: '+roundOff+')' : ''}`, reference: `voucher_payment_ledger:${paymentId}`, ...base
       });
       // Local party payment entry (total including round off)
@@ -59,7 +60,7 @@ module.exports = function(database) {
           id: uuidv4(), date: payDate, party_name: party,
           txn_type: 'payment', amount: totalSettled,
           description: `Payment received - ${sourceLabel}` + (notes ? ` (${notes})` : ''),
-          source_type: 'sale_voucher_payment', reference: `voucher_payment:${paymentId}`, ...base
+          source_type: voucher_type === 'bp_sale' ? 'bp_sale_payment' : 'sale_voucher_payment', reference: `voucher_payment:${paymentId}`, ...base
         });
       }
     } else {
@@ -105,7 +106,7 @@ module.exports = function(database) {
     const partyName = decodeURIComponent(req.params.partyName);
     const partyType = req.query.party_type || '';
     // Find vouchers for this party
-    const collections = { 'Purchase Voucher': 'purchase_vouchers', 'Sale Book': 'sale_vouchers' };
+    const collections = { 'Purchase Voucher': 'purchase_vouchers', 'Sale Book': 'sale_vouchers', 'BP Sale': 'bp_sale_register' };
     const col = collections[partyType] || 'purchase_vouchers';
     const vouchers = (database.data[col] || []).filter(v => v.party_name === partyName);
     const voucherIds = vouchers.map(v => v.id);

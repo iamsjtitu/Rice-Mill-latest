@@ -28,7 +28,7 @@ async def make_voucher_payment(request: Request):
         raise HTTPException(status_code=400, detail="Voucher ID aur amount (>0) required hai")
 
     # Find the voucher
-    collection_map = {"sale": "sale_vouchers", "purchase": "purchase_vouchers", "gunny": "gunny_bags"}
+    collection_map = {"sale": "sale_vouchers", "purchase": "purchase_vouchers", "gunny": "gunny_bags", "bp_sale": "bp_sale_register"}
     coll_name = collection_map.get(voucher_type)
     if not coll_name:
         raise HTTPException(status_code=400, detail="Invalid voucher type")
@@ -48,11 +48,15 @@ async def make_voucher_payment(request: Request):
     round_off = float(data.get("round_off", 0))
     total_settled = round(amount + round_off, 2)
 
-    # Determine if this is payment received (sale) or payment made (purchase/gunny)
-    if voucher_type == "sale":
+    # Determine if this is payment received (sale/bp_sale) or payment made (purchase/gunny)
+    if voucher_type in ("sale", "bp_sale"):
         # Sale: party pays us → Cash JAMA (cash coming in), Party Ledger NIKASI (reduces party debt)
-        source_label = f"Sale #{voucher.get('voucher_no', '')}"
-        party_type = "Sale Book"
+        if voucher_type == "bp_sale":
+            source_label = f"{voucher.get('product', 'BP')} Sale #{voucher.get('voucher_no', '')}"
+            party_type = "BP Sale"
+        else:
+            source_label = f"Sale #{voucher.get('voucher_no', '')}"
+            party_type = "Sale Book"
 
         # Cash/Bank JAMA - payment coming in (actual cash)
         cash_entry = {
@@ -200,7 +204,7 @@ async def undo_voucher_payment(request: Request):
     del_lp = await db.local_party_accounts.delete_many({"reference": f"voucher_payment:{payment_id}"})
 
     # Update voucher paid_amount
-    collection_map = {"Sale Book": "sale_vouchers", "Purchase Voucher": "purchase_vouchers", "Gunny Bag": "gunny_bags"}
+    collection_map = {"Sale Book": "sale_vouchers", "Purchase Voucher": "purchase_vouchers", "Gunny Bag": "gunny_bags", "BP Sale": "bp_sale_register"}
     coll_name = collection_map.get(party_type)
     if coll_name and party:
         coll = db[coll_name]

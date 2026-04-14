@@ -393,12 +393,19 @@ const CashBook = ({ filters, user }) => {
 
   const openSvPayDialog = async () => {
     try {
-      const res = await axios.get(`${API}/sale-book?kms_year=${filters.kms_year || ''}`);
-      const pending = (res.data || []).filter(v => {
+      const [saleRes, bpRes] = await Promise.all([
+        axios.get(`${API}/sale-book?kms_year=${filters.kms_year || ''}`),
+        axios.get(`${API}/bp-sale-register?kms_year=${filters.kms_year || ''}`),
+      ]);
+      const salePending = (saleRes.data || []).filter(v => {
         const bal = v.ledger_balance != null ? v.ledger_balance : (v.balance || 0);
         return bal > 0;
-      });
-      setSvVouchers(pending);
+      }).map(v => ({ ...v, _source: 'sale' }));
+      const bpPending = (bpRes.data || []).filter(v => {
+        const bal = v.ledger_balance != null ? v.ledger_balance : (v.balance || 0);
+        return bal > 0;
+      }).map(v => ({ ...v, _source: 'bp_sale' }));
+      setSvVouchers([...salePending, ...bpPending]);
       setSvPayForm({ voucher_id: "", party_name: "", amount: "", date: new Date().toISOString().split('T')[0], notes: "", account: "cash", bank_name: "" });
       setIsSvPayOpen(true);
     } catch (e) { logger.error(e); toast.error("Sale vouchers load nahi hue"); }
@@ -409,9 +416,11 @@ const CashBook = ({ filters, user }) => {
     const amt = parseFloat(svPayForm.amount);
     if (!amt || amt <= 0) { toast.error("Amount daalna zaroori hai"); return; }
     if (svPayForm.account === "bank" && !svPayForm.bank_name) { toast.error("Bank account select karein"); return; }
+    const sv = svVouchers.find(x => x.id === svPayForm.voucher_id);
+    const voucherType = sv?._source === 'bp_sale' ? 'bp_sale' : 'sale';
     try {
       await axios.post(`${API}/voucher-payment`, {
-        voucher_type: "sale", voucher_id: svPayForm.voucher_id, amount: amt,
+        voucher_type: voucherType, voucher_id: svPayForm.voucher_id, amount: amt,
         date: svPayForm.date, notes: svPayForm.notes, username: user.username,
         kms_year: filters.kms_year || "", season: filters.season || "",
         account: svPayForm.account, bank_name: svPayForm.account === "bank" ? svPayForm.bank_name : "",
@@ -776,7 +785,7 @@ const CashBook = ({ filters, user }) => {
                     <div className="text-slate-400 text-xs text-center py-3">Koi pending sale voucher nahi hai</div>
                   ) : svVouchers.map(v => (
                     <SelectItem key={v.id} value={v.id} className="text-white text-xs">
-                      {v.party_name} - #{v.voucher_no} | Bal: Rs.{(v.ledger_balance != null ? v.ledger_balance : v.balance)?.toLocaleString('en-IN')}
+                      {v._source === 'bp_sale' ? `[${v.product}] ` : ''}{v.party_name} - #{v.voucher_no || v.invoice_no || v.id.slice(0,6)} | Bal: Rs.{(v.ledger_balance != null ? v.ledger_balance : v.balance)?.toLocaleString('en-IN')}
                     </SelectItem>
                   ))}
                 </SelectContent>
