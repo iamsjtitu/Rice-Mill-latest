@@ -17,8 +17,7 @@ const tabs = [
 ];
 
 const SALE_CATEGORIES = [
-  { id: "govt_rice", label: "Govt Rice", type: "salebook", itemName: "Rice (Usna)" },
-  { id: "private_rice", label: "Private Rice", type: "salebook", itemName: "Rice (Raw)" },
+  { id: "private_rice", label: "Pvt Rice", type: "salebook", itemName: "Rice (Raw)" },
   { id: "rice_bran", label: "Rice Bran", type: "bp", product: "Rice Bran" },
   { id: "mota_kunda", label: "Mota Kunda", type: "bp", product: "Mota Kunda" },
   { id: "broken_rice", label: "Broken Rice", type: "bp", product: "Broken Rice" },
@@ -30,7 +29,7 @@ const SALE_CATEGORIES = [
 
 export default function Vouchers({ filters, user, onNavigate }) {
   const [activeTab, setActiveTab] = useState("sale");
-  const [saleCat, setSaleCat] = useState("govt_rice");
+  const [saleCat, setSaleCat] = useState("private_rice");
   const [branSubTab, setBranSubTab] = useState("sales");
 
   const activeCat = SALE_CATEGORIES.find(c => c.id === saleCat);
