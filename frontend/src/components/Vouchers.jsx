@@ -8,7 +8,7 @@ import { PaddyPurchase, PartySummary } from "./PaddyPurchase";
 import ByProductSaleRegister from "./ByProductSaleRegister";
 import OilPremiumRegister from "./OilPremiumRegister";
 import PaddyPurchaseRegister from "./PaddyPurchaseRegister";
-import { PaddyCustodyRegister, TransitPassRegister, MillingRegister } from "./GovtRegisters";
+import { PaddyCustodyRegister, TransitPassRegister, MillingRegister, GunnyBagRegister } from "./GovtRegisters";
 
 const tabs = [
   { id: "sale", label: "Sales Register", icon: FileText, activeClass: "bg-amber-500 hover:bg-amber-600 text-slate-900" },
@@ -16,6 +16,7 @@ const tabs = [
   { id: "custody", label: "Paddy Custody Maintenance", icon: Shield, activeClass: "bg-cyan-500 hover:bg-cyan-600 text-white" },
   { id: "transit", label: "Transit Pass Register", icon: Truck, activeClass: "bg-indigo-500 hover:bg-indigo-600 text-white" },
   { id: "milling", label: "Milling Register", icon: ArrowRightLeft, activeClass: "bg-teal-500 hover:bg-teal-600 text-white" },
+  { id: "gunny", label: "Gunny Bag Stock", icon: Package, activeClass: "bg-orange-500 hover:bg-orange-600 text-white" },
   { id: "stock", label: "Stock Summary", icon: Package, activeClass: "bg-sky-500 hover:bg-sky-600 text-white" },
   { id: "summary", label: "Party Summary", icon: Users, activeClass: "bg-purple-500 hover:bg-purple-600 text-white" },
 ];
@@ -132,6 +133,8 @@ export default function Vouchers({ filters, user, onNavigate }) {
         <TransitPassRegister filters={filters} />
       ) : activeTab === "milling" ? (
         <MillingRegister filters={filters} user={user} />
+      ) : activeTab === "gunny" ? (
+        <GunnyBagRegister filters={filters} user={user} />
       ) : activeTab === "stock" ? (
         <StockSummary filters={filters} />
       ) : (

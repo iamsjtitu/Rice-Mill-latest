@@ -31,7 +31,6 @@ const SUB_TABS = [
   { id: "form-e", label: "Form E", desc: "Own Paddy", icon: ShoppingBag },
   { id: "form-f", label: "Form F", desc: "Own Rice Sale", icon: ShoppingBag },
   { id: "frk", label: "FRK Blending", desc: "Fortified Rice", icon: FlaskConical },
-  { id: "gunny-bags", label: "Gunny Bags", desc: "Bag Stock", icon: Package },
   { id: "security-deposit", label: "Security Deposit", desc: "Bank Guarantee", icon: Shield },
 ];
 
@@ -691,7 +690,7 @@ function FrkRegister({ filters, user }) {
 }
 
 // ============ GUNNY BAG REGISTER COMPONENT ============
-function GunnyBagRegister({ filters, user }) {
+export function GunnyBagRegister({ filters, user }) {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -1701,7 +1700,6 @@ export default function GovtRegisters({ filters: parentFilters, user }) {
       {activeTab === "form-e" && <FormERegister filters={localFilters} />}
       {activeTab === "form-f" && <FormFRegister filters={localFilters} />}
       {activeTab === "frk" && <FrkRegister filters={localFilters} user={user} />}
-      {activeTab === "gunny-bags" && <GunnyBagRegister filters={localFilters} user={user} />}
       {activeTab === "security-deposit" && <SecurityDepositManager filters={localFilters} user={user} />}
     </div>
   );
