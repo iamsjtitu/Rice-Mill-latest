@@ -11,7 +11,6 @@ import OilPremiumRegister from "./OilPremiumRegister";
 const tabs = [
   { id: "sale", label: "Sales Register", icon: FileText, activeClass: "bg-amber-500 hover:bg-amber-600 text-slate-900" },
   { id: "purchase", label: "Purchase Register", icon: ShoppingBag, activeClass: "bg-emerald-500 hover:bg-emerald-600 text-white" },
-  { id: "paddy", label: "Paddy Purchase", icon: Wheat, activeClass: "bg-orange-500 hover:bg-orange-600 text-white" },
   { id: "stock", label: "Stock Summary", icon: Package, activeClass: "bg-sky-500 hover:bg-sky-600 text-white" },
   { id: "summary", label: "Party Summary", icon: Users, activeClass: "bg-purple-500 hover:bg-purple-600 text-white" },
 ];
@@ -31,6 +30,7 @@ export default function Vouchers({ filters, user, onNavigate }) {
   const [activeTab, setActiveTab] = useState("sale");
   const [saleCat, setSaleCat] = useState("private_rice");
   const [branSubTab, setBranSubTab] = useState("sales");
+  const [purchaseSubTab, setPurchaseSubTab] = useState("vouchers");
 
   const activeCat = SALE_CATEGORIES.find(c => c.id === saleCat);
 
@@ -95,9 +95,25 @@ export default function Vouchers({ filters, user, onNavigate }) {
           ) : null}
         </div>
       ) : activeTab === "purchase" ? (
-        <PurchaseVouchers filters={filters} user={user} />
-      ) : activeTab === "paddy" ? (
-        <PaddyPurchase filters={filters} user={user} />
+        <div className="space-y-3">
+          <div className="flex gap-2 border-b border-slate-700/50 pb-1.5">
+            <button onClick={() => setPurchaseSubTab("vouchers")}
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${purchaseSubTab === "vouchers" ? "bg-emerald-600/30 text-emerald-400 border border-emerald-500/50" : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"}`}
+              data-testid="purchase-subtab-vouchers">
+              <ShoppingBag className="w-3.5 h-3.5 inline mr-1" />Purchase Vouchers
+            </button>
+            <button onClick={() => setPurchaseSubTab("paddy")}
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${purchaseSubTab === "paddy" ? "bg-orange-600/30 text-orange-400 border border-orange-500/50" : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"}`}
+              data-testid="purchase-subtab-paddy">
+              <Wheat className="w-3.5 h-3.5 inline mr-1" />Paddy Purchase
+            </button>
+          </div>
+          {purchaseSubTab === "paddy" ? (
+            <PaddyPurchase filters={filters} user={user} />
+          ) : (
+            <PurchaseVouchers filters={filters} user={user} />
+          )}
+        </div>
       ) : activeTab === "stock" ? (
         <StockSummary filters={filters} />
       ) : (
