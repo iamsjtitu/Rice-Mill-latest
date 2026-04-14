@@ -957,8 +957,6 @@ function MainApp({ user, setUser, onLogout }) {
           <MillingTracker filters={filters} user={user} />
         ) : activeTab === "cashbook" ? (
           <CashBook filters={filters} user={user} />
-        ) : activeTab === "dctracker" ? (
-          <DCTracker filters={filters} user={user} />
         ) : activeTab === "reports" ? (
           <Reports filters={filters} user={user} />
         ) : activeTab === "vouchers" ? (

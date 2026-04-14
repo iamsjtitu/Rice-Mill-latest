@@ -18,7 +18,7 @@ const API = `${BACKEND_URL}/api`;
 const CURRENT_KMS = (() => { const n = new Date(), y = n.getFullYear(); return n.getMonth() >= 3 ? `${y}-${y+1}` : `${y-1}-${y}`; })();
 
 // ===== DC ENTRIES SUB-TAB =====
-const DCEntries = ({ filters, user }) => {
+export const DCEntries = ({ filters, user }) => {
   const showConfirm = useConfirm();
   const [dcs, setDcs] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -317,7 +317,7 @@ const DCEntries = ({ filters, user }) => {
 };
 
 // ===== MSP PAYMENTS SUB-TAB =====
-const MSPPayments = ({ filters, user, dcList }) => {
+export const MSPPayments = ({ filters, user, dcList }) => {
   const showConfirm = useConfirm();
   const [payments, setPayments] = useState([]);
   const [summary, setSummary] = useState(null);
