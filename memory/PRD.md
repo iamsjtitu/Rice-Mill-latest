@@ -43,6 +43,7 @@
 - Oil%, Diff%, Premium columns shown in Rice Bran Sales Register table (linked via voucher_no/rst_no)
 - Oil%, Diff%, Premium columns added to BP Sale Register PDF/Excel exports (only for Rice Bran when data exists)
 - Oil Premium date-range filter, party filter, bran type filter with ESC close
+- PDF/Excel exports optimized for single A4 landscape page (auto-fit columns, compact fonts/padding)
 
 ## Permanent Rules
 1. Version in utils/constants-version.js + 3x package.json + WhatsNew.jsx

@@ -225,6 +225,8 @@ async def export_oil_premium_excel(kms_year: str = "", season: str = "", bran_ty
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
     ws.page_setup.orientation = 'landscape'; ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
 
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     fn = f"oil_premium_{datetime.now().strftime('%Y%m%d')}.xlsx"
@@ -260,14 +262,14 @@ async def export_oil_premium_pdf(kms_year: str = "", season: str = "", bran_type
     phone = branding.get("phone", "")
 
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=20, bottomMargin=20)
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=15, rightMargin=15, topMargin=15, bottomMargin=15)
     elements = []
     styles = getSampleStyleSheet()
 
-    company_style = ParagraphStyle('CompanyHeader', parent=styles['Title'], fontSize=14,
-        textColor=colors.HexColor('#1F4E79'), spaceAfter=2, alignment=1)
-    addr_style = ParagraphStyle('Addr', parent=styles['Normal'], fontSize=8,
-        textColor=colors.HexColor('#666666'), spaceAfter=4, alignment=1)
+    company_style = ParagraphStyle('CompanyHeader', parent=styles['Title'], fontSize=12,
+        textColor=colors.HexColor('#1F4E79'), spaceAfter=1, alignment=1)
+    addr_style = ParagraphStyle('Addr', parent=styles['Normal'], fontSize=7,
+        textColor=colors.HexColor('#666666'), spaceAfter=2, alignment=1)
     elements.append(Paragraph(company.upper(), company_style))
     if address:
         elements.append(Paragraph(f"{address}  |  {phone}", addr_style))
@@ -275,11 +277,11 @@ async def export_oil_premium_pdf(kms_year: str = "", season: str = "", bran_type
     title = "Oil Premium Register"
     if kms_year: title += f" - FY {kms_year}"
     if bran_type: title += f" ({bran_type})"
-    title_style = ParagraphStyle('RegTitle', parent=styles['Heading2'], fontSize=11,
-        textColor=colors.white, backColor=colors.HexColor('#2E75B6'), spaceAfter=8, alignment=1,
-        borderPadding=(4, 4, 4, 4))
+    title_style = ParagraphStyle('RegTitle', parent=styles['Heading2'], fontSize=9,
+        textColor=colors.white, backColor=colors.HexColor('#2E75B6'), spaceAfter=4, alignment=1,
+        borderPadding=(2, 2, 2, 2))
     elements.append(Paragraph(title, title_style))
-    elements.append(Spacer(1, 6))
+    elements.append(Spacer(1, 3))
 
     # Dynamic columns
     has_voucher = any(i.get('voucher_no') for i in items)
@@ -300,6 +302,13 @@ async def export_oil_premium_pdf(kms_year: str = "", season: str = "", bran_type
     pdf_headers = [c[0] for c in pdf_cols]
     col_widths = [c[1] for c in pdf_cols]
     col_keys = [c[2] for c in pdf_cols]
+
+    # Auto-fit to A4 landscape
+    usable_width = 812
+    total_w = sum(col_widths)
+    if total_w > usable_width:
+        scale = usable_width / total_w
+        col_widths = [round(w * scale) for w in col_widths]
 
     data = [pdf_headers]
     t_qty = t_premium = 0
@@ -334,18 +343,18 @@ async def export_oil_premium_pdf(kms_year: str = "", season: str = "", bran_type
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E79')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 7),
-        ('FONTSIZE', (0, 1), (-1, -1), 7),
+        ('FONTSIZE', (0, 0), (-1, 0), 6),
+        ('FONTSIZE', (0, 1), (-1, -1), 6),
         ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
         ('ALIGN', (first_num, 1), (-1, -1), 'RIGHT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CCCCCC')),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#CCCCCC')),
         ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#EBF1F8')]),
         ('BACKGROUND', (0, nrows - 1), (-1, nrows - 1), colors.HexColor('#2E75B6')),
         ('TEXTCOLOR', (0, nrows - 1), (-1, nrows - 1), colors.white),
         ('FONTNAME', (0, nrows - 1), (-1, nrows - 1), 'Helvetica-Bold'),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
     ]
     table.setStyle(TableStyle(style_cmds))
     elements.append(table)
