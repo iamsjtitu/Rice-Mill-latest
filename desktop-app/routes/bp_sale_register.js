@@ -30,33 +30,33 @@ module.exports = function(database) {
     const now = new Date().toISOString();
     const base = { kms_year: d.kms_year || '', season: d.season || '', created_by: username, created_at: now, updated_at: now };
 
-    // 1. Party Ledger NIKASI (humne maal diya - party owes us)
+    // 1. Party Ledger NIKASI (maal beche)
     if (party && total > 0) {
       database.data.cash_transactions.push({ id: uuid(), date: d.date || '', account: 'ledger', txn_type: 'nikasi', amount: total, category: party, party_type: 'BP Sale', description: `${product} Sale #${vno}`, reference: `bp_sale:${docId}`, ...base });
     }
-    // 2. Advance → Ledger JAMA (unhone paisa diya) + Cash JAMA
+    // 2. Advance → Ledger NIKASI (party ka baki kam) + Cash JAMA
     if (advance > 0 && party) {
-      database.data.cash_transactions.push({ id: uuid(), date: d.date || '', account: 'ledger', txn_type: 'jama', amount: advance, category: party, party_type: 'BP Sale', description: `Advance received - ${product} #${vno}`, reference: `bp_sale_adv:${docId}`, ...base });
+      database.data.cash_transactions.push({ id: uuid(), date: d.date || '', account: 'ledger', txn_type: 'nikasi', amount: advance, category: party, party_type: 'BP Sale', description: `Advance received - ${product} #${vno}`, reference: `bp_sale_adv:${docId}`, ...base });
       database.data.cash_transactions.push({ id: uuid(), date: d.date || '', account: 'cash', txn_type: 'jama', amount: advance, category: party, party_type: 'BP Sale', description: `Advance received - ${product} #${vno}`, reference: `bp_sale_adv_cash:${docId}`, ...base });
     }
     // 3. Cash to truck → Cash NIKASI
     if (cash > 0) {
       database.data.cash_transactions.push({ id: uuid(), date: d.date || '', account: 'cash', txn_type: 'nikasi', amount: cash, category: vehicle || party, party_type: vehicle ? 'Truck' : 'BP Sale', description: `Truck cash - ${product} #${vno}`, reference: `bp_sale_cash:${docId}`, ...base });
     }
-    // 4. Diesel → Pump Ledger NIKASI (humne pump se liya) + diesel_accounts
+    // 4. Diesel → Pump Ledger JAMA (humne pump se kharida) + diesel_accounts
     if (diesel > 0) {
       const pumpName = getDefaultPump();
       const pumpDoc = database.data.diesel_accounts.find(da => da.pump_name === pumpName);
       const pumpId = pumpDoc ? (pumpDoc.pump_id || '') : '';
-      database.data.cash_transactions.push({ id: uuid(), date: d.date || '', account: 'ledger', txn_type: 'nikasi', amount: diesel, category: pumpName, party_type: 'Diesel', description: `Diesel for truck - ${product} #${vno} - ${party}`, reference: `bp_sale_diesel:${docId}`, ...base });
+      database.data.cash_transactions.push({ id: uuid(), date: d.date || '', account: 'ledger', txn_type: 'jama', amount: diesel, category: pumpName, party_type: 'Diesel', description: `Diesel for truck - ${product} #${vno} - ${party}`, reference: `bp_sale_diesel:${docId}`, ...base });
       database.data.diesel_accounts.push({ id: uuid(), date: d.date || '', pump_id: pumpId, pump_name: pumpName, truck_no: vehicle, agent_name: party, amount: diesel, txn_type: 'debit', description: `Diesel for ${product} #${vno} - ${party}`, reference: `bp_sale_diesel:${docId}`, ...base });
     }
-    // 5. Truck ledger entries - JAMA (truck ko diya)
+    // 5. Truck ledger entries - NIKASI
     if (cash > 0 && vehicle) {
-      database.data.cash_transactions.push({ id: uuid(), date: d.date || '', account: 'ledger', txn_type: 'jama', amount: cash, category: vehicle, party_type: 'Truck', description: `Truck cash deduction - ${product} #${vno}`, reference: `bp_truck_cash:${docId}`, ...base });
+      database.data.cash_transactions.push({ id: uuid(), date: d.date || '', account: 'ledger', txn_type: 'nikasi', amount: cash, category: vehicle, party_type: 'Truck', description: `Truck cash deduction - ${product} #${vno}`, reference: `bp_truck_cash:${docId}`, ...base });
     }
     if (diesel > 0 && vehicle) {
-      database.data.cash_transactions.push({ id: uuid(), date: d.date || '', account: 'ledger', txn_type: 'jama', amount: diesel, category: vehicle, party_type: 'Truck', description: `Truck diesel deduction - ${product} #${vno}`, reference: `bp_truck_diesel:${docId}`, ...base });
+      database.data.cash_transactions.push({ id: uuid(), date: d.date || '', account: 'ledger', txn_type: 'nikasi', amount: diesel, category: vehicle, party_type: 'Truck', description: `Truck diesel deduction - ${product} #${vno}`, reference: `bp_truck_diesel:${docId}`, ...base });
     }
     const truckTotal = cash + diesel;
     if (truckTotal > 0 && vehicle) {

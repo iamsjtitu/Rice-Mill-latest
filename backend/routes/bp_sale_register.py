@@ -44,10 +44,10 @@ async def _create_bp_ledger_entries(d, doc_id, username):
             "reference": f"bp_sale:{doc_id}", **base
         })
 
-    # 2. Advance from party: Party Ledger JAMA (unhone paisa diya) + Cash JAMA
+    # 2. Advance from party: Party Ledger NIKASI (party ka baki kam hua) + Cash JAMA
     if advance > 0 and party:
         entries.append({
-            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "jama",
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
             "amount": advance, "category": party, "party_type": "BP Sale",
             "description": f"Advance received - {product} #{vno}",
             "reference": f"bp_sale_adv:{doc_id}", **base
@@ -68,13 +68,13 @@ async def _create_bp_ledger_entries(d, doc_id, username):
             "reference": f"bp_sale_cash:{doc_id}", **base
         })
 
-    # 4. Diesel → Diesel Pump Ledger NIKASI (humne pump se liya = we owe pump) + diesel_accounts
+    # 4. Diesel → Diesel Pump Ledger JAMA (humne pump se kharida) + diesel_accounts
     if diesel > 0:
         pump_name = await _get_default_pump()
         pump_doc = await db.diesel_accounts.find_one({"pump_name": pump_name}, {"_id": 0, "pump_id": 1})
         pump_id = pump_doc.get("pump_id", "") if pump_doc else ""
         entries.append({
-            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "jama",
             "amount": diesel, "category": pump_name, "party_type": "Diesel",
             "description": f"Diesel for truck - {product} #{vno} - {party}",
             "reference": f"bp_sale_diesel:{doc_id}", **base
@@ -89,17 +89,17 @@ async def _create_bp_ledger_entries(d, doc_id, username):
         }
         await db.diesel_accounts.insert_one({**diesel_entry})
 
-    # 5. Truck cash+diesel → Truck Ledger JAMA (truck ko diya = truck ka jama)
+    # 5. Truck cash+diesel → Truck Ledger NIKASI
     if cash > 0 and vehicle:
         entries.append({
-            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "jama",
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
             "amount": cash, "category": vehicle, "party_type": "Truck",
             "description": f"Truck cash deduction - {product} #{vno}",
             "reference": f"bp_truck_cash:{doc_id}", **base
         })
     if diesel > 0 and vehicle:
         entries.append({
-            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "jama",
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
             "amount": diesel, "category": vehicle, "party_type": "Truck",
             "description": f"Truck diesel deduction - {product} #{vno}",
             "reference": f"bp_truck_diesel:{doc_id}", **base
