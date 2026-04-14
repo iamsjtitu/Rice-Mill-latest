@@ -1072,7 +1072,7 @@ function MillingRegister({ filters, user }) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const fmtD = (d) => { if (!d) return ''; const p = d.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}` : d; };
+  const fmtD = (d) => { if (!d) return ''; const p = d.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d; };
   const s = data.summary || {};
   const totalReleased = releases.reduce((acc, r) => acc + (r.qty_qtl || 0), 0);
   const tpAfterRelease = Math.round((tpStock - totalReleased) * 100) / 100;
@@ -1208,53 +1208,50 @@ function MillingRegister({ filters, user }) {
           <CardContent className="p-0 overflow-x-auto">
             <table className="w-full text-[10px]" data-testid="milling-register-table">
               <thead>
-                <tr className="border-b-2 border-slate-300 dark:border-slate-600">
-                  <th colSpan={2} className="bg-slate-100 dark:bg-slate-700/80 text-slate-600 dark:text-slate-300 py-1 px-1 text-center border-r border-slate-300 dark:border-slate-600"></th>
-                  <th colSpan={7} className="bg-blue-50 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 py-1.5 px-1 text-center border-r border-slate-300 dark:border-slate-600 font-bold text-[11px]">PADDY / धान</th>
-                  <th colSpan={8} className="bg-green-50 dark:bg-emerald-900/40 text-green-800 dark:text-emerald-300 py-1.5 px-1 text-center font-bold text-[11px]">RICE / चावल</th>
-                </tr>
-                <tr className="border-b border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50">
-                  <th className="text-slate-700 dark:text-slate-300 py-1.5 px-2 text-left sticky left-0 bg-slate-50 dark:bg-slate-700/90 z-10 font-semibold">Date</th>
-                  <th className="text-slate-700 dark:text-slate-300 py-1.5 px-1 text-left font-semibold">Milling Month</th>
-                  <th className="text-blue-800 dark:text-blue-300 py-1.5 px-1 text-right border-l border-slate-300 dark:border-slate-600 font-semibold">OB Paddy</th>
-                  <th className="text-blue-800 dark:text-blue-300 py-1.5 px-1 text-right font-semibold">Rcvd from CM A/c</th>
-                  <th className="text-blue-800 dark:text-blue-300 py-1.5 px-1 text-right font-semibold">Total Paddy</th>
-                  <th className="text-blue-800 dark:text-blue-300 py-1.5 px-1 text-right font-semibold">Issue For Milling</th>
-                  <th className="text-blue-600 dark:text-blue-400 py-1.5 px-1 text-right font-semibold">Prog Rcpt of Paddy</th>
-                  <th className="text-blue-600 dark:text-blue-400 py-1.5 px-1 text-right font-semibold">Prog Milling of Paddy</th>
-                  <th className="text-orange-700 dark:text-amber-400 py-1.5 px-1 text-right font-bold border-r border-slate-300 dark:border-slate-600">CB of Paddy</th>
-                  <th className="text-green-800 dark:text-emerald-300 py-1.5 px-1 text-right font-semibold">OB Rice</th>
-                  <th className="text-green-800 dark:text-emerald-300 py-1.5 px-1 text-right font-semibold">Rice Rcpt from Milling</th>
-                  <th className="text-green-800 dark:text-emerald-300 py-1.5 px-1 text-right font-semibold">Total Rice</th>
-                  <th className="text-green-700 dark:text-green-400 py-1.5 px-1 text-right font-semibold">Rice Delivery RRC</th>
-                  <th className="text-green-700 dark:text-green-400 py-1.5 px-1 text-right font-semibold">Rice Delivery FCI</th>
-                  <th className="text-green-600 dark:text-emerald-400 py-1.5 px-1 text-right font-semibold">Prog Rice Milling</th>
-                  <th className="text-green-600 dark:text-emerald-400 py-1.5 px-1 text-right font-semibold">Prog Rice Delivered</th>
-                  <th className="text-teal-700 dark:text-cyan-400 py-1.5 px-1 text-right font-bold">CB of Rice</th>
+                <tr className="border-b border-slate-300 dark:border-slate-600 bg-blue-700 dark:bg-blue-800">
+                  <th className="text-white py-1.5 px-2 text-left sticky left-0 bg-blue-700 dark:bg-blue-800 z-10 font-semibold">Date</th>
+                  <th className="text-white py-1.5 px-1 text-left font-semibold">Milling Month</th>
+                  <th className="text-white py-1.5 px-1 text-left font-semibold">Season</th>
+                  <th className="text-white py-1.5 px-1 text-right font-semibold">OB Paddy</th>
+                  <th className="text-white py-1.5 px-1 text-right font-semibold">Rcvd from CM A/c</th>
+                  <th className="text-white py-1.5 px-1 text-right font-semibold">Total Paddy</th>
+                  <th className="text-white py-1.5 px-1 text-right font-semibold">Issue For Milling</th>
+                  <th className="text-white py-1.5 px-1 text-right font-semibold">Prog Rcpt of Paddy</th>
+                  <th className="text-white py-1.5 px-1 text-right font-semibold">Prog Milling of Paddy</th>
+                  <th className="text-amber-200 py-1.5 px-1 text-right font-bold">CB of Paddy</th>
+                  <th className="text-white py-1.5 px-1 text-right font-semibold">OB Rice</th>
+                  <th className="text-white py-1.5 px-1 text-right font-semibold">Rice Rcpt from Milling</th>
+                  <th className="text-white py-1.5 px-1 text-right font-semibold">Total Rice</th>
+                  <th className="text-white py-1.5 px-1 text-right font-semibold">Rice Delivery RRC</th>
+                  <th className="text-white py-1.5 px-1 text-right font-semibold">Rice Delivery FCI</th>
+                  <th className="text-white py-1.5 px-1 text-right font-semibold">Prog Rice Milling</th>
+                  <th className="text-white py-1.5 px-1 text-right font-semibold">Prog Rice Delivered</th>
+                  <th className="text-amber-200 py-1.5 px-1 text-right font-bold">CB of Rice</th>
                 </tr>
               </thead>
               <tbody>
                 {data.rows.length === 0 ? (
-                  <tr><td colSpan={17} className="text-center text-slate-400 py-6">Koi data nahi - Paddy Release aur Milling entries se auto-generate hota hai</td></tr>
+                  <tr><td colSpan={18} className="text-center text-slate-400 py-6">Koi data nahi - Paddy Release aur Milling entries se auto-generate hota hai</td></tr>
                 ) : data.rows.map((r, i) => (
                   <tr key={r.date} className={`border-b border-slate-200 dark:border-slate-700/50 hover:bg-blue-50/50 dark:hover:bg-slate-700/30 ${i % 2 === 0 ? 'bg-white dark:bg-transparent' : 'bg-slate-50/80 dark:bg-slate-800/30'}`}>
                     <td className="text-slate-900 dark:text-white py-1.5 px-2 font-semibold sticky left-0 bg-inherit z-10 whitespace-nowrap">{fmtD(r.date)}</td>
-                    <td className="text-slate-500 dark:text-slate-400 py-1.5 px-1 whitespace-nowrap">{(r.month || '').substring(0,3)}</td>
-                    <td className="text-slate-600 dark:text-blue-200 py-1.5 px-1 text-right border-l border-slate-200 dark:border-slate-700">{r.ob_paddy || ''}</td>
+                    <td className="text-slate-600 dark:text-slate-400 py-1.5 px-1 whitespace-nowrap">{r.month || ''}</td>
+                    <td className="text-slate-600 dark:text-slate-400 py-1.5 px-1 whitespace-nowrap text-xs">{filters.season || ''}</td>
+                    <td className="text-slate-700 dark:text-slate-300 py-1.5 px-1 text-right">{r.ob_paddy || ''}</td>
                     <td className={`py-1.5 px-1 text-right ${r.rcvd_from_cm ? 'text-blue-700 dark:text-blue-400 font-semibold' : 'text-slate-300 dark:text-slate-600'}`}>{r.rcvd_from_cm || ''}</td>
-                    <td className="text-slate-700 dark:text-blue-200 py-1.5 px-1 text-right font-medium">{r.total_paddy}</td>
+                    <td className="text-slate-700 dark:text-slate-300 py-1.5 px-1 text-right font-medium">{r.total_paddy}</td>
                     <td className={`py-1.5 px-1 text-right ${r.issue_for_milling ? 'text-orange-600 dark:text-orange-400 font-semibold' : 'text-slate-300 dark:text-slate-600'}`}>{r.issue_for_milling || ''}</td>
-                    <td className="text-blue-500 dark:text-blue-400/60 py-1.5 px-1 text-right">{r.prog_rcpt_paddy}</td>
-                    <td className="text-blue-500 dark:text-blue-400/60 py-1.5 px-1 text-right">{r.prog_milling_paddy}</td>
-                    <td className="text-orange-700 dark:text-amber-400 py-1.5 px-1 text-right font-bold border-r border-slate-200 dark:border-slate-700">{r.cb_paddy}</td>
-                    <td className="text-slate-600 dark:text-emerald-200 py-1.5 px-1 text-right">{r.ob_rice || ''}</td>
+                    <td className="text-slate-600 dark:text-slate-400 py-1.5 px-1 text-right">{r.prog_rcpt_paddy}</td>
+                    <td className="text-slate-600 dark:text-slate-400 py-1.5 px-1 text-right">{r.prog_milling_paddy}</td>
+                    <td className="text-orange-700 dark:text-amber-400 py-1.5 px-1 text-right font-bold">{r.cb_paddy}</td>
+                    <td className="text-slate-700 dark:text-slate-300 py-1.5 px-1 text-right">{r.ob_rice || ''}</td>
                     <td className={`py-1.5 px-1 text-right ${r.rice_from_milling ? 'text-green-700 dark:text-emerald-400 font-semibold' : 'text-slate-300 dark:text-slate-600'}`}>{r.rice_from_milling || ''}</td>
-                    <td className="text-slate-700 dark:text-emerald-200 py-1.5 px-1 text-right font-medium">{r.total_rice}</td>
+                    <td className="text-slate-700 dark:text-slate-300 py-1.5 px-1 text-right font-medium">{r.total_rice}</td>
                     <td className={`py-1.5 px-1 text-right ${r.delivery_rrc ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-slate-300 dark:text-slate-600'}`}>{r.delivery_rrc || ''}</td>
                     <td className={`py-1.5 px-1 text-right ${r.delivery_fci ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-slate-300 dark:text-slate-600'}`}>{r.delivery_fci || ''}</td>
-                    <td className="text-green-600 dark:text-emerald-400/60 py-1.5 px-1 text-right">{r.prog_rice_milling}</td>
-                    <td className="text-green-600 dark:text-emerald-400/60 py-1.5 px-1 text-right">{r.prog_rice_delivered}</td>
-                    <td className="text-teal-700 dark:text-cyan-400 py-1.5 px-1 text-right font-bold">{r.cb_rice}</td>
+                    <td className="text-slate-600 dark:text-slate-400 py-1.5 px-1 text-right">{r.prog_rice_milling}</td>
+                    <td className="text-slate-600 dark:text-slate-400 py-1.5 px-1 text-right">{r.prog_rice_delivered}</td>
+                    <td className="text-orange-700 dark:text-amber-400 py-1.5 px-1 text-right font-bold">{r.cb_rice}</td>
                   </tr>
                 ))}
               </tbody>
