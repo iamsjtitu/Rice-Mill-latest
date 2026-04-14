@@ -1096,6 +1096,19 @@ async def export_transit_pass_pdf(kms_year: Optional[str] = None, season: Option
                              headers={"Content-Disposition": f"attachment; filename=Transit_Pass_{kms_year or 'all'}.pdf"})
 
 
+# ============ TP WEIGHT STOCK ============
+
+@router.get("/govt-registers/tp-weight-stock")
+async def get_tp_weight_stock(kms_year: Optional[str] = None, season: Optional[str] = None):
+    """Total paddy from TP Weight (vehicle_weights entries)"""
+    query = {"tp_weight": {"$gt": 0}}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    entries = await db.vehicle_weights.find(query, {"_id": 0, "tp_weight": 1}).to_list(50000)
+    total = round(sum(e.get("tp_weight", 0) or 0 for e in entries), 2)
+    return {"total_tp_weight": total, "count": len(entries)}
+
+
 # ============ MILLING REGISTER (Paddy/Rice Daily Ledger) ============
 
 @router.get("/govt-registers/milling-register")

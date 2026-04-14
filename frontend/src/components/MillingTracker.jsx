@@ -15,7 +15,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Trash2, Edit, Plus, RefreshCw, Filter, X, ShoppingCart, Package, Download, FileText, ClipboardList, Scissors, Unlock } from "lucide-react";
+import { Trash2, Edit, Plus, RefreshCw, Filter, X, ShoppingCart, Package, Download, FileText, ClipboardList, Scissors } from "lucide-react";
 import { useConfirm } from "./ConfirmProvider";
 import { useCloseFiltersOnEsc } from "../utils/useCloseFiltersOnEsc";
 import logger from "../utils/logger";
@@ -41,7 +41,6 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [bpCategories, setBpCategories] = useState([]);
-  const [releaseStock, setReleaseStock] = useState(null);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0], rice_type: "parboiled", paddy_input_qntl: "",
     rice_percent: "", frk_used_qntl: "", kms_year: CURRENT_KMS_YEAR, season: "Kharif", note: "",
@@ -61,16 +60,14 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
       if (millingFilters.rice_type) params.append('rice_type', millingFilters.rice_type);
       if (millingFilters.date_from) params.append('date_from', millingFilters.date_from);
       if (millingFilters.date_to) params.append('date_to', millingFilters.date_to);
-      const [entriesRes, summaryRes, catsRes, relStockRes] = await Promise.all([
+      const [entriesRes, summaryRes, catsRes] = await Promise.all([
         axios.get(`${API}/milling-entries?${params.toString()}`),
         axios.get(`${API}/milling-summary?${params.toString()}`),
         axios.get(`${API}/byproduct-categories`),
-        axios.get(`${API}/paddy-release/stock?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`),
       ]);
       setEntries(entriesRes.data);
       setSummary(summaryRes.data);
       setBpCategories(catsRes.data || []);
-      setReleaseStock(relStockRes.data);
     } catch (error) {
       toast.error("Milling data load nahi hua");
     } finally { setLoading(false); }
@@ -159,13 +156,6 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
                 <div><span className="text-slate-400 text-xs">Used:</span> <span className="text-orange-400 font-bold">{paddyStock.total_paddy_used_qntl} Q</span></div>
                 <div><span className="text-slate-400 text-xs">Avl:</span> <span className={`font-bold ${paddyStock.available_paddy_qntl > 0 ? 'text-green-400' : 'text-red-400'}`}>{paddyStock.available_paddy_qntl} Q</span></div>
               </div>
-              {releaseStock && releaseStock.total_released > 0 && (
-                <div className="flex items-center gap-3 text-sm flex-wrap mt-1 pt-1 border-t border-slate-700/50">
-                  <div><span className="text-slate-400 text-xs">Released:</span> <span className="text-amber-400 font-bold">{releaseStock.total_released} Q</span></div>
-                  <div><span className="text-slate-400 text-xs">Milled:</span> <span className="text-orange-400 font-bold">{releaseStock.total_milled} Q</span></div>
-                  <div><span className="text-slate-400 text-xs">Avl (Release):</span> <span className={`font-bold ${releaseStock.available_for_milling > 0 ? 'text-green-400' : 'text-red-400'}`}>{releaseStock.available_for_milling} Q</span></div>
-                </div>
-              )}
             </CardContent>
           </Card>
         )}
@@ -793,7 +783,6 @@ const MillingTracker = ({ filters, user }) => {
   useEffect(() => { fetchStocks(); }, [fetchStocks]);
 
   const tabs = [
-    { id: "release", label: "Paddy Release" },
     { id: "milling", label: "Milling Entries" },
     { id: "chalna", label: "Paddy Chalna" },
   ];
@@ -805,190 +794,17 @@ const MillingTracker = ({ filters, user }) => {
           <Button key={t.id} onClick={() => setSubTab(t.id)} variant={subTab === t.id ? "default" : "ghost"} size="sm"
             className={subTab === t.id ? "bg-amber-500 hover:bg-amber-600 text-slate-900" : "text-slate-300 hover:bg-slate-700"}
             data-testid={`subtab-${t.id}`}>
-            {t.id === 'release' && <Unlock className="w-4 h-4 mr-1" />}
             {t.id === 'custody' && <ClipboardList className="w-4 h-4 mr-1" />}
             {t.id === 'chalna' && <Scissors className="w-4 h-4 mr-1" />}
             {t.label}
           </Button>
         ))}
       </div>
-      {subTab === "release" && <PaddyReleaseTab filters={filters} user={user} paddyStock={paddyStock} onRefresh={fetchStocks} />}
       {subTab === "milling" && <MillingEntriesTab filters={filters} user={user} paddyStock={paddyStock} frkStock={frkStock} onRefresh={fetchStocks} />}
       {subTab === "chalna" && <PaddyChalnaTab filters={filters} />}
     </div>
   );
 };
 
-// ===== Sub-tab: Paddy Release =====
-const PaddyReleaseTab = ({ filters, user, paddyStock, onRefresh }) => {
-  const showConfirm = useConfirm();
-  const [releases, setReleases] = useState([]);
-  const [releaseStock, setReleaseStock] = useState(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({
-    date: new Date().toISOString().split("T")[0], qty_qtl: "", ro_number: "", source: "CMR",
-    kms_year: filters.kms_year || "", season: filters.season || "",
-  });
-
-  const fetchData = useCallback(async () => {
-    try {
-      const params = new URLSearchParams();
-      if (filters.kms_year) params.append("kms_year", filters.kms_year);
-      if (filters.season) params.append("season", filters.season);
-      const [relRes, stockRes] = await Promise.all([
-        axios.get(`${API}/paddy-release?${params}`),
-        axios.get(`${API}/paddy-release/stock?${params}`),
-      ]);
-      setReleases(relRes.data);
-      setReleaseStock(stockRes.data);
-    } catch (e) { logger.error(e); }
-  }, [filters.kms_year, filters.season]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  const totalReleased = releases.reduce((s, r) => s + (r.qty_qtl || 0), 0);
-
-  const openNew = () => {
-    setEditingId(null);
-    setForm({ date: new Date().toISOString().split("T")[0], qty_qtl: "", ro_number: "", source: "CMR",
-      kms_year: filters.kms_year || "", season: filters.season || "" });
-    setIsFormOpen(true);
-  };
-
-  const openEdit = (item) => {
-    setEditingId(item.id);
-    setForm({ date: item.date || "", qty_qtl: String(item.qty_qtl || ""), ro_number: item.ro_number || "",
-      source: item.source || "CMR", kms_year: item.kms_year || "", season: item.season || "" });
-    setIsFormOpen(true);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const qty = parseFloat(form.qty_qtl);
-    if (!qty || qty <= 0) { toast.error("Qty daalen"); return; }
-    try {
-      if (editingId) {
-        await axios.put(`${API}/paddy-release/${editingId}?username=${user.username}`, form);
-        toast.success("Updated!");
-      } else {
-        await axios.post(`${API}/paddy-release?username=${user.username}`, form);
-        toast.success("Paddy Released!");
-      }
-      setIsFormOpen(false); fetchData(); if (onRefresh) onRefresh();
-    } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
-  };
-
-  const handleDelete = async (id) => {
-    if (!await showConfirm("Delete", "Release delete karein?")) return;
-    try { await axios.delete(`${API}/paddy-release/${id}`); toast.success("Deleted!"); fetchData(); if (onRefresh) onRefresh(); } catch (e) { toast.error("Error"); }
-  };
-
-  return (
-    <div className="space-y-4" data-testid="paddy-release-tab">
-      {/* Stock Cards */}
-      <div className="grid grid-cols-4 gap-3">
-        <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3 text-center">
-          <p className="text-[10px] text-slate-400">Available Paddy (Overall)</p>
-          <p className="text-lg font-bold text-blue-400">{paddyStock ? paddyStock.available_paddy_qntl : 0} <span className="text-xs text-slate-400">Qtl</span></p>
-        </CardContent></Card>
-        <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3 text-center">
-          <p className="text-[10px] text-slate-400">Total Released</p>
-          <p className="text-lg font-bold text-amber-400">{totalReleased.toLocaleString()} <span className="text-xs text-slate-400">Qtl</span></p>
-        </CardContent></Card>
-        <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3 text-center">
-          <p className="text-[10px] text-slate-400">Milled (from Released)</p>
-          <p className="text-lg font-bold text-orange-400">{releaseStock ? releaseStock.total_milled : 0} <span className="text-xs text-slate-400">Qtl</span></p>
-        </CardContent></Card>
-        <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3 text-center">
-          <p className="text-[10px] text-slate-400">Available for Milling</p>
-          <p className={`text-lg font-bold ${(releaseStock?.available_for_milling || 0) > 0 ? 'text-green-400' : 'text-red-400'}`}>{releaseStock ? releaseStock.available_for_milling : 0} <span className="text-xs text-slate-400">Qtl</span></p>
-        </CardContent></Card>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-400">Paddy godown se release karein - Milling sirf released paddy se hogi</p>
-        <Button onClick={openNew} size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900" data-testid="paddy-release-add">
-          <Plus className="w-4 h-4 mr-1" /> New Release
-        </Button>
-      </div>
-
-      <Card className="bg-slate-800/50 border-slate-700">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-slate-700 hover:bg-transparent">
-                <TableHead className="text-slate-300 text-[10px] py-2 px-2">Date</TableHead>
-                <TableHead className="text-slate-300 text-[10px] py-2 px-2">RO Number</TableHead>
-                <TableHead className="text-slate-300 text-[10px] py-2 px-2">Source</TableHead>
-                <TableHead className="text-slate-300 text-[10px] py-2 px-2 text-right">Qty (Qtl)</TableHead>
-                <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[80px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {releases.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-6">Koi paddy release nahi hai</TableCell></TableRow>
-              ) : releases.map(r => (
-                <TableRow key={r.id} className="border-slate-700 hover:bg-slate-700/30">
-                  <TableCell className="text-white text-[10px] px-2">{fmtDate(r.date)}</TableCell>
-                  <TableCell className="text-cyan-400 text-[10px] px-2 font-medium">{r.ro_number}</TableCell>
-                  <TableCell className="text-[10px] px-2">
-                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${r.source === 'CMR' ? 'bg-blue-900/40 text-blue-300' : r.source === 'Pvt' ? 'bg-purple-900/40 text-purple-300' : 'bg-slate-700 text-slate-300'}`}>{r.source}</span>
-                  </TableCell>
-                  <TableCell className="text-amber-400 text-[10px] px-2 text-right font-bold">{(r.qty_qtl || 0).toLocaleString()}</TableCell>
-                  <TableCell className="px-1">
-                    <div className="flex gap-0.5">
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-400" onClick={() => openEdit(r)}><Edit className="w-3 h-3" /></Button>
-                      {user.role === "admin" && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400" onClick={() => handleDelete(r.id)}><Trash2 className="w-3 h-3" /></Button>}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Form Dialog */}
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-sm" data-testid="paddy-release-form">
-          <DialogHeader><DialogTitle className="text-amber-400">{editingId ? "Edit" : "New"} Paddy Release</DialogTitle></DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div>
-              <Label className="text-[10px] text-slate-400">Date</Label>
-              <Input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
-                className="bg-slate-700 border-slate-600 text-white h-8 text-xs" required data-testid="release-date" />
-            </div>
-            <div>
-              <Label className="text-[10px] text-slate-400">Qty (Qtl) *</Label>
-              <Input type="number" step="0.01" value={form.qty_qtl} onChange={e => setForm(p => ({ ...p, qty_qtl: e.target.value }))}
-                className="bg-slate-700 border-slate-600 text-white h-8 text-xs" required data-testid="release-qty" />
-            </div>
-            <div>
-              <Label className="text-[10px] text-slate-400">RO Number</Label>
-              <Input value={form.ro_number} onChange={e => setForm(p => ({ ...p, ro_number: e.target.value }))}
-                className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="release-ro" />
-            </div>
-            <div>
-              <Label className="text-[10px] text-slate-400">Source</Label>
-              <Select value={form.source} onValueChange={v => setForm(p => ({ ...p, source: v }))}>
-                <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="release-source"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CMR">CMR (Govt Paddy)</SelectItem>
-                  <SelectItem value="Pvt">Pvt (Private Paddy)</SelectItem>
-                  <SelectItem value="OB">OB (Opening Balance)</SelectItem>
-                  <SelectItem value="Purchase">Purchase Voucher</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button type="submit" className="bg-amber-500 hover:bg-amber-600 text-slate-900 w-full" data-testid="release-submit">
-              {editingId ? "Update" : "Release Paddy"}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-};
-
 export default MillingTracker;
+

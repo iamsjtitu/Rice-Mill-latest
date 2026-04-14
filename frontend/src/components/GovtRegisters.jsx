@@ -16,6 +16,8 @@ import {
   RefreshCw, Download, FileText, Search, Truck, Shield, ArrowRightLeft
 } from "lucide-react";
 import MandiCustodyRegister from "./MandiCustodyRegister";
+import { useConfirm } from "./ConfirmProvider";
+import { Label } from "@/components/ui/label";
 import logger from "../utils/logger";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -1037,9 +1039,16 @@ function TransitPassRegister({ filters }) {
 }
 
 // ============ MILLING REGISTER ============
-function MillingRegister({ filters }) {
+function MillingRegister({ filters, user }) {
   const [data, setData] = useState({ rows: [], summary: {} });
   const [loading, setLoading] = useState(true);
+  const [releases, setReleases] = useState([]);
+  const [tpStock, setTpStock] = useState(0);
+  const [releaseStock, setReleaseStock] = useState(null);
+  const [isReleaseOpen, setIsReleaseOpen] = useState(false);
+  const [editingRelId, setEditingRelId] = useState(null);
+  const [relForm, setRelForm] = useState({ date: new Date().toISOString().split("T")[0], qty_qtl: "", ro_number: "", kms_year: "", season: "" });
+  const showConfirm = useConfirm();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -1047,8 +1056,16 @@ function MillingRegister({ filters }) {
       const params = new URLSearchParams();
       if (filters.kms_year) params.append("kms_year", filters.kms_year);
       if (filters.season) params.append("season", filters.season);
-      const res = await axios.get(`${API}/govt-registers/milling-register?${params}`);
-      setData(res.data);
+      const [regRes, relRes, relStockRes, tpRes] = await Promise.all([
+        axios.get(`${API}/govt-registers/milling-register?${params}`),
+        axios.get(`${API}/paddy-release?${params}`),
+        axios.get(`${API}/paddy-release/stock?${params}`),
+        axios.get(`${API}/govt-registers/tp-weight-stock?${params}`),
+      ]);
+      setData(regRes.data);
+      setReleases(relRes.data);
+      setReleaseStock(relStockRes.data);
+      setTpStock(tpRes.data?.total_tp_weight || 0);
     } catch (e) { logger.error(e); toast.error("Milling Register load error"); }
     setLoading(false);
   }, [filters.kms_year, filters.season]);
@@ -1057,6 +1074,38 @@ function MillingRegister({ filters }) {
 
   const fmtD = (d) => { if (!d) return ''; const p = d.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}` : d; };
   const s = data.summary || {};
+  const totalReleased = releases.reduce((acc, r) => acc + (r.qty_qtl || 0), 0);
+  const tpAfterRelease = Math.round((tpStock - totalReleased) * 100) / 100;
+
+  const openNewRelease = () => {
+    setEditingRelId(null);
+    setRelForm({ date: new Date().toISOString().split("T")[0], qty_qtl: "", ro_number: "", kms_year: filters.kms_year || "", season: filters.season || "" });
+    setIsReleaseOpen(true);
+  };
+  const openEditRelease = (r) => {
+    setEditingRelId(r.id);
+    setRelForm({ date: r.date || "", qty_qtl: String(r.qty_qtl || ""), ro_number: r.ro_number || "", kms_year: r.kms_year || "", season: r.season || "" });
+    setIsReleaseOpen(true);
+  };
+  const handleRelSubmit = async (e) => {
+    e.preventDefault();
+    const qty = parseFloat(relForm.qty_qtl);
+    if (!qty || qty <= 0) { toast.error("Qty daalen"); return; }
+    try {
+      if (editingRelId) {
+        await axios.put(`${API}/paddy-release/${editingRelId}?username=${user?.username}`, relForm);
+        toast.success("Updated!");
+      } else {
+        await axios.post(`${API}/paddy-release?username=${user?.username}`, relForm);
+        toast.success("Paddy Released!");
+      }
+      setIsReleaseOpen(false); fetchData();
+    } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
+  };
+  const handleRelDelete = async (id) => {
+    if (!await showConfirm("Delete", "Release delete karein?")) return;
+    try { await axios.delete(`${API}/paddy-release/${id}`); toast.success("Deleted!"); fetchData(); } catch (e) { toast.error("Error"); }
+  };
 
   return (
     <div className="space-y-4" data-testid="milling-register">
@@ -1088,6 +1137,67 @@ function MillingRegister({ filters }) {
           <p className="text-sm"><span className="text-teal-700 dark:text-cyan-400 font-bold">{(s.cb_rice || 0).toLocaleString()}</span> <span className="text-slate-500 text-xs">Rice</span></p>
         </CardContent></Card>
       </div>
+
+      {/* Paddy Release Section */}
+      <Card className="border">
+        <CardContent className="p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-bold text-slate-800 dark:text-amber-400">Paddy Release / धान जारी</h4>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500">TP Stock: <span className="font-bold text-blue-700 dark:text-blue-400">{tpStock.toLocaleString()} Qtl</span></span>
+              <span className="text-xs text-slate-500">Released: <span className="font-bold text-amber-600 dark:text-amber-400">{totalReleased.toLocaleString()} Qtl</span></span>
+              <span className="text-xs text-slate-500">Remaining: <span className={`font-bold ${tpAfterRelease >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{tpAfterRelease.toLocaleString()} Qtl</span></span>
+              <Button onClick={openNewRelease} size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900 h-7 text-[10px]" data-testid="paddy-release-add">
+                <Plus className="w-3 h-3 mr-1" /> Release
+              </Button>
+            </div>
+          </div>
+          {releases.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[10px]">
+                <thead><tr className="border-b border-slate-300 dark:border-slate-600">
+                  <th className="text-left py-1 px-2 text-slate-600 dark:text-slate-400">Date</th>
+                  <th className="text-left py-1 px-2 text-slate-600 dark:text-slate-400">RO Number</th>
+                  <th className="text-right py-1 px-2 text-slate-600 dark:text-slate-400">Qty (Qtl)</th>
+                  <th className="py-1 px-1 w-[60px]"></th>
+                </tr></thead>
+                <tbody>
+                  {releases.map(r => (
+                    <tr key={r.id} className="border-b border-slate-200 dark:border-slate-700/50 hover:bg-blue-50/50 dark:hover:bg-slate-700/30">
+                      <td className="py-1 px-2 text-slate-800 dark:text-white">{fmtD(r.date)}</td>
+                      <td className="py-1 px-2 text-teal-700 dark:text-cyan-400 font-medium">{r.ro_number}</td>
+                      <td className="py-1 px-2 text-right text-amber-600 dark:text-amber-400 font-bold">{(r.qty_qtl || 0).toLocaleString()}</td>
+                      <td className="py-1 px-1">
+                        <div className="flex gap-0.5">
+                          <button onClick={() => openEditRelease(r)} className="text-blue-500 hover:text-blue-700 p-0.5"><Pencil className="w-3 h-3" /></button>
+                          {user?.role === "admin" && <button onClick={() => handleRelDelete(r.id)} className="text-red-500 hover:text-red-700 p-0.5"><Trash2 className="w-3 h-3" /></button>}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Release Form Dialog */}
+      <Dialog open={isReleaseOpen} onOpenChange={setIsReleaseOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-sm" data-testid="paddy-release-form">
+          <DialogHeader><DialogTitle className="text-amber-400">{editingRelId ? "Edit" : "New"} Paddy Release</DialogTitle></DialogHeader>
+          <form onSubmit={handleRelSubmit} className="space-y-3">
+            <div><Label className="text-[10px] text-slate-400">Date</Label>
+              <Input type="date" value={relForm.date} onChange={e => setRelForm(p => ({ ...p, date: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-xs" required /></div>
+            <div><Label className="text-[10px] text-slate-400">Qty (Qtl) *</Label>
+              <Input type="number" step="0.01" value={relForm.qty_qtl} onChange={e => setRelForm(p => ({ ...p, qty_qtl: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-xs" required />
+              <p className="text-[9px] text-slate-500 mt-0.5">TP Stock Available: <span className="text-green-400">{tpAfterRelease.toLocaleString()} Qtl</span></p></div>
+            <div><Label className="text-[10px] text-slate-400">RO Number</Label>
+              <Input value={relForm.ro_number} onChange={e => setRelForm(p => ({ ...p, ro_number: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-xs" /></div>
+            <Button type="submit" className="bg-amber-500 hover:bg-amber-600 text-slate-900 w-full">{editingRelId ? "Update" : "Release Paddy"}</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {loading ? <p className="text-slate-400 text-center py-8">Loading...</p> : (
         <Card className="border">
