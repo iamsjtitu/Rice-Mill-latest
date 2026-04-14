@@ -3,6 +3,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -25,7 +26,7 @@ const API = `${BACKEND_URL}/api`;
 const SUB_TABS = [
   { id: "paddy-custody", label: "Paddy Custody", desc: "Custody Register", icon: ClipboardList },
   { id: "transit-pass", label: "Transit Pass", desc: "TP Register", icon: Truck },
-  { id: "cmr-delivery", label: "CMR Delivery", desc: "OTR Tracker", icon: ArrowRightLeft },
+  { id: "milling-register", label: "Milling Register", desc: "Paddy/Rice Ledger", icon: ArrowRightLeft },
   { id: "form-a", label: "Form A", desc: "Paddy from OSCSC", icon: BookOpen },
   { id: "form-b", label: "Form B", desc: "CMR Delivery", icon: BookOpen },
   { id: "form-e", label: "Form E", desc: "Own Paddy", icon: ShoppingBag },
@@ -1035,6 +1036,117 @@ function TransitPassRegister({ filters }) {
   );
 }
 
+// ============ MILLING REGISTER ============
+function MillingRegister({ filters }) {
+  const [data, setData] = useState({ rows: [], summary: {} });
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filters.kms_year) params.append("kms_year", filters.kms_year);
+      if (filters.season) params.append("season", filters.season);
+      const res = await axios.get(`${API}/govt-registers/milling-register?${params}`);
+      setData(res.data);
+    } catch (e) { logger.error(e); toast.error("Milling Register load error"); }
+    setLoading(false);
+  }, [filters.kms_year, filters.season]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const fmtD = (d) => { if (!d) return ''; const p = d.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}` : d; };
+  const s = data.summary || {};
+
+  return (
+    <div className="space-y-4" data-testid="milling-register">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-bold text-amber-400">Milling Register / मिलिंग रजिस्टर</h3>
+        <p className="text-xs text-slate-400">Auto-computed from Milling (CMR) + DC Deliveries</p>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3 text-center">
+          <p className="text-[10px] text-slate-400">Total Paddy Received</p>
+          <p className="text-lg font-bold text-blue-400">{(s.total_paddy_received || 0).toLocaleString()} <span className="text-xs text-slate-400">Qtl</span></p>
+          <p className="text-[10px] text-slate-500">Milled: {(s.total_paddy_milled || 0).toLocaleString()} | CB: <span className="text-amber-400 font-medium">{(s.cb_paddy || 0).toLocaleString()}</span></p>
+        </CardContent></Card>
+        <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3 text-center">
+          <p className="text-[10px] text-slate-400">Total Rice Produced</p>
+          <p className="text-lg font-bold text-emerald-400">{(s.total_rice_produced || 0).toLocaleString()} <span className="text-xs text-slate-400">Qtl</span></p>
+          <p className="text-[10px] text-slate-500">Delivered: {(s.total_rice_delivered || 0).toLocaleString()} | CB: <span className="text-cyan-400 font-medium">{(s.cb_rice || 0).toLocaleString()}</span></p>
+        </CardContent></Card>
+        <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3 text-center">
+          <p className="text-[10px] text-slate-400">Closing Balances</p>
+          <p className="text-sm"><span className="text-amber-400 font-bold">{(s.cb_paddy || 0).toLocaleString()}</span> <span className="text-slate-500 text-xs">Paddy</span></p>
+          <p className="text-sm"><span className="text-cyan-400 font-bold">{(s.cb_rice || 0).toLocaleString()}</span> <span className="text-slate-500 text-xs">Rice</span></p>
+        </CardContent></Card>
+      </div>
+
+      {loading ? <p className="text-slate-400 text-center py-8">Loading...</p> : (
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardContent className="p-0 overflow-x-auto">
+            <table className="w-full text-[9px]" data-testid="milling-register-table">
+              <thead>
+                <tr className="border-b-2 border-slate-600">
+                  <th colSpan={2} className="bg-slate-700/80 text-slate-300 py-1 px-1 text-center border-r border-slate-600"></th>
+                  <th colSpan={7} className="bg-blue-900/40 text-blue-300 py-1 px-1 text-center border-r border-slate-600 font-bold">PADDY / धान</th>
+                  <th colSpan={8} className="bg-emerald-900/40 text-emerald-300 py-1 px-1 text-center font-bold">RICE / चावल</th>
+                </tr>
+                <tr className="border-b border-slate-600 bg-slate-700/50">
+                  <th className="text-slate-300 py-1.5 px-1.5 text-left sticky left-0 bg-slate-700/90 z-10">Date</th>
+                  <th className="text-slate-300 py-1.5 px-1 text-left">Month</th>
+                  <th className="text-blue-300 py-1.5 px-1 text-right border-l border-slate-600">OB</th>
+                  <th className="text-blue-300 py-1.5 px-1 text-right">Rcvd</th>
+                  <th className="text-blue-300 py-1.5 px-1 text-right">Total</th>
+                  <th className="text-blue-300 py-1.5 px-1 text-right">Issue Mill</th>
+                  <th className="text-blue-400 py-1.5 px-1 text-right">Prog Rcpt</th>
+                  <th className="text-blue-400 py-1.5 px-1 text-right">Prog Mill</th>
+                  <th className="text-amber-400 py-1.5 px-1 text-right font-bold border-r border-slate-600">CB</th>
+                  <th className="text-emerald-300 py-1.5 px-1 text-right">OB</th>
+                  <th className="text-emerald-300 py-1.5 px-1 text-right">From Mill</th>
+                  <th className="text-emerald-300 py-1.5 px-1 text-right">Total</th>
+                  <th className="text-green-400 py-1.5 px-1 text-right">Del RRC</th>
+                  <th className="text-green-400 py-1.5 px-1 text-right">Del FCI</th>
+                  <th className="text-emerald-400 py-1.5 px-1 text-right">Prog Mill</th>
+                  <th className="text-emerald-400 py-1.5 px-1 text-right">Prog Del</th>
+                  <th className="text-cyan-400 py-1.5 px-1 text-right font-bold">CB</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.rows.length === 0 ? (
+                  <tr><td colSpan={17} className="text-center text-slate-400 py-6">Koi data nahi - Milling aur Paddy entries se auto-generate hota hai</td></tr>
+                ) : data.rows.map((r, i) => (
+                  <tr key={r.date} className={`border-b border-slate-700/50 hover:bg-slate-700/30 ${i % 2 === 0 ? '' : 'bg-slate-800/30'}`}>
+                    <td className="text-white py-1 px-1.5 font-medium sticky left-0 bg-slate-800/90 z-10 whitespace-nowrap">{fmtD(r.date)}</td>
+                    <td className="text-slate-400 py-1 px-1 whitespace-nowrap">{(r.month || '').substring(0,3)}</td>
+                    <td className="text-blue-200 py-1 px-1 text-right border-l border-slate-700">{r.ob_paddy || ''}</td>
+                    <td className={`py-1 px-1 text-right ${r.rcvd_paddy ? 'text-blue-400 font-medium' : 'text-slate-600'}`}>{r.rcvd_paddy || ''}</td>
+                    <td className="text-blue-200 py-1 px-1 text-right">{r.total_paddy}</td>
+                    <td className={`py-1 px-1 text-right ${r.issue_for_milling ? 'text-orange-400 font-medium' : 'text-slate-600'}`}>{r.issue_for_milling || ''}</td>
+                    <td className="text-blue-400/60 py-1 px-1 text-right">{r.prog_rcpt_paddy}</td>
+                    <td className="text-blue-400/60 py-1 px-1 text-right">{r.prog_milling_paddy}</td>
+                    <td className="text-amber-400 py-1 px-1 text-right font-bold border-r border-slate-700">{r.cb_paddy}</td>
+                    <td className="text-emerald-200 py-1 px-1 text-right">{r.ob_rice || ''}</td>
+                    <td className={`py-1 px-1 text-right ${r.rice_from_milling ? 'text-emerald-400 font-medium' : 'text-slate-600'}`}>{r.rice_from_milling || ''}</td>
+                    <td className="text-emerald-200 py-1 px-1 text-right">{r.total_rice}</td>
+                    <td className={`py-1 px-1 text-right ${r.delivery_rrc ? 'text-green-400 font-medium' : 'text-slate-600'}`}>{r.delivery_rrc || ''}</td>
+                    <td className={`py-1 px-1 text-right ${r.delivery_fci ? 'text-green-400 font-medium' : 'text-slate-600'}`}>{r.delivery_fci || ''}</td>
+                    <td className="text-emerald-400/60 py-1 px-1 text-right">{r.prog_rice_milling}</td>
+                    <td className="text-emerald-400/60 py-1 px-1 text-right">{r.prog_rice_delivered}</td>
+                    <td className="text-cyan-400 py-1 px-1 text-right font-bold">{r.cb_rice}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 // ============ CMR DELIVERY TRACKER WITH OTR ============
 function CmrDeliveryTracker({ filters, user }) {
   const [data, setData] = useState({ entries: [], summary: {} });
@@ -1473,7 +1585,7 @@ export default function GovtRegisters({ filters: parentFilters, user }) {
       {/* Content */}
       {activeTab === "paddy-custody" && <PaddyCustodyRegister filters={localFilters} />}
       {activeTab === "transit-pass" && <TransitPassRegister filters={localFilters} />}
-      {activeTab === "cmr-delivery" && <CmrDeliveryTracker filters={localFilters} user={user} />}
+      {activeTab === "milling-register" && <MillingRegister filters={localFilters} user={user} />}
       {activeTab === "form-a" && <FormARegister filters={localFilters} />}
       {activeTab === "form-b" && <FormBRegister filters={localFilters} />}
       {activeTab === "form-e" && <FormERegister filters={localFilters} />}

@@ -1096,6 +1096,116 @@ async def export_transit_pass_pdf(kms_year: Optional[str] = None, season: Option
                              headers={"Content-Disposition": f"attachment; filename=Transit_Pass_{kms_year or 'all'}.pdf"})
 
 
+# ============ MILLING REGISTER (Paddy/Rice Daily Ledger) ============
+
+@router.get("/govt-registers/milling-register")
+async def get_milling_register(kms_year: Optional[str] = None, season: Optional[str] = None):
+    """Auto-compute daily Milling Register from mill_entries + milling_entries + dc_deliveries"""
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+
+    # 1. Paddy received daily (from mill_entries - paddy purchase entries)
+    paddy_entries = await db.mill_entries.find(query, {"_id": 0, "date": 1, "qntl": 1, "final_w": 1}).to_list(50000)
+    daily_paddy_rcvd = {}
+    for e in paddy_entries:
+        d = e.get("date", "")
+        if not d: continue
+        daily_paddy_rcvd[d] = daily_paddy_rcvd.get(d, 0) + (e.get("final_w", 0) or e.get("qntl", 0) or 0)
+
+    # 2. Paddy milled + Rice produced (from milling_entries)
+    milling = await db.milling_entries.find(query, {"_id": 0, "date": 1, "paddy_input_qntl": 1, "rice_qntl": 1, "cmr_delivery_qntl": 1}).to_list(50000)
+    daily_milled = {}
+    daily_rice_produced = {}
+    for m in milling:
+        d = m.get("date", "")
+        if not d: continue
+        daily_milled[d] = daily_milled.get(d, 0) + (m.get("paddy_input_qntl", 0) or 0)
+        rice = m.get("cmr_delivery_qntl", 0) or m.get("rice_qntl", 0) or 0
+        daily_rice_produced[d] = daily_rice_produced.get(d, 0) + rice
+
+    # 3. Rice delivered (from dc_deliveries)
+    del_query = {}
+    if kms_year: del_query["kms_year"] = kms_year
+    if season: del_query["season"] = season
+    deliveries = await db.dc_deliveries.find(del_query, {"_id": 0, "date": 1, "quantity_qntl": 1, "godown_name": 1}).to_list(50000)
+    daily_delivery_rrc = {}
+    daily_delivery_fci = {}
+    for dlv in deliveries:
+        d = dlv.get("date", "")
+        if not d: continue
+        qty = dlv.get("quantity_qntl", 0) or 0
+        godown = (dlv.get("godown_name", "") or "").lower()
+        if "fci" in godown:
+            daily_delivery_fci[d] = daily_delivery_fci.get(d, 0) + qty
+        else:
+            daily_delivery_rrc[d] = daily_delivery_rrc.get(d, 0) + qty
+
+    # Collect all dates
+    all_dates = sorted(set(list(daily_paddy_rcvd.keys()) + list(daily_milled.keys()) + list(daily_rice_produced.keys()) + list(daily_delivery_rrc.keys()) + list(daily_delivery_fci.keys())))
+
+    # Build register rows with running balances
+    rows = []
+    prog_paddy_rcvd = 0
+    prog_paddy_milled = 0
+    prog_rice_milled = 0
+    prog_rice_delivered = 0
+    cb_paddy = 0
+    cb_rice = 0
+
+    for date in all_dates:
+        rcvd = round(daily_paddy_rcvd.get(date, 0), 2)
+        milled = round(daily_milled.get(date, 0), 2)
+        rice_prod = round(daily_rice_produced.get(date, 0), 2)
+        del_rrc = round(daily_delivery_rrc.get(date, 0), 2)
+        del_fci = round(daily_delivery_fci.get(date, 0), 2)
+
+        ob_paddy = cb_paddy
+        total_paddy = round(ob_paddy + rcvd, 2)
+        cb_paddy = round(total_paddy - milled, 2)
+
+        prog_paddy_rcvd = round(prog_paddy_rcvd + rcvd, 2)
+        prog_paddy_milled = round(prog_paddy_milled + milled, 2)
+
+        ob_rice = cb_rice
+        total_rice = round(ob_rice + rice_prod, 2)
+        total_del = round(del_rrc + del_fci, 2)
+        cb_rice = round(total_rice - total_del, 2)
+
+        prog_rice_milled = round(prog_rice_milled + rice_prod, 2)
+        prog_rice_delivered = round(prog_rice_delivered + total_del, 2)
+
+        # Month name
+        try:
+            from datetime import datetime as dt
+            month = dt.strptime(date, "%Y-%m-%d").strftime("%B")
+        except: month = ""
+
+        rows.append({
+            "date": date, "month": month,
+            "ob_paddy": ob_paddy, "rcvd_paddy": rcvd, "total_paddy": total_paddy,
+            "issue_for_milling": milled,
+            "prog_rcpt_paddy": prog_paddy_rcvd, "prog_milling_paddy": prog_paddy_milled,
+            "cb_paddy": cb_paddy,
+            "ob_rice": ob_rice, "rice_from_milling": rice_prod, "total_rice": total_rice,
+            "delivery_rrc": del_rrc, "delivery_fci": del_fci,
+            "prog_rice_milling": prog_rice_milled, "prog_rice_delivered": prog_rice_delivered,
+            "cb_rice": cb_rice,
+        })
+
+    return {
+        "rows": rows,
+        "summary": {
+            "total_paddy_received": prog_paddy_rcvd,
+            "total_paddy_milled": prog_paddy_milled,
+            "cb_paddy": cb_paddy,
+            "total_rice_produced": prog_rice_milled,
+            "total_rice_delivered": prog_rice_delivered,
+            "cb_rice": cb_rice,
+        }
+    }
+
+
 # ============ CMR DELIVERY TRACKER WITH OTR ============
 
 @router.get("/govt-registers/cmr-delivery")
