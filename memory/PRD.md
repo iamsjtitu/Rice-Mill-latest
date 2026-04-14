@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v90.8.0
+## Current Version: v90.9.1
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind
@@ -30,6 +30,12 @@
 3. NEVER use sed/bash bulk replace on source code files
 4. After ANY backend modification, run `bash /app/scripts/sync-js-routes.sh`
 5. By-product list is HARDCODED in 7 products - do NOT make dynamic
+
+## Recent Changes (Feb 2026)
+- Dynamic PDF/Excel columns verified in Python backend (hides Cash/Diesel/Advance when all zero) ✅
+- Desktop JS (`desktop-app`) dynamic export columns - syntax verified ✅
+- Local Server (`local-server`) parity fix - dynamic export columns ported from desktop-app ✅
+- All 3 backends now have identical dynamic column export logic
 
 ## Prioritized Backlog
 - P3: Triple backend code deduplication
