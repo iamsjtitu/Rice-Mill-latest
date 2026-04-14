@@ -1016,6 +1016,9 @@ async function startServer() {
     const oilPremiumRoutes = require('./routes/oil_premium')(database);
     app.use(oilPremiumRoutes);
 
+    const paddyReleaseRoutes = require('./routes/paddy_release')(database);
+    app.use(paddyReleaseRoutes);
+
     console.log('  [Routes] All modular routes loaded successfully');
 
     // ===== DATE FORMAT VALIDATOR - Startup Health Check =====

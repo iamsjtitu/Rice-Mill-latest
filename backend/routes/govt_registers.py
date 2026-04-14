@@ -1115,7 +1115,15 @@ async def get_milling_register(kms_year: Optional[str] = None, season: Optional[
             ob_paddy = float(stocks.get("paddy", 0) or 0)
             ob_rice = float(stocks.get("rice_usna", 0) or 0) + float(stocks.get("rice_raw", 0) or 0)
 
-    # 1. Paddy received daily (from mill_entries - paddy purchase entries)
+    # 1. Paddy released daily (from paddy_release)
+    paddy_releases = await db.paddy_release.find(query, {"_id": 0, "date": 1, "qty_qtl": 1}).to_list(50000)
+    daily_paddy_released = {}
+    for e in paddy_releases:
+        d = e.get("date", "")
+        if not d: continue
+        daily_paddy_released[d] = daily_paddy_released.get(d, 0) + (e.get("qty_qtl", 0) or 0)
+
+    # 1b. Paddy received daily (from mill_entries - paddy purchase entries)
     paddy_entries = await db.mill_entries.find(query, {"_id": 0, "date": 1, "qntl": 1, "final_w": 1}).to_list(50000)
     daily_paddy_rcvd = {}
     for e in paddy_entries:
@@ -1152,7 +1160,7 @@ async def get_milling_register(kms_year: Optional[str] = None, season: Optional[
             daily_delivery_rrc[d] = daily_delivery_rrc.get(d, 0) + qty
 
     # Collect all dates
-    all_dates = sorted(set(list(daily_paddy_rcvd.keys()) + list(daily_milled.keys()) + list(daily_rice_produced.keys()) + list(daily_delivery_rrc.keys()) + list(daily_delivery_fci.keys())))
+    all_dates = sorted(set(list(daily_paddy_released.keys()) + list(daily_paddy_rcvd.keys()) + list(daily_milled.keys()) + list(daily_rice_produced.keys()) + list(daily_delivery_rrc.keys()) + list(daily_delivery_fci.keys())))
 
     # Build register rows with running balances
     rows = []
@@ -1166,6 +1174,7 @@ async def get_milling_register(kms_year: Optional[str] = None, season: Optional[
     initial_ob_rice = ob_rice
 
     for date in all_dates:
+        released = round(daily_paddy_released.get(date, 0), 2)
         rcvd = round(daily_paddy_rcvd.get(date, 0), 2)
         milled = round(daily_milled.get(date, 0), 2)
         rice_prod = round(daily_rice_produced.get(date, 0), 2)
@@ -1195,6 +1204,7 @@ async def get_milling_register(kms_year: Optional[str] = None, season: Optional[
 
         rows.append({
             "date": date, "month": month,
+            "paddy_released": released,
             "ob_paddy": ob_paddy, "rcvd_paddy": rcvd, "total_paddy": total_paddy,
             "issue_for_milling": milled,
             "prog_rcpt_paddy": prog_paddy_rcvd, "prog_milling_paddy": prog_paddy_milled,

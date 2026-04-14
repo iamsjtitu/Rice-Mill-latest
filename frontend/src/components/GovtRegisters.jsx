@@ -1096,13 +1096,14 @@ function MillingRegister({ filters }) {
               <thead>
                 <tr className="border-b-2 border-slate-300 dark:border-slate-600">
                   <th colSpan={2} className="bg-slate-100 dark:bg-slate-700/80 text-slate-600 dark:text-slate-300 py-1 px-1 text-center border-r border-slate-300 dark:border-slate-600"></th>
-                  <th colSpan={7} className="bg-blue-50 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 py-1.5 px-1 text-center border-r border-slate-300 dark:border-slate-600 font-bold text-[11px]">PADDY / धान</th>
+                  <th colSpan={8} className="bg-blue-50 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 py-1.5 px-1 text-center border-r border-slate-300 dark:border-slate-600 font-bold text-[11px]">PADDY / धान</th>
                   <th colSpan={8} className="bg-green-50 dark:bg-emerald-900/40 text-green-800 dark:text-emerald-300 py-1.5 px-1 text-center font-bold text-[11px]">RICE / चावल</th>
                 </tr>
                 <tr className="border-b border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50">
                   <th className="text-slate-700 dark:text-slate-300 py-1.5 px-2 text-left sticky left-0 bg-slate-50 dark:bg-slate-700/90 z-10 font-semibold">Date</th>
                   <th className="text-slate-700 dark:text-slate-300 py-1.5 px-1 text-left font-semibold">Month</th>
                   <th className="text-blue-800 dark:text-blue-300 py-1.5 px-1 text-right border-l border-slate-300 dark:border-slate-600 font-semibold">OB</th>
+                  <th className="text-amber-700 dark:text-amber-400 py-1.5 px-1 text-right font-semibold">Released</th>
                   <th className="text-blue-800 dark:text-blue-300 py-1.5 px-1 text-right font-semibold">Rcvd</th>
                   <th className="text-blue-800 dark:text-blue-300 py-1.5 px-1 text-right font-semibold">Total</th>
                   <th className="text-blue-800 dark:text-blue-300 py-1.5 px-1 text-right font-semibold">Issue Mill</th>
@@ -1121,12 +1122,13 @@ function MillingRegister({ filters }) {
               </thead>
               <tbody>
                 {data.rows.length === 0 ? (
-                  <tr><td colSpan={17} className="text-center text-slate-400 py-6">Koi data nahi - Milling aur Paddy entries se auto-generate hota hai</td></tr>
+                  <tr><td colSpan={18} className="text-center text-slate-400 py-6">Koi data nahi - Milling aur Paddy entries se auto-generate hota hai</td></tr>
                 ) : data.rows.map((r, i) => (
                   <tr key={r.date} className={`border-b border-slate-200 dark:border-slate-700/50 hover:bg-blue-50/50 dark:hover:bg-slate-700/30 ${i % 2 === 0 ? 'bg-white dark:bg-transparent' : 'bg-slate-50/80 dark:bg-slate-800/30'}`}>
                     <td className="text-slate-900 dark:text-white py-1.5 px-2 font-semibold sticky left-0 bg-inherit z-10 whitespace-nowrap">{fmtD(r.date)}</td>
                     <td className="text-slate-500 dark:text-slate-400 py-1.5 px-1 whitespace-nowrap">{(r.month || '').substring(0,3)}</td>
                     <td className="text-slate-600 dark:text-blue-200 py-1.5 px-1 text-right border-l border-slate-200 dark:border-slate-700">{r.ob_paddy || ''}</td>
+                    <td className={`py-1.5 px-1 text-right ${r.paddy_released ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-slate-300 dark:text-slate-600'}`}>{r.paddy_released || ''}</td>
                     <td className={`py-1.5 px-1 text-right ${r.rcvd_paddy ? 'text-blue-700 dark:text-blue-400 font-semibold' : 'text-slate-300 dark:text-slate-600'}`}>{r.rcvd_paddy || ''}</td>
                     <td className="text-slate-700 dark:text-blue-200 py-1.5 px-1 text-right font-medium">{r.total_paddy}</td>
                     <td className={`py-1.5 px-1 text-right ${r.issue_for_milling ? 'text-orange-600 dark:text-orange-400 font-semibold' : 'text-slate-300 dark:text-slate-600'}`}>{r.issue_for_milling || ''}</td>

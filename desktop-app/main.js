@@ -1244,6 +1244,7 @@ function createApiServer(database) {
     { name: 'govt_registers', load: () => require('./routes/govt_registers')(database) },
     { name: 'bp_sale_register', load: () => require('./routes/bp_sale_register')(database) },
     { name: 'oil_premium', load: () => require('./routes/oil_premium')(database) },
+    { name: 'paddy_release', load: () => require('./routes/paddy_release')(database) },
   ];
 
   let loadedCount = 0;
