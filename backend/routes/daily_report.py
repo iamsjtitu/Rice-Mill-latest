@@ -80,9 +80,9 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
     pvt_paid = sum(p.get("amount", 0) for p in pvt_payments if p.get("ref_type") == "paddy_purchase")
     pvt_received = sum(p.get("amount", 0) for p in pvt_payments if p.get("ref_type") == "rice_sale")
 
-    # By-product Sales
-    bp_sales = await db.byproduct_sales.find(q, {"_id": 0}).to_list(500)
-    bp_amount = sum(s.get("total_amount", 0) for s in bp_sales)
+    # By-product Sales (from bp_sale_register)
+    bp_sales = await db.bp_sale_register.find(q, {"_id": 0}).to_list(500)
+    bp_amount = sum(s.get("total", 0) or s.get("amount", 0) for s in bp_sales)
 
     # FRK Purchases
     frk = await db.frk_purchases.find(q, {"_id": 0}).to_list(500)
@@ -232,9 +232,9 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
         },
         "byproducts": {
             "count": len(bp_sales), "total_amount": round(bp_amount, 2),
-            "details": [{"type": s.get("type", ""), "buyer": s.get("buyer_name", ""),
-                "qty": s.get("quantity", 0), "rate": s.get("rate", 0),
-                "amount": s.get("total_amount", 0)} for s in bp_sales] if is_detail else []
+            "details": [{"type": s.get("product", ""), "buyer": s.get("party_name", ""),
+                "qty": s.get("net_weight_kg", 0), "rate": s.get("rate_per_qtl", 0),
+                "amount": s.get("total", 0) or s.get("amount", 0)} for s in bp_sales] if is_detail else []
         },
         "frk": {
             "count": len(frk), "total_qntl": round(frk_qntl, 2), "total_amount": round(frk_amount, 2),

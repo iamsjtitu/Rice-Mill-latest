@@ -36,9 +36,9 @@ async def report_cmr_vs_dc(kms_year: Optional[str] = None, season: Optional[str]
     # Comparison
     cmr_surplus = round(total_cmr - total_dc_allotted, 2)
     delivery_gap = round(total_cmr - total_dc_delivered, 2)  # CMR ready but not delivered
-    # By-product revenue
-    bp_sales = await db.byproduct_sales.find(query, {"_id": 0}).to_list(5000)
-    bp_revenue = round(sum(s.get("total_amount", 0) for s in bp_sales), 2)
+    # By-product revenue (from new bp_sale_register)
+    bp_sales = await db.bp_sale_register.find(query, {"_id": 0}).to_list(5000)
+    bp_revenue = round(sum(s.get("total", 0) or s.get("amount", 0) for s in bp_sales), 2)
     return {
         "milling": {"total_paddy_milled": total_paddy_milled, "total_rice_produced": total_rice_produced, "total_frk_used": total_frk_used, "total_cmr_ready": total_cmr, "avg_outturn_pct": avg_outturn, "milling_count": len(milling)},
         "dc": {"total_allotted": total_dc_allotted, "total_delivered": total_dc_delivered, "total_pending": total_dc_pending, "dc_count": len(dcs), "delivery_count": len(deliveries)},
@@ -56,8 +56,8 @@ async def report_season_pnl(kms_year: Optional[str] = None, season: Optional[str
     # Income
     msp_payments = await db.msp_payments.find(query, {"_id": 0}).to_list(5000)
     msp_income = round(sum(p.get("amount", 0) for p in msp_payments), 2)
-    bp_sales = await db.byproduct_sales.find(query, {"_id": 0}).to_list(5000)
-    bp_income = round(sum(s.get("total_amount", 0) for s in bp_sales), 2)
+    bp_sales = await db.bp_sale_register.find(query, {"_id": 0}).to_list(5000)
+    bp_income = round(sum(s.get("total", 0) or s.get("amount", 0) for s in bp_sales), 2)
     # Expenses
     frk_purchases = await db.frk_purchases.find(query, {"_id": 0}).to_list(5000)
     frk_cost = round(sum(p.get("total_amount", 0) for p in frk_purchases), 2)
