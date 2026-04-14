@@ -202,7 +202,7 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
     has_remark = any(s.get('remark') for s in sales)
 
     # Build dynamic headers and column config
-    cols = [('S.No', 5, 'sno')]
+    cols = [('V.No', 8, 'voucher_no')]
     cols.append(('Date', 10, 'date'))
     if has_bill_no: cols.append(('Bill No', 10, 'bill_number'))
     if has_billing_date: cols.append(('Billing Date', 10, 'billing_date'))
@@ -268,7 +268,7 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
         op = oil_map.get(s.get('voucher_no') or '') or oil_map.get(s.get('rst_no') or '')
         if op: t_oil_premium += op.get('premium_amount', 0)
         for col_idx, key in enumerate(keys, 1):
-            if key == 'sno': val = idx + 1
+            if key == 'voucher_no': val = s.get('voucher_no', '') or ''
             elif key == 'date': val = fmt_date(s.get('date', ''))
             elif key == 'billing_date': val = fmt_date(s.get('billing_date', ''))
             elif key == 'net_weight_qtl': val = round(s.get('net_weight_qtl', 0), 2)
@@ -411,13 +411,13 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
     has_adv = any(s.get('advance', 0) for s in sales)
 
     # Build dynamic columns: (header, width, key)
-    pdf_cols = [('S.No', 22, 'sno'), ('Date', 42, 'date')]
+    pdf_cols = [('V.No', 28, 'voucher_no'), ('Date', 42, 'date')]
     if has_bill_no: pdf_cols.append(('Bill No', 40, 'bill_number'))
     if has_rst: pdf_cols.append(('RST', 28, 'rst_no'))
     if has_vehicle: pdf_cols.append(('Vehicle', 48, 'vehicle_no'))
     if has_bill_from: pdf_cols.append(('Bill From', 55, 'bill_from'))
     pdf_cols.append(('Party', 65, 'party_name'))
-    if has_dest: pdf_cols.append(('Dest', 45, 'destination'))
+    if has_dest: pdf_cols.append(('Destination', 50, 'destination'))
     pdf_cols.append(('N/W(Kg)', 40, 'net_weight_kg'))
     if has_bags: pdf_cols.append(('Bags', 28, 'bags'))
     pdf_cols.append(('Rate/Q', 38, 'rate_per_qtl'))
@@ -455,7 +455,7 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
         if op: t_oil_prem_pdf += op.get('premium_amount', 0)
         row_data = []
         for key in col_keys:
-            if key == 'sno': row_data.append(idx + 1)
+            if key == 'voucher_no': row_data.append(s.get('voucher_no', '') or '')
             elif key == 'date': row_data.append(fmt_date(s.get('date', '')))
             elif key == 'party_name': row_data.append((s.get('party_name', '') or '')[:16])
             elif key == 'bill_from': row_data.append((s.get('bill_from', '') or '')[:14])

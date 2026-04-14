@@ -158,7 +158,7 @@ module.exports = function(database) {
       };
 
       // Build dynamic columns
-      const cols = [{h:'S.No',k:'sno',w:5},{h:'Date',k:'date',w:10}];
+      const cols = [{h:'V.No',k:'vno',w:8},{h:'Date',k:'date',w:10}];
       if (has.bill) cols.push({h:'Bill No',k:'bill',w:10});
       if (has.billing_date) cols.push({h:'Bill Date',k:'bdate',w:10});
       if (has.rst) cols.push({h:'RST',k:'rst',w:8});
@@ -183,7 +183,7 @@ module.exports = function(database) {
       ws.columns = cols.map(c => ({header:c.h, key:c.k, width:c.w}));
       sales.forEach((s, i) => {
         const op = oilMap[s.voucher_no||''] || oilMap[s.rst_no||''];
-        const row = {sno:i+1, date:fmtDate(s.date), party:s.party_name||'', nwkg:s.net_weight_kg||0, nwqtl:+(((s.net_weight_kg||0)/100).toFixed(2)), rate:s.rate_per_qtl||0, amount:s.amount||0, total:s.total||0, balance:s.balance||0};
+        const row = {vno:s.voucher_no||'', date:fmtDate(s.date), party:s.party_name||'', nwkg:s.net_weight_kg||0, nwqtl:+(((s.net_weight_kg||0)/100).toFixed(2)), rate:s.rate_per_qtl||0, amount:s.amount||0, total:s.total||0, balance:s.balance||0};
         if (has.bill) row.bill = s.bill_number||'';
         if (has.billing_date) row.bdate = fmtDate(s.billing_date);
         if (has.rst) row.rst = s.rst_no||'';
@@ -251,13 +251,13 @@ module.exports = function(database) {
       };
 
       // Build dynamic columns: [header, width, key]
-      const pc = [['S.No',22,'sno'],['Date',42,'date']];
+      const pc = [['V.No',28,'voucher_no'],['Date',42,'date']];
       if (has.bill) pc.push(['Bill',40,'bill_number']);
       if (has.rst) pc.push(['RST',28,'rst_no']);
       if (has.vehicle) pc.push(['Vehicle',48,'vehicle_no']);
       if (has.billfrom) pc.push(['BillFrom',55,'bill_from']);
       pc.push(['Party',65,'party_name']);
-      if (has.dest) pc.push(['Dest',45,'destination']);
+      if (has.dest) pc.push(['Destination',50,'destination']);
       pc.push(['NW(Kg)',40,'net_weight_kg']);
       if (has.bags) pc.push(['Bags',28,'bags']);
       pc.push(['Rate/Q',38,'rate_per_qtl'],['Amount',50,'amount']);
@@ -282,7 +282,7 @@ module.exports = function(database) {
       const rows = sales.map((s,i) => {
         const op = oilMapPdf[s.voucher_no||''] || oilMapPdf[s.rst_no||''];
         return keys.map(k => {
-          if (k === 'sno') return i+1;
+          if (k === 'voucher_no') return s.voucher_no||'';
           if (k === 'date') return fmtDate(s.date);
           if (k === 'party_name') return (s.party_name||'').substring(0,14);
           if (k === 'bill_from') return (s.bill_from||'').substring(0,12);
