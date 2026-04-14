@@ -39,32 +39,55 @@ def draw_watermark_on_page(canvas, doc_template):
         if text:
             font_size = int(settings.get("font_size", 52))
             rotation = int(settings.get("rotation", 45))
-            try:
-                font_name = "FreeSansBold"
-                canvas.setFont(font_name, font_size)
-            except Exception:
-                font_name = "Helvetica-Bold"
-                canvas.setFont(font_name, font_size)
-            # Tile watermark across the full page
+            # Convert watermark text to image tiles (non-selectable, no backslash on click)
             import math
-            from reportlab.pdfbase.pdfmetrics import stringWidth
-            step_x = max(font_size * len(text) * 0.45, 200)
-            step_y = max(font_size * 2.5, 150)
-            for y in range(int(-h * 0.5), int(h * 1.5), int(step_y)):
-                for x in range(int(-w * 0.5), int(w * 1.5), int(step_x)):
-                    canvas.saveState()
-                    canvas.translate(x, y)
-                    canvas.rotate(rotation)
-                    canvas.setFillAlpha(opacity)
-                    canvas.setFillColorRGB(0.6, 0.6, 0.6)
-                    canvas.setFont(font_name, font_size)
-                    # Draw as filled text path (non-selectable vector outlines)
-                    tw = stringWidth(text, font_name, font_size)
-                    p = canvas.beginPath()
-                    p.moveTo(-tw / 2, 0)
-                    canvas.setFont(font_name, font_size)
-                    canvas.drawCentredString(0, 0, text)
-                    canvas.restoreState()
+            from PIL import Image, ImageDraw, ImageFont
+            from io import BytesIO as PILBytesIO
+            from reportlab.lib.utils import ImageReader
+
+            # Create a single watermark tile image with text
+            scale = 2  # higher res
+            try:
+                pil_font = ImageFont.truetype("/usr/share/fonts/truetype/freefont/FreeSansBold.ttf", font_size * scale)
+            except Exception:
+                try:
+                    pil_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size * scale)
+                except Exception:
+                    pil_font = ImageFont.load_default()
+
+            # Measure text
+            dummy_img = Image.new('RGBA', (1, 1), (0, 0, 0, 0))
+            dummy_draw = ImageDraw.Draw(dummy_img)
+            bbox = dummy_draw.textbbox((0, 0), text, font=pil_font)
+            txt_w = bbox[2] - bbox[0] + 20 * scale
+            txt_h = bbox[3] - bbox[1] + 10 * scale
+
+            # Draw text on transparent image
+            txt_img = Image.new('RGBA', (txt_w, txt_h), (0, 0, 0, 0))
+            txt_draw = ImageDraw.Draw(txt_img)
+            alpha_val = max(1, min(255, int(255 * opacity * 1.5)))
+            txt_draw.text((10 * scale, 2 * scale), text, fill=(153, 153, 153, alpha_val), font=pil_font)
+
+            # Rotate
+            rot_img = txt_img.rotate(rotation, expand=True, resample=Image.BICUBIC)
+            tile_w = rot_img.width / scale
+            tile_h = rot_img.height / scale
+
+            # Save to bytes
+            img_buf = PILBytesIO()
+            rot_img.save(img_buf, format='PNG')
+            img_buf.seek(0)
+            img_reader = ImageReader(img_buf)
+
+            # Tile across page
+            step_x = max(tile_w * 0.85, 200)
+            step_y = max(tile_h * 0.85, 150)
+            for py in range(int(-tile_h), int(h + tile_h), int(step_y)):
+                for px in range(int(-tile_w * 0.3), int(w + tile_w), int(step_x)):
+                    try:
+                        canvas.drawImage(img_reader, px, py, tile_w, tile_h, mask='auto')
+                    except Exception:
+                        pass
 
     elif wm_type == "image":
         img_path = settings.get("image_path", "")
