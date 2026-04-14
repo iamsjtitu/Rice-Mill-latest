@@ -26,8 +26,6 @@ const API = `${BACKEND_URL}/api`;
 
 // ============ SUB TABS CONFIG ============
 const SUB_TABS = [
-  { id: "transit-pass", label: "Transit Pass", desc: "TP Register", icon: Truck },
-  { id: "milling-register", label: "Milling Register", desc: "Paddy/Rice Ledger", icon: ArrowRightLeft },
   { id: "form-a", label: "Form A", desc: "Paddy from OSCSC", icon: BookOpen },
   { id: "form-b", label: "Form B", desc: "CMR Delivery", icon: BookOpen },
   { id: "form-e", label: "Form E", desc: "Own Paddy", icon: ShoppingBag },
@@ -881,7 +879,7 @@ function GunnyBagRegister({ filters, user }) {
 }
 
 // ============ TRANSIT PASS REGISTER (Auto from Mill Entries) ============
-function TransitPassRegister({ filters }) {
+export function TransitPassRegister({ filters }) {
   const [data, setData] = useState({ rows: [], summary: {}, filter_options: { mandis: [], agents: [] } });
   const [loading, setLoading] = useState(false);
   const [tpFilters, setTpFilters] = useState({ mandi_name: "", agent_name: "" });
@@ -1038,7 +1036,7 @@ function TransitPassRegister({ filters }) {
 }
 
 // ============ MILLING REGISTER ============
-function MillingRegister({ filters, user }) {
+export function MillingRegister({ filters, user }) {
   const [data, setData] = useState({ rows: [], summary: {} });
   const [loading, setLoading] = useState(true);
   const [releases, setReleases] = useState([]);
@@ -1649,7 +1647,7 @@ function DateFilter({ filters, onChange }) {
 
 // ============ MAIN COMPONENT ============
 export default function GovtRegisters({ filters: parentFilters, user }) {
-  const [activeTab, setActiveTab] = useState("transit-pass");
+  const [activeTab, setActiveTab] = useState("form-a");
   const [localFilters, setLocalFilters] = useState({
     kms_year: parentFilters.kms_year || "",
     season: parentFilters.season || "",
@@ -1698,8 +1696,6 @@ export default function GovtRegisters({ filters: parentFilters, user }) {
       </div>
 
       {/* Content */}
-      {activeTab === "transit-pass" && <TransitPassRegister filters={localFilters} />}
-      {activeTab === "milling-register" && <MillingRegister filters={localFilters} user={user} />}
       {activeTab === "form-a" && <FormARegister filters={localFilters} />}
       {activeTab === "form-b" && <FormBRegister filters={localFilters} />}
       {activeTab === "form-e" && <FormERegister filters={localFilters} />}
