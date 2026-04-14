@@ -7,6 +7,30 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "91.0.0",
+    date: "Apr 2026",
+    title: "v91.0.0 - Oil Premium + Milling Register + Ledger Integration",
+    items: [
+      { type: "new", text: "Oil Premium Register - Rice Bran ke andar sub-tab, auto-calculate premium (Rate x Diff% x Qty / Standard%)" },
+      { type: "new", text: "Oil Premium PDF/Excel export with party-wise summary, date-range filter, bran type filter" },
+      { type: "new", text: "Oil%, Diff%, Premium columns Sale Register table + PDF/Excel mein (Rice Bran linked)" },
+      { type: "new", text: "Milling Register - Govt Register mein Excel jaisa format, auto-computed from Paddy Release + Milling + DC Delivery" },
+      { type: "new", text: "Paddy Release in Milling Register - TP Weight stock se linked, release karne pe stock katega" },
+      { type: "new", text: "Milling Entry mein Paddy Source dropdown - Released Paddy ya Overall Stock se milling" },
+      { type: "new", text: "Milling Register PDF/Excel export - professional govt format with company header + custom fields" },
+      { type: "new", text: "Voucher No field - sabhi By-Product sale entries mein added" },
+      { type: "new", text: "Sale Voucher Payment - BP Sale Register entries bhi dropdown mein (payment receive)" },
+      { type: "new", text: "BP Sale Register - full cashbook/ledger linked (Party Ledger, Cash, Diesel, Truck, Local Party)" },
+      { type: "fix", text: "Ledger direction fix: Sale = Nikasi (maal beche), Diesel = Jama (kharida), correct accounting" },
+      { type: "fix", text: "Opening Stock (28000 Qtl paddy) ab har jagah reflect hota hai - Paddy Stock, Milling Register" },
+      { type: "fix", text: "Overall stock se released paddy minus hota hai" },
+      { type: "fix", text: "Reports mein BP Sale detail - Daily Report, CMR vs DC, Season P&L sab linked" },
+      { type: "fix", text: "Party Type dropdown mein custom types persist (manual types wapas dikhte hain)" },
+      { type: "fix", text: "Govt Rice hataya Sale Register se (already DC Payments mein), Pvt Rice default" },
+      { type: "fix", text: "PDF/Excel single A4 landscape fit, dynamic columns, V.No instead of S.No, Destination full name" },
+    ]
+  },
+  {
     version: "90.9.0",
     date: "Apr 2026",
     title: "v90.9.0 - Sales Register + Vehicle Weight + UI Improvements",
