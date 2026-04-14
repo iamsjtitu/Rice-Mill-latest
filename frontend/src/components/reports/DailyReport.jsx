@@ -781,10 +781,35 @@ const DailyReport = ({ filters }) => {
               <p className="text-[10px] text-slate-400 text-center">By-Products ({data.byproducts.count})</p>
               <p className="text-lg font-bold text-amber-400 text-center">₹{data.byproducts.total_amount.toLocaleString('en-IN')}</p>
               {isDetail && data.byproducts.details && data.byproducts.details.length > 0 && (
-                <div className="mt-1 space-y-0.5">
-                  {data.byproducts.details.map((d,i) => (
-                    <p key={`bp-${d.type}-${d.buyer}-${i}`} className="text-[10px] text-slate-400">{d.type} - {d.buyer}: ₹{d.amount?.toLocaleString('en-IN')}</p>
-                  ))}
+                <div className="mt-2 overflow-x-auto">
+                  <table className="w-full text-[9px]">
+                    <thead>
+                      <tr className="border-b border-slate-600">
+                        <th className="text-slate-400 text-left py-1 px-1">Product</th>
+                        <th className="text-slate-400 text-left py-1 px-1">Voucher</th>
+                        <th className="text-slate-400 text-left py-1 px-1">Party</th>
+                        <th className="text-slate-400 text-left py-1 px-1">Destination</th>
+                        <th className="text-slate-400 text-right py-1 px-1">N/W(Kg)</th>
+                        <th className="text-slate-400 text-right py-1 px-1">Bags</th>
+                        <th className="text-slate-400 text-right py-1 px-1">Rate/Q</th>
+                        <th className="text-slate-400 text-right py-1 px-1">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.byproducts.details.map((d,i) => (
+                        <tr key={`bp-${i}`} className="border-b border-slate-700/50">
+                          <td className="text-amber-300 py-0.5 px-1">{d.product}</td>
+                          <td className="text-cyan-400 py-0.5 px-1">{d.voucher_no}</td>
+                          <td className="text-white py-0.5 px-1">{d.party_name}</td>
+                          <td className="text-slate-300 py-0.5 px-1">{d.destination}</td>
+                          <td className="text-blue-300 py-0.5 px-1 text-right">{d.net_weight_kg?.toLocaleString('en-IN')}</td>
+                          <td className="text-slate-300 py-0.5 px-1 text-right">{d.bags || ''}</td>
+                          <td className="text-slate-300 py-0.5 px-1 text-right">{d.rate_per_qtl}</td>
+                          <td className="text-emerald-400 py-0.5 px-1 text-right font-medium">₹{d.total?.toLocaleString('en-IN')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </CardContent></Card>
