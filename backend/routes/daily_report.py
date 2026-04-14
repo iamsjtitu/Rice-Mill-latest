@@ -232,9 +232,14 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
         },
         "byproducts": {
             "count": len(bp_sales), "total_amount": round(bp_amount, 2),
-            "details": [{"type": s.get("product", ""), "buyer": s.get("party_name", ""),
-                "qty": s.get("net_weight_kg", 0), "rate": s.get("rate_per_qtl", 0),
-                "amount": s.get("total", 0) or s.get("amount", 0)} for s in bp_sales] if is_detail else []
+            "details": [{"product": s.get("product", ""), "voucher_no": s.get("voucher_no", ""),
+                "bill_number": s.get("bill_number", ""), "billing_date": s.get("billing_date", ""),
+                "rst_no": s.get("rst_no", ""), "vehicle_no": s.get("vehicle_no", ""),
+                "bill_from": s.get("bill_from", ""), "party_name": s.get("party_name", ""),
+                "destination": s.get("destination", ""),
+                "net_weight_kg": s.get("net_weight_kg", 0), "bags": s.get("bags", 0),
+                "rate_per_qtl": s.get("rate_per_qtl", 0), "amount": s.get("amount", 0),
+                "total": s.get("total", 0) or s.get("amount", 0)} for s in bp_sales] if is_detail else []
         },
         "frk": {
             "count": len(frk), "total_qntl": round(frk_qntl, 2), "total_amount": round(frk_amount, 2),
@@ -638,12 +643,53 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     if bp["count"]:
         elements.append(Paragraph(f"8. By-Product Sales ({bp['count']}) - Rs. {_fmt_amt(bp['total_amount'])}", section_style))
         if is_detail and bp.get("details"):
-            elements.append(make_table(
-                ['Type', 'Buyer', 'Qty', 'Rate', 'Amount'],
-                [[d.get("type",""), d.get("buyer",""), str(d.get("qty",0)),
-                  str(d.get("rate",0)), f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in bp["details"]],
-                [110, 120, 85, 85, 100]
-            ))
+            # Dynamic columns - only show columns with data
+            bp_dets = bp["details"]
+            has_v = any(d.get("voucher_no") for d in bp_dets)
+            has_bill = any(d.get("bill_number") for d in bp_dets)
+            has_bdate = any(d.get("billing_date") for d in bp_dets)
+            has_rst = any(d.get("rst_no") for d in bp_dets)
+            has_veh = any(d.get("vehicle_no") for d in bp_dets)
+            has_bf = any(d.get("bill_from") for d in bp_dets)
+            has_dest = any(d.get("destination") for d in bp_dets)
+            has_bags = any(d.get("bags") for d in bp_dets)
+
+            bp_headers = ['Product']
+            bp_widths = [55]
+            if has_v: bp_headers.append('Voucher'); bp_widths.append(35)
+            if has_bill: bp_headers.append('Bill No'); bp_widths.append(40)
+            if has_bdate: bp_headers.append('Bill Dt'); bp_widths.append(38)
+            if has_rst: bp_headers.append('RST'); bp_widths.append(30)
+            if has_veh: bp_headers.append('Vehicle'); bp_widths.append(45)
+            if has_bf: bp_headers.append('Bill From'); bp_widths.append(50)
+            bp_headers.append('Party'); bp_widths.append(60)
+            if has_dest: bp_headers.append('Destination'); bp_widths.append(48)
+            bp_headers.extend(['N/W(Kg)', 'Rate/Q', 'Total'])
+            bp_widths.extend([38, 35, 45])
+            if has_bags: bp_headers.insert(-3, 'Bags'); bp_widths.insert(-3, 28)
+
+            bp_rows = []
+            for d in bp_dets:
+                row = [d.get("product", "")[:12]]
+                if has_v: row.append(d.get("voucher_no", ""))
+                if has_bill: row.append(d.get("bill_number", ""))
+                if has_bdate: row.append(d.get("billing_date", "")[-5:] if d.get("billing_date") else "")
+                if has_rst: row.append(d.get("rst_no", ""))
+                if has_veh: row.append(d.get("vehicle_no", ""))
+                if has_bf: row.append((d.get("bill_from", "") or "")[:10])
+                row.append((d.get("party_name", "") or "")[:14])
+                if has_dest: row.append((d.get("destination", "") or "")[:10])
+                if has_bags: row.append(str(d.get("bags", 0) or ""))
+                row.extend([str(d.get("net_weight_kg", 0)), str(d.get("rate_per_qtl", 0)), f"Rs.{_fmt_amt(d.get('total', 0))}"])
+                bp_rows.append(row)
+
+            # Auto-fit widths
+            total_w = sum(bp_widths)
+            if total_w > 500:
+                scale = 500 / total_w
+                bp_widths = [round(w * scale) for w in bp_widths]
+
+            elements.append(make_table(bp_headers, bp_rows, bp_widths))
 
     # ===== FRK =====
     fk = data["frk"]
@@ -1017,9 +1063,43 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
         if bp["count"]:
             write_sub(f"By-Product Sales ({bp['count']}): Rs. {bp['total_amount']:,.0f}")
             if is_detail and bp.get("details"):
-                write_headers(['Type', 'Buyer', 'Qty', 'Rate', 'Amount'])
-                for d in bp["details"]:
-                    write_row([d.get("type",""), d.get("buyer",""), d.get("qty",0), d.get("rate",0), d.get("amount",0)])
+                bp_dets = bp["details"]
+                has_v = any(d.get("voucher_no") for d in bp_dets)
+                has_bill = any(d.get("bill_number") for d in bp_dets)
+                has_bdate = any(d.get("billing_date") for d in bp_dets)
+                has_rst = any(d.get("rst_no") for d in bp_dets)
+                has_veh = any(d.get("vehicle_no") for d in bp_dets)
+                has_bf = any(d.get("bill_from") for d in bp_dets)
+                has_dest = any(d.get("destination") for d in bp_dets)
+                has_bags = any(d.get("bags") for d in bp_dets)
+
+                hdrs = ['Product']
+                if has_v: hdrs.append('Voucher')
+                if has_bill: hdrs.append('Bill No')
+                if has_bdate: hdrs.append('Bill Date')
+                if has_rst: hdrs.append('RST')
+                if has_veh: hdrs.append('Vehicle')
+                if has_bf: hdrs.append('Bill From')
+                hdrs.append('Party')
+                if has_dest: hdrs.append('Destination')
+                hdrs.append('N/W(Kg)')
+                if has_bags: hdrs.append('Bags')
+                hdrs.extend(['Rate/Q', 'Amount', 'Total'])
+                write_headers(hdrs)
+                for d in bp_dets:
+                    r = [d.get("product", "")]
+                    if has_v: r.append(d.get("voucher_no", ""))
+                    if has_bill: r.append(d.get("bill_number", ""))
+                    if has_bdate: r.append(d.get("billing_date", ""))
+                    if has_rst: r.append(d.get("rst_no", ""))
+                    if has_veh: r.append(d.get("vehicle_no", ""))
+                    if has_bf: r.append(d.get("bill_from", ""))
+                    r.append(d.get("party_name", ""))
+                    if has_dest: r.append(d.get("destination", ""))
+                    r.append(d.get("net_weight_kg", 0))
+                    if has_bags: r.append(d.get("bags", 0))
+                    r.extend([d.get("rate_per_qtl", 0), d.get("amount", 0), d.get("total", 0)])
+                    write_row(r)
         if fk["count"]:
             write_sub(f"FRK Purchase ({fk['count']}): {fk['total_qntl']}Q | Rs. {fk['total_amount']:,.0f}")
             if is_detail and fk.get("details"):
