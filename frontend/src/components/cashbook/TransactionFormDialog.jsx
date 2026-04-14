@@ -42,12 +42,18 @@ const enterNav = (testId) => (e) => {
   }
 };
 
+const HARDCODED_PARTY_TYPES = ["Cash Party", "Pvt Paddy Purchase", "Rice Sale", "Diesel", "Local Party", "Truck", "Agent", "By-Product Sale", "Staff", "BP Sale"];
+
 const TransactionFormDialog = ({
   isOpen, onOpenChange, editingId,
   form, setForm, summary,
   categories, allTxns, partyBalance,
   onSubmit, bankAccounts = [],
 }) => {
+
+  // Merge hardcoded + custom party types from existing transactions
+  const customTypes = [...new Set((allTxns || []).map(t => t.party_type).filter(Boolean))];
+  const allPartyTypes = [...new Set([...HARDCODED_PARTY_TYPES, ...customTypes])].sort();
 
   const formRef = useRef(null);
 
@@ -247,15 +253,9 @@ const TransactionFormDialog = ({
               <SelectTrigger className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-party-type"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="_auto">Auto Detect</SelectItem>
-                <SelectItem value="Cash Party">Cash Party</SelectItem>
-                <SelectItem value="Pvt Paddy Purchase">Pvt Paddy Purchase</SelectItem>
-                <SelectItem value="Rice Sale">Rice Sale</SelectItem>
-                <SelectItem value="Diesel">Diesel</SelectItem>
-                <SelectItem value="Local Party">Local Party</SelectItem>
-                <SelectItem value="Truck">Truck</SelectItem>
-                <SelectItem value="Agent">Agent</SelectItem>
-                <SelectItem value="By-Product Sale">By-Product Sale</SelectItem>
-                <SelectItem value="Staff">Staff</SelectItem>
+                {allPartyTypes.map(pt => (
+                  <SelectItem key={pt} value={pt}>{pt}</SelectItem>
+                ))}
                 <SelectItem value="_manual">-- Manual (Type karein) --</SelectItem>
               </SelectContent>
             </Select>

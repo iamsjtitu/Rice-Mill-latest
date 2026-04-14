@@ -66,6 +66,9 @@ const CashBook = ({ filters, user }) => {
   const [partySummaryFilter, setPartySummaryFilter] = useState("");
   const [isObOpen, setIsObOpen] = useState(false);
   const [obList, setObList] = useState([]);
+  const OB_HARDCODED_TYPES = ["Cash Party", "Pvt Paddy Purchase", "Rice Sale", "Diesel", "Local Party", "Truck", "Agent", "By-Product Sale", "Sale Book", "BP Sale", "Staff"];
+  const obCustomTypes = [...new Set((allTxns || []).map(t => t.party_type).filter(Boolean))];
+  const obAllPartyTypes = [...new Set([...OB_HARDCODED_TYPES, ...obCustomTypes])].sort();
   const [obForm, setObForm] = useState({ party_name: "", party_type: "Cash Party", amount: "", balance_type: "jama", note: "", ob_account: "ledger" });
   const [bankAccounts, setBankAccounts] = useState([]);
   const [newBankName, setNewBankName] = useState("");
@@ -638,16 +641,9 @@ const CashBook = ({ filters, user }) => {
                 <Select value={obForm.party_type} onValueChange={v => setObForm(p => ({ ...p, party_type: v }))}>
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="ob-party-type"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Cash Party">Cash Party</SelectItem>
-                    <SelectItem value="Pvt Paddy Purchase">Pvt Paddy Purchase</SelectItem>
-                    <SelectItem value="Rice Sale">Rice Sale</SelectItem>
-                    <SelectItem value="Diesel">Diesel</SelectItem>
-                    <SelectItem value="Local Party">Local Party</SelectItem>
-                    <SelectItem value="Truck">Truck</SelectItem>
-                    <SelectItem value="Agent">Agent</SelectItem>
-                    <SelectItem value="By-Product Sale">By-Product Sale</SelectItem>
-                    <SelectItem value="Sale Book">Sale Book</SelectItem>
-                    <SelectItem value="Staff">Staff</SelectItem>
+                    {obAllPartyTypes.map(pt => (
+                      <SelectItem key={pt} value={pt}>{pt}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
