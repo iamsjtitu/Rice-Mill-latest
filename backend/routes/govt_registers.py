@@ -1105,6 +1105,16 @@ async def get_milling_register(kms_year: Optional[str] = None, season: Optional[
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
 
+    # 0. Opening Stock from settings
+    ob_paddy = 0
+    ob_rice = 0
+    if kms_year:
+        ob_doc = await db.opening_stock.find_one({"kms_year": kms_year}, {"_id": 0})
+        if ob_doc:
+            stocks = ob_doc.get("stocks", {})
+            ob_paddy = float(stocks.get("paddy", 0) or 0)
+            ob_rice = float(stocks.get("rice_usna", 0) or 0) + float(stocks.get("rice_raw", 0) or 0)
+
     # 1. Paddy received daily (from mill_entries - paddy purchase entries)
     paddy_entries = await db.mill_entries.find(query, {"_id": 0, "date": 1, "qntl": 1, "final_w": 1}).to_list(50000)
     daily_paddy_rcvd = {}
@@ -1150,8 +1160,10 @@ async def get_milling_register(kms_year: Optional[str] = None, season: Optional[
     prog_paddy_milled = 0
     prog_rice_milled = 0
     prog_rice_delivered = 0
-    cb_paddy = 0
-    cb_rice = 0
+    cb_paddy = ob_paddy
+    cb_rice = ob_rice
+    initial_ob_paddy = ob_paddy
+    initial_ob_rice = ob_rice
 
     for date in all_dates:
         rcvd = round(daily_paddy_rcvd.get(date, 0), 2)
@@ -1195,6 +1207,7 @@ async def get_milling_register(kms_year: Optional[str] = None, season: Optional[
 
     return {
         "rows": rows,
+        "opening_stock": {"paddy": initial_ob_paddy, "rice": initial_ob_rice},
         "summary": {
             "total_paddy_received": prog_paddy_rcvd,
             "total_paddy_milled": prog_paddy_milled,
@@ -1202,6 +1215,8 @@ async def get_milling_register(kms_year: Optional[str] = None, season: Optional[
             "total_rice_produced": prog_rice_milled,
             "total_rice_delivered": prog_rice_delivered,
             "cb_rice": cb_rice,
+            "ob_paddy": initial_ob_paddy,
+            "ob_rice": initial_ob_rice,
         }
     }
 
