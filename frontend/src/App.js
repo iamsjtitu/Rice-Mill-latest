@@ -969,8 +969,6 @@ function MainApp({ user, setUser, onLogout }) {
           <StaffManagement filters={filters} user={user} />
         ) : activeTab === "hemali" ? (
           <HemaliPayment filters={filters} user={user} />
-        ) : activeTab === "govt-registers" ? (
-          <GovtRegisters filters={filters} user={user} />
         ) : activeTab === "fy-summary" ? (
           <FYSummaryWithTabs filters={filters} user={user} />
         ) : activeTab === "settings" ? (
