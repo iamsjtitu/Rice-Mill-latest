@@ -136,6 +136,17 @@ module.exports = function(database) {
       if (destination) sales = sales.filter(s => (s.destination||'').toLowerCase().includes(destination.toLowerCase()));
       sales.sort((a,b) => (a.date||'').localeCompare(b.date||''));
 
+      // Oil premium map for Rice Bran
+      if (!database.data.oil_premium) database.data.oil_premium = [];
+      const oilMap = {};
+      if (product === 'Rice Bran') {
+        let opItems = [...database.data.oil_premium];
+        if (kms_year) opItems = opItems.filter(i => i.kms_year === kms_year);
+        if (season) opItems = opItems.filter(i => i.season === season);
+        opItems.forEach(op => { const k = op.voucher_no || op.rst_no || ''; if (k) oilMap[k] = op; });
+      }
+      const hasOil = Object.keys(oilMap).length > 0 && sales.some(s => oilMap[s.voucher_no||''] || oilMap[s.rst_no||'']);
+
       // Detect which optional columns have data
       const has = {
         bill: sales.some(s => s.bill_number), billing_date: sales.some(s => s.billing_date),
@@ -164,12 +175,14 @@ module.exports = function(database) {
       if (has.diesel) cols.push({h:'Diesel',k:'diesel',w:9});
       if (has.adv) cols.push({h:'Advance',k:'adv',w:8});
       cols.push({h:'Balance',k:'balance',w:12});
+      if (hasOil) { cols.push({h:'Oil%',k:'oilpct',w:8},{h:'Diff%',k:'oildiff',w:8},{h:'Premium',k:'oilprem',w:12}); }
       if (has.remark) cols.push({h:'Remark',k:'remark',w:14});
 
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet(`${product || 'BP'} Sales`);
       ws.columns = cols.map(c => ({header:c.h, key:c.k, width:c.w}));
       sales.forEach((s, i) => {
+        const op = oilMap[s.voucher_no||''] || oilMap[s.rst_no||''];
         const row = {sno:i+1, date:fmtDate(s.date), party:s.party_name||'', nwkg:s.net_weight_kg||0, nwqtl:+(((s.net_weight_kg||0)/100).toFixed(2)), rate:s.rate_per_qtl||0, amount:s.amount||0, total:s.total||0, balance:s.balance||0};
         if (has.bill) row.bill = s.bill_number||'';
         if (has.billing_date) row.bdate = fmtDate(s.billing_date);
@@ -182,6 +195,7 @@ module.exports = function(database) {
         if (has.cash) row.cash = s.cash_paid||0;
         if (has.diesel) row.diesel = s.diesel_paid||0;
         if (has.adv) row.adv = s.advance||0;
+        if (hasOil) { row.oilpct = op ? op.actual_oil_pct : ''; row.oildiff = op ? +(op.difference_pct||0).toFixed(2) : ''; row.oilprem = op ? +(op.premium_amount||0).toFixed(2) : ''; }
         if (has.remark) row.remark = s.remark||'';
         ws.addRow(row);
       });
@@ -216,6 +230,17 @@ module.exports = function(database) {
       if (destination) sales = sales.filter(s => (s.destination||'').toLowerCase().includes(destination.toLowerCase()));
       sales.sort((a,b) => (a.date||'').localeCompare(b.date||''));
 
+      // Oil premium map for Rice Bran
+      if (!database.data.oil_premium) database.data.oil_premium = [];
+      const oilMapPdf = {};
+      if (product === 'Rice Bran') {
+        let opList = [...database.data.oil_premium];
+        if (kms_year) opList = opList.filter(i => i.kms_year === kms_year);
+        if (season) opList = opList.filter(i => i.season === season);
+        opList.forEach(op => { const k = op.voucher_no || op.rst_no || ''; if (k) oilMapPdf[k] = op; });
+      }
+      const hasOilPdf = Object.keys(oilMapPdf).length > 0 && sales.some(s => oilMapPdf[s.voucher_no||''] || oilMapPdf[s.rst_no||'']);
+
       // Detect which optional columns have data
       const has = {
         bill: sales.some(s => s.bill_number), rst: sales.some(s => s.rst_no),
@@ -242,6 +267,7 @@ module.exports = function(database) {
       if (has.diesel) pc.push(['Diesel',38,'diesel_paid']);
       if (has.adv) pc.push(['Adv',32,'advance']);
       pc.push(['Balance',48,'balance']);
+      if (hasOilPdf) { pc.push(['Oil%',30,'oil_pct'],['Diff%',30,'oil_diff'],['Premium',45,'oil_premium']); }
 
       const doc = new PDFDocument({size:'A4',layout:'landscape',margin:20});
       res.setHeader('Content-Type','application/pdf');
@@ -253,15 +279,21 @@ module.exports = function(database) {
       const headers = pc.map(c => c[0]);
       const colWidths = pc.map(c => c[1]);
       const keys = pc.map(c => c[2]);
-      const rows = sales.map((s,i) => keys.map(k => {
-        if (k === 'sno') return i+1;
-        if (k === 'date') return fmtDate(s.date);
-        if (k === 'party_name') return (s.party_name||'').substring(0,14);
-        if (k === 'bill_from') return (s.bill_from||'').substring(0,12);
-        if (k === 'destination') return (s.destination||'').substring(0,10);
-        if (['amount','tax_amount','total','balance'].includes(k)) return Math.round(s[k]||0);
-        return s[k]||0;
-      }));
+      const rows = sales.map((s,i) => {
+        const op = oilMapPdf[s.voucher_no||''] || oilMapPdf[s.rst_no||''];
+        return keys.map(k => {
+          if (k === 'sno') return i+1;
+          if (k === 'date') return fmtDate(s.date);
+          if (k === 'party_name') return (s.party_name||'').substring(0,14);
+          if (k === 'bill_from') return (s.bill_from||'').substring(0,12);
+          if (k === 'destination') return (s.destination||'').substring(0,10);
+          if (['amount','tax_amount','total','balance'].includes(k)) return Math.round(s[k]||0);
+          if (k === 'oil_pct') return op ? `${op.actual_oil_pct}%` : '';
+          if (k === 'oil_diff') { if (!op) return ''; const d=op.difference_pct||0; return `${d>0?'+':''}${d.toFixed(2)}%`; }
+          if (k === 'oil_premium') return op ? Math.round(op.premium_amount||0) : '';
+          return s[k]||0;
+        });
+      });
       addPdfTable(doc, headers, rows, colWidths);
       await safePdfPipe(doc, res);
     } catch(e) { res.status(500).json({detail:'PDF failed: '+e.message}); }

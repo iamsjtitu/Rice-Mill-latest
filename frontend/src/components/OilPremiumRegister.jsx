@@ -8,9 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Edit, Search, Eye, Download } from "lucide-react";
+import { Plus, Trash2, Edit, Search, Eye, Download, Filter } from "lucide-react";
 import { fmtDate } from "@/utils/date";
 import { useConfirm } from "./ConfirmProvider";
+import { useCloseFiltersOnEsc } from "../utils/useCloseFiltersOnEsc";
 import logger from "../utils/logger";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -24,6 +25,9 @@ export default function OilPremiumRegister({ filters, user }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewItem, setViewItem] = useState(null);
   const [lookupLoading, setLookupLoading] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  useCloseFiltersOnEsc(setShowFilters);
+  const [filterValues, setFilterValues] = useState({ date_from: "", date_to: "", party_name: "", bran_type: "" });
 
   const blankForm = {
     date: new Date().toISOString().split("T")[0],
@@ -126,11 +130,18 @@ export default function OilPremiumRegister({ filters, user }) {
   };
 
   const filtered = items.filter(i => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (i.party_name || "").toLowerCase().includes(q) ||
-      (i.voucher_no || "").toLowerCase().includes(q) ||
-      (i.rst_no || "").toLowerCase().includes(q);
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      if (!(i.party_name || "").toLowerCase().includes(q) &&
+        !(i.voucher_no || "").toLowerCase().includes(q) &&
+        !(i.rst_no || "").toLowerCase().includes(q)) return false;
+    }
+    const f = filterValues;
+    if (f.date_from && (i.date || "") < f.date_from) return false;
+    if (f.date_to && (i.date || "") > f.date_to) return false;
+    if (f.party_name && !(i.party_name || "").toLowerCase().includes(f.party_name.toLowerCase())) return false;
+    if (f.bran_type && i.bran_type !== f.bran_type) return false;
+    return true;
   });
 
   const totalPremium = filtered.reduce((s, i) => s + (i.premium_amount || 0), 0);
@@ -140,8 +151,16 @@ export default function OilPremiumRegister({ filters, user }) {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
     if (filters.season) params.append('season', filters.season);
+    const f = filterValues;
+    if (f.date_from) params.append('date_from', f.date_from);
+    if (f.date_to) params.append('date_to', f.date_to);
+    if (f.party_name) params.append('party_name', f.party_name);
+    if (f.bran_type) params.append('bran_type', f.bran_type);
     return params;
   };
+
+  const hasActiveFilters = Object.values(filterValues).some(v => v);
+  const clearFilters = () => setFilterValues({ date_from: "", date_to: "", party_name: "", bran_type: "" });
 
   return (
     <div className="space-y-3" data-testid="oil-premium-register">
@@ -182,6 +201,45 @@ export default function OilPremiumRegister({ filters, user }) {
             <Plus className="w-4 h-4 mr-1" /> New Oil Premium
           </Button>
         </div>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="space-y-2">
+        <Button onClick={() => setShowFilters(p => !p)} variant="ghost" size="sm"
+          className={`text-xs ${hasActiveFilters ? 'text-amber-400' : 'text-slate-400'} hover:bg-slate-700`} data-testid="oil-filter-toggle">
+          <Filter className="w-3 h-3 mr-1" /> Filters {hasActiveFilters && `(Active)`}
+          {hasActiveFilters && <button onClick={(e) => { e.stopPropagation(); clearFilters(); }} className="ml-2 text-red-400 hover:text-red-300 text-[10px]">Clear</button>}
+        </Button>
+        {showFilters && (
+          <div className="grid grid-cols-4 gap-2 p-2 bg-slate-800/80 rounded border border-slate-700">
+            <div>
+              <Label className="text-[9px] text-slate-500">Date From</Label>
+              <Input type="date" value={filterValues.date_from} onChange={e => setFilterValues(p => ({ ...p, date_from: e.target.value }))}
+                className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+            </div>
+            <div>
+              <Label className="text-[9px] text-slate-500">Date To</Label>
+              <Input type="date" value={filterValues.date_to} onChange={e => setFilterValues(p => ({ ...p, date_to: e.target.value }))}
+                className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+            </div>
+            <div>
+              <Label className="text-[9px] text-slate-500">Party Name</Label>
+              <Input value={filterValues.party_name} onChange={e => setFilterValues(p => ({ ...p, party_name: e.target.value }))} placeholder="Party"
+                className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+            </div>
+            <div>
+              <Label className="text-[9px] text-slate-500">Bran Type</Label>
+              <Select value={filterValues.bran_type || "all"} onValueChange={v => setFilterValues(p => ({ ...p, bran_type: v === "all" ? "" : v }))}>
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="Raw">Raw</SelectItem>
+                  <SelectItem value="Boiled">Boiled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
       </div>
 
       <Card className="bg-slate-800/50 border-slate-700">

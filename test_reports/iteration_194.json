@@ -1,0 +1,88 @@
+{
+  "summary": "Oil Premium Enhancements - Iteration 194 PASSED. All 14 backend API tests passed. Frontend UI verified: Rice Bran Sales Register shows Oil%, Diff%, Premium columns when oil_premium data exists. Oil Premium Register has date-range, party, bran_type filters with ESC key close. Export buttons work with filter params.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_oil_premium_enhancements.py",
+    "/app/test_reports/pytest/pytest_results_iteration194.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_oil_premium_enhancements.py"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 tests passed)",
+    "frontend": "100% (All UI tests passed)"
+  },
+  "test_credentials": "admin/admin123",
+  "seed_data_creation": "Test data created and cleaned up during tests",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Oil Premium Enhancements verified. Key features: (1) Rice Bran Sales Register table shows Oil%, Diff%, Premium columns when oil_premium entries exist for linked sales via voucher_no/rst_no. (2) Oil Premium Register has filters: date_from, date_to, party_name, bran_type. (3) ESC key closes filter panels. (4) Export endpoints (Excel/PDF) accept filter params. (5) Negative premium (deduction) shows in red. Standard Oil%: Raw=22%, Boiled=25%.",
+  "tests_executed": {
+    "backend_api_tests": [
+      "GET /api/bp-sale-register?product=Rice Bran - PASS",
+      "POST /api/bp-sale-register (Rice Bran with voucher_no) - PASS",
+      "GET /api/oil-premium with kms_year filter - PASS",
+      "GET /api/oil-premium with bran_type filter - PASS",
+      "POST /api/oil-premium (Boiled positive premium) - PASS (premium=2400 for Rate=3000, Actual=27%, Qty=10)",
+      "POST /api/oil-premium (Raw negative premium/deduction) - PASS (premium<0 for Actual=20%, Standard=22%)",
+      "GET /api/oil-premium/lookup-sale by voucher_no - PASS",
+      "GET /api/oil-premium/lookup-sale (404 for non-existent) - PASS",
+      "GET /api/oil-premium/lookup-sale (400 when no params) - PASS",
+      "GET /api/bp-sale-register/export/excel?product=Rice Bran - PASS",
+      "GET /api/bp-sale-register/export/pdf?product=Rice Bran - PASS",
+      "GET /api/oil-premium/export/excel with date_from, date_to, party_name, bran_type filters - PASS",
+      "GET /api/oil-premium/export/pdf with filters - PASS",
+      "Integration: Create Rice Bran sale + Oil Premium with same voucher_no, verify linkage - PASS"
+    ],
+    "frontend_ui_tests": [
+      "1. Login with admin/admin123 - PASS",
+      "2. Navigate to Register > Sales Register > Rice Bran - PASS",
+      "3. Rice Bran sub-tabs visible (Sales Register / Oil Premium) - PASS",
+      "4. BP Sale Register table shows Oil%, Diff%, Premium columns - PASS (columns visible when oil_premium data exists)",
+      "5. BP Sale Register filter panel with date inputs - PASS (4 date inputs)",
+      "6. ESC key closes BP Sale Register filters - PASS",
+      "7. Oil Premium sub-tab navigation - PASS",
+      "8. Oil Premium Register filters: date_from, date_to - PASS (2 date inputs)",
+      "9. Oil Premium Register party_name filter - PASS",
+      "10. Oil Premium Register bran_type dropdown filter - PASS",
+      "11. ESC key closes Oil Premium filters - PASS",
+      "12. Excel export button present - PASS",
+      "13. PDF export button present - PASS",
+      "14. Oil Premium table columns (Date, Voucher, RST, Type, Party, Rate, Qty, Std%, Actual%, Diff%, Premium) - PASS"
+    ]
+  },
+  "features_verified": {
+    "rice_bran_sales_register_oil_columns": {
+      "columns_added": ["Oil%", "Diff%", "Premium"],
+      "visibility": "Only shown when oil_premium entries exist for linked sales",
+      "linkage": "Via voucher_no or rst_no field"
+    },
+    "bp_sale_register_exports": {
+      "excel": "Includes Oil%, Diff%, Premium columns for Rice Bran when oil_premium data exists",
+      "pdf": "Includes Oil%, Diff%, Premium columns for Rice Bran when oil_premium data exists",
+      "negative_premium_styling": "Red color for negative premium (deduction)"
+    },
+    "oil_premium_register_filters": {
+      "date_from": "Date range start filter",
+      "date_to": "Date range end filter",
+      "party_name": "Party name text filter",
+      "bran_type": "Dropdown filter (All/Raw/Boiled)",
+      "esc_key_close": "ESC key closes filter panel"
+    },
+    "oil_premium_exports": {
+      "excel": "Accepts date_from, date_to, party_name, bran_type filter params",
+      "pdf": "Accepts date_from, date_to, party_name, bran_type filter params"
+    }
+  },
+  "version_tested": "v90.9.0"
+}

@@ -156,6 +156,18 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
         if billing_date_to: query["billing_date"]["$lte"] = billing_date_to
     sales = await db.bp_sale_register.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
 
+    # Fetch oil premium data for Rice Bran
+    oil_map = {}
+    if product == "Rice Bran":
+        op_query = {}
+        if kms_year: op_query["kms_year"] = kms_year
+        if season: op_query["season"] = season
+        op_items = await db.oil_premium.find(op_query, {"_id": 0}).to_list(10000)
+        for op in op_items:
+            key = op.get("voucher_no") or op.get("rst_no") or ""
+            if key: oil_map[key] = op
+    has_oil = bool(oil_map) and any(oil_map.get(s.get('voucher_no') or '') or oil_map.get(s.get('rst_no') or '') for s in sales)
+
     # Branding
     branding = await db.branding.find_one({}, {"_id": 0}) or {}
     company = branding.get("company_name", "Rice Mill")
@@ -210,6 +222,10 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
     if has_diesel: cols.append(('Diesel', 10, 'diesel_paid'))
     if has_adv: cols.append(('Advance', 10, 'advance'))
     cols.append(('Balance', 12, 'balance'))
+    if has_oil:
+        cols.append(('Oil%', 8, 'oil_pct'))
+        cols.append(('Diff%', 8, 'oil_diff'))
+        cols.append(('Premium', 12, 'oil_premium'))
     if has_remark: cols.append(('Remark', 16, 'remark'))
 
     headers = [c[0] for c in cols]
@@ -241,7 +257,7 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
         cell.border = border
 
     # Data rows
-    t_nw = t_bags = t_amount = t_tax = t_total = t_cash = t_diesel = t_adv = t_bal = 0
+    t_nw = t_bags = t_amount = t_tax = t_total = t_cash = t_diesel = t_adv = t_bal = t_oil_premium = 0
     for idx, s in enumerate(sales):
         r = row + 1 + idx
         fill = alt_fill if idx % 2 == 0 else None
@@ -249,20 +265,27 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
         t_amount += s.get('amount', 0); t_tax += s.get('tax_amount', 0); t_total += s.get('total', 0)
         t_cash += s.get('cash_paid', 0); t_diesel += s.get('diesel_paid', 0)
         t_adv += s.get('advance', 0); t_bal += s.get('balance', 0)
+        op = oil_map.get(s.get('voucher_no') or '') or oil_map.get(s.get('rst_no') or '')
+        if op: t_oil_premium += op.get('premium_amount', 0)
         for col_idx, key in enumerate(keys, 1):
             if key == 'sno': val = idx + 1
             elif key == 'date': val = fmt_date(s.get('date', ''))
             elif key == 'billing_date': val = fmt_date(s.get('billing_date', ''))
             elif key == 'net_weight_qtl': val = round(s.get('net_weight_qtl', 0), 2)
+            elif key == 'oil_pct': val = op.get('actual_oil_pct', '') if op else ''
+            elif key == 'oil_diff': val = round(op.get('difference_pct', 0), 2) if op else ''
+            elif key == 'oil_premium': val = round(op.get('premium_amount', 0), 2) if op else ''
             else: val = s.get(key, 0) if key in ('net_weight_kg','bags','rate_per_qtl','amount','tax_amount','total','cash_paid','diesel_paid','advance','balance') else s.get(key, '')
             cell = ws.cell(row=r, column=col_idx, value=val)
             cell.font = Font(size=9)
             cell.border = border
             if fill: cell.fill = fill
-            if key in ('net_weight_kg','net_weight_qtl','bags','rate_per_qtl','amount','tax_amount','total','cash_paid','diesel_paid','advance','balance'):
+            if key in ('net_weight_kg','net_weight_qtl','bags','rate_per_qtl','amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','oil_pct','oil_diff','oil_premium'):
                 cell.alignment = Alignment(horizontal='right')
-            if key in ('amount','tax_amount','total','cash_paid','diesel_paid','advance','balance'):
+            if key in ('amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','oil_premium'):
                 cell.number_format = '#,##0.00'
+            if key == 'oil_premium' and op and (op.get('premium_amount', 0) or 0) < 0:
+                cell.font = Font(size=9, color="FF0000")
 
     # Total row
     tr = row + 1 + len(sales)
@@ -282,6 +305,10 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
         elif key == 'diesel_paid': ws.cell(row=tr, column=col_idx, value=round(t_diesel, 2)).alignment = Alignment(horizontal='right')
         elif key == 'advance': ws.cell(row=tr, column=col_idx, value=round(t_adv, 2)).alignment = Alignment(horizontal='right')
         elif key == 'balance': ws.cell(row=tr, column=col_idx, value=round(t_bal, 2)).alignment = Alignment(horizontal='right')
+        elif key == 'oil_premium':
+            c = ws.cell(row=tr, column=col_idx, value=round(t_oil_premium, 2))
+            c.alignment = Alignment(horizontal='right')
+            c.number_format = '#,##0.00'
 
     # Column widths
     for i, w in enumerate(widths, 1):
@@ -327,6 +354,18 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
         if billing_date_from: query["billing_date"]["$gte"] = billing_date_from
         if billing_date_to: query["billing_date"]["$lte"] = billing_date_to
     sales = await db.bp_sale_register.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
+
+    # Fetch oil premium data for Rice Bran
+    oil_map_pdf = {}
+    if product == "Rice Bran":
+        op_q = {}
+        if kms_year: op_q["kms_year"] = kms_year
+        if season: op_q["season"] = season
+        op_list = await db.oil_premium.find(op_q, {"_id": 0}).to_list(10000)
+        for op in op_list:
+            key = op.get("voucher_no") or op.get("rst_no") or ""
+            if key: oil_map_pdf[key] = op
+    has_oil_pdf = bool(oil_map_pdf) and any(oil_map_pdf.get(s.get('voucher_no') or '') or oil_map_pdf.get(s.get('rst_no') or '') for s in sales)
 
     branding = await db.branding.find_one({}, {"_id": 0}) or {}
     company = branding.get("company_name", "Rice Mill")
@@ -387,18 +426,24 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
     if has_diesel: pdf_cols.append(('Diesel', 38, 'diesel_paid'))
     if has_adv: pdf_cols.append(('Adv', 32, 'advance'))
     pdf_cols.append(('Balance', 48, 'balance'))
+    if has_oil_pdf:
+        pdf_cols.append(('Oil%', 30, 'oil_pct'))
+        pdf_cols.append(('Diff%', 30, 'oil_diff'))
+        pdf_cols.append(('Premium', 45, 'oil_premium'))
 
     headers = [c[0] for c in pdf_cols]
     col_widths = [c[1] for c in pdf_cols]
     col_keys = [c[2] for c in pdf_cols]
 
     data = [headers]
-    t_nw = t_bags = t_amt = t_tax = t_total = t_cash = t_diesel = t_adv = t_bal = 0
+    t_nw = t_bags = t_amt = t_tax = t_total = t_cash = t_diesel = t_adv = t_bal = t_oil_prem_pdf = 0
     for idx, s in enumerate(sales):
         t_nw += s.get('net_weight_kg', 0); t_bags += s.get('bags', 0)
         t_amt += s.get('amount', 0); t_tax += s.get('tax_amount', 0); t_total += s.get('total', 0)
         t_cash += s.get('cash_paid', 0); t_diesel += s.get('diesel_paid', 0)
         t_adv += s.get('advance', 0); t_bal += s.get('balance', 0)
+        op = oil_map_pdf.get(s.get('voucher_no') or '') or oil_map_pdf.get(s.get('rst_no') or '')
+        if op: t_oil_prem_pdf += op.get('premium_amount', 0)
         row_data = []
         for key in col_keys:
             if key == 'sno': row_data.append(idx + 1)
@@ -407,6 +452,13 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
             elif key == 'bill_from': row_data.append((s.get('bill_from', '') or '')[:14])
             elif key == 'destination': row_data.append((s.get('destination', '') or '')[:12])
             elif key in ('amount', 'tax_amount', 'total', 'balance'): row_data.append(f"{s.get(key, 0):,.0f}")
+            elif key == 'oil_pct': row_data.append(f"{op.get('actual_oil_pct', '')}%" if op else '')
+            elif key == 'oil_diff':
+                if op:
+                    d = op.get('difference_pct', 0)
+                    row_data.append(f"{'+' if d > 0 else ''}{d:.2f}%")
+                else: row_data.append('')
+            elif key == 'oil_premium': row_data.append(f"{op.get('premium_amount', 0):,.0f}" if op else '')
             else: row_data.append(s.get(key, 0) if key in ('net_weight_kg','bags','rate_per_qtl','cash_paid','diesel_paid','advance') else s.get(key, ''))
         data.append(row_data)
 
@@ -423,6 +475,7 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
         elif key == 'diesel_paid': total_row.append(round(t_diesel, 0))
         elif key == 'advance': total_row.append(round(t_adv, 0))
         elif key == 'balance': total_row.append(f"{t_bal:,.0f}")
+        elif key == 'oil_premium': total_row.append(f"{t_oil_prem_pdf:,.0f}")
         else: total_row.append('')
     data.append(total_row)
 

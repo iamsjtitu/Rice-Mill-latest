@@ -31,6 +31,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const [partySugg, setPartySugg] = useState([]);
   const [destSugg, setDestSugg] = useState([]);
   const [rstLoading, setRstLoading] = useState(false);
+  const [oilPremiumMap, setOilPremiumMap] = useState({});
 
   const blankForm = {
     bill_number: "", billing_date: new Date().toISOString().split("T")[0],
@@ -57,18 +58,30 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       const stockParams = new URLSearchParams();
       if (filters.kms_year) stockParams.append("kms_year", filters.kms_year);
       if (filters.season) stockParams.append("season", filters.season);
-      const [salesRes, bfRes, pRes, dRes, stockRes] = await Promise.all([
+      const fetches = [
         axios.get(`${API}/bp-sale-register?${params}`),
         axios.get(`${API}/bp-sale-register/suggestions/bill-from`),
         axios.get(`${API}/bp-sale-register/suggestions/party-name`),
         axios.get(`${API}/bp-sale-register/suggestions/destination`),
         axios.get(`${API}/byproduct-stock?${stockParams}`),
-      ]);
-      setSales(salesRes.data);
-      setBillFromSugg(bfRes.data || []);
-      setPartySugg(pRes.data || []);
-      setDestSugg(dRes.data || []);
-      setStockInfo(stockRes.data?.[productId] || null);
+      ];
+      if (product === "Rice Bran") {
+        fetches.push(axios.get(`${API}/oil-premium?${stockParams}`));
+      }
+      const results = await Promise.all(fetches);
+      setSales(results[0].data);
+      setBillFromSugg(results[1].data || []);
+      setPartySugg(results[2].data || []);
+      setDestSugg(results[3].data || []);
+      setStockInfo(results[4].data?.[productId] || null);
+      if (product === "Rice Bran" && results[5]) {
+        const map = {};
+        (results[5].data || []).forEach(op => {
+          const key = op.voucher_no || op.rst_no || '';
+          if (key) map[key] = op;
+        });
+        setOilPremiumMap(map);
+      }
     } catch (e) { logger.error(e); }
   }, [product, productId, filters.kms_year, filters.season]);
 
@@ -197,6 +210,14 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   };
 
   const hasActiveFilters = Object.values(filterValues).some(v => v);
+
+  // Get oil premium data for a sale entry
+  const getOilPremium = (sale) => {
+    if (product !== "Rice Bran") return null;
+    return oilPremiumMap[sale.voucher_no] || oilPremiumMap[sale.rst_no] || null;
+  };
+  const isRiceBran = product === "Rice Bran";
+  const hasAnyOilPremium = isRiceBran && filtered.some(s => getOilPremium(s));
   const clearFilters = () => setFilterValues({ date_from: "", date_to: "", billing_date_from: "", billing_date_to: "", rst_no: "", vehicle_no: "", bill_from: "", party_name: "", destination: "" });
 
   const totalAmount = filtered.reduce((s, v) => s + (v.total || 0), 0);
@@ -331,12 +352,17 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Amount</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Total</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Balance</TableHead>
+                  {hasAnyOilPremium && <>
+                    <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px] text-right">Oil%</TableHead>
+                    <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px] text-right">Diff%</TableHead>
+                    <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Premium</TableHead>
+                  </>}
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={16} className="text-center text-slate-400 py-6">Koi sale nahi</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={hasAnyOilPremium ? 19 : 16} className="text-center text-slate-400 py-6">Koi sale nahi</TableCell></TableRow>
                 ) : filtered.map(s => (
                   <TableRow key={s.id} className="border-slate-700 hover:bg-slate-700/30">
                     <TableCell className="text-white text-[10px] px-2 whitespace-nowrap">{fmtDate(s.date)}</TableCell>
@@ -354,6 +380,18 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     <TableCell className="text-emerald-400 text-[10px] px-2 text-right whitespace-nowrap">{(s.amount || 0).toLocaleString()}</TableCell>
                     <TableCell className="text-emerald-400 text-[10px] px-2 text-right font-bold whitespace-nowrap">{(s.total || 0).toLocaleString()}</TableCell>
                     <TableCell className={`text-[10px] px-2 text-right font-bold whitespace-nowrap ${(s.balance || 0) > 0 ? 'text-red-400' : 'text-green-400'}`}>{(s.balance || 0).toLocaleString()}</TableCell>
+                    {hasAnyOilPremium && (() => {
+                      const op = getOilPremium(s);
+                      return <>
+                        <TableCell className="text-white text-[10px] px-2 text-right">{op ? `${op.actual_oil_pct}%` : ''}</TableCell>
+                        <TableCell className={`text-[10px] px-2 text-right font-medium ${op ? ((op.difference_pct || 0) >= 0 ? 'text-emerald-400' : 'text-red-400') : ''}`}>
+                          {op ? `${(op.difference_pct || 0) > 0 ? '+' : ''}${(op.difference_pct || 0).toFixed(2)}%` : ''}
+                        </TableCell>
+                        <TableCell className={`text-[10px] px-2 text-right font-bold ${op ? ((op.premium_amount || 0) >= 0 ? 'text-emerald-400' : 'text-red-400') : ''}`}>
+                          {op ? (op.premium_amount || 0).toLocaleString() : ''}
+                        </TableCell>
+                      </>;
+                    })()}
                     <TableCell className="px-1">
                       <div className="flex gap-0.5">
                         <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-400 hover:text-white" onClick={() => setViewSale(s)} data-testid={`bp-view-${s.id}`}><Eye className="w-3 h-3" /></Button>
@@ -408,6 +446,20 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                 </div>
               </div>
               {viewSale.remark && <div className="border-t border-slate-600 pt-2"><span className="text-slate-400 text-xs">Remark:</span> <span className="text-slate-300">{viewSale.remark}</span></div>}
+              {(() => { const op = getOilPremium(viewSale); return op ? (
+                <div className="border-t border-slate-600 pt-2 space-y-1">
+                  <p className="text-[10px] text-amber-400 font-medium mb-1">Oil Premium</p>
+                  <div className="grid grid-cols-3 gap-x-4 gap-y-1">
+                    <div><span className="text-slate-400 text-xs">Type:</span> <span className={op.bran_type === 'Raw' ? 'text-orange-400' : 'text-blue-400'}>{op.bran_type}</span></div>
+                    <div><span className="text-slate-400 text-xs">Standard:</span> <span className="text-slate-300">{op.standard_oil_pct}%</span></div>
+                    <div><span className="text-slate-400 text-xs">Actual:</span> <span className="text-white font-bold">{op.actual_oil_pct}%</span></div>
+                  </div>
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-slate-400 text-xs">Diff: <span className={`font-bold ${(op.difference_pct||0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{(op.difference_pct||0) > 0 ? '+' : ''}{(op.difference_pct||0).toFixed(2)}%</span></span>
+                    <span className={`text-base font-bold ${(op.premium_amount||0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>Rs. {(op.premium_amount||0).toLocaleString()}</span>
+                  </div>
+                </div>
+              ) : null; })()}
             </div>
           )}
         </DialogContent>
