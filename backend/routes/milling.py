@@ -215,6 +215,15 @@ async def get_paddy_stock(kms_year: Optional[str] = None, season: Optional[str] 
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
+
+    # Opening Stock
+    ob_paddy = 0
+    if kms_year:
+        ob_doc = await db.opening_stock.find_one({"kms_year": kms_year}, {"_id": 0})
+        if ob_doc:
+            stocks = ob_doc.get("stocks", {})
+            ob_paddy = float(stocks.get("paddy", 0) or 0)
+
     mill_entries = await db.mill_entries.find(query, {"qntl": 1, "bag": 1, "p_pkt_cut": 1, "_id": 0}).to_list(10000)
     cmr_paddy_in = calc_cmr_paddy_in(mill_entries)
     pvt_query = dict(query)
@@ -224,13 +233,13 @@ async def get_paddy_stock(kms_year: Optional[str] = None, season: Optional[str] 
     purchase_vouchers = await db.purchase_vouchers.find(query, {"_id": 0}).to_list(10000)
     pv_bought = calc_purchase_voucher_items(purchase_vouchers)
     pv_paddy = round(pv_bought.get("Paddy", 0), 2)
-    total_paddy_in = round(cmr_paddy_in + pvt_paddy_in + pv_paddy, 2)
+    total_paddy_in = round(ob_paddy + cmr_paddy_in + pvt_paddy_in + pv_paddy, 2)
     milling_entries = await db.milling_entries.find(query, {"paddy_input_qntl": 1, "_id": 0}).to_list(10000)
     total_paddy_used = calc_paddy_used(milling_entries)
     return {"total_paddy_in_qntl": total_paddy_in, "total_paddy_used_qntl": total_paddy_used,
         "available_paddy_qntl": round(total_paddy_in - total_paddy_used, 2),
         "cmr_paddy_in_qntl": cmr_paddy_in, "pvt_paddy_in_qntl": pvt_paddy_in,
-        "pv_paddy_in_qntl": pv_paddy}
+        "pv_paddy_in_qntl": pv_paddy, "ob_paddy_qntl": ob_paddy}
 
 
 @router.get("/milling-summary")

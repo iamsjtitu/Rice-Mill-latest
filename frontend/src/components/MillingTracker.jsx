@@ -149,6 +149,7 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
             <CardContent className="p-3">
               <p className="text-[10px] text-slate-400 mb-1">Paddy Stock (QNTL - BAG - P.Cut)</p>
               <div className="flex items-center gap-3 text-sm flex-wrap">
+                {paddyStock.ob_paddy_qntl > 0 && <div><span className="text-slate-400 text-xs">OB:</span> <span className="text-cyan-400 font-bold">{paddyStock.ob_paddy_qntl} Q</span></div>}
                 <div><span className="text-slate-400 text-xs">CMR:</span> <span className="text-blue-400 font-bold">{paddyStock.cmr_paddy_in_qntl || 0} Q</span></div>
                 {paddyStock.pvt_paddy_in_qntl > 0 && <div><span className="text-slate-400 text-xs">Pvt:</span> <span className="text-purple-400 font-bold">{paddyStock.pvt_paddy_in_qntl} Q</span></div>}
                 <div><span className="text-slate-400 text-xs">Total In:</span> <span className="text-blue-300 font-bold">{paddyStock.total_paddy_in_qntl} Q</span></div>
