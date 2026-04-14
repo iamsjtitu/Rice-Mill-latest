@@ -921,18 +921,6 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
           Local Party
         </Button>
         <Button
-          onClick={() => setActivePaymentTab("gunny")}
-          variant={activePaymentTab === "gunny" ? "default" : "ghost"}
-          size="sm"
-          className={activePaymentTab === "gunny" 
-            ? "bg-amber-600 hover:bg-amber-700 text-white" 
-            : "text-slate-300 hover:bg-slate-700"}
-          data-testid="tab-gunny"
-        >
-          <Package className="w-4 h-4 mr-1" />
-          Gunny Bags
-        </Button>
-        <Button
           onClick={() => setActivePaymentTab("leased-truck")}
           variant={activePaymentTab === "leased-truck" ? "default" : "ghost"}
           size="sm"
@@ -1608,7 +1596,6 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
 
       {activePaymentTab === "diesel" && <DieselAccount filters={filters} user={user} />}
       {activePaymentTab === "local-party" && <LocalPartyAccount filters={filters} user={user} />}
-      {activePaymentTab === "gunny" && <GunnyBags filters={filters} user={user} />}
       {activePaymentTab === "leased-truck" && <LeasedTruck filters={filters} />}
       {activePaymentTab === "dc-payments" && <DCTracker filters={filters} user={user} />}
 

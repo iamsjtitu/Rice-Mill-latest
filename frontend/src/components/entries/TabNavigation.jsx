@@ -19,6 +19,7 @@ export function TabNavigation({ activeTab, setActiveTabSafe, user }) {
     { id: "dashboard", label: "Dashboard & Targets", icon: BarChart3 },
     { id: "milling", label: "Milling", icon: Wheat },
     { id: "vouchers", label: "Register", icon: FileText },
+    { id: "stock-register", label: "Stock Register", icon: Package },
     { id: "cashbook", label: "Cash Book & Ledgers", icon: Wallet, perm: "can_see_cashbook" },
     { id: "payments", label: "Payments", icon: IndianRupee, perm: "can_see_payments" },
     { id: "reports", label: "Reports", icon: BarChart3, perm: "can_see_reports" },

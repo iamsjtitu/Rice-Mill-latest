@@ -46,6 +46,7 @@ const StaffManagement = lazy(() => import("@/components/StaffManagement"));
 const FYSummaryDashboard = lazy(() => import("@/components/FYSummaryDashboard"));
 const BalanceSheet = lazy(() => import("@/components/BalanceSheet"));
 const Vouchers = lazy(() => import("@/components/Vouchers"));
+const StockRegister = lazy(() => import("@/components/StockRegister"));
 const HemaliPayment = lazy(() => import("@/components/HemaliPayment"));
 const GovtRegisters = lazy(() => import("@/components/GovtRegisters"));
 const Settings = lazy(() => import("@/components/Settings"));
@@ -961,6 +962,8 @@ function MainApp({ user, setUser, onLogout }) {
           <Reports filters={filters} user={user} />
         ) : activeTab === "vouchers" ? (
           <Vouchers filters={filters} user={user} onNavigate={(tab) => setActiveTabSafe(tab)} />
+        ) : activeTab === "stock-register" ? (
+          <StockRegister filters={filters} user={user} />
         ) : activeTab === "mill-parts" ? (
           <MillPartsStock filters={filters} user={user} />
         ) : activeTab === "staff" ? (

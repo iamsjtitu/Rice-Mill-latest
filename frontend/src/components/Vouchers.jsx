@@ -16,7 +16,6 @@ const tabs = [
   { id: "custody", label: "Paddy Custody Maintenance", icon: Shield, activeClass: "bg-cyan-500 hover:bg-cyan-600 text-white" },
   { id: "transit", label: "Transit Pass Register", icon: Truck, activeClass: "bg-indigo-500 hover:bg-indigo-600 text-white" },
   { id: "milling", label: "Milling Register", icon: ArrowRightLeft, activeClass: "bg-teal-500 hover:bg-teal-600 text-white" },
-  { id: "stock", label: "Stock Summary", icon: Package, activeClass: "bg-sky-500 hover:bg-sky-600 text-white" },
   { id: "summary", label: "Party Summary", icon: Users, activeClass: "bg-purple-500 hover:bg-purple-600 text-white" },
 ];
 
@@ -132,8 +131,6 @@ export default function Vouchers({ filters, user, onNavigate }) {
         <TransitPassRegister filters={filters} />
       ) : activeTab === "milling" ? (
         <MillingRegister filters={filters} user={user} />
-      ) : activeTab === "stock" ? (
-        <StockSummary filters={filters} />
       ) : (
         <PartySummary filters={filters} onNavigate={onNavigate} />
       )}
