@@ -6,6 +6,80 @@ module.exports = function(database) {
 
   function ensure() { if (!database.data.bp_sale_register) database.data.bp_sale_register = []; }
 
+  function ensureTxn() { if (!database.data.cash_transactions) database.data.cash_transactions = []; }
+  function ensureTruck() { if (!database.data.truck_payments) database.data.truck_payments = []; }
+  function ensureDiesel() { if (!database.data.diesel_accounts) database.data.diesel_accounts = []; }
+  function ensureLP() { if (!database.data.local_party_accounts) database.data.local_party_accounts = []; }
+
+  function getDefaultPump() {
+    ensureDiesel();
+    const pumps = database.data.diesel_accounts.filter(d => d.pump_name);
+    return pumps.length ? pumps[pumps.length - 1].pump_name : 'Diesel Pump';
+  }
+
+  function createBpLedgerEntries(d, docId, username) {
+    ensureTxn(); ensureTruck(); ensureDiesel(); ensureLP();
+    const party = (d.party_name || '').trim();
+    const cash = parseFloat(d.cash_paid || 0);
+    const diesel = parseFloat(d.diesel_paid || 0);
+    const advance = parseFloat(d.advance || 0);
+    const total = parseFloat(d.total || 0);
+    const vehicle = (d.vehicle_no || '').trim();
+    const product = d.product || 'By-Product';
+    const vno = d.voucher_no || docId.substring(0, 8);
+    const now = new Date().toISOString();
+    const base = { kms_year: d.kms_year || '', season: d.season || '', created_by: username, created_at: now, updated_at: now };
+
+    // 1. Party Ledger JAMA
+    if (party && total > 0) {
+      database.data.cash_transactions.push({ id: uuid(), date: d.date || '', account: 'ledger', txn_type: 'jama', amount: total, category: party, party_type: 'BP Sale', description: `${product} Sale #${vno}`, reference: `bp_sale:${docId}`, ...base });
+    }
+    // 2. Advance → Ledger NIKASI + Cash JAMA
+    if (advance > 0 && party) {
+      database.data.cash_transactions.push({ id: uuid(), date: d.date || '', account: 'ledger', txn_type: 'nikasi', amount: advance, category: party, party_type: 'BP Sale', description: `Advance received - ${product} #${vno}`, reference: `bp_sale_adv:${docId}`, ...base });
+      database.data.cash_transactions.push({ id: uuid(), date: d.date || '', account: 'cash', txn_type: 'jama', amount: advance, category: party, party_type: 'BP Sale', description: `Advance received - ${product} #${vno}`, reference: `bp_sale_adv_cash:${docId}`, ...base });
+    }
+    // 3. Cash to truck → Cash NIKASI
+    if (cash > 0) {
+      database.data.cash_transactions.push({ id: uuid(), date: d.date || '', account: 'cash', txn_type: 'nikasi', amount: cash, category: vehicle || party, party_type: vehicle ? 'Truck' : 'BP Sale', description: `Truck cash - ${product} #${vno}`, reference: `bp_sale_cash:${docId}`, ...base });
+    }
+    // 4. Diesel → Pump Ledger JAMA + diesel_accounts
+    if (diesel > 0) {
+      const pumpName = getDefaultPump();
+      const pumpDoc = database.data.diesel_accounts.find(da => da.pump_name === pumpName);
+      const pumpId = pumpDoc ? (pumpDoc.pump_id || '') : '';
+      database.data.cash_transactions.push({ id: uuid(), date: d.date || '', account: 'ledger', txn_type: 'jama', amount: diesel, category: pumpName, party_type: 'Diesel', description: `Diesel for truck - ${product} #${vno} - ${party}`, reference: `bp_sale_diesel:${docId}`, ...base });
+      database.data.diesel_accounts.push({ id: uuid(), date: d.date || '', pump_id: pumpId, pump_name: pumpName, truck_no: vehicle, agent_name: party, amount: diesel, txn_type: 'debit', description: `Diesel for ${product} #${vno} - ${party}`, reference: `bp_sale_diesel:${docId}`, ...base });
+    }
+    // 5. Truck ledger entries
+    if (cash > 0 && vehicle) {
+      database.data.cash_transactions.push({ id: uuid(), date: d.date || '', account: 'ledger', txn_type: 'nikasi', amount: cash, category: vehicle, party_type: 'Truck', description: `Truck cash deduction - ${product} #${vno}`, reference: `bp_truck_cash:${docId}`, ...base });
+    }
+    if (diesel > 0 && vehicle) {
+      database.data.cash_transactions.push({ id: uuid(), date: d.date || '', account: 'ledger', txn_type: 'nikasi', amount: diesel, category: vehicle, party_type: 'Truck', description: `Truck diesel deduction - ${product} #${vno}`, reference: `bp_truck_diesel:${docId}`, ...base });
+    }
+    const truckTotal = cash + diesel;
+    if (truckTotal > 0 && vehicle) {
+      database.data.truck_payments.push({ entry_id: docId, truck_no: vehicle, date: d.date || '', cash_taken: cash, diesel_taken: diesel, gross_amount: 0, deductions: truckTotal, net_amount: 0, paid_amount: 0, balance_amount: 0, status: 'pending', source: 'BP Sale', description: `${product} #${vno} - ${party}`, reference: `bp_sale_truck:${docId}`, ...base });
+    }
+    // Local party accounts
+    if (party && total > 0) {
+      database.data.local_party_accounts.push({ id: uuid(), date: d.date || '', party_name: party, txn_type: 'debit', amount: total, description: `${product} Sale #${vno}`, source_type: 'bp_sale', reference: `bp_sale:${docId}`, kms_year: d.kms_year || '', season: d.season || '', created_by: username, created_at: now });
+    }
+    if (advance > 0 && party) {
+      database.data.local_party_accounts.push({ id: uuid(), date: d.date || '', party_name: party, txn_type: 'payment', amount: advance, description: `Advance received - ${product} #${vno}`, source_type: 'bp_sale_advance', reference: `bp_sale_adv:${docId}`, kms_year: d.kms_year || '', season: d.season || '', created_by: username, created_at: now });
+    }
+  }
+
+  function deleteBpLedgerEntries(docId) {
+    ensureTxn(); ensureTruck(); ensureDiesel(); ensureLP();
+    const matchRef = (ref) => ref && (ref.includes(`bp_sale`) && ref.includes(docId)) || (ref.includes(`bp_truck`) && ref.includes(docId));
+    database.data.cash_transactions = database.data.cash_transactions.filter(t => !matchRef(t.reference));
+    database.data.truck_payments = database.data.truck_payments.filter(t => !matchRef(t.reference));
+    database.data.diesel_accounts = database.data.diesel_accounts.filter(t => !(t.reference && t.reference.includes(`bp_sale`) && t.reference.includes(docId)));
+    database.data.local_party_accounts = database.data.local_party_accounts.filter(t => !(t.reference && t.reference.includes(`bp_sale`) && t.reference.includes(docId)));
+  }
+
   router.get('/api/bp-sale-register', (req, res) => {
     ensure();
     let sales = [...database.data.bp_sale_register];
@@ -47,6 +121,8 @@ module.exports = function(database) {
 
     database.data.bp_sale_register.push(data);
     database.save();
+    createBpLedgerEntries(data, data.id, req.query.username || '');
+    database.save();
     res.json(data);
   });
 
@@ -83,6 +159,8 @@ module.exports = function(database) {
     data.created_at = database.data.bp_sale_register[idx].created_at;
     data.created_by = database.data.bp_sale_register[idx].created_by;
     database.data.bp_sale_register[idx] = data;
+    deleteBpLedgerEntries(req.params.id);
+    createBpLedgerEntries(data, req.params.id, req.query.username || '');
     database.save();
     res.json({ success: true });
   });
@@ -91,7 +169,11 @@ module.exports = function(database) {
     ensure();
     const len = database.data.bp_sale_register.length;
     database.data.bp_sale_register = database.data.bp_sale_register.filter(s => s.id !== req.params.id);
-    if (database.data.bp_sale_register.length < len) { database.save(); return res.json({ success: true }); }
+    if (database.data.bp_sale_register.length < len) {
+      deleteBpLedgerEntries(req.params.id);
+      database.save();
+      return res.json({ success: true });
+    }
     res.status(404).json({ detail: 'Not found' });
   });
 

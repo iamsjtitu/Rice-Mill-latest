@@ -16,6 +16,145 @@ def fmt_date(d):
     return str(d)
 
 
+async def _get_default_pump():
+    pump = await db.diesel_accounts.find_one({}, {"_id": 0, "pump_name": 1}, sort=[("_id", -1)])
+    return pump.get("pump_name", "Diesel Pump") if pump else "Diesel Pump"
+
+
+async def _create_bp_ledger_entries(d, doc_id, username):
+    """Create all accounting entries for a by-product sale"""
+    party = (d.get('party_name') or '').strip()
+    cash = d.get('cash_paid', 0) or 0
+    diesel = d.get('diesel_paid', 0) or 0
+    advance = d.get('advance', 0) or 0
+    total = d.get('total', 0) or 0
+    vehicle = (d.get('vehicle_no') or '').strip()
+    product = d.get('product', 'By-Product')
+    vno = d.get('voucher_no', '') or doc_id[:8]
+    now_iso = datetime.now(timezone.utc).isoformat()
+    base = {"kms_year": d.get('kms_year', ''), "season": d.get('season', ''), "created_by": username, "created_at": now_iso, "updated_at": now_iso}
+    entries = []
+
+    # 1. Party Ledger JAMA: total sale amount (party owes us)
+    if party and total > 0:
+        entries.append({
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "jama",
+            "amount": total, "category": party, "party_type": "BP Sale",
+            "description": f"{product} Sale #{vno}",
+            "reference": f"bp_sale:{doc_id}", **base
+        })
+
+    # 2. Advance from party: Party Ledger NIKASI + Cash JAMA
+    if advance > 0 and party:
+        entries.append({
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
+            "amount": advance, "category": party, "party_type": "BP Sale",
+            "description": f"Advance received - {product} #{vno}",
+            "reference": f"bp_sale_adv:{doc_id}", **base
+        })
+        entries.append({
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "cash", "txn_type": "jama",
+            "amount": advance, "category": party, "party_type": "BP Sale",
+            "description": f"Advance received - {product} #{vno}",
+            "reference": f"bp_sale_adv_cash:{doc_id}", **base
+        })
+
+    # 3. Cash paid to truck → Cash NIKASI
+    if cash > 0:
+        entries.append({
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "cash", "txn_type": "nikasi",
+            "amount": cash, "category": vehicle or party, "party_type": "Truck" if vehicle else "BP Sale",
+            "description": f"Truck cash - {product} #{vno}",
+            "reference": f"bp_sale_cash:{doc_id}", **base
+        })
+
+    # 4. Diesel → Diesel Pump Ledger JAMA + diesel_accounts
+    if diesel > 0:
+        pump_name = await _get_default_pump()
+        pump_doc = await db.diesel_accounts.find_one({"pump_name": pump_name}, {"_id": 0, "pump_id": 1})
+        pump_id = pump_doc.get("pump_id", "") if pump_doc else ""
+        entries.append({
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "jama",
+            "amount": diesel, "category": pump_name, "party_type": "Diesel",
+            "description": f"Diesel for truck - {product} #{vno} - {party}",
+            "reference": f"bp_sale_diesel:{doc_id}", **base
+        })
+        diesel_entry = {
+            "id": str(uuid.uuid4()), "date": d.get('date', ''),
+            "pump_id": pump_id, "pump_name": pump_name,
+            "truck_no": vehicle, "agent_name": party,
+            "amount": diesel, "txn_type": "debit",
+            "description": f"Diesel for {product} #{vno} - {party}",
+            "reference": f"bp_sale_diesel:{doc_id}", **base
+        }
+        await db.diesel_accounts.insert_one({**diesel_entry})
+
+    # 5. Truck cash+diesel → Truck Ledger NIKASI
+    if cash > 0 and vehicle:
+        entries.append({
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
+            "amount": cash, "category": vehicle, "party_type": "Truck",
+            "description": f"Truck cash deduction - {product} #{vno}",
+            "reference": f"bp_truck_cash:{doc_id}", **base
+        })
+    if diesel > 0 and vehicle:
+        entries.append({
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
+            "amount": diesel, "category": vehicle, "party_type": "Truck",
+            "description": f"Truck diesel deduction - {product} #{vno}",
+            "reference": f"bp_truck_diesel:{doc_id}", **base
+        })
+
+    # Truck payments entry
+    truck_total = cash + diesel
+    if truck_total > 0 and vehicle:
+        truck_entry = {
+            "entry_id": doc_id, "truck_no": vehicle, "date": d.get('date', ''),
+            "cash_taken": cash, "diesel_taken": diesel,
+            "gross_amount": 0, "deductions": truck_total,
+            "net_amount": 0, "paid_amount": 0,
+            "balance_amount": 0, "status": "pending",
+            "source": "BP Sale", "description": f"{product} #{vno} - {party}",
+            "reference": f"bp_sale_truck:{doc_id}", **base
+        }
+        await db.truck_payments.insert_one({**truck_entry})
+
+    for entry in entries:
+        await db.cash_transactions.insert_one({**entry})
+
+    # Local party accounts: debit (party owes us)
+    if party and total > 0:
+        lp = {
+            "id": str(uuid.uuid4()), "date": d.get('date', ''),
+            "party_name": party, "txn_type": "debit",
+            "amount": total, "description": f"{product} Sale #{vno}",
+            "source_type": "bp_sale", "reference": f"bp_sale:{doc_id}",
+            "kms_year": d.get('kms_year', ''), "season": d.get('season', ''),
+            "created_by": username, "created_at": now_iso
+        }
+        await db.local_party_accounts.insert_one({**lp})
+    if advance > 0 and party:
+        lp_adv = {
+            "id": str(uuid.uuid4()), "date": d.get('date', ''),
+            "party_name": party, "txn_type": "payment",
+            "amount": advance, "description": f"Advance received - {product} #{vno}",
+            "source_type": "bp_sale_advance", "reference": f"bp_sale_adv:{doc_id}",
+            "kms_year": d.get('kms_year', ''), "season": d.get('season', ''),
+            "created_by": username, "created_at": now_iso
+        }
+        await db.local_party_accounts.insert_one({**lp_adv})
+
+
+async def _delete_bp_ledger_entries(doc_id):
+    """Remove all accounting entries linked to a bp sale"""
+    await db.cash_transactions.delete_many({"reference": {"$regex": f"bp_sale.*:{doc_id}"}})
+    await db.cash_transactions.delete_many({"reference": {"$regex": f"bp_truck.*:{doc_id}"}})
+    await db.truck_payments.delete_many({"reference": {"$regex": f"bp_sale.*:{doc_id}"}})
+    await db.diesel_accounts.delete_many({"reference": {"$regex": f"bp_sale.*:{doc_id}"}})
+    await db.local_party_accounts.delete_many({"reference": {"$regex": f"bp_sale.*:{doc_id}"}})
+    await db.local_party_accounts.delete_many({"reference": {"$regex": f"bp_sale_adv:{doc_id}"}})
+
+
 @router.get("/bp-sale-register")
 async def get_bp_sales(product: str = "", kms_year: str = "", season: str = ""):
     query = {}
@@ -57,6 +196,7 @@ async def create_bp_sale(data: dict, username: str = "", role: str = ""):
 
     await db.bp_sale_register.insert_one({**data})
     data.pop("_id", None)
+    await _create_bp_ledger_entries(data, data["id"], username)
     return data
 
 
@@ -94,6 +234,10 @@ async def update_bp_sale(sale_id: str, data: dict, username: str = "", role: str
     data.pop("id", None)
     data.pop("_id", None)
     await db.bp_sale_register.update_one({"id": sale_id}, {"$set": data})
+    # Re-create accounting entries
+    await _delete_bp_ledger_entries(sale_id)
+    data["id"] = sale_id
+    await _create_bp_ledger_entries(data, sale_id, username)
     return {"success": True}
 
 
@@ -102,6 +246,7 @@ async def delete_bp_sale(sale_id: str, username: str = "", role: str = ""):
     result = await db.bp_sale_register.delete_one({"id": sale_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Sale not found")
+    await _delete_bp_ledger_entries(sale_id)
     return {"success": True}
 
 

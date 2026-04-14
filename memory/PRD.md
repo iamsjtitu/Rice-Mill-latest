@@ -40,6 +40,7 @@
 - Oil Premium PDF/Excel export with dynamic columns, party-wise summary, premium/deduction breakdown
 - Voucher No field added to ByProductSaleRegister form + table + all backends
 - Rice Bran sub-tabs: "Sales Register" | "Oil Premium"
+- BP Sale Register now creates auto accounting entries: Party Ledger, Cash Book, Truck Payments, Diesel Accounts, Local Party Accounts (same as SaleBook)
 - Oil%, Diff%, Premium columns shown in Rice Bran Sales Register table (linked via voucher_no/rst_no)
 - Oil%, Diff%, Premium columns added to BP Sale Register PDF/Excel exports (only for Rice Bran when data exists)
 - Oil Premium date-range filter, party filter, bran type filter with ESC close
