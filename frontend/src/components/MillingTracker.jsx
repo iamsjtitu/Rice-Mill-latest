@@ -41,8 +41,10 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [bpCategories, setBpCategories] = useState([]);
+  const [releaseStock, setReleaseStock] = useState(null);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0], rice_type: "parboiled", paddy_input_qntl: "",
+    paddy_source: "released",
     rice_percent: "", frk_used_qntl: "", kms_year: CURRENT_KMS_YEAR, season: "Kharif", note: "",
   });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -60,14 +62,16 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
       if (millingFilters.rice_type) params.append('rice_type', millingFilters.rice_type);
       if (millingFilters.date_from) params.append('date_from', millingFilters.date_from);
       if (millingFilters.date_to) params.append('date_to', millingFilters.date_to);
-      const [entriesRes, summaryRes, catsRes] = await Promise.all([
+      const [entriesRes, summaryRes, catsRes, relStockRes] = await Promise.all([
         axios.get(`${API}/milling-entries?${params.toString()}`),
         axios.get(`${API}/milling-summary?${params.toString()}`),
         axios.get(`${API}/byproduct-categories`),
+        axios.get(`${API}/paddy-release/stock?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`),
       ]);
       setEntries(entriesRes.data);
       setSummary(summaryRes.data);
       setBpCategories(catsRes.data || []);
+      setReleaseStock(relStockRes.data);
     } catch (error) {
       toast.error("Milling data load nahi hua");
     } finally { setLoading(false); }
@@ -101,7 +105,7 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
       }
       setIsDialogOpen(false); setEditingId(null);
       setFormData({ date: new Date().toISOString().split('T')[0], rice_type: "parboiled", paddy_input_qntl: "",
-        rice_percent: "", frk_used_qntl: "", kms_year: CURRENT_KMS_YEAR, season: "Kharif", note: "" });
+        paddy_source: "released", rice_percent: "", frk_used_qntl: "", kms_year: CURRENT_KMS_YEAR, season: "Kharif", note: "" });
       fetchEntries(); onRefresh();
     } catch (error) { toast.error("Error: " + (error.response?.data?.detail || error.message)); }
   };
@@ -114,6 +118,7 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
 
   const handleEdit = (entry) => {
     const fd = { date: entry.date, rice_type: entry.rice_type, paddy_input_qntl: entry.paddy_input_qntl.toString(),
+      paddy_source: entry.paddy_source || "released",
       rice_percent: entry.rice_percent.toString(), frk_used_qntl: (entry.frk_used_qntl || 0).toString(),
       kms_year: entry.kms_year, season: entry.season, note: entry.note || "" };
     bpCategories.forEach(c => { fd[`${c.id}_percent`] = (entry[`${c.id}_percent`] || 0).toString(); });
@@ -156,6 +161,13 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
                 <div><span className="text-slate-400 text-xs">Used:</span> <span className="text-orange-400 font-bold">{paddyStock.total_paddy_used_qntl} Q</span></div>
                 <div><span className="text-slate-400 text-xs">Avl:</span> <span className={`font-bold ${paddyStock.available_paddy_qntl > 0 ? 'text-green-400' : 'text-red-400'}`}>{paddyStock.available_paddy_qntl} Q</span></div>
               </div>
+              {releaseStock && (
+                <div className="flex items-center gap-3 text-sm flex-wrap mt-1 pt-1 border-t border-slate-700/50">
+                  <div><span className="text-slate-400 text-xs">Released:</span> <span className="text-amber-400 font-bold">{releaseStock.total_released} Q</span></div>
+                  <div><span className="text-slate-400 text-xs">Milled:</span> <span className="text-orange-400 font-bold">{releaseStock.total_milled} Q</span></div>
+                  <div><span className="text-slate-400 text-xs">Avl (Released):</span> <span className={`font-bold ${releaseStock.available_for_milling > 0 ? 'text-green-400' : 'text-red-400'}`}>{releaseStock.available_for_milling} Q</span></div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -195,6 +207,7 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
       {/* Actions */}
       <div className="flex gap-2 flex-wrap">
         <Button onClick={() => { setFormData({ date: new Date().toISOString().split('T')[0], rice_type: "parboiled", paddy_input_qntl: "",
+          paddy_source: "released",
           rice_percent: "", frk_used_qntl: "", kms_year: filters.kms_year || CURRENT_KMS_YEAR, season: filters.season || "Kharif", note: "" });
           setEditingId(null); setIsDialogOpen(true); }} className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm" data-testid="milling-add-btn">
           <Plus className="w-4 h-4 mr-1" /> New Milling Entry
@@ -287,10 +300,25 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
                   <SelectContent><SelectItem value="parboiled">Parboiled (उसना)</SelectItem><SelectItem value="raw">Raw (अरवा)</SelectItem></SelectContent>
                 </Select></div>
             </div>
-            <div><Label className="text-xs text-slate-400">Paddy Input (QNTL) {paddyStock && <span className={`font-bold ${(effectiveAvailPaddy - (parseFloat(formData.paddy_input_qntl) || 0)) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((effectiveAvailPaddy - (parseFloat(formData.paddy_input_qntl) || 0)) * 100) / 100} Q)</span>}</Label>
+            <div><Label className="text-xs text-slate-400">Paddy Source</Label>
+              <Select value={formData.paddy_source} onValueChange={(v) => setFormData(p => ({ ...p, paddy_source: v }))}>
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="milling-form-source"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="released">Released Paddy {releaseStock ? `(Avl: ${releaseStock.available_for_milling} Q)` : ''}</SelectItem>
+                  <SelectItem value="overall">Overall Stock {paddyStock ? `(Avl: ${effectiveAvailPaddy} Q)` : ''}</SelectItem>
+                </SelectContent>
+              </Select></div>
+            <div><Label className="text-xs text-slate-400">Paddy Input (QNTL) {(() => {
+              const sourceAvl = formData.paddy_source === 'released' ? (releaseStock?.available_for_milling || 0) + editingPaddy : effectiveAvailPaddy;
+              const remaining = Math.round((sourceAvl - paddy) * 100) / 100;
+              return <span className={`font-bold ${remaining >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>({formData.paddy_source === 'released' ? 'Released' : 'Overall'} Stock: {remaining} Q)</span>;
+            })()}</Label>
               <Input type="number" step="0.01" value={formData.paddy_input_qntl} onChange={(e) => setFormData(p => ({ ...p, paddy_input_qntl: e.target.value }))}
-                placeholder={paddyStock ? `Max ${effectiveAvailPaddy}` : ""} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="milling-form-paddy" />
-              {paddyStock && paddy > effectiveAvailPaddy && <p className="text-red-400 text-xs mt-1">Stock se zyada!</p>}
+                placeholder={formData.paddy_source === 'released' ? `Max ${(releaseStock?.available_for_milling || 0) + editingPaddy}` : `Max ${effectiveAvailPaddy}`} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="milling-form-paddy" />
+              {(() => {
+                const sourceAvl = formData.paddy_source === 'released' ? (releaseStock?.available_for_milling || 0) + editingPaddy : effectiveAvailPaddy;
+                return paddy > sourceAvl ? <p className="text-red-400 text-xs mt-1">{formData.paddy_source === 'released' ? 'Released' : 'Overall'} stock se zyada!</p> : null;
+              })()}
             </div>
             <div className="border border-slate-600 rounded p-3 space-y-2">
               <p className="text-xs text-amber-400 font-medium">Paddy Output % / धान से निकला</p>
