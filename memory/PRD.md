@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v90.10.0
+## Current Version: v91.0.0
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind
@@ -33,7 +33,10 @@
 - Sale lookup by voucher_no or rst_no auto-fills form
 - Voucher No field added to all By-Product sale entries
 
-## Recent Changes (Feb 2026)
+## Recent Changes (Apr 2026)
+- Paddy Custody Register: "Released (Qtl)" now sourced from `paddy_release` collection instead of `milling_entries` (all 3 backends)
+
+## Previous Changes (Feb 2026)
 - Dynamic PDF/Excel columns verified in Python backend (hides Cash/Diesel/Advance when all zero)
 - Desktop JS + Local Server dynamic export columns parity fix
 - Oil Premium Register: new backend (Python + Desktop JS + Local Server) + frontend component
