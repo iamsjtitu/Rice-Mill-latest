@@ -636,50 +636,46 @@ export const GunnyBags = ({ filters, user }) => {
   return (
     <div className="space-y-3" data-testid="gunny-bags-tab">
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-          <Card className="bg-gradient-to-br from-blue-900/40 to-slate-800 border-blue-800/30"><CardContent className="p-3">
-            <p className="text-[10px] text-blue-400">Bag Received (Mill)</p>
-            <p className="text-xl font-bold text-blue-400">{summary.auto_mill?.total_in || 0}</p>
-            <p className="text-[9px] text-slate-500 mt-1">From truck entries</p>
+        <div className="grid grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-1.5">
+          <Card className="border border-blue-200 dark:border-blue-800/30 bg-blue-50/50 dark:bg-blue-900/20"><CardContent className="p-2">
+            <p className="text-[9px] text-blue-600 dark:text-blue-400 font-medium">Bag Received (Mill)</p>
+            <p className="text-lg font-bold text-blue-700 dark:text-blue-400">{summary.auto_mill?.total_in || 0}</p>
+            <p className="text-[8px] text-slate-500">From truck entries</p>
           </CardContent></Card>
-          <Card className="bg-gradient-to-br from-purple-900/40 to-slate-800 border-purple-800/30"><CardContent className="p-3">
-            <p className="text-[10px] text-purple-400">P.Pkt (Plastic)</p>
-            <p className="text-xl font-bold text-purple-400">{summary.ppkt?.total || 0}</p>
-            <p className="text-[9px] text-slate-500 mt-1">From truck entries</p>
+          <Card className="border border-purple-200 dark:border-purple-800/30 bg-purple-50/50 dark:bg-purple-900/20"><CardContent className="p-2">
+            <p className="text-[9px] text-purple-600 dark:text-purple-400 font-medium">P.Pkt (Plastic)</p>
+            <p className="text-lg font-bold text-purple-700 dark:text-purple-400">{summary.ppkt?.total || 0}</p>
+            <p className="text-[8px] text-slate-500">From truck entries</p>
           </CardContent></Card>
-          <Card className="bg-gradient-to-br from-orange-900/30 to-slate-800 border-orange-800/30"><CardContent className="p-3">
-            <p className="text-[10px] text-orange-400">Old Bags (Market)</p>
-            <p className="text-xl font-bold text-orange-400">{summary.old?.balance || 0}</p>
-            <div className="flex gap-2 text-[10px] mt-1"><span className="text-green-500">In: {summary.old?.total_in || 0}</span><span className="text-red-400">Out: {summary.old?.total_out || 0}</span></div>
-            <p className="text-[9px] text-amber-400">Cost: Rs.{(summary.old?.total_cost || 0).toLocaleString('en-IN')}</p>
+          <Card className="border border-orange-200 dark:border-orange-800/30 bg-orange-50/50 dark:bg-orange-900/20"><CardContent className="p-2">
+            <p className="text-[9px] text-orange-600 dark:text-orange-400 font-medium">Old Bags (Market)</p>
+            <p className="text-lg font-bold text-orange-700 dark:text-orange-400">{summary.old?.balance || 0}</p>
+            <div className="flex gap-1.5 text-[8px] mt-0.5"><span className="text-green-600 dark:text-green-500">In: {summary.old?.total_in || 0}</span><span className="text-red-500 dark:text-red-400">Out: {summary.old?.total_out || 0}</span></div>
           </CardContent></Card>
-          <Card className="bg-gradient-to-br from-red-900/40 to-slate-800 border-red-800/30"><CardContent className="p-3">
-            <p className="text-[10px] text-red-400">Total G.Issued</p>
-            <p className="text-xl font-bold text-red-400">{summary.g_issued_total || 0}</p>
-            <p className="text-[9px] text-slate-500 mt-1">Gunny bags OUT</p>
+          <Card className="border border-red-200 dark:border-red-800/30 bg-red-50/50 dark:bg-red-900/20"><CardContent className="p-2">
+            <p className="text-[9px] text-red-600 dark:text-red-400 font-medium">Total G.Issued</p>
+            <p className="text-lg font-bold text-red-700 dark:text-red-400">{summary.g_issued_total || 0}</p>
+            <p className="text-[8px] text-slate-500">Gunny bags OUT</p>
           </CardContent></Card>
-          <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
-            <p className="text-[10px] text-white font-medium">Total (Excl Govt)</p>
-            <p className="text-xl font-bold text-white">{summary.grand_total || 0} bags</p>
-            <p className="text-[9px] text-slate-500 mt-1">All Old Bags (In - Out)</p>
+          <Card className="border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800"><CardContent className="p-2">
+            <p className="text-[9px] text-slate-700 dark:text-slate-200 font-semibold">Total (Excl Govt)</p>
+            <p className="text-lg font-bold text-slate-900 dark:text-white">{summary.grand_total || 0}</p>
+            <p className="text-[8px] text-slate-500">All Old Bags (In - Out)</p>
           </CardContent></Card>
-          <Card className="bg-gradient-to-br from-emerald-900/40 to-slate-800 border-emerald-800/30"><CardContent className="p-3">
-            <p className="text-[10px] text-emerald-400">Govt Bags (Free)</p>
-            <p className="text-xl font-bold text-emerald-400">{summary.new?.balance || 0}</p>
-            <div className="flex gap-2 text-[10px] mt-1"><span className="text-green-500">In: {summary.new?.total_in || 0}</span><span className="text-red-400">Out: {summary.new?.total_out || 0}</span></div>
-            <p className="text-[9px] text-slate-500 mt-1">Not in total</p>
+          <Card className="border border-emerald-200 dark:border-emerald-800/30 bg-emerald-50/50 dark:bg-emerald-900/20"><CardContent className="p-2">
+            <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-medium">Govt Bags (Free)</p>
+            <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{summary.new?.balance || 0}</p>
+            <div className="flex gap-1.5 text-[8px] mt-0.5"><span className="text-green-600 dark:text-green-500">In: {summary.new?.total_in || 0}</span><span className="text-red-500 dark:text-red-400">Out: {summary.new?.total_out || 0}</span></div>
           </CardContent></Card>
-          <Card className="bg-gradient-to-br from-violet-900/40 to-slate-800 border-violet-800/30"><CardContent className="p-3">
-            <p className="text-[10px] text-violet-400">Bran P.Pkt</p>
-            <p className="text-xl font-bold text-violet-400">{summary.bran_plastic?.balance || 0}</p>
-            <div className="flex gap-2 text-[10px] mt-1"><span className="text-green-500">In: {summary.bran_plastic?.total_in || 0}</span><span className="text-red-400">Out: {summary.bran_plastic?.total_out || 0}</span></div>
-            <p className="text-[9px] text-amber-400">Cost: Rs.{(summary.bran_plastic?.total_cost || 0).toLocaleString('en-IN')}</p>
+          <Card className="border border-violet-200 dark:border-violet-800/30 bg-violet-50/50 dark:bg-violet-900/20"><CardContent className="p-2">
+            <p className="text-[9px] text-violet-600 dark:text-violet-400 font-medium">Bran P.Pkt</p>
+            <p className="text-lg font-bold text-violet-700 dark:text-violet-400">{summary.bran_plastic?.balance || 0}</p>
+            <div className="flex gap-1.5 text-[8px] mt-0.5"><span className="text-green-600 dark:text-green-500">In: {summary.bran_plastic?.total_in || 0}</span><span className="text-red-500 dark:text-red-400">Out: {summary.bran_plastic?.total_out || 0}</span></div>
           </CardContent></Card>
-          <Card className="bg-gradient-to-br from-cyan-900/40 to-slate-800 border-cyan-800/30"><CardContent className="p-3">
-            <p className="text-[10px] text-cyan-400">Broken P.Pkt</p>
-            <p className="text-xl font-bold text-cyan-400">{summary.broken_plastic?.balance || 0}</p>
-            <div className="flex gap-2 text-[10px] mt-1"><span className="text-green-500">In: {summary.broken_plastic?.total_in || 0}</span><span className="text-red-400">Out: {summary.broken_plastic?.total_out || 0}</span></div>
-            <p className="text-[9px] text-amber-400">Cost: Rs.{(summary.broken_plastic?.total_cost || 0).toLocaleString('en-IN')}</p>
+          <Card className="border border-cyan-200 dark:border-cyan-800/30 bg-cyan-50/50 dark:bg-cyan-900/20"><CardContent className="p-2">
+            <p className="text-[9px] text-cyan-600 dark:text-cyan-400 font-medium">Broken P.Pkt</p>
+            <p className="text-lg font-bold text-cyan-700 dark:text-cyan-400">{summary.broken_plastic?.balance || 0}</p>
+            <div className="flex gap-1.5 text-[8px] mt-0.5"><span className="text-green-600 dark:text-green-500">In: {summary.broken_plastic?.total_in || 0}</span><span className="text-red-500 dark:text-red-400">Out: {summary.broken_plastic?.total_out || 0}</span></div>
           </CardContent></Card>
         </div>
       )}
