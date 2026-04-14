@@ -39,14 +39,15 @@ def draw_watermark_on_page(canvas, doc_template):
         if text:
             font_size = int(settings.get("font_size", 52))
             rotation = int(settings.get("rotation", 45))
-            canvas.setFillAlpha(opacity)
             try:
-                canvas.setFont("FreeSansBold", font_size)
+                font_name = "FreeSansBold"
+                canvas.setFont(font_name, font_size)
             except Exception:
-                canvas.setFont("Helvetica-Bold", font_size)
-            canvas.setFillColorRGB(0.6, 0.6, 0.6)
+                font_name = "Helvetica-Bold"
+                canvas.setFont(font_name, font_size)
             # Tile watermark across the full page
             import math
+            from reportlab.pdfbase.pdfmetrics import stringWidth
             step_x = max(font_size * len(text) * 0.45, 200)
             step_y = max(font_size * 2.5, 150)
             for y in range(int(-h * 0.5), int(h * 1.5), int(step_y)):
@@ -54,6 +55,14 @@ def draw_watermark_on_page(canvas, doc_template):
                     canvas.saveState()
                     canvas.translate(x, y)
                     canvas.rotate(rotation)
+                    canvas.setFillAlpha(opacity)
+                    canvas.setFillColorRGB(0.6, 0.6, 0.6)
+                    canvas.setFont(font_name, font_size)
+                    # Draw as filled text path (non-selectable vector outlines)
+                    tw = stringWidth(text, font_name, font_size)
+                    p = canvas.beginPath()
+                    p.moveTo(-tw / 2, 0)
+                    canvas.setFont(font_name, font_size)
                     canvas.drawCentredString(0, 0, text)
                     canvas.restoreState()
 
