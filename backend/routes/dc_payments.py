@@ -858,6 +858,20 @@ async def get_gunny_bag_summary(kms_year: Optional[str] = None, season: Optional
     old_cost = round(sum(e.get("amount",0) for e in old_items if e.get("txn_type") == "in"), 2)
     result["old"] = {"total_in": old_in, "total_out": old_out, "balance": old_in - old_out, "total_cost": old_cost}
 
+    # Bran Plastic Pkt
+    bran_items = [e for e in entries if e.get("bag_type") == "bran_plastic"]
+    bran_in = sum(e.get("quantity",0) for e in bran_items if e.get("txn_type") == "in")
+    bran_out = sum(e.get("quantity",0) for e in bran_items if e.get("txn_type") == "out")
+    bran_cost = round(sum(e.get("amount",0) for e in bran_items if e.get("txn_type") == "in"), 2)
+    result["bran_plastic"] = {"total_in": bran_in, "total_out": bran_out, "balance": bran_in - bran_out, "total_cost": bran_cost}
+
+    # Broken Plastic Pkt
+    broken_items = [e for e in entries if e.get("bag_type") == "broken_plastic"]
+    broken_in = sum(e.get("quantity",0) for e in broken_items if e.get("txn_type") == "in")
+    broken_out = sum(e.get("quantity",0) for e in broken_items if e.get("txn_type") == "out")
+    broken_cost = round(sum(e.get("amount",0) for e in broken_items if e.get("txn_type") == "in"), 2)
+    result["broken_plastic"] = {"total_in": broken_in, "total_out": broken_out, "balance": broken_in - broken_out, "total_cost": broken_cost}
+
     # Auto entries from mill entries (bag=IN, g_issued=OUT)
     auto_in = sum(e.get("quantity",0) for e in auto_entries if e.get("txn_type") == "in")
     auto_out = sum(e.get("quantity",0) for e in auto_entries if e.get("txn_type") == "out")
@@ -951,7 +965,7 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
     style_excel_header_row(ws, row, ncols)
     row += 1; txn_start = row
     for e in filtered:
-        bt = "New (Govt)" if e.get("bag_type")=="new" else "Bran Pkt" if e.get("bag_type")=="bran_plastic" else "Broken Pkt" if e.get("bag_type")=="broken_plastic" else "Old (Market)"
+        bt = "New (Govt)" if e.get("bag_type")=="new" else "Bran P.Pkt" if e.get("bag_type")=="bran_plastic" else "Broken P.Pkt" if e.get("bag_type")=="broken_plastic" else "Old (Market)"
         src = (e.get("party_name","") or e.get("source","")) + (" [Auto]" if e.get("linked_entry_id") else "")
         for col, v in enumerate([fmt_date(e.get("date","")), bt, "In" if e.get("txn_type")=="in" else "Out",
             e.get("quantity",0), src, e.get("rate",0), e.get("amount",0),
@@ -1047,7 +1061,7 @@ async def export_gunny_bags_pdf(kms_year: Optional[str] = None, season: Optional
     elements.append(Paragraph("Transactions", styles['Heading2'])); elements.append(Spacer(1, 6))
     data = [['Date','Bag Type','In/Out','Qty','Source/To','Rate','Amt(Rs.)','Used For','Dmg','Ret','Remark']]
     for e in filtered:
-        bt = "New(Govt)" if e.get("bag_type")=="new" else "Bran Pkt" if e.get("bag_type")=="bran_plastic" else "Broken Pkt" if e.get("bag_type")=="broken_plastic" else "Old(Mkt)"
+        bt = "New(Govt)" if e.get("bag_type")=="new" else "Bran P.Pkt" if e.get("bag_type")=="bran_plastic" else "Broken P.Pkt" if e.get("bag_type")=="broken_plastic" else "Old(Mkt)"
         src = (e.get("party_name","") or e.get("source",""))
         if e.get("linked_entry_id"): src += " [Auto]"
         data.append([fmt_date(e.get("date","")), bt, "In" if e.get("txn_type")=="in" else "Out",

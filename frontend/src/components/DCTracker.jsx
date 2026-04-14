@@ -505,7 +505,7 @@ export const GunnyBags = ({ filters, user }) => {
     return stock;
   }, [entries]);
 
-  const bagTypeLabel = { old: "Old (Market)", new: "New (Govt)", bran_plastic: "Bran Plastic Pkt", broken_plastic: "Broken Plastic Pkt" };
+  const bagTypeLabel = { old: "Old (Market)", new: "New (Govt)", bran_plastic: "Bran P.Pkt", broken_plastic: "Broken P.Pkt" };
   const selectedBagStock = bagStock[form.bag_type] || 0;
 
   const fetchData = useCallback(async () => {
@@ -664,6 +664,18 @@ export const GunnyBags = ({ filters, user }) => {
             <div className="flex gap-2 text-[10px] mt-1"><span className="text-green-500">In: {summary.new?.total_in || 0}</span><span className="text-red-400">Out: {summary.new?.total_out || 0}</span></div>
             <p className="text-[9px] text-slate-500 mt-1">Not in total</p>
           </CardContent></Card>
+          <Card className="bg-gradient-to-br from-violet-900/40 to-slate-800 border-violet-800/30"><CardContent className="p-3">
+            <p className="text-[10px] text-violet-400">Bran P.Pkt</p>
+            <p className="text-xl font-bold text-violet-400">{summary.bran_plastic?.balance || 0}</p>
+            <div className="flex gap-2 text-[10px] mt-1"><span className="text-green-500">In: {summary.bran_plastic?.total_in || 0}</span><span className="text-red-400">Out: {summary.bran_plastic?.total_out || 0}</span></div>
+            <p className="text-[9px] text-amber-400">Cost: Rs.{(summary.bran_plastic?.total_cost || 0).toLocaleString('en-IN')}</p>
+          </CardContent></Card>
+          <Card className="bg-gradient-to-br from-cyan-900/40 to-slate-800 border-cyan-800/30"><CardContent className="p-3">
+            <p className="text-[10px] text-cyan-400">Broken P.Pkt</p>
+            <p className="text-xl font-bold text-cyan-400">{summary.broken_plastic?.balance || 0}</p>
+            <div className="flex gap-2 text-[10px] mt-1"><span className="text-green-500">In: {summary.broken_plastic?.total_in || 0}</span><span className="text-red-400">Out: {summary.broken_plastic?.total_out || 0}</span></div>
+            <p className="text-[9px] text-amber-400">Cost: Rs.{(summary.broken_plastic?.total_cost || 0).toLocaleString('en-IN')}</p>
+          </CardContent></Card>
         </div>
       )}
       <div className="flex gap-2 flex-wrap items-center">
@@ -673,8 +685,8 @@ export const GunnyBags = ({ filters, user }) => {
             { id: "mill", label: "Bag Received (Mill)" },
             { id: "market", label: "Old Bags (Market)" },
             { id: "govt", label: "Govt Bags" },
-            { id: "bran_plastic", label: "Bran Pkt" },
-            { id: "broken_plastic", label: "Broken Pkt" },
+            { id: "bran_plastic", label: "Bran P.Pkt" },
+            { id: "broken_plastic", label: "Broken P.Pkt" },
           ].map(f => (
             <Button key={f.id} onClick={() => setBagFilter(f.id)} variant={bagFilter === f.id ? "default" : "ghost"} size="sm"
               className={`h-7 text-xs ${bagFilter === f.id ? "bg-amber-500 text-slate-900" : "text-slate-400 hover:text-white"}`}
@@ -737,7 +749,7 @@ export const GunnyBags = ({ filters, user }) => {
               <TableCell className="text-blue-400 text-xs">{e.used_for_bp || '-'}</TableCell>
               <TableCell className="text-red-400 text-xs text-right">{e.damaged > 0 ? e.damaged : '-'}</TableCell>
               <TableCell className="text-amber-400 text-xs text-right">{e.returned > 0 ? e.returned : '-'}</TableCell>
-              <TableCell className="text-xs"><span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${e.bag_type === 'new' ? 'bg-emerald-500/20 text-emerald-400' : e.bag_type === 'bran_plastic' ? 'bg-purple-500/20 text-purple-400' : e.bag_type === 'broken_plastic' ? 'bg-blue-500/20 text-blue-400' : 'bg-orange-500/20 text-orange-400'}`}>{e.bag_type === 'new' ? 'Govt' : e.bag_type === 'bran_plastic' ? 'Bran Pkt' : e.bag_type === 'broken_plastic' ? 'Broken Pkt' : 'Market'}</span></TableCell>
+              <TableCell className="text-xs"><span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${e.bag_type === 'new' ? 'bg-emerald-500/20 text-emerald-400' : e.bag_type === 'bran_plastic' ? 'bg-purple-500/20 text-purple-400' : e.bag_type === 'broken_plastic' ? 'bg-blue-500/20 text-blue-400' : 'bg-orange-500/20 text-orange-400'}`}>{e.bag_type === 'new' ? 'Govt' : e.bag_type === 'bran_plastic' ? 'Bran P.Pkt' : e.bag_type === 'broken_plastic' ? 'Broken P.Pkt' : 'Market'}</span></TableCell>
               <TableCell className="text-slate-400 text-xs truncate max-w-[80px]" title={e.notes || ''}>{e.notes || '-'}</TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
@@ -784,8 +796,8 @@ export const GunnyBags = ({ filters, user }) => {
                   <SelectContent>
                     <SelectItem value="new">New (Govt) — {bagStock.new} bags</SelectItem>
                     <SelectItem value="old">Old (Market) — {bagStock.old} bags</SelectItem>
-                    <SelectItem value="bran_plastic">Bran Plastic Pkt — {bagStock.bran_plastic} bags</SelectItem>
-                    <SelectItem value="broken_plastic">Broken Plastic Pkt — {bagStock.broken_plastic} bags</SelectItem>
+                    <SelectItem value="bran_plastic">Bran P.Pkt — {bagStock.bran_plastic} bags</SelectItem>
+                    <SelectItem value="broken_plastic">Broken P.Pkt — {bagStock.broken_plastic} bags</SelectItem>
                   </SelectContent>
                 </Select></div>
               <div><Label className="text-xs text-slate-400">In/Out</Label>
