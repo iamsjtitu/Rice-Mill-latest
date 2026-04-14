@@ -1115,14 +1115,9 @@ function MillingRegister({ filters, user }) {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <Card className="border"><CardContent className="p-3 text-center">
-          <p className="text-[10px] text-slate-500">Opening Stock (Paddy/Rice)</p>
-          <p className="text-sm font-bold text-orange-600 dark:text-amber-400">{(s.ob_paddy || 0).toLocaleString()} <span className="text-xs text-slate-400">Paddy</span></p>
-          <p className="text-sm font-bold text-teal-700 dark:text-cyan-400">{(s.ob_rice || 0).toLocaleString()} <span className="text-xs text-slate-400">Rice</span></p>
-        </CardContent></Card>
-        <Card className="border"><CardContent className="p-3 text-center">
-          <p className="text-[10px] text-slate-500">Total Paddy Received</p>
+          <p className="text-[10px] text-slate-500">Total Paddy Released (CM A/c)</p>
           <p className="text-lg font-bold text-blue-700 dark:text-blue-400">{(s.total_paddy_received || 0).toLocaleString()} <span className="text-xs text-slate-400">Qtl</span></p>
           <p className="text-[10px] text-slate-500">Milled: {(s.total_paddy_milled || 0).toLocaleString()}</p>
         </CardContent></Card>

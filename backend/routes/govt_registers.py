@@ -1118,15 +1118,9 @@ async def get_milling_register(kms_year: Optional[str] = None, season: Optional[
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
 
-    # 0. Opening Stock from settings
+    # Milling Register: OB = 0, only paddy_release feeds "Rcvd from CM A/c"
     ob_paddy = 0
     ob_rice = 0
-    if kms_year:
-        ob_doc = await db.opening_stock.find_one({"kms_year": kms_year}, {"_id": 0})
-        if ob_doc:
-            stocks = ob_doc.get("stocks", {})
-            ob_paddy = float(stocks.get("paddy", 0) or 0)
-            ob_rice = float(stocks.get("rice_usna", 0) or 0) + float(stocks.get("rice_raw", 0) or 0)
 
     # 1. Paddy released daily (from paddy_release) = "Received from CM A/c"
     paddy_releases = await db.paddy_release.find(query, {"_id": 0, "date": 1, "qty_qtl": 1}).to_list(50000)
