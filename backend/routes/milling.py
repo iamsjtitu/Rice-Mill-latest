@@ -528,8 +528,8 @@ async def get_paddy_custody_register(kms_year: Optional[str] = None, season: Opt
     
     # Paddy received from mill entries
     mill_entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
-    # Paddy released for milling
-    milling_entries = await db.milling_entries.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
+    # Paddy released (from paddy_release module, NOT milling_entries)
+    paddy_releases = await db.paddy_release.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
     
     # Build register rows
     rows = []
@@ -542,13 +542,13 @@ async def get_paddy_custody_register(kms_year: Optional[str] = None, season: Opt
             "issued_qntl": 0,
             "source_id": e.get('id', '')
         })
-    for e in milling_entries:
+    for e in paddy_releases:
         rows.append({
             "date": e.get('date', ''),
             "type": "issued",
-            "description": f"Milling ({e.get('rice_type', 'parboiled').title()}) | Rice: {e.get('rice_qntl', 0)}Q",
+            "description": f"Paddy Release | RO: {e.get('ro_number', '-')} | Qty: {e.get('qty_qtl', 0)} Qtl",
             "received_qntl": 0,
-            "issued_qntl": e.get('paddy_input_qntl', 0),
+            "issued_qntl": round(float(e.get('qty_qtl', 0) or 0), 2),
             "source_id": e.get('id', '')
         })
     

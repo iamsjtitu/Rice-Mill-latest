@@ -276,10 +276,13 @@ module.exports = function(database) {
     let entries = [...database.data.entries];
     if (filters.kms_year) entries = entries.filter(e => e.kms_year === filters.kms_year);
     if (filters.season) entries = entries.filter(e => e.season === filters.season);
-    const millingEntries = database.getMillingEntries(filters);
+    // Use paddy_release for Released column (NOT milling_entries)
+    let paddyReleases = [...(database.data.paddy_release || [])];
+    if (filters.kms_year) paddyReleases = paddyReleases.filter(e => e.kms_year === filters.kms_year);
+    if (filters.season) paddyReleases = paddyReleases.filter(e => e.season === filters.season);
     const rows = [];
     entries.forEach(e => rows.push({ date: e.date || '', type: 'received', description: `Truck: ${e.truck_no || ''} | Agent: ${e.agent_name || ''} | Mandi: ${e.mandi_name || ''}`, received_qntl: +(parseFloat(e.tp_weight || 0)).toFixed(2), issued_qntl: 0, source_id: e.id || '' }));
-    millingEntries.forEach(e => rows.push({ date: e.date || '', type: 'issued', description: `Milling (${(e.rice_type || 'parboiled').charAt(0).toUpperCase() + (e.rice_type || '').slice(1)}) | Rice: ${e.rice_qntl || 0}Q`, received_qntl: 0, issued_qntl: e.paddy_input_qntl || 0, source_id: e.id || '' }));
+    paddyReleases.forEach(e => rows.push({ date: e.date || '', type: 'issued', description: `Paddy Release | RO: ${e.ro_number || '-'} | Qty: ${e.qty_qtl || 0} Qtl`, received_qntl: 0, issued_qntl: +(parseFloat(e.qty_qtl || 0)).toFixed(2), source_id: e.id || '' }));
     rows.sort((a, b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)));
     let balance = 0;
     rows.forEach(r => { balance += r.received_qntl - r.issued_qntl; r.balance_qntl = +balance.toFixed(2); });

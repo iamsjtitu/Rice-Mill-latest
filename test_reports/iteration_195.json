@@ -1,0 +1,89 @@
+{
+  "summary": "Paddy Custody Register Fix - Iteration 195 PASSED. All 13 backend API tests passed. Frontend UI verified: Released (Qtl) column now shows data from paddy_release collection with 'Paddy Release | RO: ... | Qty: ...' format instead of milling_entries.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_paddy_custody_register.py",
+    "/app/test_reports/pytest/pytest_results_iteration195.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_paddy_custody_register.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 tests passed)",
+    "frontend": "100% (All UI tests passed)"
+  },
+  "test_credentials": "admin/admin123",
+  "seed_data_creation": "None - existing test data used (RO-001, 10000 Qtl paddy_release entry)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Paddy Custody Register fix verified. Key changes: (1) Released (Qtl) now comes from paddy_release collection (qty_qtl field) instead of milling_entries (paddy_input_qntl). (2) Description for released rows changed from 'Milling (...)' to 'Paddy Release | RO: ... | Qty: ... Qtl'. (3) Received (Qtl) still comes from mill_entries tp_weight (unchanged). (4) Balance = Received - Released running total. Test data: 1 paddy_release entry (RO-001, 10000 Qtl, date 2026-04-06, kms_year 2026-2027).",
+  "tests_executed": {
+    "backend_api_tests": [
+      "GET /api/paddy-custody-register - PASS (returns 200 with rows, total_received, total_issued, final_balance)",
+      "Released comes from paddy_release - PASS (total_issued matches sum of paddy_release qty_qtl)",
+      "Released description format - PASS (contains 'Paddy Release | RO:' format)",
+      "Received comes from mill_entries tp_weight - PASS (description contains 'Truck:' format)",
+      "Balance calculation - PASS (final_balance = total_received - total_issued)",
+      "Weekly grouping - PASS (group_by=weekly returns summary rows)",
+      "Excel export - PASS (returns 200 with spreadsheet content-type)",
+      "PDF export - PASS (returns 200 with pdf content-type)",
+      "Filter by kms_year - PASS",
+      "Filter by season - PASS",
+      "GET /api/paddy-release - PASS (returns list of releases)",
+      "Paddy release has required fields - PASS (qty_qtl, date, ro_number)",
+      "GET /api/paddy-release/stock - PASS (returns total_released, total_milled, available_for_milling)"
+    ],
+    "frontend_ui_tests": [
+      "1. Login with admin/admin123 - PASS",
+      "2. Navigate to Govt Registers - PASS",
+      "3. Paddy Custody tab visible and clickable - PASS",
+      "4. Table headers: Date, Description, Received (Qtl), Released (Qtl), Balance (Qtl) - PASS",
+      "5. Released row shows 'Paddy Release | RO: RO-001 | Qty: 10000.0 Qtl' format - PASS",
+      "6. Summary cards: Total Received, Total Released, Current Balance - PASS",
+      "7. Daily/Weekly toggle works - PASS",
+      "8. Excel export button present - PASS",
+      "9. PDF export button present - PASS"
+    ]
+  },
+  "fix_verified": {
+    "original_issue": "Released (Qtl) was coming from milling_entries.paddy_input_qntl",
+    "fix_applied": "Released (Qtl) now comes from paddy_release.qty_qtl",
+    "description_change": {
+      "old_format": "Milling (...)",
+      "new_format": "Paddy Release | RO: {ro_number} | Qty: {qty_qtl} Qtl"
+    },
+    "unchanged": "Received (Qtl) still comes from mill_entries.tp_weight",
+    "test_data": {
+      "paddy_release_entry": {
+        "ro_number": "RO-001",
+        "qty_qtl": 10000,
+        "date": "2026-04-06",
+        "kms_year": "2026-2027",
+        "season": "Kharif"
+      }
+    }
+  },
+  "api_response_sample": {
+    "without_filter": {
+      "total_received": 14300.0,
+      "total_issued": 10000.0,
+      "final_balance": 4300.0
+    },
+    "with_kms_year_2026-2027": {
+      "total_received": 0.0,
+      "total_issued": 10000.0,
+      "final_balance": -10000.0
+    }
+  },
+  "version_tested": "v91.0.0"
+}
