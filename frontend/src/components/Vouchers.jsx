@@ -105,7 +105,7 @@ export default function Vouchers({ filters, user, onNavigate }) {
             <button onClick={() => setPurchaseSubTab("paddy")}
               className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${purchaseSubTab === "paddy" ? "bg-orange-600/30 text-orange-400 border border-orange-500/50" : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"}`}
               data-testid="purchase-subtab-paddy">
-              <Wheat className="w-3.5 h-3.5 inline mr-1" />Paddy Purchase
+              <Wheat className="w-3.5 h-3.5 inline mr-1" />Pvt Paddy Purchase
             </button>
           </div>
           {purchaseSubTab === "paddy" ? (
