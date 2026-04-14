@@ -236,8 +236,14 @@ async def get_paddy_stock(kms_year: Optional[str] = None, season: Optional[str] 
     total_paddy_in = round(ob_paddy + cmr_paddy_in + pvt_paddy_in + pv_paddy, 2)
     milling_entries = await db.milling_entries.find(query, {"paddy_input_qntl": 1, "_id": 0}).to_list(10000)
     total_paddy_used = calc_paddy_used(milling_entries)
+
+    # Paddy released (goes to milling register, deducted from overall stock)
+    releases = await db.paddy_release.find(query, {"_id": 0, "qty_qtl": 1}).to_list(10000)
+    total_released = round(sum(r.get("qty_qtl", 0) for r in releases), 2)
+
     return {"total_paddy_in_qntl": total_paddy_in, "total_paddy_used_qntl": total_paddy_used,
-        "available_paddy_qntl": round(total_paddy_in - total_paddy_used, 2),
+        "available_paddy_qntl": round(total_paddy_in - total_paddy_used - total_released, 2),
+        "total_released_qntl": total_released,
         "cmr_paddy_in_qntl": cmr_paddy_in, "pvt_paddy_in_qntl": pvt_paddy_in,
         "pv_paddy_in_qntl": pv_paddy, "ob_paddy_qntl": ob_paddy}
 

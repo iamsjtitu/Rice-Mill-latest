@@ -111,7 +111,15 @@ module.exports = function(database) {
     const totalIn = +(obPaddy + cmrIn + pvtIn).toFixed(2);
     const millingEntries = database.getMillingEntries(filters);
     const totalUsed = +millingEntries.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0).toFixed(2);
-    res.json({ total_paddy_in_qntl: totalIn, total_paddy_used_qntl: totalUsed, available_paddy_qntl: +(totalIn - totalUsed).toFixed(2), cmr_paddy_in_qntl: cmrIn, pvt_paddy_in_qntl: pvtIn, ob_paddy_qntl: obPaddy });
+
+    // Released paddy
+    if (!database.data.paddy_release) database.data.paddy_release = [];
+    let releases = [...database.data.paddy_release];
+    if (filters.kms_year) releases = releases.filter(r => r.kms_year === filters.kms_year);
+    if (filters.season) releases = releases.filter(r => r.season === filters.season);
+    const totalReleased = +releases.reduce((s, r) => s + (r.qty_qtl || 0), 0).toFixed(2);
+
+    res.json({ total_paddy_in_qntl: totalIn, total_paddy_used_qntl: totalUsed, available_paddy_qntl: +(totalIn - totalUsed - totalReleased).toFixed(2), total_released_qntl: totalReleased, cmr_paddy_in_qntl: cmrIn, pvt_paddy_in_qntl: pvtIn, ob_paddy_qntl: obPaddy });
   }));
 
   // ===== RICE STOCK =====

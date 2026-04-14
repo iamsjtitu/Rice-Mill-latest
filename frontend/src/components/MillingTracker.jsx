@@ -159,6 +159,7 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
                 {paddyStock.pvt_paddy_in_qntl > 0 && <div><span className="text-slate-400 text-xs">Pvt:</span> <span className="text-purple-400 font-bold">{paddyStock.pvt_paddy_in_qntl} Q</span></div>}
                 <div><span className="text-slate-400 text-xs">Total In:</span> <span className="text-blue-300 font-bold">{paddyStock.total_paddy_in_qntl} Q</span></div>
                 <div><span className="text-slate-400 text-xs">Used:</span> <span className="text-orange-400 font-bold">{paddyStock.total_paddy_used_qntl} Q</span></div>
+                {paddyStock.total_released_qntl > 0 && <div><span className="text-slate-400 text-xs">Released:</span> <span className="text-amber-400 font-bold">{paddyStock.total_released_qntl} Q</span></div>}
                 <div><span className="text-slate-400 text-xs">Avl:</span> <span className={`font-bold ${paddyStock.available_paddy_qntl > 0 ? 'text-green-400' : 'text-red-400'}`}>{paddyStock.available_paddy_qntl} Q</span></div>
               </div>
               {releaseStock && (
