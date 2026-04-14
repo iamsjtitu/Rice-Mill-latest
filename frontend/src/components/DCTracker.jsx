@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { fmtDate } from "@/utils/date";
 import axios from "axios";
 import { toast } from "sonner";
@@ -492,6 +492,22 @@ export const GunnyBags = ({ filters, user }) => {
   const [bagFilter, setBagFilter] = useState("all");
   const [txnFilter, setTxnFilter] = useState("all");
 
+  // Compute realtime stock per bag type from entries
+  const bagStock = useMemo(() => {
+    const stock = { old: 0, new: 0, bran_plastic: 0, broken_plastic: 0 };
+    entries.forEach(e => {
+      const bt = e.bag_type || "old";
+      if (stock[bt] !== undefined) {
+        if (e.txn_type === "in") stock[bt] += (e.quantity || 0);
+        else stock[bt] -= (e.quantity || 0);
+      }
+    });
+    return stock;
+  }, [entries]);
+
+  const bagTypeLabel = { old: "Old (Market)", new: "New (Govt)", bran_plastic: "Bran Plastic Pkt", broken_plastic: "Broken Plastic Pkt" };
+  const selectedBagStock = bagStock[form.bag_type] || 0;
+
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -691,8 +707,8 @@ export const GunnyBags = ({ filters, user }) => {
       </div>
       <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
         <Table><TableHeader><TableRow className="border-slate-700 hover:bg-transparent">
-          {['Date','Party','Inv No','Truck','In/Out','Qty','Rate','Total','GST','Paid','Used For','Dmg','Ret','Type','Remark',''].map(h =>
-            <TableHead key={h} className={`text-slate-300 text-xs ${['Qty','Rate','Total','GST','Paid','Dmg','Ret'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
+          {['Date','Party','Inv No','Truck','In/Out','Qty','Rate','Total','GST','Paid','Used For','Damaged','Return','Type','Remark',''].map(h =>
+            <TableHead key={h} className={`text-slate-300 text-xs ${['Qty','Rate','Total','GST','Paid','Damaged','Return'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
         </TableRow></TableHeader>
         <TableBody>
           {loading ? <TableRow><TableCell colSpan={16} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
@@ -762,10 +778,15 @@ export const GunnyBags = ({ filters, user }) => {
             <div className="grid grid-cols-3 gap-3">
               <div><Label className="text-xs text-slate-400">Date</Label>
                 <Input type="date" value={form.date} onChange={e => setForm(p=>({...p,date:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="gunny-form-date" /></div>
-              <div><Label className="text-xs text-slate-400">Bag Type</Label>
+              <div><Label className="text-xs text-slate-400">Bag Type <span className={`ml-1 font-bold ${selectedBagStock > 0 ? 'text-emerald-400' : 'text-red-400'}`}>({selectedBagStock} bags)</span></Label>
                 <Select value={form.bag_type} onValueChange={v => setForm(p=>({...p,bag_type:v}))}>
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-bagtype"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="new">New (Govt)</SelectItem><SelectItem value="old">Old (Market)</SelectItem><SelectItem value="bran_plastic">Bran Plastic Pkt</SelectItem><SelectItem value="broken_plastic">Broken Plastic Pkt</SelectItem></SelectContent>
+                  <SelectContent>
+                    <SelectItem value="new">New (Govt) — {bagStock.new} bags</SelectItem>
+                    <SelectItem value="old">Old (Market) — {bagStock.old} bags</SelectItem>
+                    <SelectItem value="bran_plastic">Bran Plastic Pkt — {bagStock.bran_plastic} bags</SelectItem>
+                    <SelectItem value="broken_plastic">Broken Plastic Pkt — {bagStock.broken_plastic} bags</SelectItem>
+                  </SelectContent>
                 </Select></div>
               <div><Label className="text-xs text-slate-400">In/Out</Label>
                 <Select value={form.txn_type} onValueChange={v => setForm(p=>({...p,txn_type:v}))}>
@@ -789,7 +810,7 @@ export const GunnyBags = ({ filters, user }) => {
             <div className="grid grid-cols-3 gap-3">
               <div><Label className="text-xs text-slate-400">Party Name</Label>
                 <Input value={form.party_name} onChange={e => setForm(p=>({...p,party_name:e.target.value}))} placeholder="Party / Supplier" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-party" /></div>
-              <div><Label className="text-xs text-slate-400">Quantity (bags)</Label>
+              <div><Label className="text-xs text-slate-400">Quantity (bags) <span className={`ml-1 font-bold ${selectedBagStock > 0 ? 'text-emerald-400' : 'text-red-400'}`}>Stock: {selectedBagStock}</span></Label>
                 <Input type="number" value={form.quantity} onChange={e => setForm(p=>({...p,quantity:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="gunny-form-qty" /></div>
               <div><Label className="text-xs text-slate-400">Rate (Rs./bag)</Label>
                 <Input type="number" step="0.01" value={form.rate} onChange={e => setForm(p=>({...p,rate:e.target.value}))} placeholder="0 for free" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-rate" /></div>
@@ -821,7 +842,7 @@ export const GunnyBags = ({ filters, user }) => {
             <>
             {/* OUT fields: Used For, Damaged, Return */}
             <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs text-slate-400">Quantity (bags)</Label>
+              <div><Label className="text-xs text-slate-400">Quantity (bags) <span className={`ml-1 font-bold ${selectedBagStock > 0 ? 'text-emerald-400' : 'text-red-400'}`}>Stock: {selectedBagStock}</span></Label>
                 <Input type="number" value={form.quantity} onChange={e => setForm(p=>({...p,quantity:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="gunny-form-qty" /></div>
               <div><Label className="text-xs text-blue-400">Used For</Label>
                 <Select value={form.used_for_bp || "_none"} onValueChange={v => setForm(p=>({...p,used_for_bp: v === "_none" ? "" : v}))}>
