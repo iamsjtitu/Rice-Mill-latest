@@ -897,6 +897,8 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
         if bag_filter == "mill": result = [e for e in result if e.get("linked_entry_id")]
         elif bag_filter == "market": result = [e for e in result if e.get("bag_type") == "old" and not e.get("linked_entry_id")]
         elif bag_filter == "govt": result = [e for e in result if e.get("bag_type") == "new"]
+        elif bag_filter == "bran_plastic": result = [e for e in result if e.get("bag_type") == "bran_plastic"]
+        elif bag_filter == "broken_plastic": result = [e for e in result if e.get("bag_type") == "broken_plastic"]
         if txn_filter == "in": result = [e for e in result if e.get("txn_type") == "in"]
         elif txn_filter == "out": result = [e for e in result if e.get("txn_type") == "out"]
         return result
@@ -906,7 +908,7 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
     from utils.export_helpers import (style_excel_title, style_excel_header_row,
         style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
     
-    ncols = 8
+    ncols = 12
     title = "Gunny Bag Register / बोरी रजिस्टर"
     style_excel_title(ws, title, ncols)
     filter_txt = f"FY: {kms_year or 'All'} | Season: {season or 'All'}"
@@ -943,16 +945,18 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
 
     # Transactions
     ws.cell(row=row, column=1, value="Transactions").font = Font(bold=True, size=11, color=COLORS['title_text']); row += 1
-    txn_headers = ['Date','Bag Type','In/Out','Qty','Source/To','Rate','Amount (Rs.)','Notes']
+    txn_headers = ['Date','Bag Type','In/Out','Qty','Source/To','Rate','Amount (Rs.)','Used For','Damaged','Return','Type','Remark']
     for col, h in enumerate(txn_headers, 1):
         ws.cell(row=row, column=col, value=h)
     style_excel_header_row(ws, row, ncols)
     row += 1; txn_start = row
     for e in filtered:
-        bt = "New (Govt)" if e.get("bag_type")=="new" else "Old (Market)"
-        src = (e.get("source","") + (" [Auto]" if e.get("linked_entry_id") else ""))
+        bt = "New (Govt)" if e.get("bag_type")=="new" else "Bran Pkt" if e.get("bag_type")=="bran_plastic" else "Broken Pkt" if e.get("bag_type")=="broken_plastic" else "Old (Market)"
+        src = (e.get("party_name","") or e.get("source","")) + (" [Auto]" if e.get("linked_entry_id") else "")
         for col, v in enumerate([fmt_date(e.get("date","")), bt, "In" if e.get("txn_type")=="in" else "Out",
-            e.get("quantity",0), src, e.get("rate",0), e.get("amount",0), e.get("notes","")], 1):
+            e.get("quantity",0), src, e.get("rate",0), e.get("amount",0),
+            e.get("used_for_bp","") or "-", e.get("damaged",0) or "-", e.get("returned",0) or "-",
+            bt, e.get("notes","") or "-"], 1):
             ws.cell(row=row, column=col, value=v)
         row += 1
     if filtered:
@@ -969,10 +973,14 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
     ws.column_dimensions['B'].width = 15
     ws.column_dimensions['C'].width = 8
     ws.column_dimensions['D'].width = 10
-    ws.column_dimensions['E'].width = 35
+    ws.column_dimensions['E'].width = 30
     ws.column_dimensions['F'].width = 10
     ws.column_dimensions['G'].width = 14
-    ws.column_dimensions['H'].width = 25
+    ws.column_dimensions['H'].width = 16
+    ws.column_dimensions['I'].width = 10
+    ws.column_dimensions['J'].width = 10
+    ws.column_dimensions['K'].width = 14
+    ws.column_dimensions['L'].width = 20
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=gunny_bags_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -998,6 +1006,8 @@ async def export_gunny_bags_pdf(kms_year: Optional[str] = None, season: Optional
     if bag_filter == "mill": filtered = [e for e in filtered if e.get("linked_entry_id")]
     elif bag_filter == "market": filtered = [e for e in filtered if e.get("bag_type") == "old" and not e.get("linked_entry_id")]
     elif bag_filter == "govt": filtered = [e for e in filtered if e.get("bag_type") == "new"]
+    elif bag_filter == "bran_plastic": filtered = [e for e in filtered if e.get("bag_type") == "bran_plastic"]
+    elif bag_filter == "broken_plastic": filtered = [e for e in filtered if e.get("bag_type") == "broken_plastic"]
     if txn_filter == "in": filtered = [e for e in filtered if e.get("txn_type") == "in"]
     elif txn_filter == "out": filtered = [e for e in filtered if e.get("txn_type") == "out"]
 
@@ -1035,19 +1045,20 @@ async def export_gunny_bags_pdf(kms_year: Optional[str] = None, season: Optional
 
     # Transactions
     elements.append(Paragraph("Transactions", styles['Heading2'])); elements.append(Spacer(1, 6))
-    data = [['Date','Bag Type','In/Out','Qty','Source/To','Rate','Amount(Rs.)','Notes']]
+    data = [['Date','Bag Type','In/Out','Qty','Source/To','Rate','Amt(Rs.)','Used For','Dmg','Ret','Remark']]
     for e in filtered:
-        bt = "New(Govt)" if e.get("bag_type")=="new" else "Old(Mkt)"
-        src = e.get("source","")
+        bt = "New(Govt)" if e.get("bag_type")=="new" else "Bran Pkt" if e.get("bag_type")=="bran_plastic" else "Broken Pkt" if e.get("bag_type")=="broken_plastic" else "Old(Mkt)"
+        src = (e.get("party_name","") or e.get("source",""))
         if e.get("linked_entry_id"): src += " [Auto]"
         data.append([fmt_date(e.get("date","")), bt, "In" if e.get("txn_type")=="in" else "Out",
             e.get("quantity",0), Paragraph(src, src_style), e.get("rate",0), e.get("amount",0),
-            e.get("notes","")])
+            e.get("used_for_bp","") or "-", e.get("damaged",0) or "-", e.get("returned",0) or "-",
+            e.get("notes","") or "-"])
     total_in = sum(e.get("quantity",0) for e in filtered if e.get("txn_type") == "in")
     total_out = sum(e.get("quantity",0) for e in filtered if e.get("txn_type") == "out")
-    data.append(['TOTAL', '', f'In:{total_in} Out:{total_out}', total_in - total_out, '', '', '', ''])
+    data.append(['TOTAL', '', f'In:{total_in} Out:{total_out}', total_in - total_out, '', '', '', '', '', '', ''])
 
-    table = RLTable(data, colWidths=[48,52,35,35,150,38,52,65], repeatRows=1)
+    table = RLTable(data, colWidths=[45,48,30,32,120,32,48,55,28,28,55], repeatRows=1)
     txn_style = get_pdf_table_style(len(data))
     txn_style.extend([('ALIGN',(3,0),(6,-1),'RIGHT'),('VALIGN',(0,0),(-1,-1),'TOP'),
         ('TOPPADDING',(0,0),(-1,-1),2),('BOTTOMPADDING',(0,0),(-1,-1),2)])

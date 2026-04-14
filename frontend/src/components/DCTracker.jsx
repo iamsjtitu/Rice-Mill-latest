@@ -657,6 +657,8 @@ export const GunnyBags = ({ filters, user }) => {
             { id: "mill", label: "Bag Received (Mill)" },
             { id: "market", label: "Old Bags (Market)" },
             { id: "govt", label: "Govt Bags" },
+            { id: "bran_plastic", label: "Bran Pkt" },
+            { id: "broken_plastic", label: "Broken Pkt" },
           ].map(f => (
             <Button key={f.id} onClick={() => setBagFilter(f.id)} variant={bagFilter === f.id ? "default" : "ghost"} size="sm"
               className={`h-7 text-xs ${bagFilter === f.id ? "bg-amber-500 text-slate-900" : "text-slate-400 hover:text-white"}`}
@@ -689,16 +691,18 @@ export const GunnyBags = ({ filters, user }) => {
       </div>
       <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
         <Table><TableHeader><TableRow className="border-slate-700 hover:bg-transparent">
-          {['Date','Party','Inv No','Truck','In/Out','Qty','Rate','Total','GST','Paid','Type',''].map(h =>
-            <TableHead key={h} className={`text-slate-300 text-xs ${['Qty','Rate','Total','GST','Paid'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
+          {['Date','Party','Inv No','Truck','In/Out','Qty','Rate','Total','GST','Paid','Used For','Dmg','Ret','Type','Remark',''].map(h =>
+            <TableHead key={h} className={`text-slate-300 text-xs ${['Qty','Rate','Total','GST','Paid','Dmg','Ret'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
         </TableRow></TableHeader>
         <TableBody>
-          {loading ? <TableRow><TableCell colSpan={12} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-          : entries.length === 0 ? <TableRow><TableCell colSpan={12} className="text-center text-slate-400 py-8">Koi entry nahi hai.</TableCell></TableRow>
+          {loading ? <TableRow><TableCell colSpan={16} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
+          : entries.length === 0 ? <TableRow><TableCell colSpan={16} className="text-center text-slate-400 py-8">Koi entry nahi hai.</TableCell></TableRow>
           : entries.filter(e => {
               if (bagFilter === "mill" && !e.linked_entry_id) return false;
               if (bagFilter === "market" && (e.bag_type !== "old" || e.linked_entry_id)) return false;
               if (bagFilter === "govt" && e.bag_type !== "new") return false;
+              if (bagFilter === "bran_plastic" && e.bag_type !== "bran_plastic") return false;
+              if (bagFilter === "broken_plastic" && e.bag_type !== "broken_plastic") return false;
               if (txnFilter === "in" && e.txn_type !== "in") return false;
               if (txnFilter === "out" && e.txn_type !== "out") return false;
               return true;
@@ -714,7 +718,11 @@ export const GunnyBags = ({ filters, user }) => {
               <TableCell className="text-amber-400 text-xs text-right font-medium">{(e.total || e.amount || 0) > 0 ? `Rs.${(e.total || e.amount || 0).toLocaleString('en-IN')}` : '-'}</TableCell>
               <TableCell className="text-slate-400 text-xs text-right">{(e.gst_amount || 0) > 0 ? `Rs.${e.gst_amount}` : '-'}</TableCell>
               <TableCell className="text-emerald-400 text-xs text-right">{(e.ledger_paid || e.advance || 0) > 0 ? `Rs.${(e.ledger_paid || e.advance || 0).toLocaleString('en-IN')}` : '-'}</TableCell>
+              <TableCell className="text-blue-400 text-xs">{e.used_for_bp || '-'}</TableCell>
+              <TableCell className="text-red-400 text-xs text-right">{e.damaged > 0 ? e.damaged : '-'}</TableCell>
+              <TableCell className="text-amber-400 text-xs text-right">{e.returned > 0 ? e.returned : '-'}</TableCell>
               <TableCell className="text-xs"><span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${e.bag_type === 'new' ? 'bg-emerald-500/20 text-emerald-400' : e.bag_type === 'bran_plastic' ? 'bg-purple-500/20 text-purple-400' : e.bag_type === 'broken_plastic' ? 'bg-blue-500/20 text-blue-400' : 'bg-orange-500/20 text-orange-400'}`}>{e.bag_type === 'new' ? 'Govt' : e.bag_type === 'bran_plastic' ? 'Bran Pkt' : e.bag_type === 'broken_plastic' ? 'Broken Pkt' : 'Market'}</span></TableCell>
+              <TableCell className="text-slate-400 text-xs truncate max-w-[80px]" title={e.notes || ''}>{e.notes || '-'}</TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
                   {e.linked_entry_id && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" data-testid={`gunny-auto-badge-${e.id}`}>Auto</span>}
@@ -811,19 +819,17 @@ export const GunnyBags = ({ filters, user }) => {
             </>
             ) : (
             <>
-            {/* OUT fields: Used For Rice, Used For BP, Damaged, Return */}
+            {/* OUT fields: Used For, Damaged, Return */}
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-slate-400">Quantity (bags)</Label>
                 <Input type="number" value={form.quantity} onChange={e => setForm(p=>({...p,quantity:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="gunny-form-qty" /></div>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div><Label className="text-xs text-green-400">Used For Rice</Label>
-                <Input type="number" value={form.used_for_rice} onChange={e => setForm(p=>({...p,used_for_rice:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-used-rice" /></div>
-              <div><Label className="text-xs text-blue-400">Used For (By-Product)</Label>
+              <div><Label className="text-xs text-blue-400">Used For</Label>
                 <Select value={form.used_for_bp || "_none"} onValueChange={v => setForm(p=>({...p,used_for_bp: v === "_none" ? "" : v}))}>
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-used-bp"><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_none">-- None --</SelectItem>
+                    <SelectItem value="Rice Usna">Rice Usna</SelectItem>
+                    <SelectItem value="Rice Raw">Rice Raw</SelectItem>
                     <SelectItem value="Rice Bran">Rice Bran</SelectItem>
                     <SelectItem value="Mota Kunda">Mota Kunda</SelectItem>
                     <SelectItem value="Broken Rice">Broken Rice</SelectItem>
@@ -831,8 +837,12 @@ export const GunnyBags = ({ filters, user }) => {
                     <SelectItem value="Pin Broken Rice">Pin Broken Rice</SelectItem>
                     <SelectItem value="Poll">Poll</SelectItem>
                     <SelectItem value="Bhusa">Bhusa</SelectItem>
+                    <SelectItem value="FRK">FRK</SelectItem>
+                    <SelectItem value="Paddy">Paddy</SelectItem>
                   </SelectContent>
                 </Select></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-red-400">Damaged</Label>
                 <Input type="number" value={form.damaged} onChange={e => setForm(p=>({...p,damaged:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-damaged" /></div>
               <div><Label className="text-xs text-amber-400">Return</Label>
@@ -840,12 +850,10 @@ export const GunnyBags = ({ filters, user }) => {
             </div>
             </>
             )}
-            {/* Row 5: Reference & Notes */}
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs text-slate-400">Reference</Label>
-                <Input value={form.reference} onChange={e => setForm(p=>({...p,reference:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-ref" /></div>
-              <div><Label className="text-xs text-slate-400">Notes</Label>
-                <Input value={form.notes} onChange={e => setForm(p=>({...p,notes:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-notes" /></div>
+            {/* Row 5: Remark */}
+            <div className="grid grid-cols-1 gap-3">
+              <div><Label className="text-xs text-slate-400">Remark</Label>
+                <Input value={form.notes} onChange={e => setForm(p=>({...p,notes:e.target.value}))} placeholder="Remark" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-notes" /></div>
             </div>
             {/* Amount Summary */}
             {subtotal > 0 && (
