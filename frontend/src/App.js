@@ -1013,25 +1013,12 @@ function MainApp({ user, setUser, onLogout }) {
                 <CheckCircle className="w-4 h-4 mr-1" /> Auto Weight Entries
                 {pendingVwCount > 0 && <span className="ml-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 leading-none animate-pulse">{pendingVwCount}</span>}
               </Button>
-              <Button
-                onClick={() => setEntriesSubTabSafe("purchase-register")}
-                variant={entriesSubTab === 'purchase-register' ? "default" : "ghost"}
-                size="sm"
-                className={entriesSubTab === 'purchase-register'
-                  ? "bg-amber-500 hover:bg-amber-600 text-slate-900"
-                  : "text-slate-300 hover:bg-slate-700"}
-                data-testid="subtab-purchase-register"
-              >
-                <ClipboardList className="w-4 h-4 mr-1" /> Paddy Purchase Register
-              </Button>
             </div>
 
             {entriesSubTab === "vehicle-weight" ? (
               <VehicleWeight filters={filters} user={user} onVwChange={fetchPendingVwCount} />
             ) : entriesSubTab === "auto-weight-entries" ? (
               <AutoWeightEntries filters={filters} onVwChange={fetchPendingVwCount} />
-            ) : entriesSubTab === "purchase-register" ? (
-              <PaddyPurchaseRegister filters={filters} onNavigateToEntry={navigateToMillEntry} />
             ) : (
             <>
             <EntryTable

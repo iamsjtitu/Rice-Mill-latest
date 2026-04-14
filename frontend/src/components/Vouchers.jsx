@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FileText, Wheat, Users, ShoppingBag, Package } from "lucide-react";
+import { FileText, Wheat, Users, ShoppingBag, Package, ClipboardList } from "lucide-react";
 import SaleBook from "./SaleBook";
 import PurchaseVouchers from "./PurchaseVouchers";
 import StockSummary from "./StockSummary";
 import { PaddyPurchase, PartySummary } from "./PaddyPurchase";
 import ByProductSaleRegister from "./ByProductSaleRegister";
 import OilPremiumRegister from "./OilPremiumRegister";
+import PaddyPurchaseRegister from "./PaddyPurchaseRegister";
 
 const tabs = [
   { id: "sale", label: "Sales Register", icon: FileText, activeClass: "bg-amber-500 hover:bg-amber-600 text-slate-900" },
@@ -107,9 +108,16 @@ export default function Vouchers({ filters, user, onNavigate }) {
               data-testid="purchase-subtab-paddy">
               <Wheat className="w-3.5 h-3.5 inline mr-1" />Pvt Paddy Purchase
             </button>
+            <button onClick={() => setPurchaseSubTab("paddy-register")}
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${purchaseSubTab === "paddy-register" ? "bg-amber-600/30 text-amber-400 border border-amber-500/50" : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"}`}
+              data-testid="purchase-subtab-paddy-register">
+              <ClipboardList className="w-3.5 h-3.5 inline mr-1" />Paddy Purchase Register
+            </button>
           </div>
           {purchaseSubTab === "paddy" ? (
             <PaddyPurchase filters={filters} user={user} />
+          ) : purchaseSubTab === "paddy-register" ? (
+            <PaddyPurchaseRegister filters={filters} />
           ) : (
             <PurchaseVouchers filters={filters} user={user} />
           )}
