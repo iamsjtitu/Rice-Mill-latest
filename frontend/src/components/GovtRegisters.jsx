@@ -1111,7 +1111,16 @@ function MillingRegister({ filters, user }) {
     <div className="space-y-4" data-testid="milling-register">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-bold text-slate-800 dark:text-amber-400">Milling Register / मिलिंग रजिस्टर</h3>
-        <p className="text-xs text-slate-500">Auto-computed from Milling (CMR) + DC Deliveries</p>
+        <div className="flex items-center gap-2">
+          <Button onClick={async () => { try { const params = new URLSearchParams(); if(filters.kms_year) params.append('kms_year',filters.kms_year); if(filters.season) params.append('season',filters.season); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/govt-registers/milling-register/excel?${params}`, 'milling_register.xlsx'); toast.success("Excel!"); } catch(e) { toast.error("Export failed"); }}}
+            variant="outline" size="sm" className="border-slate-600 text-green-600 dark:text-green-400 hover:bg-slate-100 dark:hover:bg-slate-700 h-7 text-[10px]" data-testid="mr-export-excel">
+            <Download className="w-3 h-3 mr-1" /> Excel
+          </Button>
+          <Button onClick={async () => { try { const params = new URLSearchParams(); if(filters.kms_year) params.append('kms_year',filters.kms_year); if(filters.season) params.append('season',filters.season); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/govt-registers/milling-register/pdf?${params}`, 'milling_register.pdf'); toast.success("PDF!"); } catch(e) { toast.error("Export failed"); }}}
+            variant="outline" size="sm" className="border-slate-600 text-red-600 dark:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-700 h-7 text-[10px]" data-testid="mr-export-pdf">
+            <Download className="w-3 h-3 mr-1" /> PDF
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -1206,22 +1215,22 @@ function MillingRegister({ filters, user }) {
                 </tr>
                 <tr className="border-b border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50">
                   <th className="text-slate-700 dark:text-slate-300 py-1.5 px-2 text-left sticky left-0 bg-slate-50 dark:bg-slate-700/90 z-10 font-semibold">Date</th>
-                  <th className="text-slate-700 dark:text-slate-300 py-1.5 px-1 text-left font-semibold">Month</th>
-                  <th className="text-blue-800 dark:text-blue-300 py-1.5 px-1 text-right border-l border-slate-300 dark:border-slate-600 font-semibold">OB</th>
+                  <th className="text-slate-700 dark:text-slate-300 py-1.5 px-1 text-left font-semibold">Milling Month</th>
+                  <th className="text-blue-800 dark:text-blue-300 py-1.5 px-1 text-right border-l border-slate-300 dark:border-slate-600 font-semibold">OB Paddy</th>
                   <th className="text-blue-800 dark:text-blue-300 py-1.5 px-1 text-right font-semibold">Rcvd from CM A/c</th>
-                  <th className="text-blue-800 dark:text-blue-300 py-1.5 px-1 text-right font-semibold">Total</th>
-                  <th className="text-blue-800 dark:text-blue-300 py-1.5 px-1 text-right font-semibold">Issue Mill</th>
-                  <th className="text-blue-600 dark:text-blue-400 py-1.5 px-1 text-right font-semibold">Prog Rcpt</th>
-                  <th className="text-blue-600 dark:text-blue-400 py-1.5 px-1 text-right font-semibold">Prog Mill</th>
-                  <th className="text-orange-700 dark:text-amber-400 py-1.5 px-1 text-right font-bold border-r border-slate-300 dark:border-slate-600">CB</th>
-                  <th className="text-green-800 dark:text-emerald-300 py-1.5 px-1 text-right font-semibold">OB</th>
-                  <th className="text-green-800 dark:text-emerald-300 py-1.5 px-1 text-right font-semibold">From Mill</th>
-                  <th className="text-green-800 dark:text-emerald-300 py-1.5 px-1 text-right font-semibold">Total</th>
-                  <th className="text-green-700 dark:text-green-400 py-1.5 px-1 text-right font-semibold">Del RRC</th>
-                  <th className="text-green-700 dark:text-green-400 py-1.5 px-1 text-right font-semibold">Del FCI</th>
-                  <th className="text-green-600 dark:text-emerald-400 py-1.5 px-1 text-right font-semibold">Prog Mill</th>
-                  <th className="text-green-600 dark:text-emerald-400 py-1.5 px-1 text-right font-semibold">Prog Del</th>
-                  <th className="text-teal-700 dark:text-cyan-400 py-1.5 px-1 text-right font-bold">CB</th>
+                  <th className="text-blue-800 dark:text-blue-300 py-1.5 px-1 text-right font-semibold">Total Paddy</th>
+                  <th className="text-blue-800 dark:text-blue-300 py-1.5 px-1 text-right font-semibold">Issue For Milling</th>
+                  <th className="text-blue-600 dark:text-blue-400 py-1.5 px-1 text-right font-semibold">Prog Rcpt of Paddy</th>
+                  <th className="text-blue-600 dark:text-blue-400 py-1.5 px-1 text-right font-semibold">Prog Milling of Paddy</th>
+                  <th className="text-orange-700 dark:text-amber-400 py-1.5 px-1 text-right font-bold border-r border-slate-300 dark:border-slate-600">CB of Paddy</th>
+                  <th className="text-green-800 dark:text-emerald-300 py-1.5 px-1 text-right font-semibold">OB Rice</th>
+                  <th className="text-green-800 dark:text-emerald-300 py-1.5 px-1 text-right font-semibold">Rice Rcpt from Milling</th>
+                  <th className="text-green-800 dark:text-emerald-300 py-1.5 px-1 text-right font-semibold">Total Rice</th>
+                  <th className="text-green-700 dark:text-green-400 py-1.5 px-1 text-right font-semibold">Rice Delivery RRC</th>
+                  <th className="text-green-700 dark:text-green-400 py-1.5 px-1 text-right font-semibold">Rice Delivery FCI</th>
+                  <th className="text-green-600 dark:text-emerald-400 py-1.5 px-1 text-right font-semibold">Prog Rice Milling</th>
+                  <th className="text-green-600 dark:text-emerald-400 py-1.5 px-1 text-right font-semibold">Prog Rice Delivered</th>
+                  <th className="text-teal-700 dark:text-cyan-400 py-1.5 px-1 text-right font-bold">CB of Rice</th>
                 </tr>
               </thead>
               <tbody>

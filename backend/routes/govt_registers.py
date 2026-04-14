@@ -1227,6 +1227,215 @@ async def get_milling_register(kms_year: Optional[str] = None, season: Optional[
     }
 
 
+def _fmt_date_short(d):
+    if not d: return ""
+    try:
+        if "T" in str(d): d = str(d).split("T")[0]
+        p = str(d).split("-")
+        if len(p) == 3: return f"{p[2]}/{p[1]}/{p[0][2:]}"
+    except: pass
+    return str(d)
+
+
+@router.get("/govt-registers/milling-register/excel")
+async def export_milling_register_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from io import BytesIO
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.utils import get_column_letter
+    from fastapi.responses import Response
+
+    reg_data = await get_milling_register(kms_year, season)
+    rows = reg_data["rows"]
+    branding = await db.branding.find_one({}, {"_id": 0}) or {}
+    company = branding.get("company_name", "Rice Mill")
+    tagline = branding.get("tagline", "")
+    custom_fields = branding.get("custom_fields", [])
+
+    wb = Workbook(); ws = wb.active; ws.title = "Milling Register"
+    thin = Side(style='thin', color='000000')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    blue_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+    green_fill = PatternFill(start_color="1B5E20", end_color="1B5E20", fill_type="solid")
+    header_fill = PatternFill(start_color="2E75B6", end_color="2E75B6", fill_type="solid")
+    alt_fill = PatternFill(start_color="D6E4F0", end_color="D6E4F0", fill_type="solid")
+
+    # Row 1: Company Name
+    ws.merge_cells('A1:Q1')
+    c1 = ws.cell(row=1, column=1, value=company.upper())
+    c1.font = Font(bold=True, size=14, color="1F4E79"); c1.alignment = Alignment(horizontal='center')
+
+    # Row 2: Tagline + custom fields
+    info_parts = [tagline] if tagline else []
+    for cf in custom_fields:
+        info_parts.append(f"{cf.get('label','')}: {cf.get('value','')}")
+    if info_parts:
+        ws.merge_cells('A2:Q2')
+        c2 = ws.cell(row=2, column=1, value="  |  ".join(info_parts))
+        c2.font = Font(size=9, color="666666"); c2.alignment = Alignment(horizontal='center')
+
+    # Row 3: Title
+    title = "MILLING REGISTER"
+    if kms_year: title += f" - KMS {kms_year}"
+    ws.merge_cells('A3:Q3')
+    c3 = ws.cell(row=3, column=1, value=title)
+    c3.font = Font(bold=True, size=12, color="FFFFFF"); c3.fill = header_fill; c3.alignment = Alignment(horizontal='center')
+
+    # Row 4: Section headers
+    ws.merge_cells('A4:B4')
+    ws.merge_cells('C4:I4')
+    ws.merge_cells('J4:Q4')
+    ws.cell(row=4, column=3, value="PADDY / धान").font = Font(bold=True, size=10, color="FFFFFF")
+    ws.cell(row=4, column=3).fill = blue_fill; ws.cell(row=4, column=3).alignment = Alignment(horizontal='center')
+    ws.cell(row=4, column=10, value="RICE / चावल").font = Font(bold=True, size=10, color="FFFFFF")
+    ws.cell(row=4, column=10).fill = green_fill; ws.cell(row=4, column=10).alignment = Alignment(horizontal='center')
+    for c in range(1, 18):
+        ws.cell(row=4, column=c).border = border
+
+    # Row 5: Column headers
+    headers = ['Date', 'Milling Month', 'OB Paddy', 'Rcvd from CM A/c', 'Total Paddy',
+        'Issue For Milling', 'Prog Rcpt of Paddy', 'Prog Milling of Paddy', 'CB of Paddy',
+        'OB Rice', 'Rice Rcpt from Milling', 'Total Rice',
+        'Rice Delivery RRC', 'Rice Delivery FCI', 'Prog Rice Milling', 'Prog Rice Delivered', 'CB of Rice']
+    widths = [10, 10, 10, 14, 10, 12, 14, 14, 10, 8, 14, 10, 12, 12, 12, 12, 10]
+    for ci, h in enumerate(headers, 1):
+        cell = ws.cell(row=5, column=ci, value=h)
+        cell.font = Font(bold=True, size=8, color="FFFFFF")
+        cell.fill = blue_fill if ci <= 9 else green_fill
+        cell.alignment = Alignment(horizontal='center', wrap_text=True); cell.border = border
+
+    # Data rows
+    for idx, r in enumerate(rows):
+        row_num = 6 + idx
+        fill = alt_fill if idx % 2 == 0 else None
+        vals = [_fmt_date_short(r.get("date","")), (r.get("month","") or "")[:3],
+            r.get("ob_paddy",0), r.get("rcvd_from_cm",0), r.get("total_paddy",0),
+            r.get("issue_for_milling",0), r.get("prog_rcpt_paddy",0), r.get("prog_milling_paddy",0), r.get("cb_paddy",0),
+            r.get("ob_rice",0), r.get("rice_from_milling",0), r.get("total_rice",0),
+            r.get("delivery_rrc",0), r.get("delivery_fci",0), r.get("prog_rice_milling",0), r.get("prog_rice_delivered",0), r.get("cb_rice",0)]
+        for ci, val in enumerate(vals, 1):
+            cell = ws.cell(row=row_num, column=ci, value=val if val else "")
+            cell.font = Font(size=9); cell.border = border
+            if ci >= 3: cell.alignment = Alignment(horizontal='right')
+            if fill: cell.fill = fill
+            if ci in (9, 17): cell.font = Font(size=9, bold=True)
+
+    for ci, w in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(ci)].width = w
+    ws.page_setup.orientation = 'landscape'; ws.page_setup.fitToWidth = 1; ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+
+    buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
+    fn = f"milling_register_{kms_year or 'all'}.xlsx"
+    return Response(content=buffer.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={fn}"})
+
+
+@router.get("/govt-registers/milling-register/pdf")
+async def export_milling_register_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    from fastapi.responses import Response
+
+    reg_data = await get_milling_register(kms_year, season)
+    rows = reg_data["rows"]
+    summary = reg_data["summary"]
+    branding = await db.branding.find_one({}, {"_id": 0}) or {}
+    company = branding.get("company_name", "Rice Mill")
+    tagline = branding.get("tagline", "")
+    custom_fields = branding.get("custom_fields", [])
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=10, rightMargin=10, topMargin=12, bottomMargin=12)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    # Header
+    co_style = ParagraphStyle('Co', parent=styles['Title'], fontSize=13, textColor=colors.HexColor('#1F4E79'), spaceAfter=1, alignment=1)
+    elements.append(Paragraph(company.upper(), co_style))
+    info_parts = [tagline] if tagline else []
+    for cf in custom_fields:
+        info_parts.append(f"{cf.get('label','')}: {cf.get('value','')}")
+    if info_parts:
+        addr_style = ParagraphStyle('Addr', parent=styles['Normal'], fontSize=7, textColor=colors.HexColor('#666666'), spaceAfter=2, alignment=1)
+        elements.append(Paragraph("  |  ".join(info_parts), addr_style))
+
+    title = "MILLING REGISTER"
+    if kms_year: title += f" - KMS {kms_year}"
+    t_style = ParagraphStyle('T', parent=styles['Heading2'], fontSize=10, textColor=colors.white,
+        backColor=colors.HexColor('#2E75B6'), spaceAfter=4, alignment=1, borderPadding=(2,2,2,2))
+    elements.append(Paragraph(title, t_style))
+    elements.append(Spacer(1, 2))
+
+    headers = ['Date', 'Month', 'OB\nPaddy', 'Rcvd from\nCM A/c', 'Total\nPaddy',
+        'Issue For\nMilling', 'Prog Rcpt\nPaddy', 'Prog Mill\nPaddy', 'CB\nPaddy',
+        'OB\nRice', 'Rice Rcpt\nMilling', 'Total\nRice',
+        'Delivery\nRRC', 'Delivery\nFCI', 'Prog Rice\nMilling', 'Prog Rice\nDelivered', 'CB\nRice']
+    col_widths = [38, 28, 38, 50, 40, 45, 48, 48, 40, 35, 48, 40, 42, 42, 48, 48, 40]
+
+    # Auto-fit
+    usable = 818
+    total_w = sum(col_widths)
+    if total_w > usable:
+        scale = usable / total_w
+        col_widths = [round(w * scale) for w in col_widths]
+
+    data = [headers]
+    for r in rows:
+        data.append([_fmt_date_short(r.get("date","")), (r.get("month","") or "")[:3],
+            r.get("ob_paddy","") or "", r.get("rcvd_from_cm","") or "", r.get("total_paddy",0),
+            r.get("issue_for_milling","") or "", r.get("prog_rcpt_paddy",0), r.get("prog_milling_paddy",0), r.get("cb_paddy",0),
+            r.get("ob_rice","") or "", r.get("rice_from_milling","") or "", r.get("total_rice",0),
+            r.get("delivery_rrc","") or "", r.get("delivery_fci","") or "", r.get("prog_rice_milling",0), r.get("prog_rice_delivered",0), r.get("cb_rice",0)])
+
+    nrows = len(data)
+    table = RLTable(data, colWidths=col_widths, repeatRows=1)
+    style_cmds = [
+        ('BACKGROUND', (0, 0), (8, 0), colors.HexColor('#1F4E79')),
+        ('BACKGROUND', (9, 0), (-1, 0), colors.HexColor('#1B5E20')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 5.5),
+        ('FONTSIZE', (0, 1), (-1, -1), 6),
+        ('ALIGN', (2, 0), (-1, -1), 'RIGHT'),
+        ('ALIGN', (0, 0), (1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#CCCCCC')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#EBF1F8')]),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+        ('LINEAFTER', (8, 0), (8, -1), 1.5, colors.HexColor('#1F4E79')),
+    ]
+    # Bold CB columns
+    for ri in range(1, nrows):
+        style_cmds.append(('FONTNAME', (8, ri), (8, ri), 'Helvetica-Bold'))
+        style_cmds.append(('FONTNAME', (16, ri), (16, ri), 'Helvetica-Bold'))
+    table.setStyle(TableStyle(style_cmds))
+    elements.append(table)
+
+    # Summary
+    elements.append(Spacer(1, 4))
+    s = summary
+    sum_style = ParagraphStyle('Sum', parent=styles['Normal'], fontSize=7, textColor=colors.HexColor('#1F4E79'))
+    elements.append(Paragraph(
+        f"<b>Summary:</b> Paddy Received: {s.get('total_paddy_received',0)} Q  |  Milled: {s.get('total_paddy_milled',0)} Q  |  CB Paddy: <b>{s.get('cb_paddy',0)}</b> Q  ||  "
+        f"Rice Produced: {s.get('total_rice_produced',0)} Q  |  Delivered: {s.get('total_rice_delivered',0)} Q  |  CB Rice: <b>{s.get('cb_rice',0)}</b> Q", sum_style))
+
+    from datetime import datetime
+    elements.append(Spacer(1, 3))
+    gen_style = ParagraphStyle('Gen', parent=styles['Normal'], fontSize=6, textColor=colors.HexColor('#999999'))
+    elements.append(Paragraph(f"Generated: {datetime.now().strftime('%d/%m/%Y %H:%M')}", gen_style))
+
+    doc.build(elements); buffer.seek(0)
+    fn = f"milling_register_{kms_year or 'all'}.pdf"
+    return Response(content=buffer.getvalue(), media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={fn}"})
+
+
 # ============ CMR DELIVERY TRACKER WITH OTR ============
 
 @router.get("/govt-registers/cmr-delivery")
