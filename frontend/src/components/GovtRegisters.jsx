@@ -26,7 +26,6 @@ const API = `${BACKEND_URL}/api`;
 
 // ============ SUB TABS CONFIG ============
 const SUB_TABS = [
-  { id: "paddy-custody", label: "Paddy Custody", desc: "Custody Register", icon: ClipboardList },
   { id: "transit-pass", label: "Transit Pass", desc: "TP Register", icon: Truck },
   { id: "milling-register", label: "Milling Register", desc: "Paddy/Rice Ledger", icon: ArrowRightLeft },
   { id: "form-a", label: "Form A", desc: "Paddy from OSCSC", icon: BookOpen },
@@ -39,7 +38,7 @@ const SUB_TABS = [
 ];
 
 // ============ PADDY CUSTODY REGISTER (Moved from Milling Tracker) ============
-function PaddyCustodyRegister({ filters }) {
+export function PaddyCustodyRegister({ filters }) {
   const [view, setView] = useState("register"); // "register" or "mandi"
   const [register, setRegister] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1650,7 +1649,7 @@ function DateFilter({ filters, onChange }) {
 
 // ============ MAIN COMPONENT ============
 export default function GovtRegisters({ filters: parentFilters, user }) {
-  const [activeTab, setActiveTab] = useState("paddy-custody");
+  const [activeTab, setActiveTab] = useState("transit-pass");
   const [localFilters, setLocalFilters] = useState({
     kms_year: parentFilters.kms_year || "",
     season: parentFilters.season || "",
@@ -1699,7 +1698,6 @@ export default function GovtRegisters({ filters: parentFilters, user }) {
       </div>
 
       {/* Content */}
-      {activeTab === "paddy-custody" && <PaddyCustodyRegister filters={localFilters} />}
       {activeTab === "transit-pass" && <TransitPassRegister filters={localFilters} />}
       {activeTab === "milling-register" && <MillingRegister filters={localFilters} user={user} />}
       {activeTab === "form-a" && <FormARegister filters={localFilters} />}

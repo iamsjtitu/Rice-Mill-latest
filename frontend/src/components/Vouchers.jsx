@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FileText, Wheat, Users, ShoppingBag, Package, ClipboardList } from "lucide-react";
+import { FileText, Wheat, Users, ShoppingBag, Package, ClipboardList, Shield } from "lucide-react";
 import SaleBook from "./SaleBook";
 import PurchaseVouchers from "./PurchaseVouchers";
 import StockSummary from "./StockSummary";
@@ -8,10 +8,12 @@ import { PaddyPurchase, PartySummary } from "./PaddyPurchase";
 import ByProductSaleRegister from "./ByProductSaleRegister";
 import OilPremiumRegister from "./OilPremiumRegister";
 import PaddyPurchaseRegister from "./PaddyPurchaseRegister";
+import { PaddyCustodyRegister } from "./GovtRegisters";
 
 const tabs = [
   { id: "sale", label: "Sales Register", icon: FileText, activeClass: "bg-amber-500 hover:bg-amber-600 text-slate-900" },
   { id: "purchase", label: "Purchase Register", icon: ShoppingBag, activeClass: "bg-emerald-500 hover:bg-emerald-600 text-white" },
+  { id: "custody", label: "Paddy Custody Maintenance", icon: Shield, activeClass: "bg-cyan-500 hover:bg-cyan-600 text-white" },
   { id: "stock", label: "Stock Summary", icon: Package, activeClass: "bg-sky-500 hover:bg-sky-600 text-white" },
   { id: "summary", label: "Party Summary", icon: Users, activeClass: "bg-purple-500 hover:bg-purple-600 text-white" },
 ];
@@ -122,6 +124,8 @@ export default function Vouchers({ filters, user, onNavigate }) {
             <PurchaseVouchers filters={filters} user={user} />
           )}
         </div>
+      ) : activeTab === "custody" ? (
+        <PaddyCustodyRegister filters={filters} />
       ) : activeTab === "stock" ? (
         <StockSummary filters={filters} />
       ) : (
