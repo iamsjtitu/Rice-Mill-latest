@@ -7,6 +7,26 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "92.0.0",
+    date: "Apr 2026",
+    title: "v92.0.0 - Tab Reorganization + Gunny Bag Upgrade + Watermark Fix",
+    items: [
+      { type: "new", text: "Stock Register - Naya top-level tab: Gunny Bags Register + Stock Summary" },
+      { type: "new", text: "Gunny Bags: Bran P.Pkt, Broken P.Pkt bag types added with summary cards" },
+      { type: "new", text: "Gunny Bags OUT form: Used For (all stock items), Damaged, Return fields" },
+      { type: "new", text: "Gunny Bags: Realtime stock preview in form - quantity type karte hi stock +/- dikhta hai" },
+      { type: "new", text: "Register tab: Purchase Register ke sub-tabs (Purchase Vouchers, Pvt Paddy Purchase, Paddy Purchase Register)" },
+      { type: "new", text: "Register tab: Paddy Custody Maintenance, T.P Register, Milling Register move kiya" },
+      { type: "new", text: "Payments tab: DC (Payments) sub-tab added" },
+      { type: "fix", text: "Paddy Custody Register: Released column ab paddy_release se aata hai (milling se nahi)" },
+      { type: "fix", text: "Milling Register: Season column hata diya, blank cells mein '-' dikhta hai" },
+      { type: "fix", text: "Watermark: PDF click pe backslash nahi aayega (image-based rendering)" },
+      { type: "fix", text: "Govt Registers tab removed (sab Register mein move ho gaya)" },
+      { type: "fix", text: "Gunny Bags: Reference hata diya, Notes -> Remark rename, table mein new columns" },
+      { type: "fix", text: "White theme cards compact design for Gunny Bags summary" },
+    ],
+  },
+  {
     version: "91.0.0",
     date: "Apr 2026",
     title: "v91.0.0 - Oil Premium + Milling Register + Ledger Integration",

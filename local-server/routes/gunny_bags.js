@@ -97,6 +97,18 @@ module.exports = function(database) {
     const oldOut = oldItems.filter(e=>e.txn_type==='out').reduce((s,e)=>s+(e.quantity||0),0);
     const oldCost = +oldItems.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.amount||0),0).toFixed(2);
 
+    // Bran Plastic Pkt
+    const branItems = entries.filter(e => e.bag_type === 'bran_plastic');
+    const branIn = branItems.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.quantity||0),0);
+    const branOut = branItems.filter(e=>e.txn_type==='out').reduce((s,e)=>s+(e.quantity||0),0);
+    const branCost = +branItems.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.amount||0),0).toFixed(2);
+
+    // Broken Plastic Pkt
+    const brokenItems = entries.filter(e => e.bag_type === 'broken_plastic');
+    const brokenIn = brokenItems.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.quantity||0),0);
+    const brokenOut = brokenItems.filter(e=>e.txn_type==='out').reduce((s,e)=>s+(e.quantity||0),0);
+    const brokenCost = +brokenItems.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.amount||0),0).toFixed(2);
+
     // Auto mill entries
     const autoIn = auto.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.quantity||0),0);
     const autoOut = auto.filter(e=>e.txn_type==='out').reduce((s,e)=>s+(e.quantity||0),0);
@@ -113,6 +125,8 @@ module.exports = function(database) {
     const result = {
       'new': { total_in: newIn, total_out: newOut, balance: newIn - newOut, total_cost: 0 },
       old: { total_in: oldIn, total_out: oldOut, balance: oldIn - oldOut, total_cost: oldCost },
+      bran_plastic: { total_in: branIn, total_out: branOut, balance: branIn - branOut, total_cost: branCost },
+      broken_plastic: { total_in: brokenIn, total_out: brokenOut, balance: brokenIn - brokenOut, total_cost: brokenCost },
       auto_mill: { total_in: autoIn, total_out: autoOut, balance: autoIn - autoOut },
       paddy_bags: { total: paddyEntries.reduce((s,e)=>s+(e.bag||0),0), label: 'Paddy Receive Bags' },
       ppkt: { total: paddyEntries.reduce((s,e)=>s+(e.plastic_bag||0),0), label: 'P.Pkt (Plastic Bags)' },
@@ -127,6 +141,8 @@ module.exports = function(database) {
     if (bagFilter === 'mill') result = result.filter(e => !!e.linked_entry_id);
     else if (bagFilter === 'market') result = result.filter(e => e.bag_type === 'old' && !e.linked_entry_id);
     else if (bagFilter === 'govt') result = result.filter(e => e.bag_type === 'new');
+    else if (bagFilter === 'bran_plastic') result = result.filter(e => e.bag_type === 'bran_plastic');
+    else if (bagFilter === 'broken_plastic') result = result.filter(e => e.bag_type === 'broken_plastic');
     if (txnFilter === 'in') result = result.filter(e => e.txn_type === 'in');
     else if (txnFilter === 'out') result = result.filter(e => e.txn_type === 'out');
     return result;
@@ -144,15 +160,20 @@ module.exports = function(database) {
     ws.columns = [
       { header: 'Date', key: 'date', width: 12 }, { header: 'Bag Type', key: 'bag_type', width: 15 },
       { header: 'In/Out', key: 'txn_type', width: 8 }, { header: 'Qty', key: 'quantity', width: 10 },
-      { header: 'Source/To', key: 'source', width: 35 }, { header: 'Rate', key: 'rate', width: 10 },
+      { header: 'Source/To', key: 'source', width: 30 }, { header: 'Rate', key: 'rate', width: 10 },
       { header: 'Amount (Rs.)', key: 'amount', width: 14 },
-      { header: 'Notes', key: 'notes', width: 25 }
+      { header: 'Used For', key: 'used_for', width: 16 }, { header: 'Damaged', key: 'damaged', width: 10 },
+      { header: 'Return', key: 'returned', width: 10 }, { header: 'Type', key: 'type', width: 14 },
+      { header: 'Remark', key: 'remark', width: 20 }
     ];
+    const btLabel = (t) => t==='new'?'New (Govt)':t==='bran_plastic'?'Bran P.Pkt':t==='broken_plastic'?'Broken P.Pkt':'Old (Market)';
     filtered.forEach(e => ws.addRow({
-      date: fmtDate(e.date), bag_type: e.bag_type==='new'?'New (Govt)':'Old (Market)',
+      date: fmtDate(e.date), bag_type: btLabel(e.bag_type),
       txn_type: e.txn_type==='in'?'In':'Out', quantity: e.quantity||0,
-      source: (e.source||'') + (e.linked_entry_id ? ' [Auto]' : ''),
-      rate: e.rate||0, amount: e.amount||0, notes: e.notes||''
+      source: (e.party_name||e.source||'') + (e.linked_entry_id ? ' [Auto]' : ''),
+      rate: e.rate||0, amount: e.amount||0,
+      used_for: e.used_for_bp||'-', damaged: e.damaged||'-', returned: e.returned||'-',
+      type: btLabel(e.bag_type), remark: e.notes||'-'
     }));
     const totalIn = filtered.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.quantity||0),0);
     const totalOut = filtered.filter(e=>e.txn_type==='out').reduce((s,e)=>s+(e.quantity||0),0);
