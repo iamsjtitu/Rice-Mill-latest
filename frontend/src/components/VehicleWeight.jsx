@@ -693,31 +693,23 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
     return t;
   };
 
-  const handlePdf = (e) => { const u = `${API}/vehicle-weight/${e.id}/slip-pdf?party_only=1`; _isElectron ? downloadFile(u, `Slip_${e.rst_no}.pdf`) : window.open(u, "_blank"); };
+  const handlePdf = (e) => { const u = `${API}/vehicle-weight/${e.id}/weight-report-pdf`; _isElectron ? downloadFile(u, `WeightReport_RST${e.rst_no}.pdf`) : window.open(u, "_blank"); };
 
   const handleWA = async (e) => {
     try {
-      const text = buildWeightText(e);
-      const frontImg = (await frontCamRef.current?.captureFrame?.()) || "";
-      const sideImg = (await sideCamRef.current?.captureFrame?.()) || "";
       await axios.post(`${API}/vehicle-weight/send-manual`, {
-        entry_id: e.id, text, front_image: frontImg, side_image: sideImg,
-        send_to_numbers: true, send_to_group: false
+        entry_id: e.id, send_to_numbers: true, send_to_group: false
       });
-      toast.success("WhatsApp sent!");
+      toast.success("WhatsApp sent (PDF)!");
     } catch (e) { logger.error(e); toast.error("WA send error"); }
   };
 
   const handleGroup = async (e) => {
     try {
-      const text = buildWeightText(e);
-      const frontImg = (await frontCamRef.current?.captureFrame?.()) || "";
-      const sideImg = (await sideCamRef.current?.captureFrame?.()) || "";
       await axios.post(`${API}/vehicle-weight/send-manual`, {
-        entry_id: e.id, text, front_image: frontImg, side_image: sideImg,
-        send_to_numbers: false, send_to_group: true
+        entry_id: e.id, send_to_numbers: false, send_to_group: true
       });
-      toast.success("Group msg sent!");
+      toast.success("Group msg sent (PDF)!");
     } catch (e) { logger.error(e); toast.error("Group send error"); }
   };
 

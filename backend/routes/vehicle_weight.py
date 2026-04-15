@@ -234,7 +234,7 @@ async def update_auto_notify_setting(data: dict):
 
 @router.post("/vehicle-weight/auto-notify")
 async def auto_notify_weight(data: dict):
-    """Auto-send weight details + stored camera images to WhatsApp & Telegram."""
+    """Auto-send weight report PDF to WhatsApp & Telegram."""
     import base64
 
     entry_id = data.get("entry_id", "")
@@ -244,129 +244,93 @@ async def auto_notify_weight(data: dict):
         raise HTTPException(status_code=404, detail="Entry not found")
 
     rst = entry.get("rst_no", "?")
-    pkts = entry.get("tot_pkts", entry.get("pkts", 0)) or 0
-    farmer = entry.get("farmer_name", "") or ""
-    mandi = entry.get("mandi_name", "") or ""
-    farmer_mandi = farmer if farmer else mandi
-    text = (
-        f"*Weight Slip — RST #{rst}*\n"
-        f"Date: {entry.get('date','')}\n"
-        f"Vehicle: {entry.get('vehicle_no','')}\n"
-        f"Trans: {entry.get('trans_type','')}\n"
-        f"Party: {entry.get('party_name','')}\n"
-    )
-    if farmer_mandi:
-        text += f"Source/Mandi: {farmer_mandi}\n"
-    text += (
-        f"Product: {entry.get('product','')}\n"
-        f"Bags: {pkts if pkts > 0 else '-'}\n"
-        f"───────────────\n"
-        f"Gross Wt: {entry.get('gross_wt', entry.get('first_wt',0)):,.0f} KG\n"
-        f"Tare Wt: {entry.get('tare_wt', entry.get('second_wt',0)):,.0f} KG\n"
-        f"*Net Wt: {entry.get('net_wt',0):,.0f} KG*\n"
-        f"───────────────\n"
-    )
-    cash = entry.get("cash_paid", 0) or 0
-    diesel = entry.get("diesel_paid", 0) or 0
-    g_issued = float(entry.get("g_issued", 0) or 0)
-    if g_issued > 0:
-        text += f"G.Issued: {g_issued:,.0f}\n"
-    tp_no = entry.get("tp_no", "")
-    if tp_no:
-        text += f"TP: {tp_no}\n"
-    remark = entry.get("remark", "")
-    if remark:
-        text += f"Remark: {remark}\n"
-    if cash > 0:
-        text += f"Cash Paid: \u20b9{cash:,.0f}\n"
-    if diesel > 0:
-        text += f"Diesel Paid: \u20b9{diesel:,.0f}\n"
-    if cash > 0 or diesel > 0:
-        text += f"───────────────\n"
+    first_wt = float(entry.get("first_wt", 0) or 0)
+    second_wt = float(entry.get("second_wt", 0) or 0)
+    
+    # Generate weight report PDF
+    from starlette.testclient import TestClient
+    pdf_buf = None
+    try:
+        # Generate PDF in memory
+        pdf_response = await weight_report_pdf(entry_id)
+        pdf_buf = io.BytesIO()
+        async for chunk in pdf_response.body_iterator:
+            pdf_buf.write(chunk)
+        pdf_buf.seek(0)
+    except Exception as e:
+        logger.error(f"PDF generation error: {e}")
+
+    # Build a short caption
+    caption = f"*Weight Report - RST #{rst}*\n"
+    caption += f"Vehicle: {entry.get('vehicle_no','')}\n"
+    caption += f"Party: {entry.get('party_name','')}\n"
+    if first_wt: caption += f"1st Wt: {first_wt:,.0f} KG\n"
+    if second_wt: caption += f"2nd Wt: {second_wt:,.0f} KG\n"
+    net_wt = float(entry.get("net_wt", 0) or 0)
+    if net_wt: caption += f"*Net Wt: {net_wt:,.0f} KG*\n"
+    avg_wt = round((first_wt + second_wt) / 2, 2) if (first_wt and second_wt) else 0
+    if avg_wt: caption += f"Avg Wt: {avg_wt:,.2f} KG"
 
     results = {"whatsapp": [], "telegram": []}
-
-    # Load saved camera images from disk
-    first_front_b64 = _load_image_b64(entry.get("first_wt_front_img", ""))
-    first_side_b64 = _load_image_b64(entry.get("first_wt_side_img", ""))
-    second_front_b64 = _load_image_b64(entry.get("second_wt_front_img", ""))
-    second_side_b64 = _load_image_b64(entry.get("second_wt_side_img", ""))
-
-    # Build public image URLs for WhatsApp media
-    base_url = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
-    img_urls = {}
-    for key in ["first_wt_front_img", "first_wt_side_img", "second_wt_front_img", "second_wt_side_img"]:
-        fname = entry.get(key, "")
-        if fname and base_url:
-            img_urls[key] = f"{base_url}/api/vehicle-weight/image/{fname}"
 
     # Get VW-specific messaging config
     vw_config = await db["settings"].find_one({"key": "auto_vw_messaging"}, {"_id": 0}) or {}
     vw_wa_group_id = vw_config.get("wa_group_id", "")
     vw_tg_chat_ids = vw_config.get("tg_chat_ids", [])
 
-    # Send via WhatsApp to VW-specific group (or fallback to default numbers)
+    # Build public PDF URL for WhatsApp
+    base_url = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
+    pdf_url = f"{base_url}/api/vehicle-weight/{entry_id}/weight-report-pdf" if base_url else ""
+
+    # Send via WhatsApp
     try:
         from routes.whatsapp import _get_wa_settings, _send_wa_message, _send_wa_to_group
         wa_settings = await _get_wa_settings()
         if wa_settings.get("enabled") and wa_settings.get("api_key"):
             if vw_wa_group_id:
-                # Send text to VW group
-                r = await _send_wa_to_group(vw_wa_group_id, text)
+                r = await _send_wa_to_group(vw_wa_group_id, caption, pdf_url if pdf_url else None)
                 results["whatsapp"].append(r)
-                # Send photos to VW group
-                for key, label in [("first_wt_front_img", "1st Wt Front"), ("first_wt_side_img", "1st Wt Side"), ("second_wt_front_img", "2nd Wt Front"), ("second_wt_side_img", "2nd Wt Side")]:
-                    if key in img_urls:
-                        r = await _send_wa_to_group(vw_wa_group_id, f"{label} - RST #{rst}", img_urls[key])
-                        results["whatsapp"].append(r)
             else:
-                # Fallback: send to default numbers
                 numbers = wa_settings.get("default_numbers", [])
                 for num in numbers:
                     if num:
-                        r = await _send_wa_message(num.strip(), text)
+                        r = await _send_wa_message(num.strip(), caption, pdf_url if pdf_url else None)
                         results["whatsapp"].append(r)
-                        # Send photos to individual numbers
-                        for key, label in [("first_wt_front_img", "1st Wt Front"), ("first_wt_side_img", "1st Wt Side"), ("second_wt_front_img", "2nd Wt Front"), ("second_wt_side_img", "2nd Wt Side")]:
-                            if key in img_urls:
-                                r = await _send_wa_message(num.strip(), f"{label} - RST #{rst}", img_urls[key])
-                                results["whatsapp"].append(r)
     except Exception as e:
         logger.error(f"WA auto-notify error: {e}")
 
-    # Send via Telegram to VW-specific chats (or fallback to default config)
+    # Send via Telegram (PDF as document)
     try:
-        from routes.telegram import get_telegram_config, _send_photo_to_all
+        from routes.telegram import get_telegram_config
         import httpx
         tg_config = await get_telegram_config()
         if tg_config and tg_config.get("bot_token"):
             bot_token = tg_config["bot_token"]
-            # Use VW-specific chat IDs if set, otherwise fallback to default
             chat_ids = vw_tg_chat_ids if vw_tg_chat_ids and len(vw_tg_chat_ids) > 0 else (tg_config.get("chat_ids") or [])
-            if chat_ids:
+            if chat_ids and pdf_buf:
+                pdf_buf.seek(0)
+                pdf_bytes = pdf_buf.read()
                 async with httpx.AsyncClient() as client:
                     for item in chat_ids:
                         cid = str(item.get("chat_id", "")).strip()
                         if cid:
-                            await client.post(
-                                f"https://api.telegram.org/bot{bot_token}/sendMessage",
-                                json={"chat_id": cid, "text": text, "parse_mode": "Markdown"},
-                                timeout=15
-                            )
-                # Send 1st weight photos
-                if first_front_b64:
-                    r = await _send_photo_to_all(bot_token, chat_ids, base64.b64decode(first_front_b64), f"1st Weight Front - RST #{rst}", f"1st_front_rst{rst}.jpg")
-                    results["telegram"].extend(r)
-                if first_side_b64:
-                    r = await _send_photo_to_all(bot_token, chat_ids, base64.b64decode(first_side_b64), f"1st Weight Side - RST #{rst}", f"1st_side_rst{rst}.jpg")
-                    results["telegram"].extend(r)
-                # Send 2nd weight photos
-                if second_front_b64:
-                    r = await _send_photo_to_all(bot_token, chat_ids, base64.b64decode(second_front_b64), f"2nd Weight Front - RST #{rst}", f"2nd_front_rst{rst}.jpg")
-                    results["telegram"].extend(r)
-                if second_side_b64:
-                    r = await _send_photo_to_all(bot_token, chat_ids, base64.b64decode(second_side_b64), f"2nd Weight Side - RST #{rst}", f"2nd_side_rst{rst}.jpg")
-                    results["telegram"].extend(r)
+                            try:
+                                # Send PDF as document
+                                files = {"document": (f"WeightReport_RST{rst}.pdf", pdf_bytes, "application/pdf")}
+                                form_data = {"chat_id": cid, "caption": caption.replace("*", ""), "parse_mode": "Markdown"}
+                                r = await client.post(
+                                    f"https://api.telegram.org/bot{bot_token}/sendDocument",
+                                    data=form_data, files=files, timeout=30
+                                )
+                                results["telegram"].append(r.json())
+                            except Exception as te:
+                                logger.error(f"TG send doc error: {te}")
+                                # Fallback: send text only
+                                await client.post(
+                                    f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                                    json={"chat_id": cid, "text": caption, "parse_mode": "Markdown"},
+                                    timeout=15
+                                )
     except Exception as e:
         logger.error(f"Telegram auto-notify error: {e}")
 
@@ -435,20 +399,46 @@ async def get_pending_vw_count(kms_year: str = ""):
 
 @router.post("/vehicle-weight/send-manual")
 async def send_manual_weight_msg(data: dict):
-    """Manual send weight text + camera photos to WhatsApp/Telegram (no PDF)."""
-    import base64
-
-    text = data.get("text", "")
-    front_image_b64 = data.get("front_image", "")
-    side_image_b64 = data.get("side_image", "")
+    """Manual send weight report PDF to WhatsApp/Telegram."""
+    entry_id = data.get("entry_id", "")
     send_to_numbers = data.get("send_to_numbers", False)
     send_to_group = data.get("send_to_group", False)
 
-    results = {"whatsapp": [], "telegram": []}
-    front_bytes = base64.b64decode(front_image_b64) if front_image_b64 else None
-    side_bytes = base64.b64decode(side_image_b64) if side_image_b64 else None
+    entry = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
 
-    # ── WhatsApp ──
+    rst = entry.get("rst_no", "?")
+    first_wt = float(entry.get("first_wt", 0) or 0)
+    second_wt = float(entry.get("second_wt", 0) or 0)
+    net_wt = float(entry.get("net_wt", 0) or 0)
+    avg_wt = round((first_wt + second_wt) / 2, 2) if (first_wt and second_wt) else 0
+
+    caption = f"*Weight Report - RST #{rst}*\n"
+    caption += f"Vehicle: {entry.get('vehicle_no','')}\n"
+    caption += f"Party: {entry.get('party_name','')}\n"
+    if first_wt: caption += f"1st Wt: {first_wt:,.0f} KG\n"
+    if second_wt: caption += f"2nd Wt: {second_wt:,.0f} KG\n"
+    if net_wt: caption += f"*Net Wt: {net_wt:,.0f} KG*\n"
+    if avg_wt: caption += f"Avg Wt: {avg_wt:,.2f} KG"
+
+    # Generate PDF
+    pdf_buf = None
+    try:
+        pdf_response = await weight_report_pdf(entry_id)
+        pdf_buf = io.BytesIO()
+        async for chunk in pdf_response.body_iterator:
+            pdf_buf.write(chunk)
+        pdf_buf.seek(0)
+    except Exception as e:
+        logger.error(f"PDF generation error: {e}")
+
+    base_url = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
+    pdf_url = f"{base_url}/api/vehicle-weight/{entry_id}/weight-report-pdf" if base_url else ""
+
+    results = {"whatsapp": [], "telegram": []}
+
+    # WhatsApp
     try:
         from routes.whatsapp import _get_wa_settings, _send_wa_message, _send_wa_to_group
         wa_settings = await _get_wa_settings()
@@ -457,41 +447,40 @@ async def send_manual_weight_msg(data: dict):
                 numbers = wa_settings.get("default_numbers", [])
                 for num in numbers:
                     if num:
-                        r = await _send_wa_message(num.strip(), text)
+                        r = await _send_wa_message(num.strip(), caption, pdf_url if pdf_url else None)
                         results["whatsapp"].append({"to": num, "success": r.get("success", False)})
             if send_to_group:
                 group_id = wa_settings.get("default_group_id", "")
                 if group_id:
-                    r = await _send_wa_to_group(group_id, text)
+                    r = await _send_wa_to_group(group_id, caption, pdf_url if pdf_url else None)
                     results["whatsapp"].append({"to": "group", "success": r.get("success", False)})
     except Exception as e:
         logger.error(f"WA manual send error: {e}")
 
-    # ── Telegram (text + photos) ──
+    # Telegram - send PDF as document
     try:
-        from routes.telegram import get_telegram_config, _send_photo_to_all
+        from routes.telegram import get_telegram_config
         import httpx
         tg_config = await get_telegram_config()
-        if tg_config and tg_config.get("bot_token") and tg_config.get("chat_ids"):
+        if tg_config and tg_config.get("bot_token") and tg_config.get("chat_ids") and pdf_buf:
             bot_token = tg_config["bot_token"]
             chat_ids = tg_config["chat_ids"]
-            # Text message
+            pdf_buf.seek(0)
+            pdf_bytes = pdf_buf.read()
             async with httpx.AsyncClient() as client:
                 for item in chat_ids:
                     cid = str(item.get("chat_id", "")).strip()
                     if cid:
-                        await client.post(
-                            f"https://api.telegram.org/bot{bot_token}/sendMessage",
-                            json={"chat_id": cid, "text": text, "parse_mode": "Markdown"},
-                            timeout=15
-                        )
-            # Photos
-            if front_bytes:
-                r = await _send_photo_to_all(bot_token, chat_ids, front_bytes, "Front View", "front.jpg")
-                results["telegram"].extend(r)
-            if side_bytes:
-                r = await _send_photo_to_all(bot_token, chat_ids, side_bytes, "Side View", "side.jpg")
-                results["telegram"].extend(r)
+                        try:
+                            files = {"document": (f"WeightReport_RST{rst}.pdf", pdf_bytes, "application/pdf")}
+                            form_data = {"chat_id": cid, "caption": caption.replace("*", "")}
+                            r = await client.post(
+                                f"https://api.telegram.org/bot{bot_token}/sendDocument",
+                                data=form_data, files=files, timeout=30
+                            )
+                            results["telegram"].append(r.json())
+                        except Exception as te:
+                            logger.error(f"TG send doc error: {te}")
     except Exception as e:
         logger.error(f"TG manual send error: {e}")
 
@@ -989,6 +978,200 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=WeightSlip_RST{rst}.pdf"})
+
+
+
+@router.get("/vehicle-weight/{entry_id}/weight-report-pdf")
+async def weight_report_pdf(entry_id: str):
+    """Generate weight report PDF with 1st weight + photos, 2nd weight + photos, and Average Weight."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.pdfgen import canvas as pdfcanvas
+    from reportlab.lib.utils import ImageReader
+    from fastapi.responses import StreamingResponse
+
+    entry = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    from utils.branding_helper import get_branding_data
+    from utils.export_helpers import register_hindi_fonts
+    register_hindi_fonts()
+    branding = await get_branding_data()
+    company = branding.get("company_name", "NAVKAR AGRO")
+    tagline = branding.get("tagline", "")
+
+    rst = entry.get("rst_no", "?")
+    first_wt = float(entry.get("first_wt", 0) or 0)
+    second_wt = float(entry.get("second_wt", 0) or 0)
+    gross_wt = float(entry.get("gross_wt", max(first_wt, second_wt)) or 0)
+    tare_wt = float(entry.get("tare_wt", min(first_wt, second_wt)) or 0)
+    net_wt = float(entry.get("net_wt", 0) or 0)
+    avg_wt = round((first_wt + second_wt) / 2, 2) if (first_wt and second_wt) else 0
+
+    # Load images
+    img_data = {}
+    for key in ["first_wt_front_img", "first_wt_side_img", "second_wt_front_img", "second_wt_side_img"]:
+        b64 = _load_image_b64(entry.get(key, ""))
+        if b64:
+            try:
+                img_bytes = b64mod.b64decode(b64)
+                img_data[key] = ImageReader(io.BytesIO(img_bytes))
+            except Exception:
+                pass
+
+    W, H = A4
+    buf = io.BytesIO()
+    c = pdfcanvas.Canvas(buf, pagesize=A4)
+    LM = 15 * mm
+    RM = 15 * mm
+    PW = W - LM - RM
+
+    def draw_header(c, y):
+        c.setFont("Helvetica-Bold", 16)
+        c.setFillColor(colors.HexColor("#1a1a2e"))
+        c.drawCentredString(W / 2, y, company)
+        y -= 5 * mm
+        if tagline:
+            c.setFont("Helvetica", 9)
+            c.setFillColor(colors.gray)
+            c.drawCentredString(W / 2, y, tagline)
+            y -= 4 * mm
+        c.setFont("Helvetica-Bold", 12)
+        c.setFillColor(colors.HexColor("#2E75B6"))
+        c.drawCentredString(W / 2, y, f"WEIGHT REPORT - RST #{rst}")
+        y -= 6 * mm
+        # Common info
+        c.setFont("FreeSans", 9)
+        c.setFillColor(colors.HexColor("#333"))
+        info_items = [
+            ("Date", fmt_date(entry.get("date", ""))),
+            ("Vehicle", entry.get("vehicle_no", "")),
+            ("Party", entry.get("party_name", "")),
+            ("Product", entry.get("product", "")),
+            ("Trans Type", entry.get("trans_type", "")),
+            ("Source/Mandi", entry.get("farmer_name", "")),
+            ("Bags", str(entry.get("tot_pkts", 0))),
+        ]
+        col_w = PW / 2
+        for i, (lbl, val) in enumerate(info_items):
+            cx = LM if i % 2 == 0 else LM + col_w
+            if i % 2 == 0 and i > 0:
+                y -= 5 * mm
+            c.setFont("FreeSans", 8)
+            c.setFillColor(colors.HexColor("#666"))
+            c.drawString(cx, y, f"{lbl}:")
+            c.setFont("FreeSansBold", 9)
+            c.setFillColor(colors.HexColor("#000"))
+            c.drawString(cx + 25 * mm, y, str(val or "-"))
+        y -= 4 * mm
+        c.setStrokeColor(colors.HexColor("#2E75B6"))
+        c.setLineWidth(1)
+        c.line(LM, y, W - RM, y)
+        return y - 3 * mm
+
+    def draw_weight_section(c, y, label, weight_val, time_str, front_img_key, side_img_key):
+        # Section title
+        c.setFont("Helvetica-Bold", 12)
+        c.setFillColor(colors.HexColor("#2E75B6"))
+        c.drawString(LM, y, label)
+        c.setFont("Helvetica-Bold", 14)
+        c.setFillColor(colors.HexColor("#d4380d"))
+        c.drawRightString(W - RM, y, f"{weight_val:,.0f} KG")
+        y -= 4 * mm
+        if time_str:
+            c.setFont("Helvetica", 8)
+            c.setFillColor(colors.gray)
+            c.drawString(LM, y, f"Time: {time_str}")
+            y -= 3 * mm
+        y -= 2 * mm
+
+        # Photos side by side
+        img_w = PW / 2 - 3 * mm
+        img_h = 55 * mm
+        has_front = front_img_key in img_data
+        has_side = side_img_key in img_data
+
+        if has_front or has_side:
+            if has_front:
+                try:
+                    c.drawImage(img_data[front_img_key], LM, y - img_h, img_w, img_h, preserveAspectRatio=True, mask='auto')
+                    c.setFont("Helvetica", 7)
+                    c.setFillColor(colors.gray)
+                    c.drawCentredString(LM + img_w / 2, y - img_h - 3 * mm, "Front View")
+                except Exception:
+                    pass
+            if has_side:
+                try:
+                    c.drawImage(img_data[side_img_key], LM + img_w + 6 * mm, y - img_h, img_w, img_h, preserveAspectRatio=True, mask='auto')
+                    c.setFont("Helvetica", 7)
+                    c.setFillColor(colors.gray)
+                    c.drawCentredString(LM + img_w + 6 * mm + img_w / 2, y - img_h - 3 * mm, "Side View")
+                except Exception:
+                    pass
+            y -= img_h + 8 * mm
+        else:
+            c.setFont("Helvetica", 9)
+            c.setFillColor(colors.HexColor("#999"))
+            c.drawString(LM, y - 5 * mm, "No photos available")
+            y -= 12 * mm
+
+        c.setStrokeColor(colors.HexColor("#ddd"))
+        c.setLineWidth(0.5)
+        c.line(LM, y, W - RM, y)
+        return y - 4 * mm
+
+    # Page 1: 1st Weight
+    y = H - 15 * mm
+    y = draw_header(c, y)
+    y = draw_weight_section(c, y, "1st Weight / पहला वजन", first_wt,
+                            entry.get("first_wt_time", ""),
+                            "first_wt_front_img", "first_wt_side_img")
+
+    # 2nd Weight section on same page if space, else new page
+    if second_wt > 0:
+        if y < 100 * mm:
+            c.showPage()
+            y = H - 15 * mm
+            y = draw_header(c, y)
+        y = draw_weight_section(c, y, "2nd Weight / दूसरा वजन", second_wt,
+                                entry.get("second_wt_time", ""),
+                                "second_wt_front_img", "second_wt_side_img")
+
+    # Summary boxes at bottom
+    y -= 3 * mm
+    box_h = 18 * mm
+    items = [
+        ("GROSS", f"{gross_wt:,.0f} KG", "#f0f0f0", "#000"),
+        ("TARE", f"{tare_wt:,.0f} KG", "#f0f0f0", "#000"),
+        ("NET", f"{net_wt:,.0f} KG", "#dcf5dc", "#1b5e20"),
+        ("AVERAGE", f"{avg_wt:,.2f} KG", "#e3f2fd", "#1565c0"),
+    ]
+    col_w = PW / len(items)
+    for i, (lbl, val, bg, fg) in enumerate(items):
+        bx = LM + i * col_w
+        c.setFillColor(colors.HexColor(bg))
+        c.rect(bx, y - box_h, col_w, box_h, fill=1, stroke=0)
+        c.setStrokeColor(colors.HexColor("#999"))
+        c.setLineWidth(0.5)
+        c.rect(bx, y - box_h, col_w, box_h)
+        c.setFont("Helvetica-Bold", 8)
+        c.setFillColor(colors.HexColor("#555"))
+        c.drawCentredString(bx + col_w / 2, y - 6 * mm, lbl)
+        c.setFont("Helvetica-Bold", 13)
+        c.setFillColor(colors.HexColor(fg))
+        c.drawCentredString(bx + col_w / 2, y - 13 * mm, val)
+
+    # Footer
+    c.setFont("Helvetica", 7)
+    c.setFillColor(colors.HexColor("#999"))
+    c.drawCentredString(W / 2, 10 * mm, f"{company} | Weight Report | Generated: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+
+    c.save()
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/pdf",
+                             headers={"Content-Disposition": f"attachment; filename=WeightReport_RST{rst}.pdf"})
 
 
 
