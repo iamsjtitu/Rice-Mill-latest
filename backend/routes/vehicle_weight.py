@@ -263,39 +263,56 @@ async def auto_notify_weight(data: dict):
     vw_wa_group_id = vw_config.get("wa_group_id", "")
     vw_tg_chat_ids = vw_config.get("tg_chat_ids", [])
 
-    # Encode PDF as base64 for direct sending
+    # Encode PDF as base64 for Telegram
     pdf_b64 = ""
     if pdf_buf:
         pdf_buf.seek(0)
         pdf_b64 = b64mod.b64encode(pdf_buf.read()).decode()
 
-    # Send via WhatsApp - send PDF as document (base64)
+    # Build public PDF URL for WhatsApp
+    base_url = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
+    pdf_url = f"{base_url}/api/vehicle-weight/{entry_id}/weight-report-pdf?t={int(datetime.now().timestamp())}" if base_url else ""
+
+    # Send via WhatsApp - text + PDF URL as media
     try:
         from routes.whatsapp import _get_wa_settings
         wa_settings = await _get_wa_settings()
         if wa_settings.get("enabled") and wa_settings.get("api_key"):
             api_key = wa_settings["api_key"]
-            wa_data = {"text": caption}
-            if pdf_b64:
-                wa_data["document"] = pdf_b64
-                wa_data["filename"] = f"WeightReport_RST{rst}.pdf"
 
             async with httpx.AsyncClient(timeout=30) as client:
                 if vw_wa_group_id:
-                    wa_data["groupId"] = vw_wa_group_id
+                    # First send text
+                    wa_data = {"groupId": vw_wa_group_id, "text": caption}
                     resp = await client.post("https://api.360messenger.com/v2/sendGroup",
                         data=wa_data, headers={"Authorization": f"Bearer {api_key}"})
-                    r = resp.json()
-                    results["whatsapp"].append({"success": r.get("success") or resp.status_code == 201})
+                    logger.info(f"WA group text resp: {resp.status_code} {resp.text[:200]}")
+                    
+                    # Then send PDF as URL media
+                    if pdf_url:
+                        wa_media = {"groupId": vw_wa_group_id, "text": f"PDF: RST #{rst}", "url": pdf_url}
+                        resp2 = await client.post("https://api.360messenger.com/v2/sendGroup",
+                            data=wa_media, headers={"Authorization": f"Bearer {api_key}"})
+                        logger.info(f"WA group PDF resp: {resp2.status_code} {resp2.text[:200]}")
+                    
+                    results["whatsapp"].append({"success": resp.status_code == 201 or resp.json().get("success")})
                 else:
                     numbers = wa_settings.get("default_numbers", [])
                     for num in numbers:
                         if num:
-                            wa_data["number"] = num.strip()
+                            num_clean = num.strip()
+                            wa_data = {"number": num_clean, "text": caption}
                             resp = await client.post("https://api.360messenger.com/v2/sendMessage",
                                 data=wa_data, headers={"Authorization": f"Bearer {api_key}"})
-                            r = resp.json()
-                            results["whatsapp"].append({"success": r.get("success") or resp.status_code == 201})
+                            logger.info(f"WA num text resp: {resp.status_code} {resp.text[:200]}")
+                            
+                            if pdf_url:
+                                wa_media = {"number": num_clean, "text": f"PDF: RST #{rst}", "url": pdf_url}
+                                resp2 = await client.post("https://api.360messenger.com/v2/sendMessage",
+                                    data=wa_media, headers={"Authorization": f"Bearer {api_key}"})
+                                logger.info(f"WA num PDF resp: {resp2.status_code} {resp2.text[:200]}")
+                            
+                            results["whatsapp"].append({"success": resp.status_code == 201 or resp.json().get("success")})
     except Exception as e:
         logger.error(f"WA auto-notify error: {e}")
 
