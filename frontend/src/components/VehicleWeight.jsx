@@ -607,7 +607,8 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
       });
       if (r.data.success) {
         toast.success(r.data.message);
-        sendAutoNotify(secondWtMode.id, "2nd");
+        // Small delay to ensure DB write completes before PDF generation
+        setTimeout(() => sendAutoNotify(secondWtMode.id, "2nd"), 1500);
         clearSecondWtMode();
         fetchData();
         if (onVwChange) onVwChange();

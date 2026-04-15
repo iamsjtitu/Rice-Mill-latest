@@ -255,14 +255,15 @@ async def auto_notify_weight(data: dict):
     except Exception as e:
         logger.error(f"PDF generation error: {e}")
 
-    caption = f"{weight_type} Weight Report - RST #{rst}"
+    caption = f"*{weight_type} Weight Report - RST #{rst}*"
 
     results = {"whatsapp": [], "telegram": []}
     vw_config = await db["settings"].find_one({"key": "auto_vw_messaging"}, {"_id": 0}) or {}
     vw_wa_group_id = vw_config.get("wa_group_id", "")
     vw_tg_chat_ids = vw_config.get("tg_chat_ids", [])
     base_url = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
-    pdf_url = f"{base_url}/api/vehicle-weight/{entry_id}/weight-report-pdf" if base_url else ""
+    cache_bust = str(int(datetime.now().timestamp()))
+    pdf_url = f"{base_url}/api/vehicle-weight/{entry_id}/weight-report-pdf?t={cache_bust}" if base_url else ""
 
     try:
         from routes.whatsapp import _get_wa_settings, _send_wa_message, _send_wa_to_group
