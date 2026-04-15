@@ -607,7 +607,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
       });
       if (r.data.success) {
         toast.success(r.data.message);
-        sendAutoNotify(secondWtMode.id);
+        sendAutoNotify(secondWtMode.id, "2nd");
         clearSecondWtMode();
         fetchData();
         if (onVwChange) onVwChange();
@@ -645,18 +645,18 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
       if (!canChangeDate) payload.date = todayStr;
       if (form.rst_no && Number(form.rst_no) > 0) payload.rst_no = Number(form.rst_no);
       const r = await axios.post(`${API}/vehicle-weight`, payload);
-      if (r.data.success) { toast.success(r.data.message); sendAutoNotify(r.data.entry?.id || ""); setForm({ ...blank, rst_no: "" }); setRstEditable(false); setTpWarning(""); fetchData(); if (onVwChange) onVwChange(); }
+      if (r.data.success) { toast.success(r.data.message); sendAutoNotify(r.data.entry?.id || "", "1st"); setForm({ ...blank, rst_no: "" }); setRstEditable(false); setTpWarning(""); fetchData(); if (onVwChange) onVwChange(); }
     } catch (e) { toast.error(e.response?.data?.detail || "Save error"); }
   };
 
   const handleDelete = async (id) => { if (!await showConfirm("Delete", "Kya aap ye VW entry delete karna chahte hain?\n\nNote: Isse linked Mill Entry + Cash/Diesel transactions bhi delete ho jayenge!")) return; try { const res = await axios.delete(`${API}/vehicle-weight/${id}`); toast.success(res.data?.message || "Deleted"); fetchData(); if (onVwChange) onVwChange(); } catch (err) { toast.error(err?.response?.data?.detail || "Error"); } };
 
   // Auto-notify: images already saved with entry, just trigger notify
-  const sendAutoNotify = async (entryId) => {
+  const sendAutoNotify = async (entryId, weightType = "1st") => {
     if (!autoNotify) return;
     try {
       const r = await axios.post(`${API}/vehicle-weight/auto-notify`, {
-        entry_id: entryId
+        entry_id: entryId, weight_type: weightType
       });
       if (r.data.success) {
         toast.success(`Auto Msg: ${r.data.message}`);
@@ -1375,8 +1375,6 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                           )}
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-purple-600" onClick={() => handlePrint(e)} data-testid={`vw-print-${e.id}`} title="Print"><Printer className="w-3 h-3" /></Button>
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-blue-600" onClick={() => handlePdf(e)} data-testid={`vw-pdf-${e.id}`} title="Download"><Download className="w-3 h-3" /></Button>
-                          {wa && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-green-400 hover:text-green-600" onClick={() => handleWA(e)} data-testid={`vw-wa-${e.id}`} title="WhatsApp"><Send className="w-3 h-3" /></Button>}
-                          {wa && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-teal-400 hover:text-teal-600" onClick={() => handleGroup(e)} data-testid={`vw-group-${e.id}`} title="Group"><Users className="w-3 h-3" /></Button>}
                           {linkedRst.has(e.rst_no) && !canEditVwLinked ? (
                             <span className="h-6 w-6 flex items-center justify-center text-green-500" title="Mill Entry done" data-testid={`vw-linked-${e.id}`}><CheckCircle className="w-4 h-4" /></span>
                           ) : (

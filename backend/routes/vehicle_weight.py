@@ -235,23 +235,18 @@ async def update_auto_notify_setting(data: dict):
 @router.post("/vehicle-weight/auto-notify")
 async def auto_notify_weight(data: dict):
     """Auto-send weight report PDF to WhatsApp & Telegram."""
-    import base64
-
     entry_id = data.get("entry_id", "")
+    weight_type = data.get("weight_type", "1st")
 
     entry = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
 
     rst = entry.get("rst_no", "?")
-    first_wt = float(entry.get("first_wt", 0) or 0)
-    second_wt = float(entry.get("second_wt", 0) or 0)
-    
+
     # Generate weight report PDF
-    from starlette.testclient import TestClient
     pdf_buf = None
     try:
-        # Generate PDF in memory
         pdf_response = await weight_report_pdf(entry_id)
         pdf_buf = io.BytesIO()
         async for chunk in pdf_response.body_iterator:
@@ -260,29 +255,15 @@ async def auto_notify_weight(data: dict):
     except Exception as e:
         logger.error(f"PDF generation error: {e}")
 
-    # Build a short caption
-    caption = f"*Weight Report - RST #{rst}*\n"
-    caption += f"Vehicle: {entry.get('vehicle_no','')}\n"
-    caption += f"Party: {entry.get('party_name','')}\n"
-    if first_wt: caption += f"1st Wt: {first_wt:,.0f} KG\n"
-    if second_wt: caption += f"2nd Wt: {second_wt:,.0f} KG\n"
-    net_wt = float(entry.get("net_wt", 0) or 0)
-    if net_wt: caption += f"*Net Wt: {net_wt:,.0f} KG*\n"
-    avg_wt = round((first_wt + second_wt) / 2, 2) if (first_wt and second_wt) else 0
-    if avg_wt: caption += f"Avg Wt: {avg_wt:,.2f} KG"
+    caption = f"{weight_type} Weight Report - RST #{rst}"
 
     results = {"whatsapp": [], "telegram": []}
-
-    # Get VW-specific messaging config
     vw_config = await db["settings"].find_one({"key": "auto_vw_messaging"}, {"_id": 0}) or {}
     vw_wa_group_id = vw_config.get("wa_group_id", "")
     vw_tg_chat_ids = vw_config.get("tg_chat_ids", [])
-
-    # Build public PDF URL for WhatsApp
     base_url = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
     pdf_url = f"{base_url}/api/vehicle-weight/{entry_id}/weight-report-pdf" if base_url else ""
 
-    # Send via WhatsApp
     try:
         from routes.whatsapp import _get_wa_settings, _send_wa_message, _send_wa_to_group
         wa_settings = await _get_wa_settings()
@@ -299,7 +280,6 @@ async def auto_notify_weight(data: dict):
     except Exception as e:
         logger.error(f"WA auto-notify error: {e}")
 
-    # Send via Telegram (PDF as document)
     try:
         from routes.telegram import get_telegram_config
         import httpx
@@ -315,22 +295,12 @@ async def auto_notify_weight(data: dict):
                         cid = str(item.get("chat_id", "")).strip()
                         if cid:
                             try:
-                                # Send PDF as document
                                 files = {"document": (f"WeightReport_RST{rst}.pdf", pdf_bytes, "application/pdf")}
-                                form_data = {"chat_id": cid, "caption": caption.replace("*", ""), "parse_mode": "Markdown"}
-                                r = await client.post(
-                                    f"https://api.telegram.org/bot{bot_token}/sendDocument",
-                                    data=form_data, files=files, timeout=30
-                                )
+                                r = await client.post(f"https://api.telegram.org/bot{bot_token}/sendDocument",
+                                    data={"chat_id": cid, "caption": caption}, files=files, timeout=30)
                                 results["telegram"].append(r.json())
                             except Exception as te:
                                 logger.error(f"TG send doc error: {te}")
-                                # Fallback: send text only
-                                await client.post(
-                                    f"https://api.telegram.org/bot{bot_token}/sendMessage",
-                                    json={"chat_id": cid, "text": caption, "parse_mode": "Markdown"},
-                                    timeout=15
-                                )
     except Exception as e:
         logger.error(f"Telegram auto-notify error: {e}")
 
@@ -992,7 +962,7 @@ async def weight_report_pdf_head(entry_id: str):
 
 @router.get("/vehicle-weight/{entry_id}/weight-report-pdf")
 async def weight_report_pdf(entry_id: str):
-    """Generate weight report PDF with 1st weight + photos, 2nd weight + photos, and Average Weight."""
+    """Generate professional weight report PDF with 1st weight + photos, 2nd weight + photos, and Average Weight."""
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
     from reportlab.lib import colors
@@ -1006,6 +976,7 @@ async def weight_report_pdf(entry_id: str):
 
     from utils.branding_helper import get_branding_data
     from utils.export_helpers import register_hindi_fonts
+    from utils.date_format import fmt_date
     register_hindi_fonts()
     branding = await get_branding_data()
     company = branding.get("company_name", "NAVKAR AGRO")
@@ -1037,145 +1008,200 @@ async def weight_report_pdf(entry_id: str):
     RM = 15 * mm
     PW = W - LM - RM
 
-    def draw_header(c, y):
-        c.setFont("Helvetica-Bold", 16)
-        c.setFillColor(colors.HexColor("#1a1a2e"))
-        c.drawCentredString(W / 2, y, company)
-        y -= 5 * mm
-        if tagline:
-            c.setFont("Helvetica", 9)
-            c.setFillColor(colors.gray)
-            c.drawCentredString(W / 2, y, tagline)
-            y -= 4 * mm
-        c.setFont("Helvetica-Bold", 12)
-        c.setFillColor(colors.HexColor("#2E75B6"))
-        c.drawCentredString(W / 2, y, f"WEIGHT REPORT - RST #{rst}")
-        y -= 6 * mm
-        # Common info
-        c.setFont("FreeSans", 9)
-        c.setFillColor(colors.HexColor("#333"))
-        info_items = [
-            ("Date", fmt_date(entry.get("date", ""))),
-            ("Vehicle", entry.get("vehicle_no", "")),
-            ("Party", entry.get("party_name", "")),
-            ("Product", entry.get("product", "")),
-            ("Trans Type", entry.get("trans_type", "")),
-            ("Source/Mandi", entry.get("farmer_name", "")),
-            ("Bags", str(entry.get("tot_pkts", 0))),
-        ]
-        col_w = PW / 2
-        for i, (lbl, val) in enumerate(info_items):
-            cx = LM if i % 2 == 0 else LM + col_w
-            if i % 2 == 0 and i > 0:
-                y -= 5 * mm
-            c.setFont("FreeSans", 8)
-            c.setFillColor(colors.HexColor("#666"))
-            c.drawString(cx, y, f"{lbl}:")
-            c.setFont("FreeSansBold", 9)
-            c.setFillColor(colors.HexColor("#000"))
-            c.drawString(cx + 25 * mm, y, str(val or "-"))
-        y -= 4 * mm
-        c.setStrokeColor(colors.HexColor("#2E75B6"))
-        c.setLineWidth(1)
-        c.line(LM, y, W - RM, y)
-        return y - 3 * mm
+    # Color scheme
+    BLUE = colors.HexColor("#1a5276")
+    LIGHT_BLUE = colors.HexColor("#d6eaf8")
+    DARK = colors.HexColor("#1a1a2e")
+    ACCENT = colors.HexColor("#2E75B6")
+    GREEN = colors.HexColor("#1b7a30")
+    RED = colors.HexColor("#c0392b")
 
-    def draw_weight_section(c, y, label, weight_val, time_str, front_img_key, side_img_key):
-        # Section title
-        c.setFont("Helvetica-Bold", 12)
-        c.setFillColor(colors.HexColor("#2E75B6"))
-        c.drawString(LM, y, label)
-        c.setFont("Helvetica-Bold", 14)
-        c.setFillColor(colors.HexColor("#d4380d"))
-        c.drawRightString(W - RM, y, f"{weight_val:,.0f} KG")
-        y -= 4 * mm
-        if time_str:
-            c.setFont("Helvetica", 8)
-            c.setFillColor(colors.gray)
-            c.drawString(LM, y, f"Time: {time_str}")
-            y -= 3 * mm
+    def draw_header(c, y):
+        # Top bar
+        c.setFillColor(BLUE)
+        c.rect(0, y - 2 * mm, W, 14 * mm, fill=1, stroke=0)
+        c.setFillColor(colors.white)
+        c.setFont("FreeSansBold", 14)
+        c.drawCentredString(W / 2, y + 2 * mm, company)
+        if tagline:
+            c.setFont("FreeSans", 8)
+            c.drawCentredString(W / 2, y - 4 * mm, tagline)
+        y -= 12 * mm
+
+        # RST badge
+        c.setFillColor(ACCENT)
+        badge_w = 60 * mm
+        c.roundRect(W / 2 - badge_w / 2, y - 9 * mm, badge_w, 8 * mm, 2 * mm, fill=1, stroke=0)
+        c.setFillColor(colors.white)
+        c.setFont("FreeSansBold", 11)
+        c.drawCentredString(W / 2, y - 6.5 * mm, f"WEIGHT REPORT - RST #{rst}")
+        y -= 14 * mm
+
+        # Info grid - 2 columns
+        info_left = [
+            ("Date", fmt_date(entry.get("date", ""))),
+            ("Party", entry.get("party_name", "-")),
+            ("Trans Type", entry.get("trans_type", "-")),
+            ("Bags", str(entry.get("tot_pkts", 0) or "-")),
+        ]
+        info_right = [
+            ("Vehicle", entry.get("vehicle_no", "-")),
+            ("Product", entry.get("product", "-")),
+            ("Source/Mandi", entry.get("farmer_name", "") or "-"),
+            ("Remark", entry.get("remark", "") or "-"),
+        ]
+
+        col_w = PW / 2
+        row_h = 5 * mm
+        for i in range(max(len(info_left), len(info_right))):
+            # Light background on alternating rows
+            if i % 2 == 0:
+                c.setFillColor(LIGHT_BLUE)
+                c.rect(LM, y - row_h + 1 * mm, PW, row_h, fill=1, stroke=0)
+
+            if i < len(info_left):
+                lbl, val = info_left[i]
+                c.setFont("FreeSans", 7.5)
+                c.setFillColor(colors.HexColor("#555"))
+                c.drawString(LM + 2 * mm, y - 2.5 * mm, f"{lbl}:")
+                c.setFont("FreeSansBold", 8.5)
+                c.setFillColor(DARK)
+                c.drawString(LM + 25 * mm, y - 2.5 * mm, str(val)[:40])
+
+            if i < len(info_right):
+                lbl, val = info_right[i]
+                c.setFont("FreeSans", 7.5)
+                c.setFillColor(colors.HexColor("#555"))
+                c.drawString(LM + col_w + 2 * mm, y - 2.5 * mm, f"{lbl}:")
+                c.setFont("FreeSansBold", 8.5)
+                c.setFillColor(DARK)
+                c.drawString(LM + col_w + 25 * mm, y - 2.5 * mm, str(val)[:40])
+
+            y -= row_h
+
+        # Divider
         y -= 2 * mm
+        c.setStrokeColor(ACCENT)
+        c.setLineWidth(1.5)
+        c.line(LM, y, W - RM, y)
+        return y - 4 * mm
+
+    def draw_weight_section(c, y, label, weight_val, time_str, front_key, side_key):
+        # Section header bar
+        c.setFillColor(BLUE)
+        c.rect(LM, y - 7 * mm, PW, 8 * mm, fill=1, stroke=0)
+        c.setFillColor(colors.white)
+        c.setFont("FreeSansBold", 10)
+        c.drawString(LM + 3 * mm, y - 4.5 * mm, label)
+        c.setFont("FreeSansBold", 12)
+        c.drawRightString(W - RM - 3 * mm, y - 4.5 * mm, f"{weight_val:,.0f} KG")
+        y -= 10 * mm
+
+        if time_str:
+            # Format time nicely
+            try:
+                from datetime import datetime as dt2
+                t = dt2.fromisoformat(time_str.replace("Z", "+00:00"))
+                nice_time = t.strftime("%d/%m/%Y %I:%M %p")
+            except Exception:
+                nice_time = time_str[:19] if len(time_str) > 19 else time_str
+            c.setFont("FreeSans", 7.5)
+            c.setFillColor(colors.HexColor("#666"))
+            c.drawString(LM + 2 * mm, y, f"Time: {nice_time}")
+            y -= 4 * mm
 
         # Photos side by side
         img_w = PW / 2 - 3 * mm
-        img_h = 55 * mm
-        has_front = front_img_key in img_data
-        has_side = side_img_key in img_data
+        img_h = 52 * mm
+        has_front = front_key in img_data
+        has_side = side_key in img_data
 
         if has_front or has_side:
+            y -= 2 * mm
             if has_front:
                 try:
-                    c.drawImage(img_data[front_img_key], LM, y - img_h, img_w, img_h, preserveAspectRatio=True, mask='auto')
-                    c.setFont("Helvetica", 7)
-                    c.setFillColor(colors.gray)
+                    # Photo border
+                    c.setStrokeColor(colors.HexColor("#ccc"))
+                    c.setLineWidth(0.5)
+                    c.rect(LM, y - img_h, img_w, img_h)
+                    c.drawImage(img_data[front_key], LM + 0.5 * mm, y - img_h + 0.5 * mm, img_w - 1 * mm, img_h - 1 * mm, preserveAspectRatio=True, mask='auto')
+                    c.setFont("FreeSans", 6.5)
+                    c.setFillColor(colors.HexColor("#999"))
                     c.drawCentredString(LM + img_w / 2, y - img_h - 3 * mm, "Front View")
                 except Exception:
                     pass
             if has_side:
                 try:
-                    c.drawImage(img_data[side_img_key], LM + img_w + 6 * mm, y - img_h, img_w, img_h, preserveAspectRatio=True, mask='auto')
-                    c.setFont("Helvetica", 7)
-                    c.setFillColor(colors.gray)
-                    c.drawCentredString(LM + img_w + 6 * mm + img_w / 2, y - img_h - 3 * mm, "Side View")
+                    sx = LM + img_w + 6 * mm
+                    c.setStrokeColor(colors.HexColor("#ccc"))
+                    c.rect(sx, y - img_h, img_w, img_h)
+                    c.drawImage(img_data[side_key], sx + 0.5 * mm, y - img_h + 0.5 * mm, img_w - 1 * mm, img_h - 1 * mm, preserveAspectRatio=True, mask='auto')
+                    c.setFont("FreeSans", 6.5)
+                    c.setFillColor(colors.HexColor("#999"))
+                    c.drawCentredString(sx + img_w / 2, y - img_h - 3 * mm, "Side View")
                 except Exception:
                     pass
-            y -= img_h + 8 * mm
+            y -= img_h + 7 * mm
         else:
-            c.setFont("Helvetica", 9)
-            c.setFillColor(colors.HexColor("#999"))
-            c.drawString(LM, y - 5 * mm, "No photos available")
-            y -= 12 * mm
+            c.setFillColor(colors.HexColor("#f5f5f5"))
+            c.rect(LM, y - 10 * mm, PW, 10 * mm, fill=1, stroke=0)
+            c.setFont("FreeSans", 8)
+            c.setFillColor(colors.HexColor("#aaa"))
+            c.drawCentredString(W / 2, y - 6.5 * mm, "No photos available")
+            y -= 14 * mm
 
-        c.setStrokeColor(colors.HexColor("#ddd"))
-        c.setLineWidth(0.5)
-        c.line(LM, y, W - RM, y)
-        return y - 4 * mm
+        return y - 2 * mm
 
-    # Page 1: 1st Weight
-    y = H - 15 * mm
+    # === Build PDF ===
+    y = H - 10 * mm
     y = draw_header(c, y)
-    y = draw_weight_section(c, y, "1st Weight / पहला वजन", first_wt,
+
+    # 1st Weight
+    y = draw_weight_section(c, y, "1st Weight", first_wt,
                             entry.get("first_wt_time", ""),
                             "first_wt_front_img", "first_wt_side_img")
 
-    # 2nd Weight section on same page if space, else new page
+    # 2nd Weight
     if second_wt > 0:
-        if y < 100 * mm:
+        if y < 90 * mm:
             c.showPage()
-            y = H - 15 * mm
+            y = H - 10 * mm
             y = draw_header(c, y)
-        y = draw_weight_section(c, y, "2nd Weight / दूसरा वजन", second_wt,
+        y = draw_weight_section(c, y, "2nd Weight", second_wt,
                                 entry.get("second_wt_time", ""),
                                 "second_wt_front_img", "second_wt_side_img")
 
     # Summary boxes at bottom
+    if y < 35 * mm:
+        c.showPage()
+        y = H - 20 * mm
+
     y -= 3 * mm
-    box_h = 18 * mm
+    box_h = 16 * mm
     items = [
-        ("GROSS", f"{gross_wt:,.0f} KG", "#f0f0f0", "#000"),
-        ("TARE", f"{tare_wt:,.0f} KG", "#f0f0f0", "#000"),
-        ("NET", f"{net_wt:,.0f} KG", "#dcf5dc", "#1b5e20"),
-        ("AVERAGE", f"{avg_wt:,.2f} KG", "#e3f2fd", "#1565c0"),
+        ("GROSS", f"{gross_wt:,.0f} KG", BLUE, colors.white),
+        ("TARE", f"{tare_wt:,.0f} KG", colors.HexColor("#34495e"), colors.white),
+        ("NET", f"{net_wt:,.0f} KG", GREEN, colors.white),
+        ("AVERAGE", f"{avg_wt:,.2f} KG", ACCENT, colors.white),
     ]
     col_w = PW / len(items)
+    gap = 1.5 * mm
     for i, (lbl, val, bg, fg) in enumerate(items):
-        bx = LM + i * col_w
-        c.setFillColor(colors.HexColor(bg))
-        c.rect(bx, y - box_h, col_w, box_h, fill=1, stroke=0)
-        c.setStrokeColor(colors.HexColor("#999"))
-        c.setLineWidth(0.5)
-        c.rect(bx, y - box_h, col_w, box_h)
-        c.setFont("Helvetica-Bold", 8)
-        c.setFillColor(colors.HexColor("#555"))
-        c.drawCentredString(bx + col_w / 2, y - 6 * mm, lbl)
-        c.setFont("Helvetica-Bold", 13)
-        c.setFillColor(colors.HexColor(fg))
-        c.drawCentredString(bx + col_w / 2, y - 13 * mm, val)
+        bx = LM + i * col_w + gap / 2
+        bw = col_w - gap
+        c.setFillColor(bg)
+        c.roundRect(bx, y - box_h, bw, box_h, 2 * mm, fill=1, stroke=0)
+        c.setFont("FreeSans", 7)
+        c.setFillColor(colors.HexColor("#ffffffaa"))
+        c.drawCentredString(bx + bw / 2, y - 5.5 * mm, lbl)
+        c.setFont("FreeSansBold", 11)
+        c.setFillColor(fg)
+        c.drawCentredString(bx + bw / 2, y - 12 * mm, val)
 
     # Footer
-    c.setFont("Helvetica", 7)
+    c.setFont("FreeSans", 6.5)
     c.setFillColor(colors.HexColor("#999"))
-    c.drawCentredString(W / 2, 10 * mm, f"{company} | Weight Report | Generated: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    c.drawCentredString(W / 2, 8 * mm, f"{company} | Weight Report | Generated: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
     c.save()
     buf.seek(0)
