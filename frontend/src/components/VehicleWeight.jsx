@@ -645,7 +645,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
       if (!canChangeDate) payload.date = todayStr;
       if (form.rst_no && Number(form.rst_no) > 0) payload.rst_no = Number(form.rst_no);
       const r = await axios.post(`${API}/vehicle-weight`, payload);
-      if (r.data.success) { toast.success(r.data.message); setForm({ ...blank, rst_no: "" }); setRstEditable(false); setTpWarning(""); fetchData(); if (onVwChange) onVwChange(); }
+      if (r.data.success) { toast.success(r.data.message); sendAutoNotify(r.data.entry?.id || ""); setForm({ ...blank, rst_no: "" }); setRstEditable(false); setTpWarning(""); fetchData(); if (onVwChange) onVwChange(); }
     } catch (e) { toast.error(e.response?.data?.detail || "Save error"); }
   };
 

@@ -981,6 +981,15 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
 
 
 
+@router.head("/vehicle-weight/{entry_id}/weight-report-pdf")
+async def weight_report_pdf_head(entry_id: str):
+    """HEAD support for WhatsApp media URL validation."""
+    from fastapi.responses import Response
+    entry = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Not found")
+    return Response(status_code=200, headers={"Content-Type": "application/pdf"})
+
 @router.get("/vehicle-weight/{entry_id}/weight-report-pdf")
 async def weight_report_pdf(entry_id: str):
     """Generate weight report PDF with 1st weight + photos, 2nd weight + photos, and Average Weight."""
