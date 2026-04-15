@@ -433,23 +433,18 @@ module.exports = function(database) {
     });
   }));
 
-  // POST /api/vehicle-weight/auto-notify - Auto send weight + saved camera images
+  // POST /api/vehicle-weight/auto-notify - Auto send weight PDF to WhatsApp & Telegram
   router.post('/api/vehicle-weight/auto-notify', safeAsync(async (req, res) => {
     const entryId = req.body.entry_id || '';
+    const weightType = req.body.weight_type || '1st';
 
     const weights = col('vehicle_weights');
     const entry = weights.find(w => w.id === entryId);
     if (!entry) return res.status(404).json({ detail: 'Entry not found' });
 
-    const text = buildWeightText(entry);
     const rst = entry.rst_no || '?';
+    const caption = `*${weightType} Weight Report - RST #${rst}*`;
     const results = { whatsapp: [], telegram: [] };
-
-    // Load saved camera images from disk
-    const firstFrontB64 = loadImageB64(entry.first_wt_front_img || '');
-    const firstSideB64 = loadImageB64(entry.first_wt_side_img || '');
-    const secondFrontB64 = loadImageB64(entry.second_wt_front_img || '');
-    const secondSideB64 = loadImageB64(entry.second_wt_side_img || '');
 
     // Get VW-specific messaging config
     const appSettings = col('app_settings');
@@ -457,86 +452,57 @@ module.exports = function(database) {
     const vwWaGroupId = vwConfig.wa_group_id || '';
     const vwTgChatIds = vwConfig.tg_chat_ids || [];
 
-    // ── WhatsApp (to VW group or fallback to default numbers) ──
+    // Build PDF URL with cache buster
+    const baseUrl = (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '') || `http://localhost:${process.env.PORT || 3456}`;
+    const pdfUrl = `${baseUrl}/api/vehicle-weight/${entryId}/weight-report-pdf?t=${Date.now()}`;
+
+    // WhatsApp
     try {
       const waSettings = getWaSettings();
       if (waSettings.enabled && waSettings.api_key) {
-        // Upload images to get public URLs for WhatsApp
-        const imgKeys = [
-          { b64: firstFrontB64, label: '1st Wt Front', tag: 'first_front' },
-          { b64: firstSideB64, label: '1st Wt Side', tag: 'first_side' },
-          { b64: secondFrontB64, label: '2nd Wt Front', tag: 'second_front' },
-          { b64: secondSideB64, label: '2nd Wt Side', tag: 'second_side' }
-        ];
-        const imgUrls = [];
-        for (const img of imgKeys) {
-          if (img.b64) {
-            const url = await uploadImageForWa(Buffer.from(img.b64, 'base64'), `rst${rst}_${img.tag}.jpg`);
-            if (url) imgUrls.push({ url, label: img.label });
-          }
-        }
-
         if (vwWaGroupId) {
-          // Send text to VW-specific WhatsApp group
-          const r = await sendWaToGroup(waSettings.api_key, vwWaGroupId, text);
+          const r = await sendWaToGroup(waSettings.api_key, vwWaGroupId, caption, pdfUrl);
           results.whatsapp.push(r);
-          // Send photos to VW group
-          for (const img of imgUrls) {
-            const r = await sendWaToGroup(waSettings.api_key, vwWaGroupId, `${img.label} - RST #${rst}`, img.url);
-            results.whatsapp.push(r);
-          }
         } else {
-          // Fallback: send to default numbers
           let nums = waSettings.default_numbers || [];
           if (typeof nums === 'string') nums = nums.split(',').map(n => n.trim()).filter(Boolean);
           for (const num of nums) {
             if (num) {
-              const r = await sendWaMessage(waSettings.api_key, cleanPhone(num.trim(), waSettings.country_code || '91'), text);
+              const r = await sendWaMessage(waSettings.api_key, cleanPhone(num.trim(), waSettings.country_code || '91'), caption, pdfUrl);
               results.whatsapp.push(r);
-              // Send photos to individual numbers
-              for (const img of imgUrls) {
-                const r = await sendWaMessage(waSettings.api_key, cleanPhone(num.trim(), waSettings.country_code || '91'), `${img.label} - RST #${rst}`, img.url);
-                results.whatsapp.push(r);
-              }
             }
           }
         }
       }
     } catch (e) { console.error('[VW] WA auto-notify error:', e.message); }
 
-    // ── Telegram (to VW-specific chats or fallback) ──
+    // Telegram - send PDF as document
     try {
       const tgConfig = getTelegramConfig();
       if (tgConfig && tgConfig.bot_token) {
         const botToken = tgConfig.bot_token;
-        // Use VW-specific chat IDs if set, otherwise fallback
         const chatIds = (vwTgChatIds && vwTgChatIds.length > 0) ? vwTgChatIds : (tgConfig.chat_ids || []);
         if (chatIds.length > 0) {
-          // Send text
-          for (const item of chatIds) {
-            const cid = String(item.chat_id || '').trim();
-            if (cid) {
-              await telegramApi('sendMessage', botToken, { chat_id: cid, text: text, parse_mode: 'Markdown' });
+          // Generate PDF buffer
+          try {
+            const axios = require('axios');
+            const pdfResp = await axios.get(`http://localhost:${process.env.PORT || 3456}/api/vehicle-weight/${entryId}/weight-report-pdf`, { responseType: 'arraybuffer', timeout: 15000 });
+            const pdfBuffer = Buffer.from(pdfResp.data);
+            const FormData = require('form-data');
+            for (const item of chatIds) {
+              const cid = String(item.chat_id || '').trim();
+              if (cid) {
+                try {
+                  const form = new FormData();
+                  form.append('chat_id', cid);
+                  form.append('caption', caption.replace(/\*/g, ''));
+                  form.append('document', pdfBuffer, { filename: `WeightReport_RST${rst}.pdf`, contentType: 'application/pdf' });
+                  const tgResp = await axios.post(`https://api.telegram.org/bot${botToken}/sendDocument`, form, { headers: form.getHeaders(), timeout: 30000 });
+                  results.telegram.push(tgResp.data);
+                } catch (te) { console.error('[VW] TG send doc error:', te.message); }
+              }
             }
-          }
-          // Send 1st weight photos
-          if (firstFrontB64) {
-            const r = await sendPhotoToAll(botToken, chatIds, Buffer.from(firstFrontB64, 'base64'), `1st Weight Front - RST #${rst}`, `1st_front_rst${rst}.jpg`);
-            results.telegram.push(...r);
-          }
-          if (firstSideB64) {
-            const r = await sendPhotoToAll(botToken, chatIds, Buffer.from(firstSideB64, 'base64'), `1st Weight Side - RST #${rst}`, `1st_side_rst${rst}.jpg`);
-            results.telegram.push(...r);
-          }
-          // Send 2nd weight photos
-          if (secondFrontB64) {
-            const r = await sendPhotoToAll(botToken, chatIds, Buffer.from(secondFrontB64, 'base64'), `2nd Weight Front - RST #${rst}`, `2nd_front_rst${rst}.jpg`);
-            results.telegram.push(...r);
-          }
-          if (secondSideB64) {
-            const r = await sendPhotoToAll(botToken, chatIds, Buffer.from(secondSideB64, 'base64'), `2nd Weight Side - RST #${rst}`, `2nd_side_rst${rst}.jpg`);
-            results.telegram.push(...r);
-          }
+          } catch (pdfErr) { console.error('[VW] PDF gen for TG error:', pdfErr.message); }
         }
       }
     } catch (e) { console.error('[VW] Telegram auto-notify error:', e.message); }
@@ -580,19 +546,24 @@ module.exports = function(database) {
   }));
 
 
-  // POST /api/vehicle-weight/send-manual - Manual send text + camera photos
+  // POST /api/vehicle-weight/send-manual - Manual send weight PDF
   router.post('/api/vehicle-weight/send-manual', safeAsync(async (req, res) => {
-    const text = req.body.text || '';
-    const frontImageB64 = req.body.front_image || '';
-    const sideImageB64 = req.body.side_image || '';
+    const entryId = req.body.entry_id || '';
     const sendToNumbers = req.body.send_to_numbers || false;
     const sendToGroup = req.body.send_to_group || false;
 
-    const results = { whatsapp: [], telegram: [] };
-    const frontBytes = frontImageB64 ? Buffer.from(frontImageB64, 'base64') : null;
-    const sideBytes = sideImageB64 ? Buffer.from(sideImageB64, 'base64') : null;
+    const weights = col('vehicle_weights');
+    const entry = weights.find(w => w.id === entryId);
+    if (!entry) return res.status(404).json({ detail: 'Entry not found' });
 
-    // ── WhatsApp ──
+    const rst = entry.rst_no || '?';
+    const caption = `*Weight Report - RST #${rst}*`;
+    const results = { whatsapp: [], telegram: [] };
+
+    const baseUrl = (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '') || `http://localhost:${process.env.PORT || 3456}`;
+    const pdfUrl = `${baseUrl}/api/vehicle-weight/${entryId}/weight-report-pdf?t=${Date.now()}`;
+
+    // WhatsApp
     try {
       const waSettings = getWaSettings();
       if (waSettings.enabled && waSettings.api_key) {
@@ -601,7 +572,7 @@ module.exports = function(database) {
           if (typeof nums === 'string') nums = nums.split(',').map(n => n.trim()).filter(Boolean);
           for (const num of nums) {
             if (num) {
-              const r = await sendWaMessage(waSettings.api_key, cleanPhone(num.trim(), waSettings.country_code || '91'), text);
+              const r = await sendWaMessage(waSettings.api_key, cleanPhone(num.trim(), waSettings.country_code || '91'), caption, pdfUrl);
               results.whatsapp.push({ to: num, success: r.success || false });
             }
           }
@@ -609,37 +580,12 @@ module.exports = function(database) {
         if (sendToGroup) {
           const groupId = (waSettings.group_id || '').trim();
           if (groupId) {
-            const r = await sendWaToGroup(waSettings.api_key, groupId, text);
+            const r = await sendWaToGroup(waSettings.api_key, groupId, caption, pdfUrl);
             results.whatsapp.push({ to: 'group', success: r.success || false });
           }
         }
       }
     } catch (e) { console.error('[VW] WA manual send error:', e.message); }
-
-    // ── Telegram (text + photos) ──
-    try {
-      const tgConfig = getTelegramConfig();
-      if (tgConfig && tgConfig.bot_token && tgConfig.chat_ids && tgConfig.chat_ids.length > 0) {
-        const botToken = tgConfig.bot_token;
-        const chatIds = tgConfig.chat_ids;
-        // Text message
-        for (const item of chatIds) {
-          const cid = String(item.chat_id || '').trim();
-          if (cid) {
-            await telegramApi('sendMessage', botToken, { chat_id: cid, text: text, parse_mode: 'Markdown' });
-          }
-        }
-        // Photos
-        if (frontBytes) {
-          const r = await sendPhotoToAll(botToken, chatIds, frontBytes, 'Front View', 'front.jpg');
-          results.telegram.push(...r);
-        }
-        if (sideBytes) {
-          const r = await sendPhotoToAll(botToken, chatIds, sideBytes, 'Side View', 'side.jpg');
-          results.telegram.push(...r);
-        }
-      }
-    } catch (e) { console.error('[VW] TG manual send error:', e.message); }
 
     const waSent = results.whatsapp.filter(r => r.success).length;
     const tgSent = results.telegram.filter(r => r.ok).length;
