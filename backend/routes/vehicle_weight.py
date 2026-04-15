@@ -8,6 +8,7 @@ import logging
 import io
 import os
 import base64 as b64mod
+import httpx
 from utils.date_format import fmt_date
 
 router = APIRouter()
@@ -261,29 +262,45 @@ async def auto_notify_weight(data: dict):
     vw_config = await db["settings"].find_one({"key": "auto_vw_messaging"}, {"_id": 0}) or {}
     vw_wa_group_id = vw_config.get("wa_group_id", "")
     vw_tg_chat_ids = vw_config.get("tg_chat_ids", [])
-    base_url = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
-    cache_bust = str(int(datetime.now().timestamp()))
-    pdf_url = f"{base_url}/api/vehicle-weight/{entry_id}/weight-report-pdf?t={cache_bust}" if base_url else ""
 
+    # Encode PDF as base64 for direct sending
+    pdf_b64 = ""
+    if pdf_buf:
+        pdf_buf.seek(0)
+        pdf_b64 = b64mod.b64encode(pdf_buf.read()).decode()
+
+    # Send via WhatsApp - send PDF as document (base64)
     try:
-        from routes.whatsapp import _get_wa_settings, _send_wa_message, _send_wa_to_group
+        from routes.whatsapp import _get_wa_settings
         wa_settings = await _get_wa_settings()
         if wa_settings.get("enabled") and wa_settings.get("api_key"):
-            if vw_wa_group_id:
-                r = await _send_wa_to_group(vw_wa_group_id, caption, pdf_url if pdf_url else None)
-                results["whatsapp"].append(r)
-            else:
-                numbers = wa_settings.get("default_numbers", [])
-                for num in numbers:
-                    if num:
-                        r = await _send_wa_message(num.strip(), caption, pdf_url if pdf_url else None)
-                        results["whatsapp"].append(r)
+            api_key = wa_settings["api_key"]
+            wa_data = {"text": caption}
+            if pdf_b64:
+                wa_data["document"] = pdf_b64
+                wa_data["filename"] = f"WeightReport_RST{rst}.pdf"
+
+            async with httpx.AsyncClient(timeout=30) as client:
+                if vw_wa_group_id:
+                    wa_data["groupId"] = vw_wa_group_id
+                    resp = await client.post("https://api.360messenger.com/v2/sendGroup",
+                        data=wa_data, headers={"Authorization": f"Bearer {api_key}"})
+                    r = resp.json()
+                    results["whatsapp"].append({"success": r.get("success") or resp.status_code == 201})
+                else:
+                    numbers = wa_settings.get("default_numbers", [])
+                    for num in numbers:
+                        if num:
+                            wa_data["number"] = num.strip()
+                            resp = await client.post("https://api.360messenger.com/v2/sendMessage",
+                                data=wa_data, headers={"Authorization": f"Bearer {api_key}"})
+                            r = resp.json()
+                            results["whatsapp"].append({"success": r.get("success") or resp.status_code == 201})
     except Exception as e:
         logger.error(f"WA auto-notify error: {e}")
 
     try:
         from routes.telegram import get_telegram_config
-        import httpx
         tg_config = await get_telegram_config()
         if tg_config and tg_config.get("bot_token"):
             bot_token = tg_config["bot_token"]
@@ -431,7 +448,6 @@ async def send_manual_weight_msg(data: dict):
     # Telegram - send PDF as document
     try:
         from routes.telegram import get_telegram_config
-        import httpx
         tg_config = await get_telegram_config()
         if tg_config and tg_config.get("bot_token") and tg_config.get("chat_ids") and pdf_buf:
             bot_token = tg_config["bot_token"]
@@ -989,7 +1005,8 @@ async def weight_report_pdf(entry_id: str):
     gross_wt = float(entry.get("gross_wt", max(first_wt, second_wt)) or 0)
     tare_wt = float(entry.get("tare_wt", min(first_wt, second_wt)) or 0)
     net_wt = float(entry.get("net_wt", 0) or 0)
-    avg_wt = round((first_wt + second_wt) / 2, 2) if (first_wt and second_wt) else 0
+    bags = int(entry.get("tot_pkts", 0) or 0)
+    avg_wt = round(net_wt / bags, 2) if (net_wt and bags > 0) else 0
 
     # Load images
     img_data = {}
@@ -1099,11 +1116,13 @@ async def weight_report_pdf(entry_id: str):
         y -= 10 * mm
 
         if time_str:
-            # Format time nicely
+            # Format time nicely - convert to IST
             try:
-                from datetime import datetime as dt2
+                from datetime import datetime as dt2, timedelta, timezone
                 t = dt2.fromisoformat(time_str.replace("Z", "+00:00"))
-                nice_time = t.strftime("%d/%m/%Y %I:%M %p")
+                ist = timezone(timedelta(hours=5, minutes=30))
+                t_ist = t.astimezone(ist)
+                nice_time = t_ist.strftime("%d/%m/%Y %I:%M %p")
             except Exception:
                 nice_time = time_str[:19] if len(time_str) > 19 else time_str
             c.setFont("FreeSans", 7.5)
@@ -1183,7 +1202,7 @@ async def weight_report_pdf(entry_id: str):
         ("GROSS", f"{gross_wt:,.0f} KG", BLUE, colors.white),
         ("TARE", f"{tare_wt:,.0f} KG", colors.HexColor("#34495e"), colors.white),
         ("NET", f"{net_wt:,.0f} KG", GREEN, colors.white),
-        ("AVERAGE", f"{avg_wt:,.2f} KG", ACCENT, colors.white),
+        ("AVG/BAG", f"{avg_wt:,.2f} KG", ACCENT, colors.white),
     ]
     col_w = PW / len(items)
     gap = 1.5 * mm
