@@ -91,6 +91,40 @@ module.exports = function(database) {
     });
   }
 
+  // Upload file to tmpfiles.org and return public download URL
+  function uploadFileForWa(fileBuffer, filename, contentType) {
+    return new Promise((resolve) => {
+      const boundary = '----WaUpload' + Date.now().toString(36);
+      const head = Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${contentType || 'application/octet-stream'}\r\n\r\n`
+      );
+      const tail = Buffer.from(`\r\n--${boundary}--\r\n`);
+      const body = Buffer.concat([head, fileBuffer, tail]);
+      const options = {
+        hostname: 'tmpfiles.org', path: '/api/v1/upload', method: 'POST',
+        headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length }
+      };
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => {
+          try {
+            const result = JSON.parse(data);
+            console.log('[VW] tmpfiles upload resp:', JSON.stringify(result).substring(0, 200));
+            if (result.status === 'success' && result.data && result.data.url) {
+              const dlUrl = result.data.url.replace('://tmpfiles.org/', '://tmpfiles.org/dl/').replace('http://', 'https://');
+              resolve(dlUrl);
+            } else { resolve(''); }
+          } catch (_e) { resolve(''); }
+        });
+      });
+      req.on('error', (e) => { console.error('[VW] tmpfiles upload error:', e.message); resolve(''); });
+      req.setTimeout(30000, () => { req.destroy(); resolve(''); });
+      req.write(body);
+      req.end();
+    });
+  }
+
   function col(name) {
     if (!database.data[name]) database.data[name] = [];
     return database.data[name];
@@ -661,57 +695,56 @@ module.exports = function(database) {
     const caption = `*${weightType} Weight Report - RST #${rst}*`;
     const results = { whatsapp: [], telegram: [] };
 
-    // Get VW-specific messaging config
     const appSettings = col('app_settings');
     const vwConfig = appSettings.find(s => s.setting_id === 'auto_vw_messaging') || {};
     const vwWaGroupId = vwConfig.wa_group_id || '';
     const vwTgChatIds = vwConfig.tg_chat_ids || [];
 
-    // Generate PDF buffer
-    let pdfB64 = '';
+    // Step 1: Generate PDF
+    let pdfBuffer = null;
     try {
-      const pdfBuf = await generateWeightPdfBuffer(entry);
-      pdfB64 = pdfBuf.toString('base64');
+      pdfBuffer = await generateWeightPdfBuffer(entry);
+      console.log(`[VW] PDF generated: ${pdfBuffer.length} bytes`);
     } catch (e) { console.error('[VW] PDF gen error:', e.message); }
 
-    const filename = `WeightReport_RST${rst}.pdf`;
+    // Step 2: Upload PDF to tmpfiles.org for public URL
+    let pdfUrl = '';
+    if (pdfBuffer) {
+      try {
+        pdfUrl = await uploadFileForWa(pdfBuffer, `WeightReport_RST${rst}.pdf`, 'application/pdf');
+        console.log(`[VW] PDF uploaded: ${pdfUrl}`);
+      } catch (e) { console.error('[VW] PDF upload error:', e.message); }
+    }
 
-    // WhatsApp - send PDF as multipart document
+    // Step 3: WhatsApp - send caption + PDF URL
     try {
       const waSettings = getWaSettings();
       if (waSettings.enabled && waSettings.api_key) {
-        if (pdfB64) {
-          if (vwWaGroupId) {
-            const r = await sendWaGroupDoc(waSettings.api_key, vwWaGroupId, caption, pdfB64, filename);
-            results.whatsapp.push(r);
-          } else {
-            let nums = waSettings.default_numbers || [];
-            if (typeof nums === 'string') nums = nums.split(',').map(n => n.trim()).filter(Boolean);
-            for (const num of nums) {
-              if (num) {
-                const r = await sendWaNumDoc(waSettings.api_key, cleanPhone(num.trim(), waSettings.country_code || '91'), caption, pdfB64, filename);
-                results.whatsapp.push(r);
-              }
-            }
-          }
+        if (vwWaGroupId) {
+          // Send text + PDF URL to group
+          const r = await sendWaToGroup(waSettings.api_key, vwWaGroupId, caption, pdfUrl || undefined);
+          results.whatsapp.push(r);
         } else {
-          // Fallback: text only if PDF failed
-          if (vwWaGroupId) {
-            const r = await sendWaToGroup(waSettings.api_key, vwWaGroupId, caption);
-            results.whatsapp.push(r);
+          let nums = waSettings.default_numbers || [];
+          if (typeof nums === 'string') nums = nums.split(',').map(n => n.trim()).filter(Boolean);
+          for (const num of nums) {
+            if (num) {
+              const r = await sendWaMessage(waSettings.api_key, cleanPhone(num.trim(), waSettings.country_code || '91'), caption, pdfUrl || undefined);
+              results.whatsapp.push(r);
+            }
           }
         }
       }
     } catch (e) { console.error('[VW] WA auto-notify error:', e.message); }
 
-    // Telegram - send PDF as document
+    // Step 4: Telegram - send PDF as document
     try {
       const tgConfig = getTelegramConfig();
-      if (tgConfig && tgConfig.bot_token && pdfB64) {
+      if (tgConfig && tgConfig.bot_token && pdfBuffer) {
         const botToken = tgConfig.bot_token;
         const chatIds = (vwTgChatIds && vwTgChatIds.length > 0) ? vwTgChatIds : (tgConfig.chat_ids || []);
-        const pdfBuf = Buffer.from(pdfB64, 'base64');
         const FormData = require('form-data');
+        const axios = require('axios');
         for (const item of chatIds) {
           const cid = String(item.chat_id || '').trim();
           if (cid) {
@@ -719,8 +752,7 @@ module.exports = function(database) {
               const form = new FormData();
               form.append('chat_id', cid);
               form.append('caption', caption.replace(/\*/g, ''));
-              form.append('document', pdfBuf, { filename, contentType: 'application/pdf' });
-              const axios = require('axios');
+              form.append('document', pdfBuffer, { filename: `WeightReport_RST${rst}.pdf`, contentType: 'application/pdf' });
               await axios.post(`https://api.telegram.org/bot${botToken}/sendDocument`, form, { headers: form.getHeaders(), timeout: 30000 });
               results.telegram.push({ ok: true });
             } catch (te) { console.error('[VW] TG send doc error:', te.message); }
