@@ -7,6 +7,20 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "93.0.0",
+    date: "Apr 2026",
+    title: "v93.0.0 - Weight Report PDF + Gunny Opening Stock + Print Watermark",
+    items: [
+      { type: "new", text: "Vehicle Weight: Professional PDF report with 1st & 2nd weight + photos + Average Weight" },
+      { type: "new", text: "Vehicle Weight: WhatsApp/Telegram pe auto PDF bhejta hai (1st & 2nd weight dono pe)" },
+      { type: "new", text: "Gunny Bags: Opening Stock set karne ka option (Settings > Opening Stock)" },
+      { type: "new", text: "Print Watermark: Jaha bhi print ka option hai, watermark auto-inject hota hai" },
+      { type: "fix", text: "Vehicle Weight: Manual WhatsApp send buttons hata diye - sirf auto PDF" },
+      { type: "fix", text: "Vehicle Weight: WhatsApp text ab bold mein aata hai" },
+      { type: "fix", text: "PDF Watermark: Click pe backslash nahi aayega (image-based rendering)" },
+    ],
+  },
+  {
     version: "92.0.0",
     date: "Apr 2026",
     title: "v92.0.0 - Tab Reorganization + Gunny Bag Upgrade + Watermark Fix",
