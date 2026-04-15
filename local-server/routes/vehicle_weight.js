@@ -9,7 +9,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { safeAsync } = require('./safe_handler');
-const { fmtDate, createPdfDoc } = require('./pdf_helpers');
+const { fmtDate, createPdfDoc, registerFonts, F } = require('./pdf_helpers');
 const router = express.Router();
 
 module.exports = function(database) {
@@ -433,7 +433,222 @@ module.exports = function(database) {
     });
   }));
 
-  // POST /api/vehicle-weight/auto-notify - Auto send weight text to WhatsApp & Telegram
+  // Generate Weight Report PDF buffer using PDFKit
+  function generateWeightPdfBuffer(entry) {
+    return new Promise((resolve, reject) => {
+      try {
+        const PDFDocument = require('pdfkit');
+        const doc = new PDFDocument({ size: 'A4', margin: 40 });
+        registerFonts(doc);
+        const chunks = [];
+        doc.on('data', c => chunks.push(c));
+        doc.on('end', () => resolve(Buffer.concat(chunks)));
+        doc.on('error', reject);
+
+        const W = 595.28; // A4 width
+        const LM = 40;
+        const PW = W - 80;
+        const rst = entry.rst_no || '?';
+        const firstWt = parseFloat(entry.first_wt || 0);
+        const secondWt = parseFloat(entry.second_wt || 0);
+        const grossWt = parseFloat(entry.gross_wt || Math.max(firstWt, secondWt) || 0);
+        const tareWt = parseFloat(entry.tare_wt || Math.min(firstWt, secondWt) || 0);
+        const netWt = parseFloat(entry.net_wt || 0);
+        const bags = parseInt(entry.tot_pkts || 0);
+        const avgWt = (netWt && bags > 0) ? (netWt / bags).toFixed(2) : '0.00';
+
+        // Branding
+        const branding = (col('app_settings') || []).find(s => s.setting_id === 'branding') || {};
+        const company = branding.company_name || 'NAVKAR AGRO';
+        const tagline = branding.tagline || '';
+
+        // Header bar
+        doc.rect(0, 0, W, 50).fill('#1a5276');
+        doc.font(F('bold')).fontSize(16).fillColor('#ffffff').text(company, 0, 12, { align: 'center' });
+        if (tagline) doc.font(F('normal')).fontSize(8).text(tagline, 0, 32, { align: 'center' });
+
+        // RST badge
+        const badgeW = 180;
+        doc.roundedRect(W / 2 - badgeW / 2, 56, badgeW, 24, 4).fill('#2E75B6');
+        doc.font(F('bold')).fontSize(11).fillColor('#ffffff').text(`WEIGHT REPORT - RST #${rst}`, W / 2 - badgeW / 2, 62, { width: badgeW, align: 'center' });
+
+        // Info grid
+        let y = 92;
+        const infoLeft = [['Date', fmtDate(entry.date || '')], ['Party', entry.party_name || '-'], ['Trans Type', entry.trans_type || '-'], ['Bags', String(bags || '-')]];
+        const infoRight = [['Vehicle', entry.vehicle_no || '-'], ['Product', entry.product || '-'], ['Source/Mandi', entry.farmer_name || '-'], ['Remark', entry.remark || '-']];
+        for (let i = 0; i < Math.max(infoLeft.length, infoRight.length); i++) {
+          if (i % 2 === 0) doc.rect(LM, y - 2, PW, 16).fill('#d6eaf8');
+          if (i < infoLeft.length) {
+            doc.font(F('normal')).fontSize(7.5).fillColor('#555').text(infoLeft[i][0] + ':', LM + 4, y + 1);
+            doc.font(F('bold')).fontSize(8.5).fillColor('#1a1a2e').text(String(infoLeft[i][1]).substring(0, 40), LM + 72, y + 1);
+          }
+          if (i < infoRight.length) {
+            doc.font(F('normal')).fontSize(7.5).fillColor('#555').text(infoRight[i][0] + ':', LM + PW / 2 + 4, y + 1);
+            doc.font(F('bold')).fontSize(8.5).fillColor('#1a1a2e').text(String(infoRight[i][1]).substring(0, 40), LM + PW / 2 + 72, y + 1);
+          }
+          y += 16;
+        }
+        y += 4;
+        doc.moveTo(LM, y).lineTo(LM + PW, y).strokeColor('#2E75B6').lineWidth(1.5).stroke();
+        y += 8;
+
+        // Helper: format time to IST
+        function fmtTime(ts) {
+          if (!ts) return '';
+          try {
+            const d = new Date(ts);
+            return d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+          } catch(e) { return ts.substring(0, 19); }
+        }
+
+        // Weight section drawer
+        function drawWeightSection(label, wt, timeStr, frontKey, sideKey) {
+          // Header bar
+          doc.rect(LM, y, PW, 24).fill('#1a5276');
+          doc.font(F('bold')).fontSize(10).fillColor('#ffffff').text(label, LM + 8, y + 6);
+          doc.font(F('bold')).fontSize(12).fillColor('#ffffff').text(`${Number(wt).toLocaleString()} KG`, LM + 8, y + 6, { width: PW - 16, align: 'right' });
+          y += 28;
+          if (timeStr) {
+            doc.font(F('normal')).fontSize(7.5).fillColor('#666').text('Time: ' + fmtTime(timeStr), LM + 4, y);
+            y += 12;
+          }
+          // Photos
+          const imgW = PW / 2 - 8;
+          const imgH = 150;
+          const frontB64 = loadImageB64(entry[frontKey] || '');
+          const sideB64 = loadImageB64(entry[sideKey] || '');
+          if (frontB64 || sideB64) {
+            if (frontB64) {
+              try {
+                const imgBuf = Buffer.from(frontB64, 'base64');
+                doc.rect(LM, y, imgW, imgH).strokeColor('#ccc').lineWidth(0.5).stroke();
+                doc.image(imgBuf, LM + 1, y + 1, { width: imgW - 2, height: imgH - 2, fit: [imgW - 2, imgH - 2] });
+                doc.font(F('normal')).fontSize(6.5).fillColor('#999').text('Front View', LM, y + imgH + 2, { width: imgW, align: 'center' });
+              } catch(e) { console.error('[VW PDF] front img error:', e.message); }
+            }
+            if (sideB64) {
+              try {
+                const imgBuf = Buffer.from(sideB64, 'base64');
+                const sx = LM + imgW + 16;
+                doc.rect(sx, y, imgW, imgH).strokeColor('#ccc').lineWidth(0.5).stroke();
+                doc.image(imgBuf, sx + 1, y + 1, { width: imgW - 2, height: imgH - 2, fit: [imgW - 2, imgH - 2] });
+                doc.font(F('normal')).fontSize(6.5).fillColor('#999').text('Side View', sx, y + imgH + 2, { width: imgW, align: 'center' });
+              } catch(e) { console.error('[VW PDF] side img error:', e.message); }
+            }
+            y += imgH + 18;
+          } else {
+            doc.rect(LM, y, PW, 28).fill('#f5f5f5');
+            doc.font(F('normal')).fontSize(8).fillColor('#aaa').text('No photos available', LM, y + 8, { width: PW, align: 'center' });
+            y += 36;
+          }
+          y += 6;
+        }
+
+        // 1st Weight
+        drawWeightSection('1st Weight', firstWt, entry.first_wt_time || '', 'first_wt_front_img', 'first_wt_side_img');
+
+        // 2nd Weight
+        if (secondWt > 0) {
+          if (y > 600) { doc.addPage(); y = 40; }
+          drawWeightSection('2nd Weight', secondWt, entry.second_wt_time || '', 'second_wt_front_img', 'second_wt_side_img');
+        }
+
+        // Summary boxes
+        if (y > 720) { doc.addPage(); y = 40; }
+        y += 4;
+        const boxH = 44;
+        const boxW = PW / 4 - 4;
+        const boxes = [
+          { label: 'GROSS', value: `${Number(grossWt).toLocaleString()} KG`, bg: '#1a5276' },
+          { label: 'TARE', value: `${Number(tareWt).toLocaleString()} KG`, bg: '#34495e' },
+          { label: 'NET', value: `${Number(netWt).toLocaleString()} KG`, bg: '#1b7a30' },
+          { label: 'AVG/BAG', value: `${avgWt} KG`, bg: '#2E75B6' },
+        ];
+        boxes.forEach((b, i) => {
+          const bx = LM + i * (boxW + 5);
+          doc.roundedRect(bx, y, boxW, boxH, 4).fill(b.bg);
+          doc.font(F('normal')).fontSize(7).fillColor('#ffffffcc').text(b.label, bx, y + 6, { width: boxW, align: 'center' });
+          doc.font(F('bold')).fontSize(11).fillColor('#ffffff').text(b.value, bx, y + 22, { width: boxW, align: 'center' });
+        });
+
+        // Footer
+        doc.font(F('normal')).fontSize(6.5).fillColor('#999').text(
+          `${company} | Weight Report | Generated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`,
+          0, 810, { width: W, align: 'center' }
+        );
+
+        doc.end();
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+
+  // Send PDF as base64 document via 360Messenger
+  function sendWaGroupDoc(apiKey, groupId, caption, pdfB64, filename) {
+    return new Promise((resolve) => {
+      const boundary = '----WaPdf' + Date.now().toString(36);
+      const parts = [];
+      parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="groupId"\r\n\r\n${groupId}`);
+      parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="text"\r\n\r\n${caption}`);
+      const pdfBuf = Buffer.from(pdfB64, 'base64');
+      const fileHead = `--${boundary}\r\nContent-Disposition: form-data; name="document"; filename="${filename}"\r\nContent-Type: application/pdf\r\n\r\n`;
+      const fileTail = `\r\n--${boundary}--\r\n`;
+      const textParts = parts.join('\r\n') + '\r\n';
+      const body = Buffer.concat([Buffer.from(textParts), Buffer.from(fileHead), pdfBuf, Buffer.from(fileTail)]);
+      const options = {
+        hostname: 'api.360messenger.com', path: '/v2/sendGroup', method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length }
+      };
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => {
+          try {
+            const result = JSON.parse(data);
+            console.log('[VW] WA group doc resp:', res.statusCode, data.substring(0, 200));
+            resolve({ success: result.success || res.statusCode === 201, data: result });
+          } catch (e) { console.log('[VW] WA group doc raw:', data.substring(0, 200)); resolve({ success: false, error: data }); }
+        });
+      });
+      req.on('error', e => { console.error('[VW] WA group doc error:', e.message); resolve({ success: false, error: e.message }); });
+      req.write(body);
+      req.end();
+    });
+  }
+
+  function sendWaNumDoc(apiKey, phone, caption, pdfB64, filename) {
+    return new Promise((resolve) => {
+      const boundary = '----WaPdf' + Date.now().toString(36);
+      const parts = [];
+      parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="phonenumber"\r\n\r\n${phone}`);
+      parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="text"\r\n\r\n${caption}`);
+      const pdfBuf = Buffer.from(pdfB64, 'base64');
+      const fileHead = `--${boundary}\r\nContent-Disposition: form-data; name="document"; filename="${filename}"\r\nContent-Type: application/pdf\r\n\r\n`;
+      const fileTail = `\r\n--${boundary}--\r\n`;
+      const textParts = parts.join('\r\n') + '\r\n';
+      const body = Buffer.concat([Buffer.from(textParts), Buffer.from(fileHead), pdfBuf, Buffer.from(fileTail)]);
+      const options = {
+        hostname: 'api.360messenger.com', path: '/v2/sendMessage', method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length }
+      };
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => {
+          try {
+            const result = JSON.parse(data);
+            resolve({ success: result.success || res.statusCode === 201, data: result });
+          } catch (e) { resolve({ success: false, error: data }); }
+        });
+      });
+      req.on('error', e => resolve({ success: false, error: e.message }));
+      req.write(body);
+      req.end();
+    });
+  }
+
+  // POST /api/vehicle-weight/auto-notify - Auto send weight PDF to WhatsApp & Telegram
   router.post('/api/vehicle-weight/auto-notify', safeAsync(async (req, res) => {
     const entryId = req.body.entry_id || '';
     const weightType = req.body.weight_type || '1st';
@@ -452,41 +667,63 @@ module.exports = function(database) {
     const vwWaGroupId = vwConfig.wa_group_id || '';
     const vwTgChatIds = vwConfig.tg_chat_ids || [];
 
-    // WhatsApp - send only text (desktop has no public URL for PDF)
+    // Generate PDF buffer
+    let pdfB64 = '';
+    try {
+      const pdfBuf = await generateWeightPdfBuffer(entry);
+      pdfB64 = pdfBuf.toString('base64');
+    } catch (e) { console.error('[VW] PDF gen error:', e.message); }
+
+    const filename = `WeightReport_RST${rst}.pdf`;
+
+    // WhatsApp - send PDF as multipart document
     try {
       const waSettings = getWaSettings();
       if (waSettings.enabled && waSettings.api_key) {
-        if (vwWaGroupId) {
-          const r = await sendWaToGroup(waSettings.api_key, vwWaGroupId, caption);
-          results.whatsapp.push(r);
-        } else {
-          let nums = waSettings.default_numbers || [];
-          if (typeof nums === 'string') nums = nums.split(',').map(n => n.trim()).filter(Boolean);
-          for (const num of nums) {
-            if (num) {
-              const r = await sendWaMessage(waSettings.api_key, cleanPhone(num.trim(), waSettings.country_code || '91'), caption);
-              results.whatsapp.push(r);
+        if (pdfB64) {
+          if (vwWaGroupId) {
+            const r = await sendWaGroupDoc(waSettings.api_key, vwWaGroupId, caption, pdfB64, filename);
+            results.whatsapp.push(r);
+          } else {
+            let nums = waSettings.default_numbers || [];
+            if (typeof nums === 'string') nums = nums.split(',').map(n => n.trim()).filter(Boolean);
+            for (const num of nums) {
+              if (num) {
+                const r = await sendWaNumDoc(waSettings.api_key, cleanPhone(num.trim(), waSettings.country_code || '91'), caption, pdfB64, filename);
+                results.whatsapp.push(r);
+              }
             }
+          }
+        } else {
+          // Fallback: text only if PDF failed
+          if (vwWaGroupId) {
+            const r = await sendWaToGroup(waSettings.api_key, vwWaGroupId, caption);
+            results.whatsapp.push(r);
           }
         }
       }
     } catch (e) { console.error('[VW] WA auto-notify error:', e.message); }
 
-    // Telegram - send only text (desktop has no public PDF endpoint)
+    // Telegram - send PDF as document
     try {
       const tgConfig = getTelegramConfig();
-      if (tgConfig && tgConfig.bot_token) {
+      if (tgConfig && tgConfig.bot_token && pdfB64) {
         const botToken = tgConfig.bot_token;
         const chatIds = (vwTgChatIds && vwTgChatIds.length > 0) ? vwTgChatIds : (tgConfig.chat_ids || []);
-        if (chatIds.length > 0) {
-          for (const item of chatIds) {
-            const cid = String(item.chat_id || '').trim();
-            if (cid) {
-              try {
-                await telegramApi('sendMessage', botToken, { chat_id: cid, text: caption, parse_mode: 'Markdown' });
-                results.telegram.push({ ok: true });
-              } catch (te) { console.error('[VW] TG send error:', te.message); }
-            }
+        const pdfBuf = Buffer.from(pdfB64, 'base64');
+        const FormData = require('form-data');
+        for (const item of chatIds) {
+          const cid = String(item.chat_id || '').trim();
+          if (cid) {
+            try {
+              const form = new FormData();
+              form.append('chat_id', cid);
+              form.append('caption', caption.replace(/\*/g, ''));
+              form.append('document', pdfBuf, { filename, contentType: 'application/pdf' });
+              const axios = require('axios');
+              await axios.post(`https://api.telegram.org/bot${botToken}/sendDocument`, form, { headers: form.getHeaders(), timeout: 30000 });
+              results.telegram.push({ ok: true });
+            } catch (te) { console.error('[VW] TG send doc error:', te.message); }
           }
         }
       }
