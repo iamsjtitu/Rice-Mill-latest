@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "101.3.0",
+    date: "Apr 2026",
+    title: "v101.3.0 - Milling Register Desktop Fix",
+    items: [
+      { type: "fix", text: "Milling Register: Desktop app mein missing tha — GET + Excel + PDF endpoints add kiye" },
+      { type: "fix", text: "Weight Report PDF: Photos center-aligned" },
+      { type: "fix", text: "Vehicle Weight Register PDF: Title center-aligned" },
+    ],
+  },
+  {
     version: "101.2.0",
     date: "Apr 2026",
     title: "v101.2.0 - PDF Title Centered",

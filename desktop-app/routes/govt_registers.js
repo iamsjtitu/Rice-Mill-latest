@@ -868,5 +868,215 @@ module.exports = function(database) {
     await wb.xlsx.write(res); res.end();
   }));
 
+  // ============ MILLING REGISTER ============
+
+  function _fmtDateShort(d) {
+    if (!d) return '';
+    try { const p = String(d).split('T')[0].split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d; } catch(e) { return String(d); }
+  }
+
+  function _buildMillingRegister(kms_year, season) {
+    const query = {};
+    if (kms_year) query.kms_year = kms_year;
+    if (season) query.season = season;
+
+    const matchFn = (item) => {
+      if (kms_year && item.kms_year !== kms_year) return false;
+      if (season && item.season !== season) return false;
+      return true;
+    };
+
+    let ob_paddy = 0, ob_rice = 0;
+
+    // 1. Paddy released daily
+    const paddy_releases = (database.data.paddy_release || []).filter(matchFn);
+    const daily_paddy_rcvd = {};
+    paddy_releases.forEach(e => {
+      const d = e.date || ''; if (!d) return;
+      daily_paddy_rcvd[d] = (daily_paddy_rcvd[d] || 0) + (Number(e.qty_qtl) || 0);
+    });
+
+    // 2. Milling entries
+    const milling = (database.data.milling_entries || []).filter(matchFn);
+    const daily_milled = {}, daily_rice_produced = {};
+    milling.forEach(m => {
+      const d = m.date || ''; if (!d) return;
+      daily_milled[d] = (daily_milled[d] || 0) + (Number(m.paddy_input_qntl) || 0);
+      const rice = Number(m.cmr_delivery_qntl) || Number(m.rice_qntl) || 0;
+      daily_rice_produced[d] = (daily_rice_produced[d] || 0) + rice;
+    });
+
+    // 3. DC deliveries
+    const deliveries = (database.data.dc_deliveries || []).filter(matchFn);
+    const daily_delivery_rrc = {}, daily_delivery_fci = {};
+    deliveries.forEach(dlv => {
+      const d = dlv.date || ''; if (!d) return;
+      const qty = Number(dlv.quantity_qntl) || 0;
+      const godown = (dlv.godown_name || '').toLowerCase();
+      if (godown.includes('fci')) daily_delivery_fci[d] = (daily_delivery_fci[d] || 0) + qty;
+      else daily_delivery_rrc[d] = (daily_delivery_rrc[d] || 0) + qty;
+    });
+
+    const allDates = [...new Set([...Object.keys(daily_paddy_rcvd), ...Object.keys(daily_milled), ...Object.keys(daily_rice_produced), ...Object.keys(daily_delivery_rrc), ...Object.keys(daily_delivery_fci)])].sort();
+
+    const rows = [];
+    let prog_paddy_rcvd = 0, prog_paddy_milled = 0, prog_rice_milled = 0, prog_rice_delivered = 0;
+    let cb_paddy = ob_paddy, cb_rice = ob_rice;
+    const initial_ob_paddy = ob_paddy, initial_ob_rice = ob_rice;
+
+    const months = ['', 'January','February','March','April','May','June','July','August','September','October','November','December'];
+
+    for (const date of allDates) {
+      const rcvd = Math.round((daily_paddy_rcvd[date] || 0) * 100) / 100;
+      const milled = Math.round((daily_milled[date] || 0) * 100) / 100;
+      const rice_prod = Math.round((daily_rice_produced[date] || 0) * 100) / 100;
+      const del_rrc = Math.round((daily_delivery_rrc[date] || 0) * 100) / 100;
+      const del_fci = Math.round((daily_delivery_fci[date] || 0) * 100) / 100;
+
+      ob_paddy = cb_paddy;
+      const total_paddy = Math.round((ob_paddy + rcvd) * 100) / 100;
+      cb_paddy = Math.round((total_paddy - milled) * 100) / 100;
+      prog_paddy_rcvd = Math.round((prog_paddy_rcvd + rcvd) * 100) / 100;
+      prog_paddy_milled = Math.round((prog_paddy_milled + milled) * 100) / 100;
+
+      ob_rice = cb_rice;
+      const total_rice = Math.round((ob_rice + rice_prod) * 100) / 100;
+      const total_del = Math.round((del_rrc + del_fci) * 100) / 100;
+      cb_rice = Math.round((total_rice - total_del) * 100) / 100;
+      prog_rice_milled = Math.round((prog_rice_milled + rice_prod) * 100) / 100;
+      prog_rice_delivered = Math.round((prog_rice_delivered + total_del) * 100) / 100;
+
+      let month = '';
+      try { const m = parseInt(date.split('-')[1]); month = months[m] || ''; } catch(e) {}
+
+      rows.push({
+        date, month,
+        ob_paddy, rcvd_from_cm: rcvd, total_paddy,
+        issue_for_milling: milled,
+        prog_rcpt_paddy: prog_paddy_rcvd, prog_milling_paddy: prog_paddy_milled,
+        cb_paddy,
+        ob_rice, rice_from_milling: rice_prod, total_rice,
+        delivery_rrc: del_rrc, delivery_fci: del_fci,
+        prog_rice_milling: prog_rice_milled, prog_rice_delivered: prog_rice_delivered,
+        cb_rice,
+      });
+    }
+
+    return {
+      rows,
+      opening_stock: { paddy: initial_ob_paddy, rice: initial_ob_rice },
+      summary: {
+        total_paddy_received: prog_paddy_rcvd, total_paddy_milled: prog_paddy_milled, cb_paddy,
+        total_rice_produced: prog_rice_milled, total_rice_delivered: prog_rice_delivered, cb_rice,
+        ob_paddy: initial_ob_paddy, ob_rice: initial_ob_rice,
+      }
+    };
+  }
+
+  // GET /api/govt-registers/milling-register
+  router.get('/api/govt-registers/milling-register', safeSync(async (req, res) => {
+    const { kms_year, season } = req.query;
+    res.json(_buildMillingRegister(kms_year, season));
+  }));
+
+  // GET /api/govt-registers/milling-register/excel
+  router.get('/api/govt-registers/milling-register/excel', safeAsync(async (req, res) => {
+    const { kms_year, season } = req.query;
+    const regData = _buildMillingRegister(kms_year, season);
+    const rows = regData.rows;
+    const branding = database.data.branding || {};
+    const company = branding.company_name || 'Rice Mill';
+    const tagline = branding.tagline || '';
+    const customFields = branding.custom_fields || [];
+
+    const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Milling Register');
+    ws.mergeCells('A1:Q1'); ws.getCell('A1').value = company.toUpperCase(); ws.getCell('A1').font = { bold: true, size: 14, color: { argb: '1F4E79' } }; ws.getCell('A1').alignment = { horizontal: 'center' };
+
+    const infoParts = tagline ? [tagline] : [];
+    customFields.forEach(f => infoParts.push(`${f.label || ''}: ${f.value || ''}`));
+    if (infoParts.length) {
+      ws.mergeCells('A2:Q2'); ws.getCell('A2').value = infoParts.join('  |  '); ws.getCell('A2').font = { size: 9, color: { argb: '666666' } }; ws.getCell('A2').alignment = { horizontal: 'center' };
+    }
+
+    let title = 'MILLING REGISTER';
+    if (kms_year) title += ` - KMS ${kms_year}`;
+    if (season) title += ` (${season})`;
+    ws.mergeCells('A3:Q3'); ws.getCell('A3').value = title;
+    ws.getCell('A3').font = { bold: true, size: 12, color: { argb: 'FFFFFF' } };
+    ws.getCell('A3').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2E75B6' } };
+    ws.getCell('A3').alignment = { horizontal: 'center' };
+
+    const headers = ['Date', 'Month', 'OB Paddy', 'Rcvd from CM A/c', 'Total Paddy', 'Issue For Milling', 'Prog Rcpt Paddy', 'Prog Mill Paddy', 'CB Paddy', 'OB Rice', 'Rice Rcpt Milling', 'Total Rice', 'Delivery RRC', 'Delivery FCI', 'Prog Rice Milling', 'Prog Rice Delivered', 'CB Rice'];
+    const hdr = ws.addRow([]); // row 4 blank
+    const headerRow = ws.addRow(headers);
+    headerRow.eachCell(c => { c.font = { bold: true, size: 8, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2E75B6' } }; c.alignment = { horizontal: 'center', wrapText: true }; c.border = { top: {style:'thin'}, bottom: {style:'thin'}, left: {style:'thin'}, right: {style:'thin'} }; });
+
+    const _v = (val) => (val === 0 || val === null || val === undefined || val === '') ? '-' : val;
+    rows.forEach((r, idx) => {
+      const row = ws.addRow([_fmtDateShort(r.date), r.month || '-', _v(r.ob_paddy), _v(r.rcvd_from_cm), _v(r.total_paddy), _v(r.issue_for_milling), _v(r.prog_rcpt_paddy), _v(r.prog_milling_paddy), _v(r.cb_paddy), _v(r.ob_rice), _v(r.rice_from_milling), _v(r.total_rice), _v(r.delivery_rrc), _v(r.delivery_fci), _v(r.prog_rice_milling), _v(r.prog_rice_delivered), _v(r.cb_rice)]);
+      row.eachCell((c, ci) => {
+        c.font = { size: 9 }; c.border = { top: {style:'thin'}, bottom: {style:'thin'}, left: {style:'thin'}, right: {style:'thin'} };
+        if (ci >= 3) c.alignment = { horizontal: 'right' };
+        if (ci === 9 || ci === 17) c.font = { size: 9, bold: true };
+        if (idx % 2 === 0) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'D6E4F0' } };
+      });
+    });
+
+    [11, 10, 10, 14, 10, 12, 14, 14, 10, 8, 14, 10, 12, 12, 12, 12, 10].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    ws.pageSetup = { orientation: 'landscape', fitToWidth: 1, fitToHeight: 0 };
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=milling_register_${kms_year || 'all'}.xlsx`);
+    await wb.xlsx.write(res); res.end();
+  }));
+
+  // GET /api/govt-registers/milling-register/pdf
+  router.get('/api/govt-registers/milling-register/pdf', safeAsync(async (req, res) => {
+    const { kms_year, season } = req.query;
+    const regData = _buildMillingRegister(kms_year, season);
+    const rows = regData.rows;
+    const summary = regData.summary;
+    const branding = { ...(database.data.branding || {}) };
+    const wmSetting = (database.data.app_settings || []).find(s => s.setting_id === 'watermark');
+    if (wmSetting) branding._watermark = wmSetting;
+    const company = branding.company_name || 'Rice Mill';
+
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 10 });
+    const { promise, stream } = safePdfPipe(doc, res, `milling_register_${kms_year || 'all'}.pdf`);
+
+    const headerH = addPdfHeader(doc, branding, 10);
+    let y = headerH + 14;
+
+    // Title
+    let title = 'MILLING REGISTER';
+    if (kms_year) title += ` - KMS ${kms_year}`;
+    if (season) title += ` (${season})`;
+    doc.rect(10, y, doc.page.width - 20, 16).fill('#2E75B6');
+    doc.fontSize(9).font('Helvetica-Bold').fillColor('#fff').text(title, 10, y + 3, { width: doc.page.width - 20, align: 'center' });
+    y += 20;
+
+    const headers = ['Date', 'Month', 'OB\nPaddy', 'Rcvd from\nCM A/c', 'Total\nPaddy', 'Issue For\nMilling', 'Prog Rcpt\nPaddy', 'Prog Mill\nPaddy', 'CB\nPaddy', 'OB\nRice', 'Rice Rcpt\nMilling', 'Total\nRice', 'Del\nRRC', 'Del\nFCI', 'Prog Rice\nMill', 'Prog Rice\nDel', 'CB\nRice'];
+    let colW = [42, 28, 36, 48, 38, 42, 45, 45, 38, 32, 45, 38, 40, 40, 45, 45, 38];
+    const usable = doc.page.width - 20;
+    const totalW = colW.reduce((a, b) => a + b, 0);
+    if (totalW > usable) { const scale = usable / totalW; colW = colW.map(w => Math.round(w * scale)); }
+
+    const _pv = (val) => (val === 0 || val === null || val === undefined) ? '-' : val;
+    const tableData = rows.map(r => [_fmtDateShort(r.date), r.month || '-', _pv(r.ob_paddy), _pv(r.rcvd_from_cm), _pv(r.total_paddy), _pv(r.issue_for_milling), _pv(r.prog_rcpt_paddy), _pv(r.prog_milling_paddy), _pv(r.cb_paddy), _pv(r.ob_rice), _pv(r.rice_from_milling), _pv(r.total_rice), _pv(r.delivery_rrc), _pv(r.delivery_fci), _pv(r.prog_rice_milling), _pv(r.prog_rice_delivered), _pv(r.cb_rice)]);
+
+    doc.y = y;
+    addPdfTable(doc, headers, tableData, colW, {
+      headerBg: '#2E75B6', headerTextColor: '#fff', fontSize: 5.5, margin: 10,
+    });
+
+    // Summary
+    doc.moveDown(0.5);
+    doc.fontSize(7).font('Helvetica-Bold').fillColor('#1F4E79')
+      .text(`Summary: Paddy Received: ${summary.total_paddy_received} Q | Milled: ${summary.total_paddy_milled} Q | CB Paddy: ${summary.cb_paddy} Q || Rice Produced: ${summary.total_rice_produced} Q | Delivered: ${summary.total_rice_delivered} Q | CB Rice: ${summary.cb_rice} Q`, 10, doc.y, { width: usable });
+
+    doc.end();
+    await promise;
+  }));
+
   return router;
 };
