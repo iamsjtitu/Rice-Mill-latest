@@ -556,8 +556,18 @@ module.exports = function(database) {
           const frontB64 = loadImageB64(entry[frontKey] || '');
           const sideB64 = loadImageB64(entry[sideKey] || '');
           if (frontB64 || sideB64) {
-            if (frontB64) { try { doc.image(Buffer.from(frontB64, 'base64'), LM, y + 1, { width: imgW, height: imgH, fit: [imgW, imgH] }); } catch(e) {} }
-            if (sideB64) { try { doc.image(Buffer.from(sideB64, 'base64'), LM + imgW + 8, y + 1, { width: imgW, height: imgH, fit: [imgW, imgH] }); } catch(e) {} }
+            if (frontB64 && sideB64) {
+              // Both images — center the pair
+              const totalW = imgW * 2 + 8;
+              const startX = LM + (PW - totalW) / 2;
+              try { doc.image(Buffer.from(frontB64, 'base64'), startX, y + 1, { width: imgW, height: imgH, fit: [imgW, imgH] }); } catch(e) {}
+              try { doc.image(Buffer.from(sideB64, 'base64'), startX + imgW + 8, y + 1, { width: imgW, height: imgH, fit: [imgW, imgH] }); } catch(e) {}
+            } else {
+              // Single image — center it
+              const singleX = LM + (PW - imgW) / 2;
+              const b64 = frontB64 || sideB64;
+              try { doc.image(Buffer.from(b64, 'base64'), singleX, y + 1, { width: imgW, height: imgH, fit: [imgW, imgH] }); } catch(e) {}
+            }
             y += imgH + 4;
           }
           y += 2;

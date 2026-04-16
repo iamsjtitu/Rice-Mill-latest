@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "101.1.0",
+    date: "Apr 2026",
+    title: "v101.1.0 - Weight Report PDF Photos Centered",
+    items: [
+      { type: "fix", text: "Desktop PDF: Photos ab center-aligned hain (1 ya 2 dono case mein)" },
+    ],
+  },
+  {
     version: "100.0.0",
     date: "Apr 2026",
     title: "v101.0.0 - Total Row Fix (White Theme)",
