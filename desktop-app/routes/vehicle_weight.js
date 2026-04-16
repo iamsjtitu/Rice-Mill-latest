@@ -9,7 +9,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { safeAsync } = require('./safe_handler');
-const { fmtDate, createPdfDoc, registerFonts, F } = require('./pdf_helpers');
+const { fmtDate, createPdfDoc, registerFonts, F, addPdfHeader } = require('./pdf_helpers');
 const router = express.Router();
 
 module.exports = function(database) {
@@ -472,16 +472,13 @@ module.exports = function(database) {
     return new Promise((resolve, reject) => {
       try {
         const PDFDocument = require('pdfkit');
-        const doc = new PDFDocument({ size: 'A4', margin: 25 });
+        const doc = new PDFDocument({ size: 'A4', margin: 20 });
         registerFonts(doc);
         const chunks = [];
         doc.on('data', c => chunks.push(c));
         doc.on('end', () => resolve(Buffer.concat(chunks)));
         doc.on('error', reject);
 
-        const W = 595.28;
-        const LM = 25;
-        const PW = W - 50;
         const rst = entry.rst_no || '?';
         const firstWt = parseFloat(entry.first_wt || 0);
         const secondWt = parseFloat(entry.second_wt || 0);
@@ -494,113 +491,98 @@ module.exports = function(database) {
         const diesel = parseFloat(entry.diesel_paid || 0);
         const gIssued = parseFloat(entry.g_issued || 0);
         const tpNo = entry.tp_no || '';
-        const tpWeight = entry.tp_weight || entry.tp_wt || '';
+        const tpWt = entry.tp_weight || entry.tp_wt || '';
         const remark = entry.remark || '';
 
+        // Get branding from settings
         const branding = (col('app_settings') || []).find(s => s.setting_id === 'branding') || {};
-        const company = branding.company_name || 'NAVKAR AGRO';
 
         function fmtIST(ts) {
-          if (!ts) return '-';
+          if (!ts) return '';
           try { return new Date(ts).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }); }
           catch(e) { return ts.substring(0, 8); }
         }
 
-        // ── Company Header ──
-        doc.rect(0, 0, W, 50).fill('#1a5276');
-        doc.font(F('bold')).fontSize(16).fillColor('#ffffff').text(company, 0, 14, { align: 'center', width: W });
+        // ── Branding Header (from settings with custom fields) ──
+        addPdfHeader(doc, `WEIGHT REPORT — RST #${rst}`, branding);
 
-        let y = 58;
+        const W = doc.page.width;
+        const LM = 20;
+        const PW = W - 40;
+        let y = doc.y + 4;
+
+        // ── Info Table (grid) ──
         const colW = PW / 4;
-        const rowH = 28;
+        const rowH = 18;
 
-        // Draw grid row helper
-        function drawRow(lbl1, val1, lbl2, val2, alt) {
-          if (alt) { doc.rect(LM, y, PW, rowH).fill('#f7f7f7'); }
-          doc.strokeColor('#333333').lineWidth(0.3);
-          doc.rect(LM, y, PW, rowH).stroke();
+        function drawGridRow(lbl1, val1, lbl2, val2, alt) {
+          if (alt) doc.rect(LM, y, PW, rowH).fill('#f0f8ff');
+          doc.strokeColor('#999').lineWidth(0.3).rect(LM, y, PW, rowH).stroke();
           doc.moveTo(LM + colW, y).lineTo(LM + colW, y + rowH).stroke();
           doc.moveTo(LM + 2 * colW, y).lineTo(LM + 2 * colW, y + rowH).stroke();
           doc.moveTo(LM + 3 * colW, y).lineTo(LM + 3 * colW, y + rowH).stroke();
-          const ty = y + 10;
-          doc.font(F('normal')).fontSize(8).fillColor('#444').text(lbl1, LM + 4, ty, { width: colW - 8 });
-          doc.font(F('bold')).fontSize(9).fillColor('#000').text(String(val1).substring(0, 28), LM + colW + 4, ty, { width: colW - 8 });
-          doc.font(F('normal')).fontSize(8).fillColor('#444').text(lbl2, LM + 2 * colW + 4, ty, { width: colW - 8 });
-          doc.font(F('bold')).fontSize(9).fillColor('#000').text(String(val2).substring(0, 28), LM + 3 * colW + 4, ty, { width: colW - 8 });
+          const ty = y + 5;
+          doc.font(F('normal')).fontSize(7.5).fillColor('#555').text(lbl1, LM + 3, ty, { width: colW - 6, lineBreak: false });
+          doc.font(F('bold')).fontSize(8.5).fillColor('#000').text(String(val1).substring(0, 26), LM + colW + 3, ty, { width: colW - 6, lineBreak: false });
+          doc.font(F('normal')).fontSize(7.5).fillColor('#555').text(lbl2, LM + 2 * colW + 3, ty, { width: colW - 6, lineBreak: false });
+          doc.font(F('bold')).fontSize(8.5).fillColor('#000').text(String(val2).substring(0, 26), LM + 3 * colW + 3, ty, { width: colW - 6, lineBreak: false });
           y += rowH;
         }
 
-        drawRow('RST No.', `#${rst}`, 'Date / दिनांक', fmtDate(entry.date || ''), true);
-        drawRow('Vehicle / गाड़ी', entry.vehicle_no || '-', 'Trans Type', entry.trans_type || '-', false);
-        drawRow('Party / पार्टी', entry.party_name || '-', 'Source/Mandi', entry.farmer_name || '-', true);
-        drawRow('Product / माल', entry.product || '-', 'Bags / बोरे', bags ? String(bags) : '-', false);
-        drawRow('G.Issued', gIssued ? String(Math.round(gIssued)) : '-', 'TP No.', tpNo || '-', true);
-        drawRow('TP Weight', tpWeight ? `${tpWeight} Q` : '-', 'Remark', remark || '-', false);
+        drawGridRow('RST No.', `#${rst}`, 'Date / दिनांक', fmtDate(entry.date || ''), true);
+        drawGridRow('Vehicle / गाड़ी', entry.vehicle_no || '-', 'Trans Type', entry.trans_type || '-', false);
+        drawGridRow('Party / पार्टी', entry.party_name || '-', 'Source/Mandi', entry.farmer_name || '-', true);
+        drawGridRow('Product / माल', entry.product || '-', 'Bags / बोरे', bags ? String(bags) : '-', false);
+        // Conditional rows
+        if (gIssued || tpNo) drawGridRow('G.Issued', gIssued ? String(Math.round(gIssued)) : '-', 'TP No.', tpNo || '-', true);
+        if (tpWt || remark) drawGridRow('TP Weight', tpWt ? `${tpWt} Q` : '-', 'Remark', remark || '-', false);
 
-        y += 6;
+        y += 4;
 
-        // ── 1st Weight Bar ──
-        doc.rect(LM, y, PW, 22).fill('#1a5276');
-        doc.font(F('bold')).fontSize(9).fillColor('#ffffff')
-          .text('1st Weight / पहला वजन', LM + 6, y + 6, { continued: false })
-          .text(`${Number(firstWt).toLocaleString()} KG`, LM, y + 6, { width: PW / 2 - 6, align: 'right' })
-          .text(`Time: ${fmtIST(entry.first_wt_time || '')}`, LM + PW / 2 + 6, y + 6, { width: PW / 2 - 6 });
-        y += 22;
+        // ── Weight Bars + Compact Photos ──
+        function drawWeightBar(label, wt, timeStr, frontKey, sideKey, bgColor) {
+          doc.rect(LM, y, PW, 18).fill(bgColor);
+          doc.font(F('bold')).fontSize(9).fillColor('#fff').text(label, LM + 4, y + 4, { width: PW * 0.35, lineBreak: false });
+          doc.font(F('bold')).fontSize(10).fillColor('#fff').text(`${Number(wt).toLocaleString()} KG`, LM + PW * 0.35, y + 3, { width: PW * 0.3, align: 'center', lineBreak: false });
+          doc.font(F('normal')).fontSize(7.5).fillColor('#ddd').text(`Time: ${fmtIST(timeStr)}`, LM + PW * 0.65, y + 5, { width: PW * 0.33, align: 'right', lineBreak: false });
+          y += 18;
 
-        // 1st weight photos
-        const imgW = PW / 2 - 4;
-        const imgH = 95;
-        const f1f = loadImageB64(entry.first_wt_front_img || '');
-        const f1s = loadImageB64(entry.first_wt_side_img || '');
-        if (f1f || f1s) {
-          if (f1f) { try { doc.image(Buffer.from(f1f, 'base64'), LM, y + 2, { width: imgW, height: imgH, fit: [imgW, imgH] }); } catch(e) {} }
-          if (f1s) { try { doc.image(Buffer.from(f1s, 'base64'), LM + imgW + 8, y + 2, { width: imgW, height: imgH, fit: [imgW, imgH] }); } catch(e) {} }
-          y += imgH + 6;
-        }
-
-        // ── 2nd Weight Bar ──
-        if (secondWt > 0) {
-          y += 2;
-          doc.rect(LM, y, PW, 22).fill('#34495e');
-          doc.font(F('bold')).fontSize(9).fillColor('#ffffff')
-            .text('2nd Weight / दूसरा वजन', LM + 6, y + 6, { continued: false })
-            .text(`${Number(secondWt).toLocaleString()} KG`, LM, y + 6, { width: PW / 2 - 6, align: 'right' })
-            .text(`Time: ${fmtIST(entry.second_wt_time || '')}`, LM + PW / 2 + 6, y + 6, { width: PW / 2 - 6 });
-          y += 22;
-
-          const f2f = loadImageB64(entry.second_wt_front_img || '');
-          const f2s = loadImageB64(entry.second_wt_side_img || '');
-          if (f2f || f2s) {
-            if (f2f) { try { doc.image(Buffer.from(f2f, 'base64'), LM, y + 2, { width: imgW, height: imgH, fit: [imgW, imgH] }); } catch(e) {} }
-            if (f2s) { try { doc.image(Buffer.from(f2s, 'base64'), LM + imgW + 8, y + 2, { width: imgW, height: imgH, fit: [imgW, imgH] }); } catch(e) {} }
-            y += imgH + 6;
+          const imgW = PW / 2 - 4;
+          const imgH = 80;
+          const frontB64 = loadImageB64(entry[frontKey] || '');
+          const sideB64 = loadImageB64(entry[sideKey] || '');
+          if (frontB64 || sideB64) {
+            if (frontB64) { try { doc.image(Buffer.from(frontB64, 'base64'), LM, y + 1, { width: imgW, height: imgH, fit: [imgW, imgH] }); } catch(e) {} }
+            if (sideB64) { try { doc.image(Buffer.from(sideB64, 'base64'), LM + imgW + 8, y + 1, { width: imgW, height: imgH, fit: [imgW, imgH] }); } catch(e) {} }
+            y += imgH + 4;
           }
+          y += 2;
         }
 
-        y += 8;
+        drawWeightBar('1st Weight / पहला वजन', firstWt, entry.first_wt_time || '', 'first_wt_front_img', 'first_wt_side_img', '#1a5276');
+        if (secondWt > 0) drawWeightBar('2nd Weight / दूसरा वजन', secondWt, entry.second_wt_time || '', 'second_wt_front_img', 'second_wt_side_img', '#34495e');
+
+        y += 4;
 
         // ── Summary Boxes ──
         const items = [
-          { label: 'GROSS / कुल', value: `${Number(grossWt).toLocaleString()} KG`, bg: '#dce6f0', fg: '#1a5276' },
-          { label: 'TARE / खाली', value: `${Number(tareWt).toLocaleString()} KG`, bg: '#f0e8dc', fg: '#6d4c1d' },
-          { label: 'NET / शुद्ध', value: `${Number(netWt).toLocaleString()} KG`, bg: '#d5f5d5', fg: '#1b7a30' },
-          { label: 'AVG/BAG', value: `${avgWt} KG`, bg: '#e3f2fd', fg: '#1565c0' },
-          { label: 'CASH / नकद', value: cash ? `${Number(cash).toLocaleString()}` : '-', bg: '#fff8e1', fg: '#e65100' },
-          { label: 'DIESEL / डीजल', value: diesel ? `${Number(diesel).toLocaleString()}` : '-', bg: '#fce4d6', fg: '#bf360c' },
+          { label: 'GROSS\nकुल', value: `${Number(grossWt).toLocaleString()} KG`, bg: '#dce6f0', fg: '#1a5276' },
+          { label: 'TARE\nखाली', value: `${Number(tareWt).toLocaleString()} KG`, bg: '#f0e8dc', fg: '#6d4c1d' },
+          { label: 'NET\nशुद्ध', value: `${Number(netWt).toLocaleString()} KG`, bg: '#d5f5d5', fg: '#1b7a30' },
+          { label: 'AVG/BAG\nप्रति बोरा', value: `${avgWt} KG`, bg: '#e3f2fd', fg: '#1565c0' },
         ];
+        if (cash > 0) items.push({ label: 'CASH\nनकद', value: `₹${Number(cash).toLocaleString()}`, bg: '#fff8e1', fg: '#e65100' });
+        if (diesel > 0) items.push({ label: 'DIESEL\nडीजल', value: `₹${Number(diesel).toLocaleString()}`, bg: '#fce4d6', fg: '#bf360c' });
+
         const boxW = PW / items.length;
-        const boxH = 42;
+        const boxH = 36;
         items.forEach((b, i) => {
           const bx = LM + i * boxW;
           doc.rect(bx, y, boxW, boxH).fill(b.bg);
           doc.strokeColor('#ccc').lineWidth(0.3).rect(bx, y, boxW, boxH).stroke();
-          doc.font(F('normal')).fontSize(6).fillColor(b.fg).text(b.label, bx, y + 5, { width: boxW, align: 'center' });
-          doc.font(F('bold')).fontSize(11).fillColor(b.fg).text(b.value, bx, y + 20, { width: boxW, align: 'center' });
+          doc.font(F('normal')).fontSize(5.5).fillColor(b.fg).text(b.label, bx + 2, y + 3, { width: boxW - 4, align: 'center' });
+          doc.font(F('bold')).fontSize(10).fillColor(b.fg).text(b.value, bx + 2, y + 20, { width: boxW - 4, align: 'center', lineBreak: false });
         });
-
-        // Footer
-        doc.font(F('normal')).fontSize(6).fillColor('#aaa')
-          .text(`${company} | Generated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`, 0, 810, { width: W, align: 'center' });
 
         doc.end();
       } catch (e) { reject(e); }

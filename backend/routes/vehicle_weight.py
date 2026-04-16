@@ -995,24 +995,25 @@ async def weight_report_pdf_head(entry_id: str):
 
 @router.get("/vehicle-weight/{entry_id}/weight-report-pdf")
 async def weight_report_pdf(entry_id: str):
-    """Generate compact single-page weight report PDF matching slip format."""
+    """Generate compact single-page professional weight report PDF using shared branding."""
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
     from reportlab.lib import colors
-    from reportlab.pdfgen import canvas as pdfcanvas
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
     from reportlab.lib.utils import ImageReader
+    from reportlab.platypus import Image as RLImage
     from fastapi.responses import StreamingResponse
 
     entry = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
 
-    from utils.branding_helper import get_branding_data
+    from utils.branding_helper import get_pdf_header_elements_from_db
     from utils.export_helpers import register_hindi_fonts
     from utils.date_format import fmt_date
     register_hindi_fonts()
-    branding = await get_branding_data()
-    company = branding.get("company_name", "NAVKAR AGRO")
 
     rst = entry.get("rst_no", "?")
     first_wt = float(entry.get("first_wt", 0) or 0)
@@ -1025,174 +1026,164 @@ async def weight_report_pdf(entry_id: str):
     cash = float(entry.get("cash_paid", 0) or 0)
     diesel = float(entry.get("diesel_paid", 0) or 0)
     g_issued = float(entry.get("g_issued", 0) or 0)
-    tp_no = entry.get("tp_no", "") or ""
-    tp_weight = entry.get("tp_weight", "") or entry.get("tp_wt", "") or ""
-    remark = entry.get("remark", "") or ""
 
-    # Load images
-    img_data = {}
-    for key in ["first_wt_front_img", "first_wt_side_img", "second_wt_front_img", "second_wt_side_img"]:
-        b64 = _load_image_b64(entry.get(key, ""))
-        if b64:
-            try:
-                img_data[key] = ImageReader(io.BytesIO(b64mod.b64decode(b64)))
-            except Exception:
-                pass
-
-    W, H = A4
-    buf = io.BytesIO()
-    c = pdfcanvas.Canvas(buf, pagesize=A4)
-    LM = 25 * mm
-    PW = W - 2 * LM
-
-    # Colors
-    BLUE = colors.HexColor("#1a5276")
-    BORDER = colors.HexColor("#333333")
-    LIGHT_BG = colors.HexColor("#f7f7f7")
-
-    # ── Company Header ──
-    c.setFillColor(BLUE)
-    c.rect(0, H - 18 * mm, W, 18 * mm, fill=1, stroke=0)
-    c.setFont("FreeSansBold", 16)
-    c.setFillColor(colors.white)
-    c.drawCentredString(W / 2, H - 12 * mm, company)
-
-    y = H - 24 * mm
-
-    # ── Info Table (Grid format like the image) ──
-    row_h = 10 * mm
-    col_w = PW / 4  # 4 columns: label, value, label, value
-
-    def draw_row(y_pos, lbl1, val1, lbl2, val2, alt=False):
-        if alt:
-            c.setFillColor(LIGHT_BG)
-            c.rect(LM, y_pos - row_h, PW, row_h, fill=1, stroke=0)
-        # Grid lines
-        c.setStrokeColor(BORDER)
-        c.setLineWidth(0.3)
-        c.rect(LM, y_pos - row_h, PW, row_h)
-        c.line(LM + col_w, y_pos, LM + col_w, y_pos - row_h)
-        c.line(LM + 2 * col_w, y_pos, LM + 2 * col_w, y_pos - row_h)
-        c.line(LM + 3 * col_w, y_pos, LM + 3 * col_w, y_pos - row_h)
-
-        ty = y_pos - 6.5 * mm
-        c.setFont("FreeSans", 8)
-        c.setFillColor(colors.HexColor("#444"))
-        c.drawString(LM + 2 * mm, ty, str(lbl1))
-        c.setFont("FreeSansBold", 9)
-        c.setFillColor(colors.HexColor("#000"))
-        c.drawString(LM + col_w + 2 * mm, ty, str(val1)[:30])
-        c.setFont("FreeSans", 8)
-        c.setFillColor(colors.HexColor("#444"))
-        c.drawString(LM + 2 * col_w + 2 * mm, ty, str(lbl2))
-        c.setFont("FreeSansBold", 9)
-        c.setFillColor(colors.HexColor("#000"))
-        c.drawString(LM + 3 * col_w + 2 * mm, ty, str(val2)[:30])
-        return y_pos - row_h
-
-    # Format time to IST
     def fmtTime(ts):
-        if not ts: return "-"
+        if not ts: return ""
         try:
             from datetime import datetime as dt2, timedelta, timezone
             t = dt2.fromisoformat(ts.replace("Z", "+00:00"))
             ist = timezone(timedelta(hours=5, minutes=30))
             return t.astimezone(ist).strftime("%I:%M %p")
-        except Exception:
-            return ts[:8] if len(ts) > 8 else ts
+        except: return ts[:8] if len(ts) > 8 else ts
 
-    y = draw_row(y, "RST No.", f"#{rst}", "Date / दिनांक", fmt_date(entry.get("date", "")), True)
-    y = draw_row(y, "Vehicle / गाड़ी", entry.get("vehicle_no", "-"), "Trans Type", entry.get("trans_type", "-"))
-    y = draw_row(y, "Party / पार्टी", entry.get("party_name", "-"), "Source/Mandi", entry.get("farmer_name", "") or "-", True)
-    y = draw_row(y, "Product / माल", entry.get("product", "-"), "Bags / बोरे", str(bags) if bags else "-")
-    y = draw_row(y, "G.Issued", str(int(g_issued)) if g_issued else "-", "TP No.", tp_no or "-", True)
-    y = draw_row(y, "TP Weight", f"{tp_weight} Q" if tp_weight else "-", "Remark", remark or "-")
-
-    y -= 3 * mm
-
-    # ── 1st Weight Section ──
-    c.setFillColor(BLUE)
-    c.rect(LM, y - 8 * mm, PW, 8 * mm, fill=1, stroke=0)
-    c.setFont("FreeSansBold", 9)
-    c.setFillColor(colors.white)
-    c.drawString(LM + 3 * mm, y - 5.5 * mm, "1st Weight / पहला वजन")
-    c.drawRightString(LM + PW / 2 - 3 * mm, y - 5.5 * mm, f"{first_wt:,.0f} KG")
-    c.drawString(LM + PW / 2 + 3 * mm, y - 5.5 * mm, f"Time: {fmtTime(entry.get('first_wt_time', ''))}")
-    y -= 8 * mm
-
-    # 1st weight photos (compact)
-    has_1st_photos = "first_wt_front_img" in img_data or "first_wt_side_img" in img_data
-    if has_1st_photos:
-        img_w = PW / 2 - 2 * mm
-        img_h = 35 * mm
-        if "first_wt_front_img" in img_data:
+    # Load images
+    img_objs = {}
+    for key in ["first_wt_front_img", "first_wt_side_img", "second_wt_front_img", "second_wt_side_img"]:
+        b64 = _load_image_b64(entry.get(key, ""))
+        if b64:
             try:
-                c.drawImage(img_data["first_wt_front_img"], LM, y - img_h, img_w, img_h, preserveAspectRatio=True, mask='auto')
+                img_objs[key] = io.BytesIO(b64mod.b64decode(b64))
             except: pass
-        if "first_wt_side_img" in img_data:
-            try:
-                c.drawImage(img_data["first_wt_side_img"], LM + img_w + 4 * mm, y - img_h, img_w, img_h, preserveAspectRatio=True, mask='auto')
-            except: pass
-        y -= img_h + 2 * mm
 
-    # ── 2nd Weight Section ──
-    if second_wt > 0:
-        y -= 1 * mm
-        c.setFillColor(colors.HexColor("#34495e"))
-        c.rect(LM, y - 8 * mm, PW, 8 * mm, fill=1, stroke=0)
-        c.setFont("FreeSansBold", 9)
-        c.setFillColor(colors.white)
-        c.drawString(LM + 3 * mm, y - 5.5 * mm, "2nd Weight / दूसरा वजन")
-        c.drawRightString(LM + PW / 2 - 3 * mm, y - 5.5 * mm, f"{second_wt:,.0f} KG")
-        c.drawString(LM + PW / 2 + 3 * mm, y - 5.5 * mm, f"Time: {fmtTime(entry.get('second_wt_time', ''))}")
-        y -= 8 * mm
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=20*mm, rightMargin=20*mm, topMargin=10*mm, bottomMargin=10*mm)
 
-        has_2nd_photos = "second_wt_front_img" in img_data or "second_wt_side_img" in img_data
-        if has_2nd_photos:
-            img_w = PW / 2 - 2 * mm
-            img_h = 35 * mm
-            if "second_wt_front_img" in img_data:
-                try:
-                    c.drawImage(img_data["second_wt_front_img"], LM, y - img_h, img_w, img_h, preserveAspectRatio=True, mask='auto')
-                except: pass
-            if "second_wt_side_img" in img_data:
-                try:
-                    c.drawImage(img_data["second_wt_side_img"], LM + img_w + 4 * mm, y - img_h, img_w, img_h, preserveAspectRatio=True, mask='auto')
-                except: pass
-            y -= img_h + 2 * mm
+    elements = []
 
-    y -= 4 * mm
+    # ── Branding Header (from settings) ──
+    header_els = await get_pdf_header_elements_from_db(f"WEIGHT REPORT — RST #{rst}")
+    elements.extend(header_els)
 
-    # ── Summary Boxes (GROSS, TARE, NET, AVG/BAG, CASH, DIESEL) ──
-    items = [
-        ("GROSS / कुल", f"{gross_wt:,.0f} KG", "#dce6f0", "#1a5276"),
-        ("TARE / खाली", f"{tare_wt:,.0f} KG", "#f0e8dc", "#6d4c1d"),
-        ("NET / शुद्ध", f"{net_wt:,.0f} KG", "#d5f5d5", "#1b7a30"),
-        ("AVG/BAG", f"{avg_wt:,.2f} KG", "#e3f2fd", "#1565c0"),
-        ("CASH / नकद", f"{cash:,.0f}" if cash else "-", "#fff8e1", "#e65100"),
-        ("DIESEL / डीजल", f"{diesel:,.0f}" if diesel else "-", "#fce4d6", "#bf360c"),
+    # Styles
+    lbl_style = ParagraphStyle('lbl', fontName='FreeSans', fontSize=8, textColor=colors.HexColor('#555'))
+    val_style = ParagraphStyle('val', fontName='FreeSansBold', fontSize=9, textColor=colors.HexColor('#000'))
+    small_style = ParagraphStyle('sm', fontName='FreeSans', fontSize=7.5, textColor=colors.HexColor('#666'))
+
+    # ── Info Table ──
+    info_rows = [
+        [Paragraph("RST No.", lbl_style), Paragraph(f"#{rst}", val_style),
+         Paragraph("Date / दिनांक", lbl_style), Paragraph(fmt_date(entry.get("date", "")), val_style)],
+        [Paragraph("Vehicle / गाड़ी", lbl_style), Paragraph(entry.get("vehicle_no", "-"), val_style),
+         Paragraph("Trans Type", lbl_style), Paragraph(entry.get("trans_type", "-"), val_style)],
+        [Paragraph("Party / पार्टी", lbl_style), Paragraph(entry.get("party_name", "-"), val_style),
+         Paragraph("Source / Mandi", lbl_style), Paragraph(entry.get("farmer_name", "") or "-", val_style)],
+        [Paragraph("Product / माल", lbl_style), Paragraph(entry.get("product", "-"), val_style),
+         Paragraph("Bags / बोरे", lbl_style), Paragraph(str(bags) if bags else "-", val_style)],
     ]
-    box_w = PW / len(items)
-    box_h = 16 * mm
-    for i, (lbl, val, bg, fg) in enumerate(items):
-        bx = LM + i * box_w
-        c.setFillColor(colors.HexColor(bg))
-        c.rect(bx, y - box_h, box_w, box_h, fill=1, stroke=0)
-        c.setStrokeColor(colors.HexColor("#ccc"))
-        c.setLineWidth(0.3)
-        c.rect(bx, y - box_h, box_w, box_h)
-        c.setFont("FreeSans", 6)
-        c.setFillColor(colors.HexColor(fg))
-        c.drawCentredString(bx + box_w / 2, y - 5 * mm, lbl)
-        c.setFont("FreeSansBold", 11)
-        c.drawCentredString(bx + box_w / 2, y - 12.5 * mm, val)
+    # Conditional rows — only if value exists
+    cond_row = []
+    if g_issued: cond_row.extend([Paragraph("G.Issued", lbl_style), Paragraph(str(int(g_issued)), val_style)])
+    else: cond_row.extend([Paragraph("", lbl_style), Paragraph("", val_style)])
+    tp_no = entry.get("tp_no", "") or ""
+    if tp_no: cond_row.extend([Paragraph("TP No.", lbl_style), Paragraph(tp_no, val_style)])
+    else: cond_row.extend([Paragraph("", lbl_style), Paragraph("", val_style)])
+    if any(c.text for c in cond_row): info_rows.append(cond_row)
 
-    # Footer
-    c.setFont("FreeSans", 6)
-    c.setFillColor(colors.HexColor("#aaa"))
-    c.drawCentredString(W / 2, 8 * mm, f"{company} | Generated: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    cond_row2 = []
+    tp_wt = entry.get("tp_weight", "") or entry.get("tp_wt", "") or ""
+    remark = entry.get("remark", "") or ""
+    if tp_wt: cond_row2.extend([Paragraph("TP Weight", lbl_style), Paragraph(f"{tp_wt} Q", val_style)])
+    else: cond_row2.extend([Paragraph("", lbl_style), Paragraph("", val_style)])
+    if remark: cond_row2.extend([Paragraph("Remark", lbl_style), Paragraph(remark, val_style)])
+    else: cond_row2.extend([Paragraph("", lbl_style), Paragraph("", val_style)])
+    if any(c.text for c in cond_row2): info_rows.append(cond_row2)
 
-    c.save()
+    cw = (doc.width) / 4
+    info_table = Table(info_rows, colWidths=[cw*0.8, cw*1.2, cw*0.8, cw*1.2])
+    info_table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#999')),
+        ('FONTNAME', (0, 0), (-1, -1), 'FreeSans'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.HexColor('#f0f8ff'), colors.white]),
+    ]))
+    elements.append(info_table)
+    elements.append(Spacer(1, 4*mm))
+
+    # ── Weight Sections ──
+    wt_header_style = ParagraphStyle('wth', fontName='FreeSansBold', fontSize=9, textColor=colors.white)
+
+    def add_weight_section(label, wt_val, time_str, front_key, side_key, bg_color):
+        # Header bar as table
+        wt_bar = Table([[Paragraph(label, wt_header_style),
+                         Paragraph(f"{wt_val:,.0f} KG", ParagraphStyle('wtv', fontName='FreeSansBold', fontSize=11, textColor=colors.white, alignment=TA_CENTER)),
+                         Paragraph(f"Time: {fmtTime(time_str)}", ParagraphStyle('wtt', fontName='FreeSans', fontSize=8, textColor=colors.HexColor('#ddd'), alignment=TA_RIGHT))]],
+                       colWidths=[doc.width*0.35, doc.width*0.30, doc.width*0.35])
+        wt_bar.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), bg_color),
+            ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(wt_bar)
+
+        # Photos
+        has_front = front_key in img_objs
+        has_side = side_key in img_objs
+        if has_front or has_side:
+            photo_w = doc.width / 2 - 2*mm
+            photo_h = 32*mm
+            row = []
+            if has_front:
+                img_objs[front_key].seek(0)
+                row.append(RLImage(img_objs[front_key], width=photo_w, height=photo_h, kind='proportional'))
+            else:
+                row.append("")
+            if has_side:
+                img_objs[side_key].seek(0)
+                row.append(RLImage(img_objs[side_key], width=photo_w, height=photo_h, kind='proportional'))
+            else:
+                row.append("")
+            photo_table = Table([row], colWidths=[doc.width/2, doc.width/2])
+            photo_table.setStyle(TableStyle([('TOPPADDING', (0,0), (-1,-1), 2), ('BOTTOMPADDING', (0,0), (-1,-1), 2), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
+            elements.append(photo_table)
+        elements.append(Spacer(1, 2*mm))
+
+    add_weight_section("1st Weight / पहला वजन", first_wt, entry.get("first_wt_time", ""),
+                       "first_wt_front_img", "first_wt_side_img", colors.HexColor("#1a5276"))
+
+    if second_wt > 0:
+        add_weight_section("2nd Weight / दूसरा वजन", second_wt, entry.get("second_wt_time", ""),
+                           "second_wt_front_img", "second_wt_side_img", colors.HexColor("#34495e"))
+
+    elements.append(Spacer(1, 3*mm))
+
+    # ── Summary Boxes ──
+    summary_items = [
+        ("GROSS\nकुल", f"{gross_wt:,.0f} KG", "#dce6f0", "#1a5276"),
+        ("TARE\nखाली", f"{tare_wt:,.0f} KG", "#f0e8dc", "#6d4c1d"),
+        ("NET\nशुद्ध", f"{net_wt:,.0f} KG", "#d5f5d5", "#1b7a30"),
+        ("AVG/BAG\nप्रति बोरा", f"{avg_wt:,.2f} KG", "#e3f2fd", "#1565c0"),
+    ]
+    # Add Cash/Diesel only if present
+    if cash > 0:
+        summary_items.append(("CASH\nनकद", f"₹{cash:,.0f}", "#fff8e1", "#e65100"))
+    if diesel > 0:
+        summary_items.append(("DIESEL\nडीजल", f"₹{diesel:,.0f}", "#fce4d6", "#bf360c"))
+
+    box_data_labels = []
+    box_data_values = []
+    box_styles = []
+    for i, (lbl, val, bg, fg) in enumerate(summary_items):
+        box_data_labels.append(Paragraph(lbl, ParagraphStyle(f'bl{i}', fontName='FreeSans', fontSize=6, textColor=colors.HexColor(fg), alignment=TA_CENTER)))
+        box_data_values.append(Paragraph(val, ParagraphStyle(f'bv{i}', fontName='FreeSansBold', fontSize=10, textColor=colors.HexColor(fg), alignment=TA_CENTER)))
+        box_styles.append(('BACKGROUND', (i, 0), (i, 1), colors.HexColor(bg)))
+
+    ncols = len(summary_items)
+    bw = doc.width / ncols
+    summary_table = Table([box_data_labels, box_data_values], colWidths=[bw]*ncols)
+    summary_table.setStyle(TableStyle([
+        *box_styles,
+        ('BOX', (0, 0), (-1, -1), 0.3, colors.HexColor('#ccc')),
+        ('INNERGRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#ccc')),
+        ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    elements.append(summary_table)
+
+    # Build
+    doc.build(elements)
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/pdf",
                              headers={"Content-Disposition": f"attachment; filename=WeightReport_RST{rst}.pdf"})
