@@ -476,8 +476,9 @@ async def get_entries(
     if season:
         query["season"] = season
     
-    # Date range filter
-    if date_from or date_to:
+    # Date range filter - skip if specific search fields are active
+    has_search = any([truck_no, rst_no, tp_no, agent_name, mandi_name])
+    if not has_search and (date_from or date_to):
         date_query = {}
         if date_from:
             date_query["$gte"] = date_from

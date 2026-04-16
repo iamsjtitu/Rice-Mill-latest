@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "101.13.0",
+    date: "Apr 2026",
+    title: "v101.13.0 - Smart Search: Date Filter Auto-Skip",
+    items: [
+      { type: "new", text: "Search (RST/TP/Truck/Agent/Mandi) karne pe date filter automatically skip — kahi bhi search karo, result milega" },
+    ],
+  },
+  {
     version: "101.12.0",
     date: "Apr 2026",
     title: "v101.12.0 - Transit Pass Auto-Migration Fix",

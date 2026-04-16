@@ -450,12 +450,16 @@ class JsonDatabase {
     if (filters.kms_year) entries = entries.filter(e => e.kms_year === filters.kms_year);
     if (filters.season) entries = entries.filter(e => e.season === filters.season);
     if (filters.truck_no) entries = entries.filter(e => e.truck_no?.toLowerCase().includes(filters.truck_no.toLowerCase()));
-    if (filters.rst_no) entries = entries.filter(e => e.rst_no?.toLowerCase().includes(filters.rst_no.toLowerCase()));
-    if (filters.tp_no) entries = entries.filter(e => e.tp_no?.toLowerCase().includes(filters.tp_no.toLowerCase()));
+    if (filters.rst_no) entries = entries.filter(e => String(e.rst_no || '').toLowerCase().includes(filters.rst_no.toLowerCase()));
+    if (filters.tp_no) entries = entries.filter(e => String(e.tp_no || '').toLowerCase().includes(filters.tp_no.toLowerCase()));
     if (filters.agent_name) entries = entries.filter(e => e.agent_name?.toLowerCase().includes(filters.agent_name.toLowerCase()));
     if (filters.mandi_name) entries = entries.filter(e => e.mandi_name?.toLowerCase().includes(filters.mandi_name.toLowerCase()));
-    if (filters.date_from) entries = entries.filter(e => e.date >= filters.date_from);
-    if (filters.date_to) entries = entries.filter(e => e.date <= filters.date_to);
+    // Skip date filter if any specific search field is active
+    const hasSearchFilter = filters.rst_no || filters.tp_no || filters.truck_no || filters.agent_name || filters.mandi_name;
+    if (!hasSearchFilter) {
+      if (filters.date_from) entries = entries.filter(e => e.date >= filters.date_from);
+      if (filters.date_to) entries = entries.filter(e => e.date <= filters.date_to);
+    }
     
     entries.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     return entries;

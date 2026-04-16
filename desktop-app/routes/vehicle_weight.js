@@ -326,8 +326,11 @@ module.exports = function(database) {
       let items = col('vehicle_weights');
       if (kms_year) items = items.filter(w => w.kms_year === kms_year);
       if (status) items = items.filter(w => w.status === status);
-      if (date_from) items = items.filter(w => (w.date || '') >= date_from);
-      if (date_to) items = items.filter(w => (w.date || '') <= date_to);
+      const hasSearch = vehicle_no || party_name || farmer_name || rst_no;
+      if (!hasSearch) {
+        if (date_from) items = items.filter(w => (w.date || '') >= date_from);
+        if (date_to) items = items.filter(w => (w.date || '') <= date_to);
+      }
       if (vehicle_no) items = items.filter(w => (w.vehicle_no || '').toLowerCase().includes(vehicle_no.toLowerCase()));
       if (party_name) items = items.filter(w => (w.party_name || '').toLowerCase().includes(party_name.toLowerCase()));
       if (farmer_name) items = items.filter(w => (w.farmer_name || '').toLowerCase().includes(farmer_name.toLowerCase()));

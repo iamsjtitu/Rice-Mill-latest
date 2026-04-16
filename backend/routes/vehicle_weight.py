@@ -125,7 +125,8 @@ async def list_weights(kms_year: str = "", status: str = "", page: int = 1, page
         query["kms_year"] = kms_year
     if status:
         query["status"] = status
-    if date_from or date_to:
+    has_search = any([vehicle_no, party_name, farmer_name, rst_no])
+    if not has_search and (date_from or date_to):
         date_q = {}
         if date_from: date_q["$gte"] = date_from
         if date_to: date_q["$lte"] = date_to
