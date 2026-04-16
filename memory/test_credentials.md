@@ -3,3 +3,4 @@
 ## Admin Account
 - Username: admin
 - Password: admin123
+- Role: admin (full permissions)

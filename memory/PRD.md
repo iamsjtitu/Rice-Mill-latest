@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v92.0.0
+## Current Version: v94.0.0
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind
@@ -28,14 +28,31 @@
 - Located under: Register > Sales Register > Rice Bran > Oil Premium (sub-tab)
 - Only for Rice Bran (Raw & Boiled types)
 - Standard Oil%: Raw = 22%, Boiled/Usna = 25%
-- Formula: Premium = Rate × (Actual% - Standard%) × Qty ÷ Standard%
+- Formula: Premium = Rate x (Actual% - Standard%) x Qty / Standard%
 - Positive diff = premium (extra payment), Negative diff = deduction
 - Sale lookup by voucher_no or rst_no auto-fills form
 - Voucher No field added to all By-Product sale entries
 
 ## Recent Changes (Apr 2026)
+- v94.0.0: Professional Weight Report PDF + Branding, WhatsApp PDF via tmpfiles.org, Desktop JS PDF generator with addPdfHeader
 - v92.0.0: Major tab reorganization, Gunny Bag upgrade (Bran/Broken P.Pkt, OUT form, realtime stock, Opening Stock), Watermark fix + Print watermark, Milling Register Season removed
-- Paddy Custody Register: "Released (Qtl)" now sourced from `paddy_release` collection instead of `milling_entries` (all 3 backends)
+- v94.0.1-fix: Vehicle Weight View Dialog fixed (gross_wt, tare_wt, remark, avg/bag now show correctly). LAN Weighbridge polling fixed (local-server proxy to desktop-app via weighbridge_host setting)
+
+## Vehicle Weight - View Dialog (Fixed Apr 2026)
+- Photos endpoint (`/vehicle-weight/{id}/photos`) now returns `gross_wt` and `tare_wt` fields
+- View Dialog weight summary bar shows: Gross, Tare, Net, Avg/Bag, Cash, Diesel
+- Remark shows when present, hidden when empty
+- Avg/Bag = net_wt / tot_pkts (per bag average)
+
+## LAN Weighbridge (Fixed Apr 2026)
+- Local-server now has `/api/weighbridge/live-weight` proxy endpoint
+- Reads `weighbridge_host` setting from app_settings
+- Proxies requests to desktop-app's serial port weighbridge API
+- Settings UI: `Settings > Weighbridge > Desktop App URL` (for LAN browsers)
+- Desktop-app and Python backend also have `/api/settings/weighbridge-host` GET/PUT for parity
+
+## Paddy Custody Register
+- "Released (Qtl)" sourced from `paddy_release` collection instead of `milling_entries` (all 3 backends)
 
 ## Previous Changes (Feb 2026)
 - Dynamic PDF/Excel columns verified in Python backend (hides Cash/Diesel/Advance when all zero)
