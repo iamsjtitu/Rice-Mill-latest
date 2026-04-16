@@ -73,6 +73,7 @@
 3. NEVER use sed/bash bulk replace on source code files
 4. After ANY backend modification, run `bash /app/scripts/sync-js-routes.sh`
 5. By-product list is HARDCODED in 7 products - do NOT make dynamic
+6. **EVERY fix/feature MUST bump version + add What's New entry** — no exceptions
 
 ## Prioritized Backlog
 - P3: Triple backend code deduplication

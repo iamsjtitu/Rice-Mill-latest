@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "95.0.0",
+    date: "Apr 2026",
+    title: "v95.0.0 - Vehicle Weight View Dialog Fix + LAN Weighbridge",
+    items: [
+      { type: "fix", text: "View Dialog: Gross Weight, Tare Weight, Remark, Avg/Bag ab properly dikhta hai" },
+      { type: "fix", text: "Photos API: gross_wt aur tare_wt fields add kiye (all 3 backends)" },
+      { type: "new", text: "LAN Weighbridge: Local-server ab desktop-app se weight data proxy karta hai" },
+      { type: "new", text: "Settings > Weighbridge: Desktop App URL config for LAN browsers" },
+    ],
+  },
+  {
     version: "93.0.0",
     date: "Apr 2026",
     title: "v94.0.0 - Professional Weight Report PDF + Branding System",
