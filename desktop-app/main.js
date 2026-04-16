@@ -1387,6 +1387,24 @@ function createApiServer(database) {
     res.json({ engine: dbEngine });
   }));
 
+  // ===== WEIGHBRIDGE HOST SETTINGS =====
+  apiApp.get('/api/settings/weighbridge-host', safeSync((req, res) => {
+    const settings = database.data.app_settings || [];
+    const wbSetting = settings.find(s => s.setting_id === 'weighbridge_host');
+    res.json({ url: wbSetting?.value || '' });
+  }));
+
+  apiApp.put('/api/settings/weighbridge-host', safeSync(async (req, res) => {
+    const { url } = req.body || {};
+    if (!database.data.app_settings) database.data.app_settings = [];
+    const idx = database.data.app_settings.findIndex(s => s.setting_id === 'weighbridge_host');
+    const setting = { setting_id: 'weighbridge_host', value: (url || '').trim(), updated_at: new Date().toISOString() };
+    if (idx >= 0) database.data.app_settings[idx] = setting;
+    else database.data.app_settings.push(setting);
+    await database.save();
+    res.json({ success: true, url: setting.value });
+  }));
+
   // ===== SESSION HEARTBEAT SYSTEM =====
   const computerName = os.hostname();
   const sessionsDir = path.join(database.dataFolder, 'sessions');

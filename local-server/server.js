@@ -1182,6 +1182,55 @@ async function startServer() {
     res.json({ engine: dbEngine });
   });
 
+  // ===== WEIGHBRIDGE PROXY (forward to Desktop App serial port) =====
+  app.get('/api/weighbridge/live-weight', async (req, res) => {
+    try {
+      const settings = database.data.app_settings || [];
+      const wbSetting = settings.find(s => s.setting_id === 'weighbridge_host');
+      const desktopUrl = wbSetting?.value;
+      if (!desktopUrl) {
+        return res.json({ weight: 0, stable: false, connected: false, error: 'weighbridge_host not configured. Settings > Weighbridge mai Desktop App URL set karein.' });
+      }
+      const http = require('http');
+      const url = `${desktopUrl}/api/weighbridge/live-weight`;
+      const proxyReq = http.get(url, { timeout: 2000 }, (proxyRes) => {
+        let body = '';
+        proxyRes.on('data', chunk => { body += chunk; });
+        proxyRes.on('end', () => {
+          try { res.json(JSON.parse(body)); }
+          catch (e) { res.json({ weight: 0, stable: false, connected: false }); }
+        });
+      });
+      proxyReq.on('error', () => {
+        res.json({ weight: 0, stable: false, connected: false, error: 'Desktop App connect nahi ho paya' });
+      });
+      proxyReq.on('timeout', () => {
+        proxyReq.destroy();
+        res.json({ weight: 0, stable: false, connected: false, error: 'Desktop App timeout' });
+      });
+    } catch (e) {
+      res.json({ weight: 0, stable: false, connected: false });
+    }
+  });
+
+  // ===== WEIGHBRIDGE HOST SETTINGS =====
+  app.get('/api/settings/weighbridge-host', (req, res) => {
+    const settings = database.data.app_settings || [];
+    const wbSetting = settings.find(s => s.setting_id === 'weighbridge_host');
+    res.json({ url: wbSetting?.value || '' });
+  });
+
+  app.put('/api/settings/weighbridge-host', async (req, res) => {
+    const { url } = req.body || {};
+    if (!database.data.app_settings) database.data.app_settings = [];
+    const idx = database.data.app_settings.findIndex(s => s.setting_id === 'weighbridge_host');
+    const setting = { setting_id: 'weighbridge_host', value: (url || '').trim(), updated_at: new Date().toISOString() };
+    if (idx >= 0) database.data.app_settings[idx] = setting;
+    else database.data.app_settings.push(setting);
+    await database.save();
+    res.json({ success: true, url: setting.value });
+  });
+
   // ===== SERVE FRONTEND (AFTER all API routes) =====
   if (fs.existsSync(PUBLIC_DIR)) {
     // Serve static assets (JS/CSS/images) but NOT index.html (we inject API URL into it)

@@ -454,6 +454,8 @@ module.exports = function(database) {
       second_wt: entry.second_wt || 0,
       second_wt_time: entry.second_wt_time || '',
       net_wt: entry.net_wt || 0,
+      gross_wt: entry.gross_wt || 0,
+      tare_wt: entry.tare_wt || 0,
       remark: entry.remark || '',
       cash_paid: entry.cash_paid || 0,
       diesel_paid: entry.diesel_paid || 0,

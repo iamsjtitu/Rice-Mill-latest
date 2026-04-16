@@ -79,6 +79,8 @@ async def get_entry_photos(entry_id: str):
         "second_wt": entry.get("second_wt", 0),
         "second_wt_time": entry.get("second_wt_time", ""),
         "net_wt": entry.get("net_wt", 0),
+        "gross_wt": entry.get("gross_wt", 0),
+        "tare_wt": entry.get("tare_wt", 0),
         "remark": entry.get("remark", ""),
         "cash_paid": entry.get("cash_paid", 0),
         "diesel_paid": entry.get("diesel_paid", 0),
@@ -1581,6 +1583,21 @@ async def image_cleanup_scheduler():
 async def get_storage_engine():
     return {"engine": "mongodb"}
 
+
+@router.get("/settings/weighbridge-host")
+async def get_weighbridge_host():
+    setting = await db["app_settings"].find_one({"setting_id": "weighbridge_host"}, {"_id": 0})
+    return {"url": setting.get("value", "") if setting else ""}
+
+@router.put("/settings/weighbridge-host")
+async def set_weighbridge_host(data: dict):
+    url = (data.get("url") or "").strip()
+    await db["app_settings"].update_one(
+        {"setting_id": "weighbridge_host"},
+        {"$set": {"setting_id": "weighbridge_host", "value": url, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+    return {"success": True, "url": url}
 
 @router.get("/weighbridge/live-weight")
 async def get_live_weight():
