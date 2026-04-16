@@ -24,8 +24,7 @@ import LocalPartyAccount from "./payments/LocalPartyAccount";
 import DieselAccount from "./payments/DieselAccount";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
-import { GunnyBags } from "./DCTracker";
-import DCTracker from "./DCTracker";
+
 import LeasedTruck from "./LeasedTruck";
 import { useConfirm } from "./ConfirmProvider";
 import RoundOffInput from "./common/RoundOffInput";
@@ -932,18 +931,6 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
           <Truck className="w-4 h-4 mr-1" />
           Leased Truck
         </Button>
-        <Button
-          onClick={() => setActivePaymentTab("dc-payments")}
-          variant={activePaymentTab === "dc-payments" ? "default" : "ghost"}
-          size="sm"
-          className={activePaymentTab === "dc-payments" 
-            ? "bg-emerald-500 hover:bg-emerald-600 text-white" 
-            : "text-slate-300 hover:bg-slate-700"}
-          data-testid="tab-dc-payments"
-        >
-          <Truck className="w-4 h-4 mr-1" />
-          DC (Payments)
-        </Button>
       </div>
 
       {/* Truck Filter & Export - Only for Truck Tab */}
@@ -1597,7 +1584,6 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
       {activePaymentTab === "diesel" && <DieselAccount filters={filters} user={user} />}
       {activePaymentTab === "local-party" && <LocalPartyAccount filters={filters} user={user} />}
       {activePaymentTab === "leased-truck" && <LeasedTruck filters={filters} />}
-      {activePaymentTab === "dc-payments" && <DCTracker filters={filters} user={user} />}
 
       {/* Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>

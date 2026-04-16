@@ -8,6 +8,7 @@ import { PaddyPurchase, PartySummary } from "./PaddyPurchase";
 import ByProductSaleRegister from "./ByProductSaleRegister";
 import OilPremiumRegister from "./OilPremiumRegister";
 import PaddyPurchaseRegister from "./PaddyPurchaseRegister";
+import DCTracker from "./DCTracker";
 import { PaddyCustodyRegister, TransitPassRegister, MillingRegister } from "./GovtRegisters";
 
 const tabs = [
@@ -20,6 +21,7 @@ const tabs = [
 ];
 
 const SALE_CATEGORIES = [
+  { id: "govt_rice_dc", label: "Govt Rice / DC", type: "dc_tracker" },
   { id: "private_rice", label: "Pvt Rice", type: "salebook", itemName: "Rice (Raw)" },
   { id: "rice_bran", label: "Rice Bran", type: "bp", product: "Rice Bran" },
   { id: "mota_kunda", label: "Mota Kunda", type: "bp", product: "Mota Kunda" },
@@ -86,7 +88,9 @@ export default function Vouchers({ filters, user, onNavigate }) {
             </div>
           )}
 
-          {activeCat?.type === "salebook" ? (
+          {activeCat?.type === "dc_tracker" ? (
+            <DCTracker filters={filters} user={user} />
+          ) : activeCat?.type === "salebook" ? (
             <SaleBook key={saleCat} filters={filters} user={user} category={activeCat.itemName} />
           ) : saleCat === "rice_bran" ? (
             branSubTab === "oil_premium" ? (

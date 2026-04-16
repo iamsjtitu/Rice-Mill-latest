@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "101.16.0",
+    date: "Apr 2026",
+    title: "v101.16.0 - DC Tracker Moved to Sales Register",
+    items: [
+      { type: "new", text: "Register > Sales Register > Govt Rice / DC — DC Tracker yahan shift hua" },
+      { type: "fix", text: "Payments se DC (Payments) tab hataya" },
+      { type: "fix", text: "Milling Register PDF NaN fix" },
+    ],
+  },
+  {
     version: "101.15.0",
     date: "Apr 2026",
     title: "v101.15.0 - Milling Register PDF Fix",
