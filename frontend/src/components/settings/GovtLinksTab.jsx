@@ -40,7 +40,7 @@ export default function GovtLinksTab() {
       const cleaned = links.filter(l => l.name && l.url).map(l => ({
         id: l.id || undefined, name: l.name, url: l.url, username: l.username || '', password: l.password || ''
       }));
-      await axios.put(`${API}/govt-links`, cleaned);
+      await axios.post(`${API}/govt-links`, cleaned);
       toast.success("Govt Links saved!");
       fetchLinks();
     } catch (e) { toast.error("Save failed"); logger.error(e); }

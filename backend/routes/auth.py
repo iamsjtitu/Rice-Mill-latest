@@ -646,3 +646,14 @@ async def save_govt_links(links: list):
         await db.govt_links.insert_many(links)
     return {"success": True, "count": len(links)}
 
+@router.post("/govt-links")
+async def save_govt_links_post(links: list):
+    await db.govt_links.delete_many({})
+    if links:
+        for i, link in enumerate(links):
+            if not link.get("id"):
+                link["id"] = str(uuid.uuid4())
+            link["order"] = i
+        await db.govt_links.insert_many(links)
+    return {"success": True, "count": len(links)}
+

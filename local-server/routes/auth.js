@@ -539,7 +539,15 @@ module.exports = function(database) {
   }));
 
   router.put('/api/govt-links', safeSync(async (req, res) => {
-    const links = req.body || [];
+    const links = Array.isArray(req.body) ? req.body : [];
+    links.forEach((l, i) => { if (!l.id) l.id = require('crypto').randomUUID(); l.order = i; });
+    database.data.govt_links = links;
+    await database.save();
+    res.json({ success: true, count: links.length });
+  }));
+
+  router.post('/api/govt-links', safeSync(async (req, res) => {
+    const links = Array.isArray(req.body) ? req.body : [];
     links.forEach((l, i) => { if (!l.id) l.id = require('crypto').randomUUID(); l.order = i; });
     database.data.govt_links = links;
     await database.save();
