@@ -74,6 +74,7 @@
 4. After ANY backend modification, run `bash /app/scripts/sync-js-routes.sh`
 5. By-product list is HARDCODED in 7 products - do NOT make dynamic
 6. **EVERY fix/feature MUST bump version + add What's New entry** — no exceptions
+7. **USER USES DESKTOP APP ONLY** — All issues reported are for desktop-app (Electron + Express + Local JSON). Always check/fix in `/app/desktop-app/` first. Python backend is secondary.
 
 ## Prioritized Backlog
 - P3: Triple backend code deduplication
