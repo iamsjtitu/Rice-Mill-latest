@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "101.4.0",
+    date: "Apr 2026",
+    title: "v101.4.0 - Milling Register + TP Weight Stock Fix",
+    items: [
+      { type: "fix", text: "Desktop: /api/govt-registers/tp-weight-stock endpoint add kiya (404 fix)" },
+      { type: "fix", text: "Desktop: Milling Register GET + Excel + PDF endpoints add kiye" },
+    ],
+  },
+  {
     version: "101.3.0",
     date: "Apr 2026",
     title: "v101.3.0 - Milling Register Desktop Fix",

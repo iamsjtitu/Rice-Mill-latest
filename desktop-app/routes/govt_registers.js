@@ -868,6 +868,20 @@ module.exports = function(database) {
     await wb.xlsx.write(res); res.end();
   }));
 
+  // ============ TP WEIGHT STOCK ============
+
+  router.get('/api/govt-registers/tp-weight-stock', safeSync(async (req, res) => {
+    const { kms_year, season } = req.query;
+    const weights = (database.data.vehicle_weights || []).filter(e => {
+      if (!e.tp_weight || Number(e.tp_weight) <= 0) return false;
+      if (kms_year && e.kms_year !== kms_year) return false;
+      if (season && e.season !== season) return false;
+      return true;
+    });
+    const total = Math.round(weights.reduce((s, e) => s + (Number(e.tp_weight) || 0), 0) * 100) / 100;
+    res.json({ total_tp_weight: total, count: weights.length });
+  }));
+
   // ============ MILLING REGISTER ============
 
   function _fmtDateShort(d) {
