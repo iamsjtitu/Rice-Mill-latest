@@ -73,7 +73,7 @@
 3. NEVER use sed/bash bulk replace on source code files
 4. After ANY backend modification, run `bash /app/scripts/sync-js-routes.sh`
 5. By-product list is HARDCODED in 7 products - do NOT make dynamic
-6. **EVERY fix/feature MUST bump version + add What's New entry** — no exceptions
+6. **EVERY fix/feature MUST bump version + add What's New entry** — no exceptions. Use MINOR version (101.1.0, 101.2.0) for fixes, MAJOR (102.0.0) only for big features
 7. **USER USES DESKTOP APP ONLY** — All issues reported are for desktop-app (Electron + Express + Local JSON). Always check/fix in `/app/desktop-app/` first. Python backend is secondary.
 8. **WHITE THEME** — Desktop app uses white/light theme. All new UI elements (totals, highlights, badges) must use light colors (amber-50, green-700, etc.) NOT dark theme colors (slate-900, green-400, etc.)
 
