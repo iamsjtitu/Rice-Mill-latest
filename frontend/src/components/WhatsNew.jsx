@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "101.15.0",
+    date: "Apr 2026",
+    title: "v101.15.0 - Milling Register PDF Fix",
+    items: [
+      { type: "fix", text: "Milling Register PDF: NaN error fix — addPdfHeader galat params se call ho raha tha" },
+    ],
+  },
+  {
     version: "101.14.0",
     date: "Apr 2026",
     title: "v101.14.0 - Smart Search: Frontend Date Skip Fix",

@@ -1073,16 +1073,12 @@ module.exports = function(database) {
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 10 });
     const { promise, stream } = safePdfPipe(doc, res, `milling_register_${kms_year || 'all'}.pdf`);
 
-    const headerH = addPdfHeader(doc, branding, 10);
-    let y = headerH + 14;
-
-    // Title
     let title = 'MILLING REGISTER';
     if (kms_year) title += ` - KMS ${kms_year}`;
     if (season) title += ` (${season})`;
-    doc.rect(10, y, doc.page.width - 20, 16).fill('#2E75B6');
-    doc.fontSize(9).font('Helvetica-Bold').fillColor('#fff').text(title, 10, y + 3, { width: doc.page.width - 20, align: 'center' });
-    y += 20;
+    const sub = `Records: ${rows.length}`;
+    addPdfHeader(doc, title, branding, sub);
+    let y = doc.y + 4;
 
     const headers = ['Date', 'Month', 'OB\nPaddy', 'Rcvd from\nCM A/c', 'Total\nPaddy', 'Issue For\nMilling', 'Prog Rcpt\nPaddy', 'Prog Mill\nPaddy', 'CB\nPaddy', 'OB\nRice', 'Rice Rcpt\nMilling', 'Total\nRice', 'Del\nRRC', 'Del\nFCI', 'Prog Rice\nMill', 'Prog Rice\nDel', 'CB\nRice'];
     let colW = [42, 28, 36, 48, 38, 42, 45, 45, 38, 32, 45, 38, 40, 40, 45, 45, 38];
