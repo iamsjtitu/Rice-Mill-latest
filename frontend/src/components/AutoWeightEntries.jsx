@@ -334,14 +334,13 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
                   <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">TP Wt</TableHead>
                   <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Cash</TableHead>
                   <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Diesel</TableHead>
-                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Avg/Bag</TableHead>
                   <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Remark</TableHead>
                   <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {entries.length === 0 ? (
-                  <TableRow><TableCell colSpan={18} className="text-center text-slate-500 py-8 text-xs" data-testid="awe-no-entries">
+                  <TableRow><TableCell colSpan={17} className="text-center text-slate-500 py-8 text-xs" data-testid="awe-no-entries">
                     Koi entry nahi mili - Filter change karke dekhein
                   </TableCell></TableRow>
                 ) : entries.map((e, i) => {
@@ -363,7 +362,6 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
                       <TableCell className="py-2 px-3 text-xs text-right text-slate-400 font-mono">{Number(e.tp_weight || 0) > 0 ? Number(e.tp_weight) : '-'}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-amber-700 font-semibold">{e.cash_paid ? fmtWt(e.cash_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-red-600 font-semibold">{e.diesel_paid ? fmtWt(e.diesel_paid) : '-'}</TableCell>
-                      <TableCell className="py-2 px-3 text-xs text-right text-blue-700 font-mono">{(Number(e.net_wt || 0) > 0 && Number(e.tot_pkts || 0) > 0) ? (Number(e.net_wt) / Number(e.tot_pkts)).toFixed(1) : '-'}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-slate-400 max-w-[120px] truncate" title={e.remark || ''}>{e.remark || '-'}</TableCell>
                       <TableCell className="py-2 px-3">
                         <div className="flex items-center gap-0.5 justify-center">
@@ -383,6 +381,21 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
                     </TableRow>
                   );
                 })}
+                {entries.length > 0 && (
+                  <TableRow className="border-slate-600 bg-slate-900/80 font-bold">
+                    <TableCell colSpan={7} className="py-2 px-3 text-right text-amber-500 text-[10px] font-bold">TOTAL</TableCell>
+                    <TableCell className="text-blue-400 text-xs py-2 px-3 text-right font-mono">{fmtWt(entries.reduce((s, e) => s + Number(e.first_wt || 0), 0))}</TableCell>
+                    <TableCell className="text-blue-400 text-xs py-2 px-3 text-right font-mono">{fmtWt(entries.reduce((s, e) => s + Number(e.second_wt || 0), 0))}</TableCell>
+                    <TableCell className="text-green-400 text-sm py-2 px-3 text-right font-mono font-black">{fmtWt(entries.reduce((s, e) => s + Number(e.net_wt || 0), 0))}</TableCell>
+                    <TableCell className="text-xs py-2 px-3"></TableCell>
+                    <TableCell className="text-xs py-2 px-3"></TableCell>
+                    <TableCell className="text-xs py-2 px-3"></TableCell>
+                    <TableCell className="text-amber-400 text-xs py-2 px-3 text-right font-mono">{fmtWt(entries.reduce((s, e) => s + Number(e.cash_paid || 0), 0))}</TableCell>
+                    <TableCell className="text-red-400 text-xs py-2 px-3 text-right font-mono">{fmtWt(entries.reduce((s, e) => s + Number(e.diesel_paid || 0), 0))}</TableCell>
+                    <TableCell className="text-xs py-2 px-3"></TableCell>
+                    <TableCell className="text-xs py-2 px-3"></TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
             <PaginationBar page={page} totalPages={totalPages} total={totalCount} pageSize={PAGE_SIZE}

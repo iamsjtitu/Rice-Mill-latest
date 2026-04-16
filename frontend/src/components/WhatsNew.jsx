@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "100.0.0",
+    date: "Apr 2026",
+    title: "v100.0.0 - Table Totals + Avg/Bag Column Removed",
+    items: [
+      { type: "fix", text: "Avg/Bag column table se hataya — sirf print slip + view dialog mein dikhega" },
+      { type: "new", text: "Auto Vehicle Weight + Auto Weight Entries: Table ke niche TOTAL row (1st Wt, 2nd Wt, Net Wt, Cash, Diesel)" },
+      { type: "fix", text: "Print Slip: Remark + Avg/Bag info rows dono copies mein" },
+    ],
+  },
+  {
     version: "99.0.0",
     date: "Apr 2026",
     title: "v99.0.0 - Print Slip: Remark + Avg/Bag Fix",
