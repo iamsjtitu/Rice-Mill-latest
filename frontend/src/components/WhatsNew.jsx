@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "101.12.0",
+    date: "Apr 2026",
+    title: "v101.12.0 - Transit Pass Auto-Migration Fix",
+    items: [
+      { type: "fix", text: "Startup migration: Purani entries ka tp_no automatically string normalize — T.P. Register ab turant load" },
+    ],
+  },
+  {
     version: "101.11.0",
     date: "Apr 2026",
     title: "v101.11.0 - Transit Pass TP Filter Fix",

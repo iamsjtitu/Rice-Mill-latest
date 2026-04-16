@@ -2586,6 +2586,25 @@ async function startApplication(folderPath) {
       db.startFileWatcher();
       console.log('[Startup] File watcher started for external sync detection');
     }
+
+    // Data migration: normalize tp_no field in entries (ensure string type)
+    if (db && db.data && db.data.entries) {
+      let migrated = 0;
+      db.data.entries.forEach(e => {
+        if (e.tp_no !== undefined && e.tp_no !== null && e.tp_no !== '' && typeof e.tp_no !== 'string') {
+          e.tp_no = String(e.tp_no);
+          migrated++;
+        }
+        if (e.tp_weight !== undefined && e.tp_weight !== null && e.tp_weight !== '' && typeof e.tp_weight !== 'string') {
+          e.tp_weight = String(e.tp_weight);
+          migrated++;
+        }
+      });
+      if (migrated > 0) {
+        db.save();
+        console.log(`[Migration] Normalized ${migrated} tp_no/tp_weight fields to string`);
+      }
+    }
   }, 3000);
 
   // Daily backup check
