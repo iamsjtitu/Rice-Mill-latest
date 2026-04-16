@@ -38,7 +38,7 @@ function F(weight) {
 
 /**
  * Draw watermark on the current page of a pdfkit document.
- * Called from addPdfHeader (first page) and via pageAdded event (subsequent pages).
+ * Text watermark rendered as vector glyph paths (non-selectable, no text artifacts).
  */
 function drawWatermark(doc, settings) {
   if (!settings || !settings.enabled) return;
@@ -61,13 +61,40 @@ function drawWatermark(doc, settings) {
       const tw = doc.widthOfString(text);
       const stepX = Math.max(tw * 1.1, 200);
       const stepY = Math.max(fontSize * 2.5, 150);
-      // Tile watermark across full page
+      // Tile watermark as vector glyph paths (non-selectable text)
+      const font = doc._font;
+      const canUseGlyphs = font && font.font && font.font.layout && font.font.unitsPerEm;
       for (let y = -h * 0.3; y < h * 1.3; y += stepY) {
         for (let x = -w * 0.3; x < w * 1.3; x += stepX) {
           doc.save();
           doc.translate(x, y);
           doc.rotate(-rotation, { origin: [0, 0] });
-          doc.text(text, -tw / 2, -fontSize / 2, { lineBreak: false });
+          if (canUseGlyphs) {
+            try {
+              const run = font.font.layout(text);
+              const scale = fontSize / font.font.unitsPerEm;
+              const yPos = -fontSize / 2 + fontSize * 0.8;
+              doc.save();
+              doc.translate(-tw / 2, yPos);
+              doc.scale(scale, -scale);
+              for (let i = 0; i < run.glyphs.length; i++) {
+                const glyph = run.glyphs[i];
+                const pos = run.positions[i];
+                if (glyph.path) {
+                  doc.save();
+                  doc.translate(pos.xOffset, pos.yOffset);
+                  doc.path(glyph.path.toSVG()).fill('#9ca3af');
+                  doc.restore();
+                }
+                doc.translate(pos.xAdvance, pos.yAdvance);
+              }
+              doc.restore();
+            } catch(e) {
+              doc.text(text, -tw / 2, -fontSize / 2, { lineBreak: false });
+            }
+          } else {
+            doc.text(text, -tw / 2, -fontSize / 2, { lineBreak: false });
+          }
           doc.restore();
         }
       }

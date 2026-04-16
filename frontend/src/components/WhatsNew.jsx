@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "97.0.0",
+    date: "Apr 2026",
+    title: "v97.0.0 - Desktop Watermark Fix + Weight Bar Layout",
+    items: [
+      { type: "fix", text: "Desktop PDF watermark ab vector path se render hota hai — text select/\\ artifact fix" },
+      { type: "fix", text: "Weight Summary Bar: KG values ab ek line mein — whitespace-nowrap applied" },
+    ],
+  },
+  {
     version: "96.0.0",
     date: "Apr 2026",
     title: "v96.0.0 - Auto Weight Entries Parity + PDF Download Fix",

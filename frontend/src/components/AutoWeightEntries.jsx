@@ -467,31 +467,31 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
             </table>
             <div className="flex border-t-[2px] border-gray-800">
               <div className="flex-1 text-center py-1.5 border-r border-gray-400 bg-slate-700">
-                <span className="block text-[8px] font-bold text-slate-400 uppercase">Gross / कुल</span>
-                <span className="block text-sm font-black text-slate-100">{fmtWt(photoDialog.data.gross_wt || Math.max(photoDialog.data.first_wt || 0, photoDialog.data.second_wt || 0))} KG</span>
+                <span className="block text-[8px] font-bold text-slate-400 uppercase whitespace-nowrap">Gross / कुल</span>
+                <span className="block text-sm font-black text-slate-100 whitespace-nowrap">{fmtWt(photoDialog.data.gross_wt || Math.max(photoDialog.data.first_wt || 0, photoDialog.data.second_wt || 0))} KG</span>
               </div>
               <div className="flex-1 text-center py-1.5 border-r border-gray-400 bg-slate-700">
-                <span className="block text-[8px] font-bold text-slate-400 uppercase">Tare / खाली</span>
-                <span className="block text-sm font-black text-slate-100">{fmtWt(photoDialog.data.tare_wt || Math.min(photoDialog.data.first_wt || 0, photoDialog.data.second_wt || 0))} KG</span>
+                <span className="block text-[8px] font-bold text-slate-400 uppercase whitespace-nowrap">Tare / खाली</span>
+                <span className="block text-sm font-black text-slate-100 whitespace-nowrap">{fmtWt(photoDialog.data.tare_wt || Math.min(photoDialog.data.first_wt || 0, photoDialog.data.second_wt || 0))} KG</span>
               </div>
               <div className="flex-1 text-center py-1.5 border-r border-gray-400" style={{ background: '#e8f5e9' }}>
-                <span className="block text-[8px] font-bold text-green-800 uppercase">Net / शुद्ध</span>
-                <span className="block text-base font-black text-green-900">{fmtWt(photoDialog.data.net_wt)} KG</span>
+                <span className="block text-[8px] font-bold text-green-800 uppercase whitespace-nowrap">Net / शुद्ध</span>
+                <span className="block text-base font-black text-green-900 whitespace-nowrap">{fmtWt(photoDialog.data.net_wt)} KG</span>
               </div>
               <div className="flex-1 text-center py-1.5 border-r border-gray-400" style={{ background: '#e3f2fd' }}>
-                <span className="block text-[8px] font-bold text-blue-800 uppercase">Avg/Bag / प्रति बोरा</span>
-                <span className="block text-sm font-black text-blue-900">{(Number(photoDialog.data.net_wt || 0) && Number(photoDialog.data.tot_pkts || 0) > 0) ? (Number(photoDialog.data.net_wt) / Number(photoDialog.data.tot_pkts)).toFixed(2) : '-'} KG</span>
+                <span className="block text-[8px] font-bold text-blue-800 uppercase whitespace-nowrap">Avg/Bag / प्रति बोरा</span>
+                <span className="block text-sm font-black text-blue-900 whitespace-nowrap">{(Number(photoDialog.data.net_wt || 0) && Number(photoDialog.data.tot_pkts || 0) > 0) ? (Number(photoDialog.data.net_wt) / Number(photoDialog.data.tot_pkts)).toFixed(2) : '-'} KG</span>
               </div>
               {Number(photoDialog.data.cash_paid || 0) > 0 && (
                 <div className="flex-1 text-center py-1.5 border-r border-gray-400" style={{ background: '#fff3e0' }}>
-                  <span className="block text-[8px] font-bold text-orange-800 uppercase">Cash / नकद</span>
-                  <span className="block text-sm font-black text-orange-900">{Number(photoDialog.data.cash_paid).toLocaleString()}</span>
+                  <span className="block text-[8px] font-bold text-orange-800 uppercase whitespace-nowrap">Cash / नकद</span>
+                  <span className="block text-sm font-black text-orange-900 whitespace-nowrap">{Number(photoDialog.data.cash_paid).toLocaleString()}</span>
                 </div>
               )}
               {Number(photoDialog.data.diesel_paid || 0) > 0 && (
                 <div className="flex-1 text-center py-1.5" style={{ background: '#fff3e0' }}>
-                  <span className="block text-[8px] font-bold text-orange-800 uppercase">Diesel / डीजल</span>
-                  <span className="block text-sm font-black text-orange-900">{Number(photoDialog.data.diesel_paid).toLocaleString()}</span>
+                  <span className="block text-[8px] font-bold text-orange-800 uppercase whitespace-nowrap">Diesel / डीजल</span>
+                  <span className="block text-sm font-black text-orange-900 whitespace-nowrap">{Number(photoDialog.data.diesel_paid).toLocaleString()}</span>
                 </div>
               )}
             </div>
