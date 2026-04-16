@@ -68,8 +68,11 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
     try {
       const p = fetchPage || page;
       const fp = new URLSearchParams({ kms_year: kms, status: "completed", page: p, page_size: PAGE_SIZE });
-      if (vwFilters.date_from) fp.append("date_from", vwFilters.date_from);
-      if (vwFilters.date_to) fp.append("date_to", vwFilters.date_to);
+      const hasAweSearch = vwFilters.vehicle_no || vwFilters.party_name || vwFilters.farmer_name || vwFilters.rst_no;
+      if (!hasAweSearch) {
+        if (vwFilters.date_from) fp.append("date_from", vwFilters.date_from);
+        if (vwFilters.date_to) fp.append("date_to", vwFilters.date_to);
+      }
       if (vwFilters.vehicle_no) fp.append("vehicle_no", vwFilters.vehicle_no);
       if (vwFilters.party_name) fp.append("party_name", vwFilters.party_name);
       if (vwFilters.farmer_name) fp.append("farmer_name", vwFilters.farmer_name);

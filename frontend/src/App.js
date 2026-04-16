@@ -442,8 +442,12 @@ function MainApp({ user, setUser, onLogout }) {
       if (filters.mandi_name) params.append('mandi_name', filters.mandi_name);
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
       if (filters.season) params.append('season', filters.season);
-      if (filters.date_from) params.append('date_from', filters.date_from);
-      if (filters.date_to) params.append('date_to', filters.date_to);
+      // Skip date filter when any search field is active
+      const hasSearch = filters.truck_no || filters.rst_no || filters.tp_no || filters.agent_name || filters.mandi_name;
+      if (!hasSearch) {
+        if (filters.date_from) params.append('date_from', filters.date_from);
+        if (filters.date_to) params.append('date_to', filters.date_to);
+      }
       params.append('page', p);
       params.append('page_size', ENTRIES_PAGE_SIZE);
       
@@ -472,8 +476,11 @@ function MainApp({ user, setUser, onLogout }) {
       if (filters.mandi_name) params.append('mandi_name', filters.mandi_name);
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
       if (filters.season) params.append('season', filters.season);
-      if (filters.date_from) params.append('date_from', filters.date_from);
-      if (filters.date_to) params.append('date_to', filters.date_to);
+      const hasSearch = filters.truck_no || filters.agent_name || filters.mandi_name;
+      if (!hasSearch) {
+        if (filters.date_from) params.append('date_from', filters.date_from);
+        if (filters.date_to) params.append('date_to', filters.date_to);
+      }
       
       const response = await axios.get(`${API}/totals?${params.toString()}`, { signal: ctrl.signal });
       if (!ctrl.signal.aborted) setTotals(response.data);

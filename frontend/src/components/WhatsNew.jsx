@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "101.14.0",
+    date: "Apr 2026",
+    title: "v101.14.0 - Smart Search: Frontend Date Skip Fix",
+    items: [
+      { type: "fix", text: "Mill Entries + Vehicle Weight + Auto Weight: Search karne pe date filter skip — frontend se hi date params nahi jaate" },
+    ],
+  },
+  {
     version: "101.13.0",
     date: "Apr 2026",
     title: "v101.13.0 - Smart Search: Date Filter Auto-Skip",
