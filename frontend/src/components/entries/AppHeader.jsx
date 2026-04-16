@@ -73,7 +73,7 @@ export const AppHeader = ({
         await navigator.clipboard.writeText(link.username);
         toast(`Username copied: ${link.username}`, {
           description: 'Portal mein paste karein, phir neeche "Copy Password" click karein',
-          duration: 60000,
+          duration: 10000,
           action: {
             label: 'Copy Password',
             onClick: async () => {
