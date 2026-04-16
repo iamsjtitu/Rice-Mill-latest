@@ -46,6 +46,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   downloadAndSave: (url, filename) => ipcRenderer.invoke('download-and-save', url, filename),
   // Close/Quit app
   closeApp: () => ipcRenderer.send('close-app'),
+  // Govt Link - open in new window with auto-fill
+  openGovtLink: (data) => ipcRenderer.send('open-govt-link', data),
 });
 
 // Fix typing issue: detect when keyboard stops working and force focus

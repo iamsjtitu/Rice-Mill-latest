@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "102.3.0",
+    date: "Apr 2026",
+    title: "v102.3.0 - Govt Links Auto-Fill Login",
+    items: [
+      { type: "new", text: "Desktop: Govt Link click pe naya window khulta hai — Username + Password auto-fill hota hai!" },
+      { type: "new", text: "Common selectors try karta hai (username, userid, password fields) + retry for dynamic pages" },
+    ],
+  },
+  {
     version: "102.0.0",
     date: "Apr 2026",
     title: "v102.0.0 - Govt Useful Links",

@@ -60,18 +60,20 @@ export const AppHeader = ({
   }, []);
 
   const openGovtLink = async (link) => {
-    // Open URL in new tab
+    // Electron: open in new BrowserWindow with auto-fill
+    if (typeof window !== 'undefined' && window.electronAPI?.openGovtLink) {
+      window.electronAPI.openGovtLink({ url: link.url, username: link.username || '', password: link.password || '' });
+      toast.success(`${link.name} khul raha hai — Username/Password auto-fill hoga!`);
+      return;
+    }
+    // Browser fallback: open + copy credentials
     window.open(link.url, '_blank');
-    
-    // Step 1: Copy username to clipboard
     if (link.username) {
       try {
         await navigator.clipboard.writeText(link.username);
         toast.success(`Username copied! Ab portal mein paste karein.`, { duration: 3000 });
       } catch(e) {}
     }
-    
-    // Step 2: After 3 seconds, auto-copy password
     if (link.password) {
       setTimeout(async () => {
         try {
