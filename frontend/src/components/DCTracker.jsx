@@ -981,38 +981,11 @@ export const GunnyBags = ({ filters, user }) => {
   );
 };
 
-// ===== MAIN DC TRACKER COMPONENT =====
+// ===== MAIN DC TRACKER COMPONENT (Govt Rice / DC) =====
 const DCTracker = ({ filters, user }) => {
-  const [activeSubTab, setActiveSubTab] = useState("dc");
-  const [dcList, setDcList] = useState([]);
-
-  useEffect(() => {
-    const fetchDCs = async () => {
-      try {
-        const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
-        const res = await axios.get(`${API}/dc-entries?${p}`);
-        setDcList(res.data);
-      } catch (e) { /* ignore */ }
-    };
-    fetchDCs();
-  }, [filters.kms_year, filters.season, activeSubTab]);
-
   return (
     <div className="space-y-3" data-testid="dc-tracker">
-      <div className="flex gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700 w-fit">
-        {[
-          { id: "dc", label: "DC / Delivery Challan", icon: ClipboardList },
-          { id: "msp", label: "MSP Payments", icon: IndianRupee },
-        ].map(({ id, label, icon: Icon }) => (
-          <Button key={id} onClick={() => setActiveSubTab(id)} variant={activeSubTab === id ? "default" : "ghost"} size="sm"
-            className={activeSubTab === id ? "bg-amber-500 text-slate-900" : "text-slate-400 hover:text-white hover:bg-slate-700"}
-            data-testid={`subtab-${id}`}>
-            <Icon className="w-4 h-4 mr-1" /> {label}
-          </Button>
-        ))}
-      </div>
-      {activeSubTab === "dc" && <DCEntries filters={filters} user={user} />}
-      {activeSubTab === "msp" && <MSPPayments filters={filters} user={user} dcList={dcList} />}
+      <DCEntries filters={filters} user={user} />
     </div>
   );
 };

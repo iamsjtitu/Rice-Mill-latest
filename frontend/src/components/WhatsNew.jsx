@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "101.17.0",
+    date: "Apr 2026",
+    title: "v101.17.0 - MSP Payments Back to Payments Tab",
+    items: [
+      { type: "fix", text: "MSP Payments wapas Payments tab mein — Sales Register mein sirf Govt Rice / DC" },
+    ],
+  },
+  {
     version: "101.16.0",
     date: "Apr 2026",
     title: "v101.16.0 - DC Tracker Moved to Sales Register",

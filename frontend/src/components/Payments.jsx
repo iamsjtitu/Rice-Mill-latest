@@ -26,6 +26,7 @@ import { SendToGroupDialog } from "./SendToGroupDialog";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 
 import LeasedTruck from "./LeasedTruck";
+import { MSPPayments } from "./DCTracker";
 import { useConfirm } from "./ConfirmProvider";
 import RoundOffInput from "./common/RoundOffInput";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -931,6 +932,18 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
           <Truck className="w-4 h-4 mr-1" />
           Leased Truck
         </Button>
+        <Button
+          onClick={() => setActivePaymentTab("msp-payments")}
+          variant={activePaymentTab === "msp-payments" ? "default" : "ghost"}
+          size="sm"
+          className={activePaymentTab === "msp-payments" 
+            ? "bg-emerald-500 hover:bg-emerald-600 text-white" 
+            : "text-slate-300 hover:bg-slate-700"}
+          data-testid="tab-msp-payments"
+        >
+          <Truck className="w-4 h-4 mr-1" />
+          MSP Payments
+        </Button>
       </div>
 
       {/* Truck Filter & Export - Only for Truck Tab */}
@@ -1584,6 +1597,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
       {activePaymentTab === "diesel" && <DieselAccount filters={filters} user={user} />}
       {activePaymentTab === "local-party" && <LocalPartyAccount filters={filters} user={user} />}
       {activePaymentTab === "leased-truck" && <LeasedTruck filters={filters} />}
+      {activePaymentTab === "msp-payments" && <MSPPayments filters={filters} user={user} />}
 
       {/* Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
