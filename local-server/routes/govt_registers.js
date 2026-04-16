@@ -643,13 +643,27 @@ module.exports = function(database) {
   router.get('/api/govt-registers/transit-pass', safeSync(async (req, res) => {
     const { kms_year, season, date_from, date_to, mandi_name, agent_name } = req.query;
     let entries = [...(database.data.entries || [])];
+    const totalBefore = entries.length;
     if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
     if (season) entries = entries.filter(e => e.season === season);
     if (date_from) entries = entries.filter(e => (e.date || '') >= date_from);
     if (date_to) entries = entries.filter(e => (e.date || '') <= date_to);
     if (mandi_name) entries = entries.filter(e => (e.mandi_name || '').toLowerCase() === mandi_name.toLowerCase());
     if (agent_name) entries = entries.filter(e => (e.agent_name || '').toLowerCase() === agent_name.toLowerCase());
-    entries = entries.filter(e => e.tp_no && String(e.tp_no).trim());
+    const beforeTpFilter = entries.length;
+    // Check tp_no field - log for debugging
+    const tpEntries = entries.filter(e => {
+      const tp = e.tp_no;
+      return tp !== undefined && tp !== null && tp !== '' && tp !== 0 && String(tp).trim() !== '';
+    });
+    console.log(`[Transit-Pass] Total: ${totalBefore}, After KMS/Season: ${beforeTpFilter}, With TP: ${tpEntries.length}, KMS: ${kms_year}, Season: ${season}`);
+    if (beforeTpFilter > 0 && tpEntries.length === 0) {
+      // Debug: show first 3 entries' tp_no values
+      entries.slice(0, 3).forEach((e, i) => {
+        console.log(`[Transit-Pass DEBUG] Entry ${i}: tp_no="${e.tp_no}" (type: ${typeof e.tp_no}), rst_no=${e.rst_no}`);
+      });
+    }
+    entries = tpEntries;
     entries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
     const rows = [];
