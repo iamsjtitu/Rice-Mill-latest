@@ -59,20 +59,26 @@ export const AppHeader = ({
     axios.get(`${API}/govt-links`).then(r => setGovtLinks(r.data || [])).catch(() => {});
   }, []);
 
-  const openGovtLink = (link) => {
-    let url = link.url;
-    if (link.username || link.password) {
-      const sep = url.includes('?') ? '&' : '?';
-      const params = new URLSearchParams();
-      if (link.username) params.append('username', link.username);
-      if (link.password) params.append('password', link.password);
-      url = `${url}${sep}${params.toString()}`;
-    }
-    window.open(url, '_blank');
+  const openGovtLink = async (link) => {
+    // Open URL in new tab
+    window.open(link.url, '_blank');
+    
+    // Step 1: Copy username to clipboard
     if (link.username) {
-      navigator.clipboard?.writeText(link.username).then(() => {
-        toast.success(`Username "${link.username}" clipboard mein copy ho gaya!`);
-      }).catch(() => {});
+      try {
+        await navigator.clipboard.writeText(link.username);
+        toast.success(`Username copied! Ab portal mein paste karein.`, { duration: 3000 });
+      } catch(e) {}
+    }
+    
+    // Step 2: After 3 seconds, auto-copy password
+    if (link.password) {
+      setTimeout(async () => {
+        try {
+          await navigator.clipboard.writeText(link.password);
+          toast.success(`Password copied! Ab portal mein paste karein.`, { duration: 4000 });
+        } catch(e) {}
+      }, link.username ? 3000 : 0);
     }
   };
 
