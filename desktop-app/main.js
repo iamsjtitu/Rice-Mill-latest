@@ -2188,7 +2188,7 @@ async function createMainWindow(port) {
   });
 
   // IPC: Open Govt Link in new window with auto-fill credentials
-  ipcMain.on('open-govt-link', (event, { url, username, password }) => {
+  ipcMain.on('open-govt-link', (event, { url, username, password, tab_selector }) => {
     const govtWin = new BrowserWindow({
       width: 1200,
       height: 800,
@@ -2201,64 +2201,64 @@ async function createMainWindow(port) {
     });
     govtWin.loadURL(url);
     govtWin.webContents.on('did-finish-load', () => {
-      // Try to auto-fill login fields after page loads
+      // Escape special chars for injection safety
+      const safeUser = (username || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      const safePass = (password || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      const safeTab = (tab_selector || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      
       const fillScript = `
         (function() {
-          function tryFill() {
-            var filled = false;
-            // Common username field selectors
-            var userSelectors = ['input[name="username"]', 'input[name="userid"]', 'input[name="user"]', 'input[name="login"]', 'input[name="UserId"]', 'input[name="txtUserName"]', 'input[name="loginid"]', 'input[id*="user"]', 'input[id*="User"]', 'input[id*="login"]', 'input[id*="Login"]', 'input[type="text"]:first-of-type'];
-            var passSelectors = ['input[name="password"]', 'input[name="passwd"]', 'input[name="pass"]', 'input[name="Password"]', 'input[name="txtPassword"]', 'input[type="password"]'];
-            
-            var userField = null, passField = null;
-            for (var i = 0; i < userSelectors.length; i++) {
-              userField = document.querySelector(userSelectors[i]);
-              if (userField) break;
-            }
-            for (var j = 0; j < passSelectors.length; j++) {
-              passField = document.querySelector(passSelectors[j]);
-              if (passField) break;
-            }
-            
-            if (userField && '${username}') {
-              var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-              nativeInputValueSetter.call(userField, '${username}');
-              userField.dispatchEvent(new Event('input', { bubbles: true }));
-              userField.dispatchEvent(new Event('change', { bubbles: true }));
-              filled = true;
-            }
-            if (passField && '${password}') {
-              var nativeInputValueSetter2 = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-              nativeInputValueSetter2.call(passField, '${password}');
-              passField.dispatchEvent(new Event('input', { bubbles: true }));
-              passField.dispatchEvent(new Event('change', { bubbles: true }));
-              filled = true;
-            }
-            return filled;
+          var username = '${safeUser}';
+          var password = '${safePass}';
+          var tabSelector = '${safeTab}';
+          
+          function setVal(el, val) {
+            if (!el || !val) return;
+            var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+            setter.call(el, val);
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
           }
-          // Try immediately, then retry after delays for dynamic pages
-          if (!tryFill()) { setTimeout(tryFill, 1000); setTimeout(tryFill, 2500); setTimeout(tryFill, 5000); }
+          
+          function tryFill() {
+            // Step 1: Click the specified tab if provided (e.g. #mill for FCI ARMS)
+            if (tabSelector) {
+              var tabLink = document.querySelector('a[href="' + tabSelector + '"], a[data-target="' + tabSelector + '"], [data-toggle="tab"][href="' + tabSelector + '"]');
+              if (tabLink) tabLink.click();
+            }
+            
+            // Wait for tab switch, then fill
+            setTimeout(function() {
+              // Find the target pane (specified tab or active)
+              var targetPane = tabSelector ? document.querySelector(tabSelector) : null;
+              if (!targetPane) targetPane = document.querySelector('.tab-pane.show.active, .tab-pane.active');
+              if (!targetPane) targetPane = document;
+              
+              // Find inputs within the target pane
+              var userField = targetPane.querySelector('input[name="userid"], input[name="username"], input[name="user"], input[name="loginid"], input[type="text"]');
+              var passField = targetPane.querySelector('input[name="password"], input[type="password"]');
+              
+              // Fallback: try all visible inputs
+              if (!userField) {
+                var allUserFields = document.querySelectorAll('input[name="userid"], input[name="username"], input[type="text"][placeholder*="User"]');
+                if (allUserFields.length > 0) userField = allUserFields[allUserFields.length - 1];
+              }
+              if (!passField) {
+                var allPassFields = document.querySelectorAll('input[type="password"]');
+                if (allPassFields.length > 0) passField = allPassFields[allPassFields.length - 1];
+              }
+              
+              setVal(userField, username);
+              setVal(passField, password);
+            }, 500);
+          }
+          
+          tryFill();
+          setTimeout(tryFill, 1500);
+          setTimeout(tryFill, 3000);
         })();
       `;
       govtWin.webContents.executeJavaScript(fillScript).catch(() => {});
-    });
-    // Also try on subsequent navigations (login redirects etc)
-    govtWin.webContents.on('did-navigate', () => {
-      setTimeout(() => {
-        if (!govtWin.isDestroyed()) {
-          const fillScript2 = `
-            (function() {
-              var passField = document.querySelector('input[type="password"]');
-              if (passField && !passField.value && '${password}') {
-                var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                setter.call(passField, '${password}');
-                passField.dispatchEvent(new Event('input', { bubbles: true }));
-              }
-            })();
-          `;
-          govtWin.webContents.executeJavaScript(fillScript2).catch(() => {});
-        }
-      }, 1500);
     });
   });
 

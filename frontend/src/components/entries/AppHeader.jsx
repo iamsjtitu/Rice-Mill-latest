@@ -62,7 +62,7 @@ export const AppHeader = ({
   const openGovtLink = async (link) => {
     // Electron: open in new BrowserWindow with auto-fill
     if (typeof window !== 'undefined' && window.electronAPI?.openGovtLink) {
-      window.electronAPI.openGovtLink({ url: link.url, username: link.username || '', password: link.password || '' });
+      window.electronAPI.openGovtLink({ url: link.url, username: link.username || '', password: link.password || '', tab_selector: link.tab_selector || '' });
       toast.success(`${link.name} khul raha hai — Username/Password auto-fill hoga!`);
       return;
     }

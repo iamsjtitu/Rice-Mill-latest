@@ -79,7 +79,7 @@ export default function GovtLinksTab() {
           <p className="text-slate-500 text-sm py-4 text-center">Koi link nahi hai. "Add Link" se add karein.</p>
         ) : links.map((link, idx) => (
           <div key={idx} className="grid grid-cols-12 gap-2 items-end bg-slate-700/50 p-3 rounded-lg border border-slate-600" data-testid={`govt-link-row-${idx}`}>
-            <div className="col-span-3">
+            <div className="col-span-2">
               <Label className="text-slate-300 text-[10px]">Name</Label>
               <Input value={link.name} onChange={e => updateField(idx, 'name', e.target.value)}
                 placeholder="Food Portal" className="h-8 text-xs bg-slate-700 border-slate-600 text-white" data-testid={`govt-link-name-${idx}`} />
@@ -94,7 +94,7 @@ export default function GovtLinksTab() {
               <Input value={link.username} onChange={e => updateField(idx, 'username', e.target.value)}
                 placeholder="username" className="h-8 text-xs bg-slate-700 border-slate-600 text-white" data-testid={`govt-link-user-${idx}`} />
             </div>
-            <div className="col-span-3">
+            <div className="col-span-2">
               <Label className="text-slate-300 text-[10px]">Password</Label>
               <div className="flex gap-1">
                 <Input type={showPassIdx.has(idx) ? 'text' : 'password'} value={link.password}
@@ -104,6 +104,11 @@ export default function GovtLinksTab() {
                   {showPassIdx.has(idx) ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </Button>
               </div>
+            </div>
+            <div className="col-span-2">
+              <Label className="text-slate-300 text-[10px]">Tab Click (optional)</Label>
+              <Input value={link.tab_selector || ''} onChange={e => updateField(idx, 'tab_selector', e.target.value)}
+                placeholder='e.g. #mill' className="h-8 text-xs bg-slate-700 border-slate-600 text-white" data-testid={`govt-link-tab-${idx}`} />
             </div>
             <div className="col-span-1 flex justify-end">
               <Button variant="ghost" size="sm" onClick={() => removeLink(idx)} className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-900/30" data-testid={`govt-link-delete-${idx}`}>
