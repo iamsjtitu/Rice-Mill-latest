@@ -995,7 +995,7 @@ async def weight_report_pdf_head(entry_id: str):
 
 @router.get("/vehicle-weight/{entry_id}/weight-report-pdf")
 async def weight_report_pdf(entry_id: str):
-    """Generate professional weight report PDF with 1st weight + photos, 2nd weight + photos, and Average Weight."""
+    """Generate compact single-page weight report PDF matching slip format."""
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
     from reportlab.lib import colors
@@ -1013,7 +1013,6 @@ async def weight_report_pdf(entry_id: str):
     register_hindi_fonts()
     branding = await get_branding_data()
     company = branding.get("company_name", "NAVKAR AGRO")
-    tagline = branding.get("tagline", "")
 
     rst = entry.get("rst_no", "?")
     first_wt = float(entry.get("first_wt", 0) or 0)
@@ -1023,6 +1022,12 @@ async def weight_report_pdf(entry_id: str):
     net_wt = float(entry.get("net_wt", 0) or 0)
     bags = int(entry.get("tot_pkts", 0) or 0)
     avg_wt = round(net_wt / bags, 2) if (net_wt and bags > 0) else 0
+    cash = float(entry.get("cash_paid", 0) or 0)
+    diesel = float(entry.get("diesel_paid", 0) or 0)
+    g_issued = float(entry.get("g_issued", 0) or 0)
+    tp_no = entry.get("tp_no", "") or ""
+    tp_weight = entry.get("tp_weight", "") or entry.get("tp_wt", "") or ""
+    remark = entry.get("remark", "") or ""
 
     # Load images
     img_data = {}
@@ -1030,214 +1035,162 @@ async def weight_report_pdf(entry_id: str):
         b64 = _load_image_b64(entry.get(key, ""))
         if b64:
             try:
-                img_bytes = b64mod.b64decode(b64)
-                img_data[key] = ImageReader(io.BytesIO(img_bytes))
+                img_data[key] = ImageReader(io.BytesIO(b64mod.b64decode(b64)))
             except Exception:
                 pass
 
     W, H = A4
     buf = io.BytesIO()
     c = pdfcanvas.Canvas(buf, pagesize=A4)
-    LM = 15 * mm
-    RM = 15 * mm
-    PW = W - LM - RM
+    LM = 25 * mm
+    PW = W - 2 * LM
 
-    # Color scheme
+    # Colors
     BLUE = colors.HexColor("#1a5276")
-    LIGHT_BLUE = colors.HexColor("#d6eaf8")
-    DARK = colors.HexColor("#1a1a2e")
-    ACCENT = colors.HexColor("#2E75B6")
-    GREEN = colors.HexColor("#1b7a30")
-    RED = colors.HexColor("#c0392b")
+    BORDER = colors.HexColor("#333333")
+    LIGHT_BG = colors.HexColor("#f7f7f7")
 
-    def draw_header(c, y):
-        # Top bar
-        c.setFillColor(BLUE)
-        c.rect(0, y - 2 * mm, W, 14 * mm, fill=1, stroke=0)
-        c.setFillColor(colors.white)
-        c.setFont("FreeSansBold", 14)
-        c.drawCentredString(W / 2, y + 2 * mm, company)
-        if tagline:
-            c.setFont("FreeSans", 8)
-            c.drawCentredString(W / 2, y - 4 * mm, tagline)
-        y -= 12 * mm
+    # ── Company Header ──
+    c.setFillColor(BLUE)
+    c.rect(0, H - 18 * mm, W, 18 * mm, fill=1, stroke=0)
+    c.setFont("FreeSansBold", 16)
+    c.setFillColor(colors.white)
+    c.drawCentredString(W / 2, H - 12 * mm, company)
 
-        # RST badge
-        c.setFillColor(ACCENT)
-        badge_w = 60 * mm
-        c.roundRect(W / 2 - badge_w / 2, y - 9 * mm, badge_w, 8 * mm, 2 * mm, fill=1, stroke=0)
-        c.setFillColor(colors.white)
-        c.setFont("FreeSansBold", 11)
-        c.drawCentredString(W / 2, y - 6.5 * mm, f"WEIGHT REPORT - RST #{rst}")
-        y -= 14 * mm
+    y = H - 24 * mm
 
-        # Info grid - 2 columns
-        info_left = [
-            ("Date", fmt_date(entry.get("date", ""))),
-            ("Party", entry.get("party_name", "-")),
-            ("Trans Type", entry.get("trans_type", "-")),
-            ("Bags", str(entry.get("tot_pkts", 0) or "-")),
-        ]
-        info_right = [
-            ("Vehicle", entry.get("vehicle_no", "-")),
-            ("Product", entry.get("product", "-")),
-            ("Source/Mandi", entry.get("farmer_name", "") or "-"),
-            ("Remark", entry.get("remark", "") or "-"),
-        ]
+    # ── Info Table (Grid format like the image) ──
+    row_h = 10 * mm
+    col_w = PW / 4  # 4 columns: label, value, label, value
 
-        col_w = PW / 2
-        row_h = 5 * mm
-        for i in range(max(len(info_left), len(info_right))):
-            # Light background on alternating rows
-            if i % 2 == 0:
-                c.setFillColor(LIGHT_BLUE)
-                c.rect(LM, y - row_h + 1 * mm, PW, row_h, fill=1, stroke=0)
+    def draw_row(y_pos, lbl1, val1, lbl2, val2, alt=False):
+        if alt:
+            c.setFillColor(LIGHT_BG)
+            c.rect(LM, y_pos - row_h, PW, row_h, fill=1, stroke=0)
+        # Grid lines
+        c.setStrokeColor(BORDER)
+        c.setLineWidth(0.3)
+        c.rect(LM, y_pos - row_h, PW, row_h)
+        c.line(LM + col_w, y_pos, LM + col_w, y_pos - row_h)
+        c.line(LM + 2 * col_w, y_pos, LM + 2 * col_w, y_pos - row_h)
+        c.line(LM + 3 * col_w, y_pos, LM + 3 * col_w, y_pos - row_h)
 
-            if i < len(info_left):
-                lbl, val = info_left[i]
-                c.setFont("FreeSans", 7.5)
-                c.setFillColor(colors.HexColor("#555"))
-                c.drawString(LM + 2 * mm, y - 2.5 * mm, f"{lbl}:")
-                c.setFont("FreeSansBold", 8.5)
-                c.setFillColor(DARK)
-                c.drawString(LM + 25 * mm, y - 2.5 * mm, str(val)[:40])
+        ty = y_pos - 6.5 * mm
+        c.setFont("FreeSans", 8)
+        c.setFillColor(colors.HexColor("#444"))
+        c.drawString(LM + 2 * mm, ty, str(lbl1))
+        c.setFont("FreeSansBold", 9)
+        c.setFillColor(colors.HexColor("#000"))
+        c.drawString(LM + col_w + 2 * mm, ty, str(val1)[:30])
+        c.setFont("FreeSans", 8)
+        c.setFillColor(colors.HexColor("#444"))
+        c.drawString(LM + 2 * col_w + 2 * mm, ty, str(lbl2))
+        c.setFont("FreeSansBold", 9)
+        c.setFillColor(colors.HexColor("#000"))
+        c.drawString(LM + 3 * col_w + 2 * mm, ty, str(val2)[:30])
+        return y_pos - row_h
 
-            if i < len(info_right):
-                lbl, val = info_right[i]
-                c.setFont("FreeSans", 7.5)
-                c.setFillColor(colors.HexColor("#555"))
-                c.drawString(LM + col_w + 2 * mm, y - 2.5 * mm, f"{lbl}:")
-                c.setFont("FreeSansBold", 8.5)
-                c.setFillColor(DARK)
-                c.drawString(LM + col_w + 25 * mm, y - 2.5 * mm, str(val)[:40])
+    # Format time to IST
+    def fmtTime(ts):
+        if not ts: return "-"
+        try:
+            from datetime import datetime as dt2, timedelta, timezone
+            t = dt2.fromisoformat(ts.replace("Z", "+00:00"))
+            ist = timezone(timedelta(hours=5, minutes=30))
+            return t.astimezone(ist).strftime("%I:%M %p")
+        except Exception:
+            return ts[:8] if len(ts) > 8 else ts
 
-            y -= row_h
-
-        # Divider
-        y -= 2 * mm
-        c.setStrokeColor(ACCENT)
-        c.setLineWidth(1.5)
-        c.line(LM, y, W - RM, y)
-        return y - 4 * mm
-
-    def draw_weight_section(c, y, label, weight_val, time_str, front_key, side_key):
-        # Section header bar
-        c.setFillColor(BLUE)
-        c.rect(LM, y - 7 * mm, PW, 8 * mm, fill=1, stroke=0)
-        c.setFillColor(colors.white)
-        c.setFont("FreeSansBold", 10)
-        c.drawString(LM + 3 * mm, y - 4.5 * mm, label)
-        c.setFont("FreeSansBold", 12)
-        c.drawRightString(W - RM - 3 * mm, y - 4.5 * mm, f"{weight_val:,.0f} KG")
-        y -= 10 * mm
-
-        if time_str:
-            # Format time nicely - convert to IST
-            try:
-                from datetime import datetime as dt2, timedelta, timezone
-                t = dt2.fromisoformat(time_str.replace("Z", "+00:00"))
-                ist = timezone(timedelta(hours=5, minutes=30))
-                t_ist = t.astimezone(ist)
-                nice_time = t_ist.strftime("%d/%m/%Y %I:%M %p")
-            except Exception:
-                nice_time = time_str[:19] if len(time_str) > 19 else time_str
-            c.setFont("FreeSans", 7.5)
-            c.setFillColor(colors.HexColor("#666"))
-            c.drawString(LM + 2 * mm, y, f"Time: {nice_time}")
-            y -= 4 * mm
-
-        # Photos side by side
-        img_w = PW / 2 - 3 * mm
-        img_h = 52 * mm
-        has_front = front_key in img_data
-        has_side = side_key in img_data
-
-        if has_front or has_side:
-            y -= 2 * mm
-            if has_front:
-                try:
-                    # Photo border
-                    c.setStrokeColor(colors.HexColor("#ccc"))
-                    c.setLineWidth(0.5)
-                    c.rect(LM, y - img_h, img_w, img_h)
-                    c.drawImage(img_data[front_key], LM + 0.5 * mm, y - img_h + 0.5 * mm, img_w - 1 * mm, img_h - 1 * mm, preserveAspectRatio=True, mask='auto')
-                    c.setFont("FreeSans", 6.5)
-                    c.setFillColor(colors.HexColor("#999"))
-                    c.drawCentredString(LM + img_w / 2, y - img_h - 3 * mm, "Front View")
-                except Exception:
-                    pass
-            if has_side:
-                try:
-                    sx = LM + img_w + 6 * mm
-                    c.setStrokeColor(colors.HexColor("#ccc"))
-                    c.rect(sx, y - img_h, img_w, img_h)
-                    c.drawImage(img_data[side_key], sx + 0.5 * mm, y - img_h + 0.5 * mm, img_w - 1 * mm, img_h - 1 * mm, preserveAspectRatio=True, mask='auto')
-                    c.setFont("FreeSans", 6.5)
-                    c.setFillColor(colors.HexColor("#999"))
-                    c.drawCentredString(sx + img_w / 2, y - img_h - 3 * mm, "Side View")
-                except Exception:
-                    pass
-            y -= img_h + 7 * mm
-        else:
-            c.setFillColor(colors.HexColor("#f5f5f5"))
-            c.rect(LM, y - 10 * mm, PW, 10 * mm, fill=1, stroke=0)
-            c.setFont("FreeSans", 8)
-            c.setFillColor(colors.HexColor("#aaa"))
-            c.drawCentredString(W / 2, y - 6.5 * mm, "No photos available")
-            y -= 14 * mm
-
-        return y - 2 * mm
-
-    # === Build PDF ===
-    y = H - 10 * mm
-    y = draw_header(c, y)
-
-    # 1st Weight
-    y = draw_weight_section(c, y, "1st Weight", first_wt,
-                            entry.get("first_wt_time", ""),
-                            "first_wt_front_img", "first_wt_side_img")
-
-    # 2nd Weight
-    if second_wt > 0:
-        if y < 90 * mm:
-            c.showPage()
-            y = H - 10 * mm
-            y = draw_header(c, y)
-        y = draw_weight_section(c, y, "2nd Weight", second_wt,
-                                entry.get("second_wt_time", ""),
-                                "second_wt_front_img", "second_wt_side_img")
-
-    # Summary boxes at bottom
-    if y < 35 * mm:
-        c.showPage()
-        y = H - 20 * mm
+    y = draw_row(y, "RST No.", f"#{rst}", "Date / दिनांक", fmt_date(entry.get("date", "")), True)
+    y = draw_row(y, "Vehicle / गाड़ी", entry.get("vehicle_no", "-"), "Trans Type", entry.get("trans_type", "-"))
+    y = draw_row(y, "Party / पार्टी", entry.get("party_name", "-"), "Source/Mandi", entry.get("farmer_name", "") or "-", True)
+    y = draw_row(y, "Product / माल", entry.get("product", "-"), "Bags / बोरे", str(bags) if bags else "-")
+    y = draw_row(y, "G.Issued", str(int(g_issued)) if g_issued else "-", "TP No.", tp_no or "-", True)
+    y = draw_row(y, "TP Weight", f"{tp_weight} Q" if tp_weight else "-", "Remark", remark or "-")
 
     y -= 3 * mm
-    box_h = 16 * mm
+
+    # ── 1st Weight Section ──
+    c.setFillColor(BLUE)
+    c.rect(LM, y - 8 * mm, PW, 8 * mm, fill=1, stroke=0)
+    c.setFont("FreeSansBold", 9)
+    c.setFillColor(colors.white)
+    c.drawString(LM + 3 * mm, y - 5.5 * mm, "1st Weight / पहला वजन")
+    c.drawRightString(LM + PW / 2 - 3 * mm, y - 5.5 * mm, f"{first_wt:,.0f} KG")
+    c.drawString(LM + PW / 2 + 3 * mm, y - 5.5 * mm, f"Time: {fmtTime(entry.get('first_wt_time', ''))}")
+    y -= 8 * mm
+
+    # 1st weight photos (compact)
+    has_1st_photos = "first_wt_front_img" in img_data or "first_wt_side_img" in img_data
+    if has_1st_photos:
+        img_w = PW / 2 - 2 * mm
+        img_h = 35 * mm
+        if "first_wt_front_img" in img_data:
+            try:
+                c.drawImage(img_data["first_wt_front_img"], LM, y - img_h, img_w, img_h, preserveAspectRatio=True, mask='auto')
+            except: pass
+        if "first_wt_side_img" in img_data:
+            try:
+                c.drawImage(img_data["first_wt_side_img"], LM + img_w + 4 * mm, y - img_h, img_w, img_h, preserveAspectRatio=True, mask='auto')
+            except: pass
+        y -= img_h + 2 * mm
+
+    # ── 2nd Weight Section ──
+    if second_wt > 0:
+        y -= 1 * mm
+        c.setFillColor(colors.HexColor("#34495e"))
+        c.rect(LM, y - 8 * mm, PW, 8 * mm, fill=1, stroke=0)
+        c.setFont("FreeSansBold", 9)
+        c.setFillColor(colors.white)
+        c.drawString(LM + 3 * mm, y - 5.5 * mm, "2nd Weight / दूसरा वजन")
+        c.drawRightString(LM + PW / 2 - 3 * mm, y - 5.5 * mm, f"{second_wt:,.0f} KG")
+        c.drawString(LM + PW / 2 + 3 * mm, y - 5.5 * mm, f"Time: {fmtTime(entry.get('second_wt_time', ''))}")
+        y -= 8 * mm
+
+        has_2nd_photos = "second_wt_front_img" in img_data or "second_wt_side_img" in img_data
+        if has_2nd_photos:
+            img_w = PW / 2 - 2 * mm
+            img_h = 35 * mm
+            if "second_wt_front_img" in img_data:
+                try:
+                    c.drawImage(img_data["second_wt_front_img"], LM, y - img_h, img_w, img_h, preserveAspectRatio=True, mask='auto')
+                except: pass
+            if "second_wt_side_img" in img_data:
+                try:
+                    c.drawImage(img_data["second_wt_side_img"], LM + img_w + 4 * mm, y - img_h, img_w, img_h, preserveAspectRatio=True, mask='auto')
+                except: pass
+            y -= img_h + 2 * mm
+
+    y -= 4 * mm
+
+    # ── Summary Boxes (GROSS, TARE, NET, AVG/BAG, CASH, DIESEL) ──
     items = [
-        ("GROSS", f"{gross_wt:,.0f} KG", BLUE, colors.white),
-        ("TARE", f"{tare_wt:,.0f} KG", colors.HexColor("#34495e"), colors.white),
-        ("NET", f"{net_wt:,.0f} KG", GREEN, colors.white),
-        ("AVG/BAG", f"{avg_wt:,.2f} KG", ACCENT, colors.white),
+        ("GROSS / कुल", f"{gross_wt:,.0f} KG", "#dce6f0", "#1a5276"),
+        ("TARE / खाली", f"{tare_wt:,.0f} KG", "#f0e8dc", "#6d4c1d"),
+        ("NET / शुद्ध", f"{net_wt:,.0f} KG", "#d5f5d5", "#1b7a30"),
+        ("AVG/BAG", f"{avg_wt:,.2f} KG", "#e3f2fd", "#1565c0"),
+        ("CASH / नकद", f"{cash:,.0f}" if cash else "-", "#fff8e1", "#e65100"),
+        ("DIESEL / डीजल", f"{diesel:,.0f}" if diesel else "-", "#fce4d6", "#bf360c"),
     ]
-    col_w = PW / len(items)
-    gap = 1.5 * mm
+    box_w = PW / len(items)
+    box_h = 16 * mm
     for i, (lbl, val, bg, fg) in enumerate(items):
-        bx = LM + i * col_w + gap / 2
-        bw = col_w - gap
-        c.setFillColor(bg)
-        c.roundRect(bx, y - box_h, bw, box_h, 2 * mm, fill=1, stroke=0)
-        c.setFont("FreeSans", 7)
-        c.setFillColor(colors.HexColor("#ffffffaa"))
-        c.drawCentredString(bx + bw / 2, y - 5.5 * mm, lbl)
+        bx = LM + i * box_w
+        c.setFillColor(colors.HexColor(bg))
+        c.rect(bx, y - box_h, box_w, box_h, fill=1, stroke=0)
+        c.setStrokeColor(colors.HexColor("#ccc"))
+        c.setLineWidth(0.3)
+        c.rect(bx, y - box_h, box_w, box_h)
+        c.setFont("FreeSans", 6)
+        c.setFillColor(colors.HexColor(fg))
+        c.drawCentredString(bx + box_w / 2, y - 5 * mm, lbl)
         c.setFont("FreeSansBold", 11)
-        c.setFillColor(fg)
-        c.drawCentredString(bx + bw / 2, y - 12 * mm, val)
+        c.drawCentredString(bx + box_w / 2, y - 12.5 * mm, val)
 
     # Footer
-    c.setFont("FreeSans", 6.5)
-    c.setFillColor(colors.HexColor("#999"))
-    c.drawCentredString(W / 2, 8 * mm, f"{company} | Weight Report | Generated: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    c.setFont("FreeSans", 6)
+    c.setFillColor(colors.HexColor("#aaa"))
+    c.drawCentredString(W / 2, 8 * mm, f"{company} | Generated: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
     c.save()
     buf.seek(0)
