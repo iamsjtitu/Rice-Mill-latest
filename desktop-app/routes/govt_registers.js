@@ -645,16 +645,19 @@ module.exports = function(database) {
     let entries = [...(database.data.entries || [])];
     const totalBefore = entries.length;
     const normStr = (s) => String(s || '').trim().replace(/[\u2013\u2014\u2012\u00ad]/g, '-').replace(/\s+/g, '');
-    if (kms_year) entries = entries.filter(e => normStr(e.kms_year) === normStr(kms_year) || String(e.kms_year || '').includes(kms_year) || String(kms_year).includes(String(e.kms_year || '')));
-    if (season) entries = entries.filter(e => normStr(e.season) === normStr(season));
+    if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
+    if (season) entries = entries.filter(e => e.season === season);
     if (date_from) entries = entries.filter(e => (e.date || '') >= date_from);
     if (date_to) entries = entries.filter(e => (e.date || '') <= date_to);
     if (mandi_name) entries = entries.filter(e => (e.mandi_name || '').toLowerCase() === mandi_name.toLowerCase());
     if (agent_name) entries = entries.filter(e => (e.agent_name || '').toLowerCase() === agent_name.toLowerCase());
     const beforeTpFilter = entries.length;
+    // Filter entries with valid tp_no - handle number, string, any format
     const tpEntries = entries.filter(e => {
       const tp = e.tp_no;
-      return tp !== undefined && tp !== null && tp !== '' && tp !== 0 && String(tp).trim() !== '';
+      if (tp === undefined || tp === null) return false;
+      const s = String(tp).trim();
+      return s !== '' && s !== '0' && s !== 'undefined' && s !== 'null';
     });
     entries = tpEntries;
     entries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
@@ -677,9 +680,14 @@ module.exports = function(database) {
 
     // For filter_options, get ALL TP entries (unfiltered by mandi/agent) to populate dropdowns
     let allTpEntries = [...(database.data.entries || [])];
-    if (kms_year) allTpEntries = allTpEntries.filter(e => normStr(e.kms_year) === normStr(kms_year));
-    if (season) allTpEntries = allTpEntries.filter(e => normStr(e.season) === normStr(season));
-    allTpEntries = allTpEntries.filter(e => e.tp_no && String(e.tp_no).trim());
+    if (kms_year) allTpEntries = allTpEntries.filter(e => e.kms_year === kms_year);
+    if (season) allTpEntries = allTpEntries.filter(e => e.season === season);
+    allTpEntries = allTpEntries.filter(e => {
+      const tp = e.tp_no;
+      if (tp === undefined || tp === null) return false;
+      const s = String(tp).trim();
+      return s !== '' && s !== '0' && s !== 'undefined' && s !== 'null';
+    });
     const allMandis = new Set(), allAgents = new Set();
     for (const e of allTpEntries) {
       if (e.mandi_name) allMandis.add(e.mandi_name);

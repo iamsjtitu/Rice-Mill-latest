@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "101.11.0",
+    date: "Apr 2026",
+    title: "v101.11.0 - Transit Pass TP Filter Fix",
+    items: [
+      { type: "fix", text: "Transit Pass: tp_no filter improved — number/string dono handle, '0' exclude, debug removed" },
+    ],
+  },
+  {
     version: "101.7.0",
     date: "Apr 2026",
     title: "v101.7.0 - Transit Pass Debug + Improved TP Filter",
