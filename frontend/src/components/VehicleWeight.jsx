@@ -1334,12 +1334,14 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                     <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">TP Wt</TableHead>
                     <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Cash</TableHead>
                     <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Diesel</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Avg/Bag</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Remark</TableHead>
                     <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {entries.length === 0 ? (
-                    <TableRow><TableCell colSpan={16} className="text-center text-slate-500 py-8 text-xs" data-testid="vw-no-entries-today">
+                    <TableRow><TableCell colSpan={18} className="text-center text-slate-500 py-8 text-xs" data-testid="vw-no-entries-today">
                       {vwFilters.date_from === todayStr && vwFilters.date_to === todayStr
                         ? "Aaj ki koi Vehicle Weight entry nahi hai"
                         : "Koi entry nahi mili - Filter change karke dekhein"}
@@ -1367,6 +1369,8 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       </TableCell>
                       <TableCell className="text-right text-green-700 text-xs py-2 px-3 font-mono">{e.cash_paid ? fmtWt(e.cash_paid) : '-'}</TableCell>
                       <TableCell className="text-right text-orange-700 text-xs py-2 px-3 font-mono">{e.diesel_paid ? fmtWt(e.diesel_paid) : '-'}</TableCell>
+                      <TableCell className="text-right text-blue-700 text-xs py-2 px-3 font-mono">{(Number(e.net_wt || 0) > 0 && Number(e.tot_pkts || 0) > 0) ? (Number(e.net_wt) / Number(e.tot_pkts)).toFixed(1) : '-'}</TableCell>
+                      <TableCell className="text-slate-400 text-xs py-2 px-3 max-w-[120px] truncate" title={e.remark || ''}>{e.remark || '-'}</TableCell>
                       <TableCell className="py-2 px-3">
                         <div className="flex items-center gap-0.5 justify-center">
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-cyan-600" onClick={() => openPhotos(e)} data-testid={`vw-photos-${e.id}`} title="View Photos"><Eye className="w-3 h-3" /></Button>
@@ -1490,6 +1494,11 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                 <Input type="number" value={editForm.diesel_paid || ""} onChange={e => setEditForm(p => ({ ...p, diesel_paid: e.target.value }))}
                   className="h-9 text-sm border-orange-300 bg-orange-50/50" data-testid="edit-diesel" />
               </div>
+            </div>
+            <div>
+              <Label className="text-slate-400 text-xs mb-1 block">Remark / टिप्पणी</Label>
+              <Input value={editForm.remark || ""} onChange={e => setEditForm(p => ({ ...p, remark: e.target.value }))}
+                placeholder="Remark" className="h-9 text-sm border-slate-600" data-testid="edit-remark" />
             </div>
             <Button onClick={saveEdit} className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold h-10" data-testid="edit-save-btn">
               <CheckCircle className="w-4 h-4 mr-2" /> Save Changes
