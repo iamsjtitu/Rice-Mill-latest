@@ -472,16 +472,16 @@ module.exports = function(database) {
     return new Promise((resolve, reject) => {
       try {
         const PDFDocument = require('pdfkit');
-        const doc = new PDFDocument({ size: 'A4', margin: 40 });
+        const doc = new PDFDocument({ size: 'A4', margin: 25 });
         registerFonts(doc);
         const chunks = [];
         doc.on('data', c => chunks.push(c));
         doc.on('end', () => resolve(Buffer.concat(chunks)));
         doc.on('error', reject);
 
-        const W = 595.28; // A4 width
-        const LM = 40;
-        const PW = W - 80;
+        const W = 595.28;
+        const LM = 25;
+        const PW = W - 50;
         const rst = entry.rst_no || '?';
         const firstWt = parseFloat(entry.first_wt || 0);
         const secondWt = parseFloat(entry.second_wt || 0);
@@ -490,131 +490,120 @@ module.exports = function(database) {
         const netWt = parseFloat(entry.net_wt || 0);
         const bags = parseInt(entry.tot_pkts || 0);
         const avgWt = (netWt && bags > 0) ? (netWt / bags).toFixed(2) : '0.00';
+        const cash = parseFloat(entry.cash_paid || 0);
+        const diesel = parseFloat(entry.diesel_paid || 0);
+        const gIssued = parseFloat(entry.g_issued || 0);
+        const tpNo = entry.tp_no || '';
+        const tpWeight = entry.tp_weight || entry.tp_wt || '';
+        const remark = entry.remark || '';
 
-        // Branding
         const branding = (col('app_settings') || []).find(s => s.setting_id === 'branding') || {};
         const company = branding.company_name || 'NAVKAR AGRO';
-        const tagline = branding.tagline || '';
 
-        // Header bar
-        doc.rect(0, 0, W, 50).fill('#1a5276');
-        doc.font(F('bold')).fontSize(16).fillColor('#ffffff').text(company, 0, 12, { align: 'center' });
-        if (tagline) doc.font(F('normal')).fontSize(8).text(tagline, 0, 32, { align: 'center' });
-
-        // RST badge
-        const badgeW = 180;
-        doc.roundedRect(W / 2 - badgeW / 2, 56, badgeW, 24, 4).fill('#2E75B6');
-        doc.font(F('bold')).fontSize(11).fillColor('#ffffff').text(`WEIGHT REPORT - RST #${rst}`, W / 2 - badgeW / 2, 62, { width: badgeW, align: 'center' });
-
-        // Info grid
-        let y = 92;
-        const infoLeft = [['Date', fmtDate(entry.date || '')], ['Party', entry.party_name || '-'], ['Trans Type', entry.trans_type || '-'], ['Bags', String(bags || '-')]];
-        const infoRight = [['Vehicle', entry.vehicle_no || '-'], ['Product', entry.product || '-'], ['Source/Mandi', entry.farmer_name || '-'], ['Remark', entry.remark || '-']];
-        for (let i = 0; i < Math.max(infoLeft.length, infoRight.length); i++) {
-          if (i % 2 === 0) doc.rect(LM, y - 2, PW, 16).fill('#d6eaf8');
-          if (i < infoLeft.length) {
-            doc.font(F('normal')).fontSize(7.5).fillColor('#555').text(infoLeft[i][0] + ':', LM + 4, y + 1);
-            doc.font(F('bold')).fontSize(8.5).fillColor('#1a1a2e').text(String(infoLeft[i][1]).substring(0, 40), LM + 72, y + 1);
-          }
-          if (i < infoRight.length) {
-            doc.font(F('normal')).fontSize(7.5).fillColor('#555').text(infoRight[i][0] + ':', LM + PW / 2 + 4, y + 1);
-            doc.font(F('bold')).fontSize(8.5).fillColor('#1a1a2e').text(String(infoRight[i][1]).substring(0, 40), LM + PW / 2 + 72, y + 1);
-          }
-          y += 16;
+        function fmtIST(ts) {
+          if (!ts) return '-';
+          try { return new Date(ts).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }); }
+          catch(e) { return ts.substring(0, 8); }
         }
-        y += 4;
-        doc.moveTo(LM, y).lineTo(LM + PW, y).strokeColor('#2E75B6').lineWidth(1.5).stroke();
+
+        // ── Company Header ──
+        doc.rect(0, 0, W, 50).fill('#1a5276');
+        doc.font(F('bold')).fontSize(16).fillColor('#ffffff').text(company, 0, 14, { align: 'center', width: W });
+
+        let y = 58;
+        const colW = PW / 4;
+        const rowH = 28;
+
+        // Draw grid row helper
+        function drawRow(lbl1, val1, lbl2, val2, alt) {
+          if (alt) { doc.rect(LM, y, PW, rowH).fill('#f7f7f7'); }
+          doc.strokeColor('#333333').lineWidth(0.3);
+          doc.rect(LM, y, PW, rowH).stroke();
+          doc.moveTo(LM + colW, y).lineTo(LM + colW, y + rowH).stroke();
+          doc.moveTo(LM + 2 * colW, y).lineTo(LM + 2 * colW, y + rowH).stroke();
+          doc.moveTo(LM + 3 * colW, y).lineTo(LM + 3 * colW, y + rowH).stroke();
+          const ty = y + 10;
+          doc.font(F('normal')).fontSize(8).fillColor('#444').text(lbl1, LM + 4, ty, { width: colW - 8 });
+          doc.font(F('bold')).fontSize(9).fillColor('#000').text(String(val1).substring(0, 28), LM + colW + 4, ty, { width: colW - 8 });
+          doc.font(F('normal')).fontSize(8).fillColor('#444').text(lbl2, LM + 2 * colW + 4, ty, { width: colW - 8 });
+          doc.font(F('bold')).fontSize(9).fillColor('#000').text(String(val2).substring(0, 28), LM + 3 * colW + 4, ty, { width: colW - 8 });
+          y += rowH;
+        }
+
+        drawRow('RST No.', `#${rst}`, 'Date / दिनांक', fmtDate(entry.date || ''), true);
+        drawRow('Vehicle / गाड़ी', entry.vehicle_no || '-', 'Trans Type', entry.trans_type || '-', false);
+        drawRow('Party / पार्टी', entry.party_name || '-', 'Source/Mandi', entry.farmer_name || '-', true);
+        drawRow('Product / माल', entry.product || '-', 'Bags / बोरे', bags ? String(bags) : '-', false);
+        drawRow('G.Issued', gIssued ? String(Math.round(gIssued)) : '-', 'TP No.', tpNo || '-', true);
+        drawRow('TP Weight', tpWeight ? `${tpWeight} Q` : '-', 'Remark', remark || '-', false);
+
+        y += 6;
+
+        // ── 1st Weight Bar ──
+        doc.rect(LM, y, PW, 22).fill('#1a5276');
+        doc.font(F('bold')).fontSize(9).fillColor('#ffffff')
+          .text('1st Weight / पहला वजन', LM + 6, y + 6, { continued: false })
+          .text(`${Number(firstWt).toLocaleString()} KG`, LM, y + 6, { width: PW / 2 - 6, align: 'right' })
+          .text(`Time: ${fmtIST(entry.first_wt_time || '')}`, LM + PW / 2 + 6, y + 6, { width: PW / 2 - 6 });
+        y += 22;
+
+        // 1st weight photos
+        const imgW = PW / 2 - 4;
+        const imgH = 95;
+        const f1f = loadImageB64(entry.first_wt_front_img || '');
+        const f1s = loadImageB64(entry.first_wt_side_img || '');
+        if (f1f || f1s) {
+          if (f1f) { try { doc.image(Buffer.from(f1f, 'base64'), LM, y + 2, { width: imgW, height: imgH, fit: [imgW, imgH] }); } catch(e) {} }
+          if (f1s) { try { doc.image(Buffer.from(f1s, 'base64'), LM + imgW + 8, y + 2, { width: imgW, height: imgH, fit: [imgW, imgH] }); } catch(e) {} }
+          y += imgH + 6;
+        }
+
+        // ── 2nd Weight Bar ──
+        if (secondWt > 0) {
+          y += 2;
+          doc.rect(LM, y, PW, 22).fill('#34495e');
+          doc.font(F('bold')).fontSize(9).fillColor('#ffffff')
+            .text('2nd Weight / दूसरा वजन', LM + 6, y + 6, { continued: false })
+            .text(`${Number(secondWt).toLocaleString()} KG`, LM, y + 6, { width: PW / 2 - 6, align: 'right' })
+            .text(`Time: ${fmtIST(entry.second_wt_time || '')}`, LM + PW / 2 + 6, y + 6, { width: PW / 2 - 6 });
+          y += 22;
+
+          const f2f = loadImageB64(entry.second_wt_front_img || '');
+          const f2s = loadImageB64(entry.second_wt_side_img || '');
+          if (f2f || f2s) {
+            if (f2f) { try { doc.image(Buffer.from(f2f, 'base64'), LM, y + 2, { width: imgW, height: imgH, fit: [imgW, imgH] }); } catch(e) {} }
+            if (f2s) { try { doc.image(Buffer.from(f2s, 'base64'), LM + imgW + 8, y + 2, { width: imgW, height: imgH, fit: [imgW, imgH] }); } catch(e) {} }
+            y += imgH + 6;
+          }
+        }
+
         y += 8;
 
-        // Helper: format time to IST
-        function fmtTime(ts) {
-          if (!ts) return '';
-          try {
-            const d = new Date(ts);
-            return d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
-          } catch(e) { return ts.substring(0, 19); }
-        }
-
-        // Weight section drawer
-        function drawWeightSection(label, wt, timeStr, frontKey, sideKey) {
-          // Header bar
-          doc.rect(LM, y, PW, 24).fill('#1a5276');
-          doc.font(F('bold')).fontSize(10).fillColor('#ffffff').text(label, LM + 8, y + 6);
-          doc.font(F('bold')).fontSize(12).fillColor('#ffffff').text(`${Number(wt).toLocaleString()} KG`, LM + 8, y + 6, { width: PW - 16, align: 'right' });
-          y += 28;
-          if (timeStr) {
-            doc.font(F('normal')).fontSize(7.5).fillColor('#666').text('Time: ' + fmtTime(timeStr), LM + 4, y);
-            y += 12;
-          }
-          // Photos
-          const imgW = PW / 2 - 8;
-          const imgH = 150;
-          const frontB64 = loadImageB64(entry[frontKey] || '');
-          const sideB64 = loadImageB64(entry[sideKey] || '');
-          if (frontB64 || sideB64) {
-            if (frontB64) {
-              try {
-                const imgBuf = Buffer.from(frontB64, 'base64');
-                doc.rect(LM, y, imgW, imgH).strokeColor('#ccc').lineWidth(0.5).stroke();
-                doc.image(imgBuf, LM + 1, y + 1, { width: imgW - 2, height: imgH - 2, fit: [imgW - 2, imgH - 2] });
-                doc.font(F('normal')).fontSize(6.5).fillColor('#999').text('Front View', LM, y + imgH + 2, { width: imgW, align: 'center' });
-              } catch(e) { console.error('[VW PDF] front img error:', e.message); }
-            }
-            if (sideB64) {
-              try {
-                const imgBuf = Buffer.from(sideB64, 'base64');
-                const sx = LM + imgW + 16;
-                doc.rect(sx, y, imgW, imgH).strokeColor('#ccc').lineWidth(0.5).stroke();
-                doc.image(imgBuf, sx + 1, y + 1, { width: imgW - 2, height: imgH - 2, fit: [imgW - 2, imgH - 2] });
-                doc.font(F('normal')).fontSize(6.5).fillColor('#999').text('Side View', sx, y + imgH + 2, { width: imgW, align: 'center' });
-              } catch(e) { console.error('[VW PDF] side img error:', e.message); }
-            }
-            y += imgH + 18;
-          } else {
-            doc.rect(LM, y, PW, 28).fill('#f5f5f5');
-            doc.font(F('normal')).fontSize(8).fillColor('#aaa').text('No photos available', LM, y + 8, { width: PW, align: 'center' });
-            y += 36;
-          }
-          y += 6;
-        }
-
-        // 1st Weight
-        drawWeightSection('1st Weight', firstWt, entry.first_wt_time || '', 'first_wt_front_img', 'first_wt_side_img');
-
-        // 2nd Weight
-        if (secondWt > 0) {
-          if (y > 600) { doc.addPage(); y = 40; }
-          drawWeightSection('2nd Weight', secondWt, entry.second_wt_time || '', 'second_wt_front_img', 'second_wt_side_img');
-        }
-
-        // Summary boxes
-        if (y > 720) { doc.addPage(); y = 40; }
-        y += 4;
-        const boxH = 44;
-        const boxW = PW / 4 - 4;
-        const boxes = [
-          { label: 'GROSS', value: `${Number(grossWt).toLocaleString()} KG`, bg: '#1a5276' },
-          { label: 'TARE', value: `${Number(tareWt).toLocaleString()} KG`, bg: '#34495e' },
-          { label: 'NET', value: `${Number(netWt).toLocaleString()} KG`, bg: '#1b7a30' },
-          { label: 'AVG/BAG', value: `${avgWt} KG`, bg: '#2E75B6' },
+        // ── Summary Boxes ──
+        const items = [
+          { label: 'GROSS / कुल', value: `${Number(grossWt).toLocaleString()} KG`, bg: '#dce6f0', fg: '#1a5276' },
+          { label: 'TARE / खाली', value: `${Number(tareWt).toLocaleString()} KG`, bg: '#f0e8dc', fg: '#6d4c1d' },
+          { label: 'NET / शुद्ध', value: `${Number(netWt).toLocaleString()} KG`, bg: '#d5f5d5', fg: '#1b7a30' },
+          { label: 'AVG/BAG', value: `${avgWt} KG`, bg: '#e3f2fd', fg: '#1565c0' },
+          { label: 'CASH / नकद', value: cash ? `${Number(cash).toLocaleString()}` : '-', bg: '#fff8e1', fg: '#e65100' },
+          { label: 'DIESEL / डीजल', value: diesel ? `${Number(diesel).toLocaleString()}` : '-', bg: '#fce4d6', fg: '#bf360c' },
         ];
-        boxes.forEach((b, i) => {
-          const bx = LM + i * (boxW + 5);
-          doc.roundedRect(bx, y, boxW, boxH, 4).fill(b.bg);
-          doc.font(F('normal')).fontSize(7).fillColor('#ffffffcc').text(b.label, bx, y + 6, { width: boxW, align: 'center' });
-          doc.font(F('bold')).fontSize(11).fillColor('#ffffff').text(b.value, bx, y + 22, { width: boxW, align: 'center' });
+        const boxW = PW / items.length;
+        const boxH = 42;
+        items.forEach((b, i) => {
+          const bx = LM + i * boxW;
+          doc.rect(bx, y, boxW, boxH).fill(b.bg);
+          doc.strokeColor('#ccc').lineWidth(0.3).rect(bx, y, boxW, boxH).stroke();
+          doc.font(F('normal')).fontSize(6).fillColor(b.fg).text(b.label, bx, y + 5, { width: boxW, align: 'center' });
+          doc.font(F('bold')).fontSize(11).fillColor(b.fg).text(b.value, bx, y + 20, { width: boxW, align: 'center' });
         });
 
         // Footer
-        doc.font(F('normal')).fontSize(6.5).fillColor('#999').text(
-          `${company} | Weight Report | Generated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`,
-          0, 810, { width: W, align: 'center' }
-        );
+        doc.font(F('normal')).fontSize(6).fillColor('#aaa')
+          .text(`${company} | Generated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`, 0, 810, { width: W, align: 'center' });
 
         doc.end();
-      } catch (e) {
-        reject(e);
-      }
+      } catch (e) { reject(e); }
     });
   }
 
