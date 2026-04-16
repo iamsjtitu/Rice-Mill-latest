@@ -636,7 +636,10 @@ async def get_govt_links():
     return setting.get("value", []) if setting else []
 
 @router.put("/govt-links")
-async def save_govt_links(links: list):
+async def save_govt_links(request: Request):
+    links = await request.json()
+    if not isinstance(links, list):
+        links = []
     for i, link in enumerate(links):
         if not link.get("id"):
             link["id"] = str(uuid.uuid4())
@@ -649,7 +652,10 @@ async def save_govt_links(links: list):
     return {"success": True, "count": len(links)}
 
 @router.post("/govt-links")
-async def save_govt_links_post(links: list):
+async def save_govt_links_post(request: Request):
+    links = await request.json()
+    if not isinstance(links, list):
+        links = []
     for i, link in enumerate(links):
         if not link.get("id"):
             link["id"] = str(uuid.uuid4())
