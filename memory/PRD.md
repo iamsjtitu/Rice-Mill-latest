@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v100.0.0
+## Current Version: v101.0.0
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind
@@ -75,6 +75,7 @@
 5. By-product list is HARDCODED in 7 products - do NOT make dynamic
 6. **EVERY fix/feature MUST bump version + add What's New entry** — no exceptions
 7. **USER USES DESKTOP APP ONLY** — All issues reported are for desktop-app (Electron + Express + Local JSON). Always check/fix in `/app/desktop-app/` first. Python backend is secondary.
+8. **WHITE THEME** — Desktop app uses white/light theme. All new UI elements (totals, highlights, badges) must use light colors (amber-50, green-700, etc.) NOT dark theme colors (slate-900, green-400, etc.)
 
 ## Prioritized Backlog
 - P3: Triple backend code deduplication

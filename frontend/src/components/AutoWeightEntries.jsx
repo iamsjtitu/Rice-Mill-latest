@@ -382,16 +382,17 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
                   );
                 })}
                 {entries.length > 0 && (
-                  <TableRow className="border-slate-600 bg-slate-900/80 font-bold">
-                    <TableCell colSpan={7} className="py-2 px-3 text-right text-amber-500 text-[10px] font-bold">TOTAL</TableCell>
-                    <TableCell className="text-blue-400 text-xs py-2 px-3 text-right font-mono">{fmtWt(entries.reduce((s, e) => s + Number(e.first_wt || 0), 0))}</TableCell>
-                    <TableCell className="text-blue-400 text-xs py-2 px-3 text-right font-mono">{fmtWt(entries.reduce((s, e) => s + Number(e.second_wt || 0), 0))}</TableCell>
-                    <TableCell className="text-green-400 text-sm py-2 px-3 text-right font-mono font-black">{fmtWt(entries.reduce((s, e) => s + Number(e.net_wt || 0), 0))}</TableCell>
+                  <TableRow className="border-slate-300 bg-amber-50/80 font-bold">
+                    <TableCell colSpan={6} className="py-2 px-3 text-right text-amber-700 text-[10px] font-bold">TOTAL</TableCell>
+                    <TableCell className="text-slate-800 text-xs py-2 px-3 font-bold">{entries.reduce((s, e) => s + Number(e.tot_pkts || 0), 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-xs py-2 px-3"></TableCell>
+                    <TableCell className="text-xs py-2 px-3"></TableCell>
+                    <TableCell className="text-green-700 text-sm py-2 px-3 text-right font-mono font-black">{fmtWt(entries.reduce((s, e) => s + Number(e.net_wt || 0), 0))}</TableCell>
                     <TableCell className="text-xs py-2 px-3"></TableCell>
                     <TableCell className="text-xs py-2 px-3"></TableCell>
                     <TableCell className="text-xs py-2 px-3"></TableCell>
-                    <TableCell className="text-amber-400 text-xs py-2 px-3 text-right font-mono">{fmtWt(entries.reduce((s, e) => s + Number(e.cash_paid || 0), 0))}</TableCell>
-                    <TableCell className="text-red-400 text-xs py-2 px-3 text-right font-mono">{fmtWt(entries.reduce((s, e) => s + Number(e.diesel_paid || 0), 0))}</TableCell>
+                    <TableCell className="text-green-700 text-xs py-2 px-3 text-right font-mono font-bold">{fmtWt(entries.reduce((s, e) => s + Number(e.cash_paid || 0), 0))}</TableCell>
+                    <TableCell className="text-orange-700 text-xs py-2 px-3 text-right font-mono font-bold">{fmtWt(entries.reduce((s, e) => s + Number(e.diesel_paid || 0), 0))}</TableCell>
                     <TableCell className="text-xs py-2 px-3"></TableCell>
                     <TableCell className="text-xs py-2 px-3"></TableCell>
                   </TableRow>

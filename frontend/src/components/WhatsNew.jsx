@@ -9,11 +9,10 @@ const CHANGELOG = [
   {
     version: "100.0.0",
     date: "Apr 2026",
-    title: "v100.0.0 - Table Totals + Avg/Bag Column Removed",
+    title: "v101.0.0 - Total Row Fix (White Theme)",
     items: [
-      { type: "fix", text: "Avg/Bag column table se hataya — sirf print slip + view dialog mein dikhega" },
-      { type: "new", text: "Auto Vehicle Weight + Auto Weight Entries: Table ke niche TOTAL row (1st Wt, 2nd Wt, Net Wt, Cash, Diesel)" },
-      { type: "fix", text: "Print Slip: Remark + Avg/Bag info rows dono copies mein" },
+      { type: "fix", text: "Total row: White/light theme, Bags + Net Wt + Cash + Diesel totals (1st/2nd Wt hataya)" },
+      { type: "fix", text: "Avg/Bag column table se hataya — sirf print slip + view dialog mein" },
     ],
   },
   {
