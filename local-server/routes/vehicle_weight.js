@@ -1435,7 +1435,7 @@ module.exports = function(database) {
     doc.rect(LM, subY, 4, 18).fill('#1565c0'); // Blue left accent
     doc.fontSize(9).font(efb).fillColor('#1a237e');
     const dateRange = `${req.query.date_from || 'All'} to ${req.query.date_to || 'All'}`;
-    doc.text(`Vehicle Weight Register`, LM + 12, subY + 4, { continued: false });
+    doc.text(`Vehicle Weight Register`, LM + 12, subY + 4, { width: TW - 22, align: 'center', continued: false });
     doc.font(efn).fontSize(8).fillColor('#455a64').text(`Date: ${dateRange}  |  Records: ${items.length}`, LM, subY + 5, { width: TW - 10, align: 'right' });
 
     let y = subY + 24;

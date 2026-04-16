@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "101.2.0",
+    date: "Apr 2026",
+    title: "v101.2.0 - PDF Title Centered",
+    items: [
+      { type: "fix", text: "Vehicle Weight Register PDF: Title ab center-aligned hai" },
+    ],
+  },
+  {
     version: "101.1.0",
     date: "Apr 2026",
     title: "v101.1.0 - Weight Report PDF Photos Centered",
