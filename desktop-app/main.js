@@ -130,6 +130,15 @@ class JsonDatabase {
         if (!Array.isArray(data.frk_purchases)) data.frk_purchases = [];
         if (!Array.isArray(data.byproduct_sales)) data.byproduct_sales = [];
         if (!Array.isArray(data.milling_entries)) data.milling_entries = [];
+        if (!Array.isArray(data.app_settings)) data.app_settings = [];
+        // Migrate govt_links from old location to app_settings
+        if (Array.isArray(data.govt_links) && data.govt_links.length > 0) {
+          const existing = data.app_settings.find(s => s.setting_id === 'govt_links');
+          if (!existing) {
+            data.app_settings.push({ setting_id: 'govt_links', value: data.govt_links, updated_at: new Date().toISOString() });
+          }
+          delete data.govt_links;
+        }
         return data;
       }
     } catch (e) {

@@ -549,7 +549,7 @@ module.exports = function(database) {
     const setting = { setting_id: 'govt_links', value: links, updated_at: new Date().toISOString() };
     if (idx >= 0) database.data.app_settings[idx] = setting;
     else database.data.app_settings.push(setting);
-    await database.save();
+    if (database.saveImmediate) database.saveImmediate(); else database.save();
     res.json({ success: true, count: links.length });
   }));
 
@@ -561,7 +561,7 @@ module.exports = function(database) {
     const setting = { setting_id: 'govt_links', value: links, updated_at: new Date().toISOString() };
     if (idx >= 0) database.data.app_settings[idx] = setting;
     else database.data.app_settings.push(setting);
-    await database.save();
+    if (database.saveImmediate) database.saveImmediate(); else database.save();
     res.json({ success: true, count: links.length });
   }));
 
