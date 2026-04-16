@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "98.0.0",
+  "version": "99.0.0",
   "private": true,
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",

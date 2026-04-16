@@ -124,8 +124,12 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
     const gross = Number(e.gross_wt || e.first_wt || 0).toLocaleString();
     const tare = Number(e.tare_wt || e.second_wt || 0).toLocaleString();
     const net = Number(e.net_wt || 0).toLocaleString();
+    const netNum = Number(e.net_wt || 0);
+    const bagsNum = Number(e.tot_pkts || 0);
+    const avgBag = (netNum > 0 && bagsNum > 0) ? (netNum / bagsNum).toFixed(2) : '';
     const cash = Number(e.cash_paid || 0);
     const diesel = Number(e.diesel_paid || 0);
+    const remark = (e.remark || '').trim();
 
     const aboveHTML = aboveFields.length > 0 ? `<div class="custom-row above">${aboveFields.join(' &nbsp;|&nbsp; ')}</div>` : '';
     const belowHTML = belowFields.length > 0 ? `<div class="custom-row below">${belowFields.join(' &nbsp;|&nbsp; ')}</div>` : '';
@@ -147,6 +151,8 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
           <tr><td class="lbl">Product / माल</td><td class="val">${e.product || '-'}</td><td class="lbl">Bags / बोरे</td><td class="val">${e.tot_pkts || '-'}</td></tr>
           ${!isCustomerCopy && Number(e.g_issued || 0) > 0 ? `<tr><td class="lbl">G.Issued</td><td class="val" style="color:#4338ca;font-weight:900">${Number(e.g_issued).toLocaleString()}</td><td class="lbl">TP No.</td><td class="val">${e.tp_no || '-'}</td></tr>` : (!isCustomerCopy && e.tp_no ? `<tr><td class="lbl">TP No.</td><td class="val">${e.tp_no}</td><td class="lbl"></td><td class="val"></td></tr>` : '')}
           ${!isCustomerCopy && Number(e.tp_weight || 0) > 0 ? `<tr><td class="lbl">TP Weight</td><td class="val">${Number(e.tp_weight)} Q</td><td class="lbl"></td><td class="val"></td></tr>` : ''}
+          ${remark ? `<tr><td class="lbl">Remark / टिप्पणी</td><td class="val" colspan="3">${remark}</td></tr>` : ''}
+          ${avgBag ? `<tr><td class="lbl">Avg/Bag / प्रति बोरा</td><td class="val">${avgBag} KG</td><td class="lbl"></td><td class="val"></td></tr>` : ''}
         </table>
         <table class="wt-table">
           <tr>

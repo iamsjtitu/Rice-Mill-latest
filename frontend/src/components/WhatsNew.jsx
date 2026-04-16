@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "99.0.0",
+    date: "Apr 2026",
+    title: "v99.0.0 - Print Slip: Remark + Avg/Bag Fix",
+    items: [
+      { type: "fix", text: "Print Slip: Remark ab dono copies (Party + Customer) mein dikhta hai" },
+      { type: "fix", text: "Print Slip: Avg/Bag (प्रति बोरा) info table row mein add kiya — dono copies" },
+    ],
+  },
+  {
     version: "98.0.0",
     date: "Apr 2026",
     title: "v98.0.0 - Desktop PDF Branding + Watermark + Print Parity",
