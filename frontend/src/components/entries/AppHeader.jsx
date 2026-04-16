@@ -66,21 +66,35 @@ export const AppHeader = ({
       toast.success(`${link.name} khul raha hai — Username/Password auto-fill hoga!`);
       return;
     }
-    // Browser fallback: open + copy credentials
+    // Browser fallback: open + copy credentials sequentially
     window.open(link.url, '_blank');
-    if (link.username) {
+    if (link.username && link.password) {
       try {
         await navigator.clipboard.writeText(link.username);
-        toast.success(`Username copied! Ab portal mein paste karein.`, { duration: 3000 });
+        toast(`Username copied: ${link.username}`, {
+          description: 'Portal mein paste karein, phir neeche "Copy Password" click karein',
+          duration: 60000,
+          action: {
+            label: 'Copy Password',
+            onClick: async () => {
+              try {
+                await navigator.clipboard.writeText(link.password);
+                toast.success('Password copied! Ab portal mein paste karein.');
+              } catch(e) {}
+            }
+          }
+        });
       } catch(e) {}
-    }
-    if (link.password) {
-      setTimeout(async () => {
-        try {
-          await navigator.clipboard.writeText(link.password);
-          toast.success(`Password copied! Ab portal mein paste karein.`, { duration: 4000 });
-        } catch(e) {}
-      }, link.username ? 3000 : 0);
+    } else if (link.username) {
+      try {
+        await navigator.clipboard.writeText(link.username);
+        toast.success('Username copied! Portal mein paste karein.');
+      } catch(e) {}
+    } else if (link.password) {
+      try {
+        await navigator.clipboard.writeText(link.password);
+        toast.success('Password copied! Portal mein paste karein.');
+      } catch(e) {}
     }
   };
 
