@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "96.0.0",
+    date: "Apr 2026",
+    title: "v96.0.0 - Auto Weight Entries Parity + PDF Download Fix",
+    items: [
+      { type: "fix", text: "Weight Report PDF download ab Desktop App mein kaam karta hai (weight-report-pdf endpoint add)" },
+      { type: "fix", text: "Auto Weight Entries: Avg/Bag + Remark columns table mein add kiye" },
+      { type: "fix", text: "Auto Weight Entries: View Dialog mein Gross/Tare/Avg sahi dikhta hai" },
+      { type: "fix", text: "Auto Weight Entries: Edit Dialog mein Remark field add kiya" },
+    ],
+  },
+  {
     version: "95.0.0",
     date: "Apr 2026",
     title: "v95.0.0 - Vehicle Weight View Dialog Fix + LAN Weighbridge",

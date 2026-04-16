@@ -97,7 +97,7 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
     if (!await showConfirm("Delete", "Kya aap ye entry delete karna chahte hain?")) return;
     try { await axios.delete(`${API}/vehicle-weight/${id}`); toast.success("Deleted"); fetchData(); if (onVwChange) onVwChange(); } catch (err) { toast.error(err?.response?.data?.detail || "Error"); }
   };
-  const handlePdf = (e) => { const u = `${API}/vehicle-weight/${e.id}/slip-pdf?party_only=1`; _isElectron ? downloadFile(u, `Slip_${e.rst_no}.pdf`) : window.open(u, "_blank"); };
+  const handlePdf = (e) => { const u = `${API}/vehicle-weight/${e.id}/weight-report-pdf`; _isElectron ? downloadFile(u, `WeightReport_RST${e.rst_no}.pdf`) : window.open(u, "_blank"); };
 
   // ── Print A5 with 2 copies (Party Copy + Customer Copy) ──
   const handlePrint = async (e) => {
@@ -327,12 +327,14 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
                   <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">TP Wt</TableHead>
                   <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Cash</TableHead>
                   <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Diesel</TableHead>
+                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Avg/Bag</TableHead>
+                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Remark</TableHead>
                   <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {entries.length === 0 ? (
-                  <TableRow><TableCell colSpan={16} className="text-center text-slate-500 py-8 text-xs" data-testid="awe-no-entries">
+                  <TableRow><TableCell colSpan={18} className="text-center text-slate-500 py-8 text-xs" data-testid="awe-no-entries">
                     Koi entry nahi mili - Filter change karke dekhein
                   </TableCell></TableRow>
                 ) : entries.map((e, i) => {
@@ -354,6 +356,8 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
                       <TableCell className="py-2 px-3 text-xs text-right text-slate-400 font-mono">{Number(e.tp_weight || 0) > 0 ? Number(e.tp_weight) : '-'}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-amber-700 font-semibold">{e.cash_paid ? fmtWt(e.cash_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-red-600 font-semibold">{e.diesel_paid ? fmtWt(e.diesel_paid) : '-'}</TableCell>
+                      <TableCell className="py-2 px-3 text-xs text-right text-blue-700 font-mono">{(Number(e.net_wt || 0) > 0 && Number(e.tot_pkts || 0) > 0) ? (Number(e.net_wt) / Number(e.tot_pkts)).toFixed(1) : '-'}</TableCell>
+                      <TableCell className="py-2 px-3 text-xs text-slate-400 max-w-[120px] truncate" title={e.remark || ''}>{e.remark || '-'}</TableCell>
                       <TableCell className="py-2 px-3">
                         <div className="flex items-center gap-0.5 justify-center">
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-cyan-600" onClick={() => openPhotos(e)} data-testid={`awe-photos-${e.id}`} title="View Photos"><Eye className="w-3 h-3" /></Button>
@@ -464,15 +468,19 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
             <div className="flex border-t-[2px] border-gray-800">
               <div className="flex-1 text-center py-1.5 border-r border-gray-400 bg-slate-700">
                 <span className="block text-[8px] font-bold text-slate-400 uppercase">Gross / कुल</span>
-                <span className="block text-sm font-black text-slate-100">{fmtWt(photoDialog.data.first_wt)} KG</span>
+                <span className="block text-sm font-black text-slate-100">{fmtWt(photoDialog.data.gross_wt || Math.max(photoDialog.data.first_wt || 0, photoDialog.data.second_wt || 0))} KG</span>
               </div>
               <div className="flex-1 text-center py-1.5 border-r border-gray-400 bg-slate-700">
                 <span className="block text-[8px] font-bold text-slate-400 uppercase">Tare / खाली</span>
-                <span className="block text-sm font-black text-slate-100">{fmtWt(photoDialog.data.second_wt)} KG</span>
+                <span className="block text-sm font-black text-slate-100">{fmtWt(photoDialog.data.tare_wt || Math.min(photoDialog.data.first_wt || 0, photoDialog.data.second_wt || 0))} KG</span>
               </div>
               <div className="flex-1 text-center py-1.5 border-r border-gray-400" style={{ background: '#e8f5e9' }}>
                 <span className="block text-[8px] font-bold text-green-800 uppercase">Net / शुद्ध</span>
                 <span className="block text-base font-black text-green-900">{fmtWt(photoDialog.data.net_wt)} KG</span>
+              </div>
+              <div className="flex-1 text-center py-1.5 border-r border-gray-400" style={{ background: '#e3f2fd' }}>
+                <span className="block text-[8px] font-bold text-blue-800 uppercase">Avg/Bag / प्रति बोरा</span>
+                <span className="block text-sm font-black text-blue-900">{(Number(photoDialog.data.net_wt || 0) && Number(photoDialog.data.tot_pkts || 0) > 0) ? (Number(photoDialog.data.net_wt) / Number(photoDialog.data.tot_pkts)).toFixed(2) : '-'} KG</span>
               </div>
               {Number(photoDialog.data.cash_paid || 0) > 0 && (
                 <div className="flex-1 text-center py-1.5 border-r border-gray-400" style={{ background: '#fff3e0' }}>
@@ -553,6 +561,7 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
             <div><label className="text-slate-400 text-[10px]">G.Issued</label><Input className="h-7 text-xs" type="number" value={editEntry.g_issued || ''} onChange={ev => setEditEntry(p => ({...p, g_issued: ev.target.value}))} /></div>
             <div><label className="text-slate-400 text-[10px]">TP No.</label><Input className="h-7 text-xs" value={editEntry.tp_no || ''} onChange={ev => setEditEntry(p => ({...p, tp_no: ev.target.value}))} /></div>
             <div><label className="text-slate-400 text-[10px]">TP Weight</label><Input className="h-7 text-xs" type="number" value={editEntry.tp_weight || ''} onChange={ev => setEditEntry(p => ({...p, tp_weight: ev.target.value}))} /></div>
+            <div className="col-span-2"><label className="text-slate-400 text-[10px]">Remark / टिप्पणी</label><Input className="h-7 text-xs" value={editEntry.remark || ''} onChange={ev => setEditEntry(p => ({...p, remark: ev.target.value}))} /></div>
           </div>
           <div className="flex justify-end gap-2 mt-3">
             <Button variant="outline" size="sm" onClick={() => setEditEntry(null)}>Cancel</Button>

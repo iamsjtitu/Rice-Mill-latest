@@ -1014,6 +1014,28 @@ module.exports = function(database) {
     res.json({ success: true, entry });
   }));
 
+  // HEAD /api/vehicle-weight/:entry_id/weight-report-pdf - for WhatsApp URL validation
+  router.head('/api/vehicle-weight/:entry_id/weight-report-pdf', safeAsync(async (req, res) => {
+    const weights = col('vehicle_weights');
+    const entry = weights.find(w => w.id === req.params.entry_id);
+    if (!entry) return res.status(404).json({ detail: 'Not found' });
+    res.set('Content-Type', 'application/pdf').status(200).end();
+  }));
+
+  // GET /api/vehicle-weight/:entry_id/weight-report-pdf - Professional A4 weight report
+  router.get('/api/vehicle-weight/:entry_id/weight-report-pdf', safeAsync(async (req, res) => {
+    const weights = col('vehicle_weights');
+    const entry = weights.find(w => w.id === req.params.entry_id);
+    if (!entry) return res.status(404).json({ detail: 'Entry not found' });
+    const pdfBuffer = await generateWeightPdfBuffer(entry);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="WeightReport_RST${entry.rst_no || ''}.pdf"`,
+      'Content-Length': pdfBuffer.length
+    });
+    res.send(pdfBuffer);
+  }));
+
   // GET /api/vehicle-weight/:entry_id/slip-pdf - A5 portrait, 2 copies (Party + Customer)
   router.get('/api/vehicle-weight/:entry_id/slip-pdf', safeAsync(async (req, res) => {
     const PDFDocument = require('pdfkit');
