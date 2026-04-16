@@ -693,7 +693,7 @@ module.exports = function(database) {
       if (e.agent_name) allAgents.add(e.agent_name);
     }
 
-    res.json({ rows, summary: { total_entries: rows.length, total_qty: Math.round(totalQty * 100) / 100, total_tp_weight: Math.round(totalTpWeight * 100) / 100, total_bags: totalBags }, filter_options: { mandis: [...allMandis].sort(), agents: [...allAgents].sort() }, _debug: { total_entries_in_db: (database.data.entries || []).length, after_kms_season: beforeTpFilter, with_tp: tpEntries.length, sample_tp_values: entries.length === 0 ? (database.data.entries || []).filter(e => e.kms_year === kms_year && e.season === season).slice(0, 5).map(e => ({ rst: e.rst_no, tp_no: e.tp_no, tp_type: typeof e.tp_no })) : [] } });
+    res.json({ rows, summary: { total_entries: rows.length, total_qty: Math.round(totalQty * 100) / 100, total_tp_weight: Math.round(totalTpWeight * 100) / 100, total_bags: totalBags }, filter_options: { mandis: [...allMandis].sort(), agents: [...allAgents].sort() }, _debug: { total_entries_in_db: (database.data.entries || []).length, after_kms_season: beforeTpFilter, with_tp: tpEntries.length, filter_kms: kms_year || '(none)', filter_season: season || '(none)', unique_kms_in_db: [...new Set((database.data.entries || []).map(e => e.kms_year))], unique_seasons_in_db: [...new Set((database.data.entries || []).map(e => e.season))], sample_entries: (database.data.entries || []).slice(0, 3).map(e => ({ rst: e.rst_no, kms_year: e.kms_year, season: e.season, tp_no: e.tp_no, tp_type: typeof e.tp_no })) } });
   }));
 
   router.get('/api/govt-registers/transit-pass/excel', safeAsync(async (req, res) => {
