@@ -317,21 +317,23 @@ export const DCEntries = ({ filters, user }) => {
 };
 
 // ===== MSP PAYMENTS SUB-TAB =====
-export const MSPPayments = ({ filters, user, dcList }) => {
+export const MSPPayments = ({ filters, user, dcList: externalDcList }) => {
   const showConfirm = useConfirm();
   const [payments, setPayments] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [bankAccounts, setBankAccounts] = useState([]);
+  const [internalDcList, setInternalDcList] = useState([]);
+  const dcList = externalDcList && externalDcList.length > 0 ? externalDcList : internalDcList;
   const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], dc_id: "", quantity_qntl: "", rate_per_qntl: "", amount: "", payment_mode: "", reference: "", bank_name: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
-      const [payRes, sumRes, bankRes] = await Promise.all([axios.get(`${API}/msp-payments?${p}`), axios.get(`${API}/msp-payments/summary?${p}`), axios.get(`${API}/bank-accounts`)]);
-      setPayments(payRes.data); setSummary(sumRes.data); setBankAccounts(bankRes.data);
+      const [payRes, sumRes, bankRes, dcRes] = await Promise.all([axios.get(`${API}/msp-payments?${p}`), axios.get(`${API}/msp-payments/summary?${p}`), axios.get(`${API}/bank-accounts`), axios.get(`${API}/dc-entries?${p}`)]);
+      setPayments(payRes.data); setSummary(sumRes.data); setBankAccounts(bankRes.data); setInternalDcList(dcRes.data || []);
     } catch (e) { toast.error("MSP data load nahi hua"); }
     finally { setLoading(false); }
   }, [filters.kms_year, filters.season]);
