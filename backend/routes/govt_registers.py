@@ -977,7 +977,54 @@ async def get_transit_pass_register(kms_year: Optional[str] = None, season: Opti
             "bags": bags,
             "status": "Accepted",
             "remark": e.get("remark", ""),
+            "source": "mill_entry",
         })
+
+    # Also pull from vehicle_weights where tp_no exists
+    vw_query = {"tp_no": {"$ne": "", "$exists": True}}
+    if kms_year: vw_query["kms_year"] = kms_year
+    if season: vw_query["season"] = season
+    if mandi_name: vw_query["farmer_name"] = {"$regex": f"^{mandi_name}$", "$options": "i"}
+    if agent_name: vw_query["party_name"] = {"$regex": f"^{agent_name}$", "$options": "i"}
+    vw_date_q = {}
+    if date_from: vw_date_q["$gte"] = date_from
+    if date_to: vw_date_q["$lte"] = date_to
+    if vw_date_q: vw_query["date"] = vw_date_q
+
+    vw_entries = await db.vehicle_weights.find(vw_query, {"_id": 0}).sort("date", 1).to_list(50000)
+    # Collect existing tp_no+date combos from mill entries to avoid duplicates
+    existing_tp = set((r["tp_no"], r["date"]) for r in rows)
+    for e in vw_entries:
+        tp_no = str(e.get("tp_no", "")).strip()
+        if not tp_no:
+            continue
+        if (tp_no, e.get("date", "")) in existing_tp:
+            continue
+        net_wt = float(e.get("net_wt", 0) or 0) / 100  # KG to QNTL
+        bags = int(e.get("tot_pkts", 0) or 0)
+        tp_wt = round(float(e.get("tp_weight", 0) or 0), 2)
+        total_qty += net_wt
+        total_bags += bags
+        total_tp_weight += tp_wt
+        m_name = e.get("farmer_name", "")
+        a_name = e.get("party_name", "")
+        if m_name: mandis.add(m_name)
+        if a_name: agents.add(a_name)
+        rows.append({
+            "date": e.get("date", ""),
+            "tp_no": tp_no,
+            "rst_no": str(e.get("rst_no", "")),
+            "truck_no": e.get("vehicle_no", ""),
+            "agent_name": a_name,
+            "mandi_name": m_name,
+            "qty_qntl": round(net_wt, 2),
+            "tp_weight": tp_wt,
+            "bags": bags,
+            "status": "Accepted",
+            "remark": e.get("remark", ""),
+            "source": "vehicle_weight",
+        })
+    rows.sort(key=lambda x: x.get("date", ""))
 
     return {
         "rows": rows,

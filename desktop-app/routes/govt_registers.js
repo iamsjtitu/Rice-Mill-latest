@@ -665,8 +665,36 @@ module.exports = function(database) {
       const aName = e.agent_name || '';
       if (mName) mandis.add(mName);
       if (aName) agents.add(aName);
-      rows.push({ date: e.date || '', tp_no: String(e.tp_no), rst_no: String(e.rst_no || ''), truck_no: e.truck_no || '', agent_name: aName, mandi_name: mName, qty_qntl: Math.round(finalW * 100) / 100, tp_weight: tpWt, bags, status: 'Accepted', remark: e.remark || '' });
+      rows.push({ date: e.date || '', tp_no: String(e.tp_no), rst_no: String(e.rst_no || ''), truck_no: e.truck_no || '', agent_name: aName, mandi_name: mName, qty_qntl: Math.round(finalW * 100) / 100, tp_weight: tpWt, bags, status: 'Accepted', remark: e.remark || '', source: 'mill_entry' });
     }
+
+    // Also pull from vehicle_weights where tp_no exists
+    let vwEntries = [...(database.data.vehicle_weights || [])].filter(e => {
+      if (!e.tp_no || !String(e.tp_no).trim()) return false;
+      if (kms_year && e.kms_year !== kms_year) return false;
+      if (season && e.season !== season) return false;
+      if (date_from && (e.date || '') < date_from) return false;
+      if (date_to && (e.date || '') > date_to) return false;
+      if (mandi_name && (e.farmer_name || '').toLowerCase() !== mandi_name.toLowerCase()) return false;
+      if (agent_name && (e.party_name || '').toLowerCase() !== agent_name.toLowerCase()) return false;
+      return true;
+    });
+    const existingTp = new Set(rows.map(r => `${r.tp_no}|${r.date}`));
+    for (const e of vwEntries) {
+      const tpNo = String(e.tp_no).trim();
+      if (!tpNo) continue;
+      if (existingTp.has(`${tpNo}|${e.date || ''}`)) continue;
+      const netWt = parseFloat(e.net_wt || 0) / 100; // KG to QNTL
+      const vBags = parseInt(e.tot_pkts || 0);
+      const tpWt = Math.round(parseFloat(e.tp_weight || 0) * 100) / 100;
+      totalQty += netWt; totalBags += vBags; totalTpWeight += tpWt;
+      const mName = e.farmer_name || '';
+      const aName = e.party_name || '';
+      if (mName) mandis.add(mName);
+      if (aName) agents.add(aName);
+      rows.push({ date: e.date || '', tp_no: tpNo, rst_no: String(e.rst_no || ''), truck_no: e.vehicle_no || '', agent_name: aName, mandi_name: mName, qty_qntl: Math.round(netWt * 100) / 100, tp_weight: tpWt, bags: vBags, status: 'Accepted', remark: e.remark || '', source: 'vehicle_weight' });
+    }
+    rows.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
     // For filter_options, get ALL TP entries (unfiltered by mandi/agent) to populate dropdowns
     let allTpEntries = [...(database.data.entries || [])];
@@ -677,6 +705,15 @@ module.exports = function(database) {
     for (const e of allTpEntries) {
       if (e.mandi_name) allMandis.add(e.mandi_name);
       if (e.agent_name) allAgents.add(e.agent_name);
+    }
+    // Also from vehicle_weights
+    let allVwTp = [...(database.data.vehicle_weights || [])];
+    if (kms_year) allVwTp = allVwTp.filter(e => e.kms_year === kms_year);
+    if (season) allVwTp = allVwTp.filter(e => e.season === season);
+    allVwTp = allVwTp.filter(e => e.tp_no && String(e.tp_no).trim());
+    for (const e of allVwTp) {
+      if (e.farmer_name) allMandis.add(e.farmer_name);
+      if (e.party_name) allAgents.add(e.party_name);
     }
 
     res.json({ rows, summary: { total_entries: rows.length, total_qty: Math.round(totalQty * 100) / 100, total_tp_weight: Math.round(totalTpWeight * 100) / 100, total_bags: totalBags }, filter_options: { mandis: [...allMandis].sort(), agents: [...allAgents].sort() } });

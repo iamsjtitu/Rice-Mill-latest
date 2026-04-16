@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "101.5.0",
+    date: "Apr 2026",
+    title: "v101.5.0 - Transit Pass Register: Vehicle Weight Data",
+    items: [
+      { type: "new", text: "Transit Pass Register: Vehicle Weight entries bhi include (jahan TP No. dala hai)" },
+      { type: "fix", text: "Desktop: tp-weight-stock + milling-register endpoints fix" },
+    ],
+  },
+  {
     version: "101.4.0",
     date: "Apr 2026",
     title: "v101.4.0 - Milling Register + TP Weight Stock Fix",
