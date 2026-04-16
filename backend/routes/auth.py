@@ -632,28 +632,32 @@ async def clear_audit_log(username: str = "", role: str = "", days: int = 0):
 # ============ GOVT USEFUL LINKS ============
 @router.get("/govt-links")
 async def get_govt_links():
-    links = await db.govt_links.find({}, {"_id": 0}).to_list(100)
-    return links
+    setting = await db.app_settings.find_one({"setting_id": "govt_links"}, {"_id": 0})
+    return setting.get("value", []) if setting else []
 
 @router.put("/govt-links")
 async def save_govt_links(links: list):
-    await db.govt_links.delete_many({})
-    if links:
-        for i, link in enumerate(links):
-            if not link.get("id"):
-                link["id"] = str(uuid.uuid4())
-            link["order"] = i
-        await db.govt_links.insert_many(links)
+    for i, link in enumerate(links):
+        if not link.get("id"):
+            link["id"] = str(uuid.uuid4())
+        link["order"] = i
+    await db.app_settings.update_one(
+        {"setting_id": "govt_links"},
+        {"$set": {"setting_id": "govt_links", "value": links, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
     return {"success": True, "count": len(links)}
 
 @router.post("/govt-links")
 async def save_govt_links_post(links: list):
-    await db.govt_links.delete_many({})
-    if links:
-        for i, link in enumerate(links):
-            if not link.get("id"):
-                link["id"] = str(uuid.uuid4())
-            link["order"] = i
-        await db.govt_links.insert_many(links)
+    for i, link in enumerate(links):
+        if not link.get("id"):
+            link["id"] = str(uuid.uuid4())
+        link["order"] = i
+    await db.app_settings.update_one(
+        {"setting_id": "govt_links"},
+        {"$set": {"setting_id": "govt_links", "value": links, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
     return {"success": True, "count": len(links)}
 

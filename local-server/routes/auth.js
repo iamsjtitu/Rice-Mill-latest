@@ -535,13 +535,20 @@ module.exports = function(database) {
 
   // ============ GOVT USEFUL LINKS ============
   router.get('/api/govt-links', safeSync(async (req, res) => {
-    res.json(database.data.govt_links || []);
+    // Store in app_settings for persistence
+    const settings = database.data.app_settings || [];
+    const linksSetting = settings.find(s => s.setting_id === 'govt_links');
+    res.json(linksSetting?.value || []);
   }));
 
   router.put('/api/govt-links', safeSync(async (req, res) => {
     const links = Array.isArray(req.body) ? req.body : [];
     links.forEach((l, i) => { if (!l.id) l.id = require('crypto').randomUUID(); l.order = i; });
-    database.data.govt_links = links;
+    if (!database.data.app_settings) database.data.app_settings = [];
+    const idx = database.data.app_settings.findIndex(s => s.setting_id === 'govt_links');
+    const setting = { setting_id: 'govt_links', value: links, updated_at: new Date().toISOString() };
+    if (idx >= 0) database.data.app_settings[idx] = setting;
+    else database.data.app_settings.push(setting);
     await database.save();
     res.json({ success: true, count: links.length });
   }));
@@ -549,7 +556,11 @@ module.exports = function(database) {
   router.post('/api/govt-links', safeSync(async (req, res) => {
     const links = Array.isArray(req.body) ? req.body : [];
     links.forEach((l, i) => { if (!l.id) l.id = require('crypto').randomUUID(); l.order = i; });
-    database.data.govt_links = links;
+    if (!database.data.app_settings) database.data.app_settings = [];
+    const idx = database.data.app_settings.findIndex(s => s.setting_id === 'govt_links');
+    const setting = { setting_id: 'govt_links', value: links, updated_at: new Date().toISOString() };
+    if (idx >= 0) database.data.app_settings[idx] = setting;
+    else database.data.app_settings.push(setting);
     await database.save();
     res.json({ success: true, count: links.length });
   }));
