@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "98.0.0",
+    date: "Apr 2026",
+    title: "v98.0.0 - Desktop PDF Branding + Watermark + Print Parity",
+    items: [
+      { type: "fix", text: "Desktop PDF: Header ab Settings Branding se aata hai (Mill Entry System nahi)" },
+      { type: "fix", text: "Desktop PDF: Watermark ab vector glyph paths se — text select artifact fix" },
+      { type: "fix", text: "Auto Weight Entries Print: Ab Auto Vehicle Weight jaisa — G.Issued, TP No., TP Weight sab same" },
+    ],
+  },
+  {
     version: "97.0.0",
     date: "Apr 2026",
     title: "v97.0.0 - Desktop Watermark Fix + Weight Bar Layout",
