@@ -99,7 +99,7 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
   };
   const handlePdf = (e) => { const u = `${API}/vehicle-weight/${e.id}/weight-report-pdf`; _isElectron ? downloadFile(u, `WeightReport_RST${e.rst_no}.pdf`) : window.open(u, "_blank"); };
 
-  // ── Print A5 with 2 copies (Party Copy + Customer Copy) ──
+  // ── Print A5 with 2 copies (Party Copy + Customer Copy) — SAME as VehicleWeight ──
   const handlePrint = async (e) => {
     let company = "NAVKAR AGRO", tagline = "JOLKO, KESINGA";
     let aboveFields = [], belowFields = [];
@@ -130,7 +130,7 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
     const aboveHTML = aboveFields.length > 0 ? `<div class="custom-row above">${aboveFields.join(' &nbsp;|&nbsp; ')}</div>` : '';
     const belowHTML = belowFields.length > 0 ? `<div class="custom-row below">${belowFields.join(' &nbsp;|&nbsp; ')}</div>` : '';
 
-    const copyHTML = (copyLabel, showSignature) => `
+    const copyHTML = (copyLabel, showSignature, isCustomerCopy = false) => `
       <div class="copy-block">
         <div class="copy-label">${copyLabel}</div>
         <div class="header">
@@ -145,7 +145,8 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
           <tr><td class="lbl">Vehicle / गाड़ी</td><td class="val">${e.vehicle_no}</td><td class="lbl">Trans Type</td><td class="val">${e.trans_type || '-'}</td></tr>
           <tr><td class="lbl">Party / पार्टी</td><td class="val">${e.party_name || '-'}</td><td class="lbl">Source/Mandi</td><td class="val">${e.farmer_name || '-'}</td></tr>
           <tr><td class="lbl">Product / माल</td><td class="val">${e.product || '-'}</td><td class="lbl">Bags / बोरे</td><td class="val">${e.tot_pkts || '-'}</td></tr>
-          ${Number(e.g_issued || 0) > 0 ? `<tr><td class="lbl">G.Issued</td><td class="val" style="color:#4338ca;font-weight:900">${Number(e.g_issued).toLocaleString()}</td><td class="lbl"></td><td class="val"></td></tr>` : ''}
+          ${!isCustomerCopy && Number(e.g_issued || 0) > 0 ? `<tr><td class="lbl">G.Issued</td><td class="val" style="color:#4338ca;font-weight:900">${Number(e.g_issued).toLocaleString()}</td><td class="lbl">TP No.</td><td class="val">${e.tp_no || '-'}</td></tr>` : (!isCustomerCopy && e.tp_no ? `<tr><td class="lbl">TP No.</td><td class="val">${e.tp_no}</td><td class="lbl"></td><td class="val"></td></tr>` : '')}
+          ${!isCustomerCopy && Number(e.tp_weight || 0) > 0 ? `<tr><td class="lbl">TP Weight</td><td class="val">${Number(e.tp_weight)} Q</td><td class="lbl"></td><td class="val"></td></tr>` : ''}
         </table>
         <table class="wt-table">
           <tr>
@@ -209,7 +210,7 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
     <div class="page">
       ${copyHTML("PARTY COPY / पार्टी प्रति", false)}
       <div class="cut-line"><span class="cut-text">- - - CUT HERE / काटें - - -</span></div>
-      ${copyHTML("CUSTOMER COPY / ग्राहक प्रति", true)}
+      ${copyHTML("CUSTOMER COPY / ग्राहक प्रति", true, true)}
     </div>
     <div class="no-print" style="text-align:center;margin-top:20px;">
       <button onclick="window.print()" style="background:#d97706;color:white;border:none;padding:12px 30px;border-radius:6px;cursor:pointer;font-size:16px;font-weight:bold;">Print / प्रिंट करें</button>

@@ -496,8 +496,10 @@ module.exports = function(database) {
         const tpWt = entry.tp_weight || entry.tp_wt || '';
         const remark = entry.remark || '';
 
-        // Get branding from settings
-        const branding = (col('app_settings') || []).find(s => s.setting_id === 'branding') || {};
+        // Get branding from settings + attach watermark
+        const branding = { ...(database.data.branding || {}) };
+        const wmSetting = (database.data.app_settings || []).find(s => s.setting_id === 'watermark');
+        if (wmSetting) branding._watermark = wmSetting;
 
         function fmtIST(ts) {
           if (!ts) return '';
