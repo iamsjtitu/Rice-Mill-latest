@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "101.6.0",
+    date: "Apr 2026",
+    title: "v101.6.0 - Transit Pass: Only Paddy Purchase Data",
+    items: [
+      { type: "fix", text: "Transit Pass Register: Sirf Paddy Purchase (Mill Entries) se data — Vehicle Weight hataya" },
+    ],
+  },
+  {
     version: "101.5.0",
     date: "Apr 2026",
     title: "v101.5.0 - Transit Pass Register: Vehicle Weight Data",
