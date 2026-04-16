@@ -533,6 +533,20 @@ module.exports = function(database) {
     }
   }));
 
+  // ============ GOVT USEFUL LINKS ============
+  router.get('/api/govt-links', safeSync(async (req, res) => {
+    res.json(database.data.govt_links || []);
+  }));
+
+  router.put('/api/govt-links', safeSync(async (req, res) => {
+    const links = req.body || [];
+    links.forEach((l, i) => { if (!l.id) l.id = require('crypto').randomUUID(); l.order = i; });
+    database.data.govt_links = links;
+    await database.save();
+    res.json({ success: true, count: links.length });
+  }));
+
+
 
 
 

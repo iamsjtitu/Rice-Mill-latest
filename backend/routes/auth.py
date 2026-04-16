@@ -628,3 +628,21 @@ async def clear_audit_log(username: str = "", role: str = "", days: int = 0):
         result = await db.audit_log.delete_many({})
         return {"deleted": result.deleted_count, "message": f"Sab {result.deleted_count} audit logs clear ho gaye"}
 
+
+# ============ GOVT USEFUL LINKS ============
+@router.get("/govt-links")
+async def get_govt_links():
+    links = await db.govt_links.find({}, {"_id": 0}).to_list(100)
+    return links
+
+@router.put("/govt-links")
+async def save_govt_links(links: list):
+    await db.govt_links.delete_many({})
+    if links:
+        for i, link in enumerate(links):
+            if not link.get("id"):
+                link["id"] = str(uuid.uuid4())
+            link["order"] = i
+        await db.govt_links.insert_many(links)
+    return {"success": True, "count": len(links)}
+

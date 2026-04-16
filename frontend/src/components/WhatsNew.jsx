@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "102.0.0",
+    date: "Apr 2026",
+    title: "v102.0.0 - Govt Useful Links",
+    items: [
+      { type: "new", text: "Header mein 'Govt Links' dropdown — ek click mein govt portal khulega" },
+      { type: "new", text: "Settings > Govt Links — URL + Username + Password save karein" },
+      { type: "new", text: "Click pe website khule + username clipboard mein copy" },
+      { type: "fix", text: "MSP Payments dcList error fix + Milling Register PDF fix" },
+    ],
+  },
+  {
     version: "101.17.0",
     date: "Apr 2026",
     title: "v101.17.0 - MSP Payments Back to Payments Tab",

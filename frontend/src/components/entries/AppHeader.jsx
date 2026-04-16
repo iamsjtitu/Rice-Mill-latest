@@ -7,8 +7,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   RefreshCw, Filter, FileSpreadsheet, FileText, LogOut, User, Key,
-  Calendar, Users, Keyboard, Info, Sun, Moon, Send, Search, ChevronDown,
+  Calendar, Users, Keyboard, Info, Sun, Moon, Send, Search, ChevronDown, ExternalLink, Copy,
 } from "lucide-react";
+import { toast } from "sonner";
+import { useState, useEffect } from "react";
+import axios from "axios";
 import SessionIndicator from "@/components/SessionIndicator";
 import { ShortcutsDialog, BackupReminderDialog, PasswordChangeDialog } from "@/components/entries/HeaderDialogs";
 import QuickSearch from "@/components/QuickSearch";
@@ -51,6 +54,28 @@ export const AppHeader = ({
   handleEntriesWhatsApp, handleEntriesGroupSend, handleEntriesTelegram, entriesTgSending,
   wa, tg,
 }) => {
+  const [govtLinks, setGovtLinks] = useState([]);
+  useEffect(() => {
+    axios.get(`${API}/govt-links`).then(r => setGovtLinks(r.data || [])).catch(() => {});
+  }, []);
+
+  const openGovtLink = (link) => {
+    let url = link.url;
+    if (link.username || link.password) {
+      const sep = url.includes('?') ? '&' : '?';
+      const params = new URLSearchParams();
+      if (link.username) params.append('username', link.username);
+      if (link.password) params.append('password', link.password);
+      url = `${url}${sep}${params.toString()}`;
+    }
+    window.open(url, '_blank');
+    if (link.username) {
+      navigator.clipboard?.writeText(link.username).then(() => {
+        toast.success(`Username "${link.username}" clipboard mein copy ho gaya!`);
+      }).catch(() => {});
+    }
+  };
+
   return (
     <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 sticky top-0 z-10 no-print">
       <div className="max-w-[1600px] mx-auto px-3 sm:px-4 py-2 sm:py-3">
@@ -121,6 +146,31 @@ export const AppHeader = ({
               <Info className="w-4 h-4 sm:mr-1" />
               <span className="hidden lg:inline">v{APP_VERSION}</span>
             </Button>
+
+            {/* Govt Useful Links */}
+            {govtLinks.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="border-emerald-600/50 text-emerald-400 hover:bg-emerald-900/30 hidden sm:flex" data-testid="govt-links-dropdown">
+                    <ExternalLink className="w-4 h-4 sm:mr-1" />
+                    <span className="hidden lg:inline">Govt Links</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-slate-800 border-slate-600 min-w-[220px]" align="end">
+                  {govtLinks.map((link, idx) => (
+                    <DropdownMenuItem key={idx} onClick={() => openGovtLink(link)}
+                      className="text-slate-200 hover:bg-slate-700 cursor-pointer gap-2" data-testid={`govt-link-item-${idx}`}>
+                      <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
+                      <div className="flex-1 min-w-0">
+                        <span className="block text-sm truncate">{link.name}</span>
+                        {link.username && <span className="block text-[10px] text-slate-400 truncate">{link.username}</span>}
+                      </div>
+                      {link.username && <Copy className="w-3 h-3 text-slate-500" />}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
 
             {/* Admin Dropdown */}
             <DropdownMenu>

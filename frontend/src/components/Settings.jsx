@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Calculator, HardDrive, ShieldCheck, Send, Package, Scale,
-  Camera, AlertCircle, Key, Users, History, Droplets,
+  Camera, AlertCircle, Key, Users, History, Droplets, ExternalLink,
 } from "lucide-react";
 
 import BrandingTab from "./settings/BrandingTab";
@@ -16,6 +16,7 @@ import CameraSetupTab from "./settings/CameraSetupTab";
 import UsersTab from "./settings/UsersTab";
 import AuditLogTab from "./settings/AuditLogTab";
 import WatermarkTab from "./settings/WatermarkTab";
+import GovtLinksTab from "./settings/GovtLinksTab";
 
 const SUB_TABS = [
   { id: "users", label: "Users", icon: Users },
@@ -25,6 +26,7 @@ const SUB_TABS = [
   { id: "gst", label: "GST", icon: Calculator },
   { id: "stock", label: "Stock", icon: Package },
   { id: "messaging", label: "Messaging", icon: Send },
+  { id: "govt-links", label: "Govt Links", icon: ExternalLink },
   { id: "camera", label: "Camera", icon: Camera },
   { id: "weighbridge", label: "Weighbridge", icon: Scale },
   { id: "data", label: "Data", icon: HardDrive },
@@ -59,6 +61,7 @@ export default function Settings({ user, setUser, kmsYear, onBrandingUpdate }) {
           <TabsContent value="gst"><GSTTab /></TabsContent>
           <TabsContent value="stock"><StockTab kmsYear={kmsYear} user={user} /></TabsContent>
           <TabsContent value="messaging"><MessagingTab /></TabsContent>
+          <TabsContent value="govt-links"><GovtLinksTab /></TabsContent>
           <TabsContent value="camera"><CameraSetupTab /></TabsContent>
           <TabsContent value="weighbridge"><WeighbridgeConfigCard /></TabsContent>
           <TabsContent value="data"><DataTab user={user} /></TabsContent>
