@@ -644,25 +644,18 @@ module.exports = function(database) {
     const { kms_year, season, date_from, date_to, mandi_name, agent_name } = req.query;
     let entries = [...(database.data.entries || [])];
     const totalBefore = entries.length;
-    if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
-    if (season) entries = entries.filter(e => e.season === season);
+    const normStr = (s) => String(s || '').trim().replace(/[\u2013\u2014\u2012\u00ad]/g, '-').replace(/\s+/g, '');
+    if (kms_year) entries = entries.filter(e => normStr(e.kms_year) === normStr(kms_year) || String(e.kms_year || '').includes(kms_year) || String(kms_year).includes(String(e.kms_year || '')));
+    if (season) entries = entries.filter(e => normStr(e.season) === normStr(season));
     if (date_from) entries = entries.filter(e => (e.date || '') >= date_from);
     if (date_to) entries = entries.filter(e => (e.date || '') <= date_to);
     if (mandi_name) entries = entries.filter(e => (e.mandi_name || '').toLowerCase() === mandi_name.toLowerCase());
     if (agent_name) entries = entries.filter(e => (e.agent_name || '').toLowerCase() === agent_name.toLowerCase());
     const beforeTpFilter = entries.length;
-    // Check tp_no field - log for debugging
     const tpEntries = entries.filter(e => {
       const tp = e.tp_no;
       return tp !== undefined && tp !== null && tp !== '' && tp !== 0 && String(tp).trim() !== '';
     });
-    console.log(`[Transit-Pass] Total: ${totalBefore}, After KMS/Season: ${beforeTpFilter}, With TP: ${tpEntries.length}, KMS: ${kms_year}, Season: ${season}`);
-    if (beforeTpFilter > 0 && tpEntries.length === 0) {
-      // Debug: show first 3 entries' tp_no values
-      entries.slice(0, 3).forEach((e, i) => {
-        console.log(`[Transit-Pass DEBUG] Entry ${i}: tp_no="${e.tp_no}" (type: ${typeof e.tp_no}), rst_no=${e.rst_no}`);
-      });
-    }
     entries = tpEntries;
     entries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
@@ -684,8 +677,8 @@ module.exports = function(database) {
 
     // For filter_options, get ALL TP entries (unfiltered by mandi/agent) to populate dropdowns
     let allTpEntries = [...(database.data.entries || [])];
-    if (kms_year) allTpEntries = allTpEntries.filter(e => e.kms_year === kms_year);
-    if (season) allTpEntries = allTpEntries.filter(e => e.season === season);
+    if (kms_year) allTpEntries = allTpEntries.filter(e => normStr(e.kms_year) === normStr(kms_year));
+    if (season) allTpEntries = allTpEntries.filter(e => normStr(e.season) === normStr(season));
     allTpEntries = allTpEntries.filter(e => e.tp_no && String(e.tp_no).trim());
     const allMandis = new Set(), allAgents = new Set();
     for (const e of allTpEntries) {
@@ -693,7 +686,7 @@ module.exports = function(database) {
       if (e.agent_name) allAgents.add(e.agent_name);
     }
 
-    res.json({ rows, summary: { total_entries: rows.length, total_qty: Math.round(totalQty * 100) / 100, total_tp_weight: Math.round(totalTpWeight * 100) / 100, total_bags: totalBags }, filter_options: { mandis: [...allMandis].sort(), agents: [...allAgents].sort() }, _debug: { total_entries_in_db: (database.data.entries || []).length, after_kms_season: beforeTpFilter, with_tp: tpEntries.length, filter_kms: kms_year || '(none)', filter_season: season || '(none)', unique_kms_in_db: [...new Set((database.data.entries || []).map(e => e.kms_year))], unique_seasons_in_db: [...new Set((database.data.entries || []).map(e => e.season))], sample_entries: (database.data.entries || []).slice(0, 3).map(e => ({ rst: e.rst_no, kms_year: e.kms_year, season: e.season, tp_no: e.tp_no, tp_type: typeof e.tp_no })) } });
+    res.json({ rows, summary: { total_entries: rows.length, total_qty: Math.round(totalQty * 100) / 100, total_tp_weight: Math.round(totalTpWeight * 100) / 100, total_bags: totalBags }, filter_options: { mandis: [...allMandis].sort(), agents: [...allAgents].sort() } });
   }));
 
   router.get('/api/govt-registers/transit-pass/excel', safeAsync(async (req, res) => {
