@@ -31,7 +31,7 @@ export const DCEntries = ({ filters, user }) => {
   const [riceStockAvail, setRiceStockAvail] = useState(null);
   const [riceStockByType, setRiceStockByType] = useState({ parboiled: null, raw: null });
   const [form, setForm] = useState({ dc_number: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", rice_type: "parboiled", depot_name: "", depot_code: "", no_of_lots: "", delivery_to: "FCI", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
-  const [delForm, setDelForm] = useState({ dc_id: "", date: new Date().toISOString().split('T')[0], godown_name: "", invoice_no: "", rst_no: "", eway_bill_no: "", cash_paid: "", diesel_paid: "", cgst_amount: "", sgst_amount: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif", trucks: [{ vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] });
+  const [delForm, setDelForm] = useState({ dc_id: "", date: new Date().toISOString().split('T')[0], godown_name: "", rst_no: "", cash_paid: "", diesel_paid: "", depot_expenses: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif", trucks: [{ vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] });
   const [searchQuery, setSearchQuery] = useState("");
   const [editDepot, setEditDepot] = useState(null);
   const [editDepotForm, setEditDepotForm] = useState({ depot_name: '', depot_code: '', delivery_to: 'FCI', no_of_lots: '' });
@@ -84,9 +84,7 @@ export const DCEntries = ({ filters, user }) => {
         dc_id: delForm.dc_id,
         date: delForm.date,
         godown_name: delForm.godown_name,
-        invoice_no: delForm.invoice_no,
         rst_no: delForm.rst_no,
-        eway_bill_no: delForm.eway_bill_no,
         notes: delForm.notes,
         kms_year: delForm.kms_year,
         season: delForm.season,
@@ -97,11 +95,10 @@ export const DCEntries = ({ filters, user }) => {
         slip_no: join('slip_no'),
         cash_paid: parseFloat(delForm.cash_paid) || 0,
         diesel_paid: parseFloat(delForm.diesel_paid) || 0,
-        cgst_amount: parseFloat(delForm.cgst_amount) || 0,
-        sgst_amount: parseFloat(delForm.sgst_amount) || 0,
+        depot_expenses: parseFloat(delForm.depot_expenses) || 0,
       });
       toast.success("Delivery add hui!"); setShowDeliveryForm(false);
-      setDelForm({ dc_id: "", date: new Date().toISOString().split('T')[0], godown_name: "", invoice_no: "", rst_no: "", eway_bill_no: "", cash_paid: "", diesel_paid: "", cgst_amount: "", sgst_amount: "", notes: "", kms_year: filters.kms_year || CURRENT_KMS, season: filters.season || "Kharif", trucks: [{ vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] });
+      setDelForm({ dc_id: "", date: new Date().toISOString().split('T')[0], godown_name: "", rst_no: "", cash_paid: "", diesel_paid: "", depot_expenses: "", notes: "", kms_year: filters.kms_year || CURRENT_KMS, season: filters.season || "Kharif", trucks: [{ vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] });
       fetchDeliveries(expandedDC); fetchData();
     } catch (e) { toast.error(e.response?.data?.detail || e.message); }
   };
@@ -144,6 +141,15 @@ export const DCEntries = ({ filters, user }) => {
   // Build depot suggestions from historical DC entries (unique, non-empty, sorted)
   const depotNameSuggestions = useMemo(() => [...new Set((dcs || []).map(d => (d.depot_name || '').trim()).filter(Boolean))].sort(), [dcs]);
   const depotCodeSuggestions = useMemo(() => [...new Set((dcs || []).map(d => (d.depot_code || '').trim()).filter(Boolean))].sort(), [dcs]);
+
+  // Build delivery field suggestions from historical deliveries (across all DCs)
+  // vehicle_no/driver_name/slip_no are stored as "T1 / T2" (slash-joined) so we split them back
+  const allDeliveries = useMemo(() => (dcs || []).flatMap(d => d.deliveries || []), [dcs]);
+  const splitJoined = (s) => (s || '').split('/').map(x => x.trim()).filter(Boolean);
+  const vehicleSuggestions = useMemo(() => [...new Set(allDeliveries.flatMap(d => splitJoined(d.vehicle_no)))].sort(), [allDeliveries]);
+  const driverSuggestions = useMemo(() => [...new Set(allDeliveries.flatMap(d => splitJoined(d.driver_name)))].sort(), [allDeliveries]);
+  const bagsSuggestions = useMemo(() => [...new Set(allDeliveries.map(d => String(d.bags_used || '')).filter(v => v && v !== '0'))].sort((a,b) => (+a)-(+b)), [allDeliveries]);
+  const weightSuggestions = useMemo(() => [...new Set(allDeliveries.map(d => String(d.quantity_qntl || '')).filter(v => v && v !== '0'))].sort((a,b) => (+a)-(+b)), [allDeliveries]);
 
   // Filter DCs by search query (DC number or delivery invoice number)
   const filteredDCs = searchQuery.trim()
@@ -358,14 +364,8 @@ export const DCEntries = ({ filters, user }) => {
             <div className="grid grid-cols-3 gap-3">
               <div><Label className="text-xs text-slate-400">Date</Label>
                 <Input type="date" value={delForm.date} onChange={e => setDelForm(p=>({...p,date:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="delivery-form-date" /></div>
-              <div><Label className="text-xs text-slate-400">Invoice Number</Label>
-                <Input value={delForm.invoice_no} onChange={e => setDelForm(p=>({...p,invoice_no:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-invoice" /></div>
               <div><Label className="text-xs text-slate-400">RST Number</Label>
                 <Input value={delForm.rst_no} onChange={e => setDelForm(p=>({...p,rst_no:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-rst" /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs text-slate-400">E-Way Bill Number</Label>
-                <Input value={delForm.eway_bill_no} onChange={e => setDelForm(p=>({...p,eway_bill_no:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-eway" /></div>
               <div><Label className="text-xs text-slate-400">Godown</Label>
                 <Input value={delForm.godown_name} onChange={e => setDelForm(p=>({...p,godown_name:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>
             </div>
@@ -397,20 +397,25 @@ export const DCEntries = ({ filters, user }) => {
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div><Label className="text-[10px] text-slate-400">Vehicle No</Label>
-                      <Input value={truck.vehicle_no} onChange={e => setDelForm(p => ({ ...p, trucks: p.trucks.map((t, i) => i === idx ? { ...t, vehicle_no: e.target.value } : t) }))} className="bg-slate-700 border-slate-600 text-white h-7 text-xs" data-testid={`delivery-truck-${idx}-vehicle`} /></div>
+                      <Input list="del-vehicle-list" value={truck.vehicle_no} onChange={e => setDelForm(p => ({ ...p, trucks: p.trucks.map((t, i) => i === idx ? { ...t, vehicle_no: e.target.value } : t) }))} className="bg-slate-700 border-slate-600 text-white h-7 text-xs" data-testid={`delivery-truck-${idx}-vehicle`} autoComplete="off" /></div>
                     <div><Label className="text-[10px] text-slate-400">Driver Name</Label>
-                      <Input value={truck.driver_name} onChange={e => setDelForm(p => ({ ...p, trucks: p.trucks.map((t, i) => i === idx ? { ...t, driver_name: e.target.value } : t) }))} className="bg-slate-700 border-slate-600 text-white h-7 text-xs" data-testid={`delivery-truck-${idx}-driver`} /></div>
+                      <Input list="del-driver-list" value={truck.driver_name} onChange={e => setDelForm(p => ({ ...p, trucks: p.trucks.map((t, i) => i === idx ? { ...t, driver_name: e.target.value } : t) }))} className="bg-slate-700 border-slate-600 text-white h-7 text-xs" data-testid={`delivery-truck-${idx}-driver`} autoComplete="off" /></div>
                     <div><Label className="text-[10px] text-slate-400">Slip No</Label>
                       <Input value={truck.slip_no} onChange={e => setDelForm(p => ({ ...p, trucks: p.trucks.map((t, i) => i === idx ? { ...t, slip_no: e.target.value } : t) }))} className="bg-slate-700 border-slate-600 text-white h-7 text-xs" data-testid={`delivery-truck-${idx}-slip`} /></div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div><Label className="text-[10px] text-amber-400 font-semibold">Bags (Govt)</Label>
-                      <Input type="number" value={truck.bags_used} onChange={e => setDelForm(p => ({ ...p, trucks: p.trucks.map((t, i) => i === idx ? { ...t, bags_used: e.target.value } : t) }))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-7 text-xs" data-testid={`delivery-truck-${idx}-bags`} /></div>
+                      <Input list="del-bags-list" type="number" value={truck.bags_used} onChange={e => setDelForm(p => ({ ...p, trucks: p.trucks.map((t, i) => i === idx ? { ...t, bags_used: e.target.value } : t) }))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-7 text-xs" data-testid={`delivery-truck-${idx}-bags`} autoComplete="off" /></div>
                     <div><Label className="text-[10px] text-emerald-400 font-semibold">Weight (Qtl)</Label>
-                      <Input type="number" step="0.01" value={truck.quantity_qntl} onChange={e => setDelForm(p => ({ ...p, trucks: p.trucks.map((t, i) => i === idx ? { ...t, quantity_qntl: e.target.value } : t) }))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-7 text-xs" data-testid={`delivery-truck-${idx}-qty`} /></div>
+                      <Input list="del-weight-list" type="number" step="0.01" value={truck.quantity_qntl} onChange={e => setDelForm(p => ({ ...p, trucks: p.trucks.map((t, i) => i === idx ? { ...t, quantity_qntl: e.target.value } : t) }))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-7 text-xs" data-testid={`delivery-truck-${idx}-qty`} autoComplete="off" /></div>
                   </div>
                 </div>
               ))}
+              {/* Shared datalists for truck fields — keep outside each truck to avoid duplicates */}
+              <datalist id="del-vehicle-list">{vehicleSuggestions.map(v => <option key={v} value={v} />)}</datalist>
+              <datalist id="del-driver-list">{driverSuggestions.map(v => <option key={v} value={v} />)}</datalist>
+              <datalist id="del-bags-list">{bagsSuggestions.map(v => <option key={v} value={v} />)}</datalist>
+              <datalist id="del-weight-list">{weightSuggestions.map(v => <option key={v} value={v} />)}</datalist>
               <Button type="button" variant="outline" size="sm"
                 className="w-full h-7 text-xs border-dashed border-sky-500/50 text-sky-400 hover:bg-sky-900/30 hover:text-sky-300"
                 onClick={() => setDelForm(p => ({ ...p, trucks: [...(p.trucks || []), { vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] }))}
@@ -419,20 +424,17 @@ export const DCEntries = ({ filters, user }) => {
               </Button>
             </div>
 
-            {/* Combined payments + taxes */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Combined payments + depot expenses */}
+            <div className="grid grid-cols-3 gap-3">
               <div><Label className="text-xs text-red-400 font-semibold">Cash Paid (Rs.) — Total</Label>
                 <Input type="number" step="0.01" value={delForm.cash_paid} onChange={e => setDelForm(p=>({...p,cash_paid:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-cash" />
                 <p className="text-[9px] text-red-500 mt-0.5">Cash Book auto entry</p></div>
               <div><Label className="text-xs text-orange-400 font-semibold">Diesel Paid (Rs.) — Total</Label>
                 <Input type="number" step="0.01" value={delForm.diesel_paid} onChange={e => setDelForm(p=>({...p,diesel_paid:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-diesel" />
                 <p className="text-[9px] text-orange-500 mt-0.5">Truck payment auto entry</p></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs text-green-400 font-semibold">CGST (Rs.)</Label>
-                <Input type="number" step="0.01" value={delForm.cgst_amount} onChange={e => setDelForm(p=>({...p,cgst_amount:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-cgst" /></div>
-              <div><Label className="text-xs text-green-400 font-semibold">SGST (Rs.)</Label>
-                <Input type="number" step="0.01" value={delForm.sgst_amount} onChange={e => setDelForm(p=>({...p,sgst_amount:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-sgst" /></div>
+              <div><Label className="text-xs text-purple-400 font-semibold">Depot Expenses (Rs.)</Label>
+                <Input type="number" step="0.01" value={delForm.depot_expenses} onChange={e => setDelForm(p=>({...p,depot_expenses:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-depot-expenses" />
+                <p className="text-[9px] text-purple-500 mt-0.5">Cash Book se auto katega</p></div>
             </div>
             <div><Label className="text-xs text-slate-400">Notes</Label>
               <Input value={delForm.notes} onChange={e => setDelForm(p=>({...p,notes:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>

@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.9.0
+## Current Version: v104.10.0
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind
@@ -34,9 +34,9 @@
 - Voucher No field added to all By-Product sale entries
 
 ## Recent Changes (Apr 2026)
-- **v104.9.0 (Feb 2026)**: Add Delivery form — Multi-Truck support. Ab ek lot ke multiple trucks ek hi "Delivery" entry mein save ho sakte hain. UI: "Trucks" section jisme har truck ke liye Vehicle No / Driver Name / Slip No / Bags / Weight (Qtl) fields, "+ Add Another Truck" button (dynamic row add), Remove button (2nd+ trucks pe). Top bar mein auto-calculated "Total: X bags • Y Q" live dikhta hai. On Save: ek delivery entry — vehicle_no/driver_name/slip_no slash-separated ("TRK1 / TRK2"), bags_used + quantity_qntl sum. Common fields (Date, Invoice, RST, E-way, Godown, Cash, Diesel, CGST, SGST) ek baar fill hote hain. Dialog max-w lg → 2xl for better layout. Backend koi change nahi — standard DCDelivery schema use ho raha hai.
+- **v104.10.0 (Feb 2026)**: Add Delivery form cleanup + Depot Expenses. (1) Hataye: Invoice Number, E-Way Bill, CGST, SGST fields UI se (backend mein schema ke saath rahenge — optional). (2) Naya field: **Depot Expenses (Rs.)** — purple badge — ye amount Cash Book se auto nikasi ho jaayegi (`delivery_depot:xxxxxxxx` reference, party_type="Depot", category="Depot"). Delete pe auto-cleanup. Python + Desktop JS + Local Server teeno mein parity. (3) Auto-suggestion (datalist) add kiya Vehicle No, Driver Name, Bags (Govt), Weight (Qtl) fields pe — suggestions historical deliveries se (slash-joined values split karke).
+- v104.9.0: Add Delivery — Multi-Truck support (dynamic trucks array, live total, combined vehicle_no "TRK1 / TRK2")
 - v104.8.2: DC Type column Arwa → "Raw Rice"
-- v104.8.1: DC Depot Name/Code auto-suggestion (datalist)
 - v104.7.2: DC Entries Depot save fix (4 fields missing in backends)
 - v104.7.1: DCStacks Approval Checkbox fix — leftover `setSelectedStack` → `setSelectedStackId` references
 - v104.7.0: DC Stacks/Lots system, Govt Links auto-login via Electron IPC, Sales Register reorganization, MSP Payments moved back to Payments tab

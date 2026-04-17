@@ -139,6 +139,7 @@ module.exports = function(database) {
       godown_name: d.godown_name||'', notes: d.notes||'',
       invoice_no: d.invoice_no||'', rst_no: d.rst_no||'', eway_bill_no: d.eway_bill_no||'',
       bags_used: +(d.bags_used||0), cash_paid: +(d.cash_paid||0), diesel_paid: +(d.diesel_paid||0),
+      depot_expenses: +(d.depot_expenses||0),
       cgst_amount: +(d.cgst_amount||0), sgst_amount: +(d.sgst_amount||0),
       kms_year: d.kms_year||'', season: d.season||'', created_by: req.query.username||'', created_at: now
     };
@@ -203,6 +204,16 @@ module.exports = function(database) {
         ...base
       });
     }
+    // Auto-entry: Depot Expenses → Cash Book Nikasi
+    if (del.depot_expenses > 0) {
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: del.date, account: 'cash', txn_type: 'nikasi',
+        category: 'Depot', party_type: 'Depot',
+        description: `DC Delivery Depot Expenses - ${dcNum}${vehicle ? ` | ${vehicle}` : ''}`,
+        amount: roundAmount(del.depot_expenses), reference: `delivery_depot:${del.id.slice(0,8)}`,
+        bank_name: '', ...base
+      });
+    }
     // Auto-entry: Bags Used → Gunny Bags stock out
     if (del.bags_used > 0) {
       database.data.gunny_bags.push({
@@ -238,7 +249,8 @@ module.exports = function(database) {
       if (database.data.cash_transactions) {
         database.data.cash_transactions = database.data.cash_transactions.filter(t =>
           ![`delivery:${refPrefix}`, `delivery_diesel:${refPrefix}`, `delivery_tcash:${refPrefix}`,
-            `delivery_tdiesel:${refPrefix}`, `delivery_dfill:${refPrefix}`, `delivery_jama:${refPrefix}`
+            `delivery_tdiesel:${refPrefix}`, `delivery_dfill:${refPrefix}`, `delivery_jama:${refPrefix}`,
+            `delivery_depot:${refPrefix}`
           ].includes(t.reference)
         );
       }

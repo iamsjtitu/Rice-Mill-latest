@@ -50,6 +50,7 @@ class DCDelivery(BaseModel):
     bags_used: int = 0  # Govt bags used in this delivery (minus from stock)
     cash_paid: float = 0  # Cash paid to driver → cash book auto entry
     diesel_paid: float = 0  # Diesel paid → truck payment auto entry
+    depot_expenses: float = 0  # Depot expenses → cash book auto nikasi
     eway_bill_no: str = ""
     cgst_amount: float = 0
     sgst_amount: float = 0
@@ -186,6 +187,19 @@ async def add_dc_delivery(delivery: DCDelivery, username: str = ""):
         }
         await db.cash_transactions.insert_one(pump_jama)
 
+    # Auto-entry: Depot Expenses → Cash Book Nikasi
+    depot_expenses = d.get("depot_expenses", 0) or 0
+    if depot_expenses > 0:
+        depot_desc = f"DC Delivery Depot Expenses - {dc_num} | {vehicle}" if vehicle else f"DC Delivery Depot Expenses - {dc_num}"
+        depot_entry = {
+            "id": str(uuid.uuid4()), "date": d["date"], "account": "cash", "txn_type": "nikasi",
+            "category": "Depot", "party_type": "Depot",
+            "description": depot_desc,
+            "amount": round_amount(depot_expenses), "reference": f"delivery_depot:{d['id'][:8]}",
+            "bank_name": "", "linked_entry_id": d["id"], **base
+        }
+        await db.cash_transactions.insert_one(depot_entry)
+
     # Auto-entry: Bags Used → Govt Bags stock minus
     bags_used = d.get("bags_used", 0) or 0
     if bags_used > 0:
@@ -219,7 +233,8 @@ async def delete_dc_delivery(delivery_id: str):
     await db.cash_transactions.delete_many({"reference": {"$in": [
         f"delivery:{ref_prefix}", f"delivery_diesel:{ref_prefix}",
         f"delivery_tcash:{ref_prefix}", f"delivery_tdiesel:{ref_prefix}",
-        f"delivery_dfill:{ref_prefix}", f"delivery_jama:{ref_prefix}"
+        f"delivery_dfill:{ref_prefix}", f"delivery_jama:{ref_prefix}",
+        f"delivery_depot:{ref_prefix}"
     ]}})
     await db.gunny_bags.delete_many({"reference": f"delivery:{ref_prefix}"})
     await db.diesel_accounts.delete_many({"linked_entry_id": delivery_id})
