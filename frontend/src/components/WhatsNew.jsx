@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "103.0.0",
+    date: "Apr 2026",
+    title: "v103.0.0 - DC Register: Depot + FCI/RRC Fields",
+    items: [
+      { type: "new", text: "Govt Rice / DC: Depot Name, Depot Code, No. of Lots, FCI/RRC selection add kiya" },
+      { type: "new", text: "DC Table mein To (FCI/RRC), Depot, Lots columns" },
+      { type: "fix", text: "Govt Links: Data ab properly persist hota hai app update ke baad" },
+    ],
+  },
+  {
     version: "102.3.0",
     date: "Apr 2026",
     title: "v102.3.0 - Govt Links Auto-Fill Login",
