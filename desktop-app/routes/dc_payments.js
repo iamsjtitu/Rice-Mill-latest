@@ -138,6 +138,8 @@ module.exports = function(database) {
       vehicle_no: d.vehicle_no||'', driver_name: d.driver_name||'', slip_no: d.slip_no||'',
       godown_name: d.godown_name||'', notes: d.notes||'',
       invoice_no: d.invoice_no||'', rst_no: d.rst_no||'', eway_bill_no: d.eway_bill_no||'',
+      contract_no: d.contract_no||'',
+      fci_lot_no: d.fci_lot_no||'',
       bags_used: +(d.bags_used||0), cash_paid: +(d.cash_paid||0), diesel_paid: +(d.diesel_paid||0),
       depot_expenses: +(d.depot_expenses||0),
       cgst_amount: +(d.cgst_amount||0), sgst_amount: +(d.sgst_amount||0),

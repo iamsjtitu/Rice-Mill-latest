@@ -51,6 +51,8 @@ class DCDelivery(BaseModel):
     cash_paid: float = 0  # Cash paid to driver → cash book auto entry
     diesel_paid: float = 0  # Diesel paid → truck payment auto entry
     depot_expenses: float = 0  # Depot expenses → cash book auto nikasi
+    contract_no: str = ""
+    fci_lot_no: str = ""
     eway_bill_no: str = ""
     cgst_amount: float = 0
     sgst_amount: float = 0

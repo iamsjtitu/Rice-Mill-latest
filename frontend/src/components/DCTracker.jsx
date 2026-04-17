@@ -31,7 +31,7 @@ export const DCEntries = ({ filters, user }) => {
   const [riceStockAvail, setRiceStockAvail] = useState(null);
   const [riceStockByType, setRiceStockByType] = useState({ parboiled: null, raw: null });
   const [form, setForm] = useState({ dc_number: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", rice_type: "parboiled", depot_name: "", depot_code: "", no_of_lots: "", delivery_to: "FCI", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
-  const [delForm, setDelForm] = useState({ dc_id: "", date: new Date().toISOString().split('T')[0], godown_name: "", cash_paid: "", diesel_paid: "", depot_expenses: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif", trucks: [{ rst_no: "", vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] });
+  const [delForm, setDelForm] = useState({ dc_id: "", date: new Date().toISOString().split('T')[0], cash_paid: "", diesel_paid: "", depot_expenses: "", contract_no: "", fci_lot_no: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif", trucks: [{ rst_no: "", vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] });
   const [searchQuery, setSearchQuery] = useState("");
   const [editDepot, setEditDepot] = useState(null);
   const [editDepotForm, setEditDepotForm] = useState({ depot_name: '', depot_code: '', delivery_to: 'FCI', no_of_lots: '' });
@@ -83,8 +83,9 @@ export const DCEntries = ({ filters, user }) => {
       await axios.post(`${API}/dc-deliveries?username=${user.username}`, {
         dc_id: delForm.dc_id,
         date: delForm.date,
-        godown_name: delForm.godown_name,
         rst_no: join('rst_no'),
+        contract_no: delForm.contract_no,
+        fci_lot_no: delForm.fci_lot_no,
         notes: delForm.notes,
         kms_year: delForm.kms_year,
         season: delForm.season,
@@ -98,7 +99,7 @@ export const DCEntries = ({ filters, user }) => {
         depot_expenses: parseFloat(delForm.depot_expenses) || 0,
       });
       toast.success("Delivery add hui!"); setShowDeliveryForm(false);
-      setDelForm({ dc_id: "", date: new Date().toISOString().split('T')[0], godown_name: "", cash_paid: "", diesel_paid: "", depot_expenses: "", notes: "", kms_year: filters.kms_year || CURRENT_KMS, season: filters.season || "Kharif", trucks: [{ rst_no: "", vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] });
+      setDelForm({ dc_id: "", date: new Date().toISOString().split('T')[0], cash_paid: "", diesel_paid: "", depot_expenses: "", contract_no: "", fci_lot_no: "", notes: "", kms_year: filters.kms_year || CURRENT_KMS, season: filters.season || "Kharif", trucks: [{ rst_no: "", vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] });
       fetchDeliveries(expandedDC); fetchData();
     } catch (e) { toast.error(e.response?.data?.detail || e.message); }
   };
@@ -284,7 +285,11 @@ export const DCEntries = ({ filters, user }) => {
                 <TableCell colSpan={13} className="p-3">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs text-amber-400 font-medium">Deliveries for {dc.dc_number}</p>
-                    <Button onClick={() => { setDelForm(f => ({ ...f, dc_id: dc.id, kms_year: dc.kms_year, season: dc.season, godown_name: dc.godown_name, _rice_type: dc.rice_type || 'parboiled' })); setShowDeliveryForm(true); }} size="sm" className="bg-green-600 hover:bg-green-700 text-white h-6 text-xs" data-testid="dc-add-delivery-btn"><Plus className="w-3 h-3 mr-1" /> Add Delivery</Button>
+                    <Button onClick={() => {
+                      const nextLot = ((dc.deliveries || []).length) + 1;
+                      setDelForm(f => ({ ...f, dc_id: dc.id, kms_year: dc.kms_year, season: dc.season, fci_lot_no: String(nextLot), _rice_type: dc.rice_type || 'parboiled' }));
+                      setShowDeliveryForm(true);
+                    }} size="sm" className="bg-green-600 hover:bg-green-700 text-white h-6 text-xs" data-testid="dc-add-delivery-btn"><Plus className="w-3 h-3 mr-1" /> Add Delivery</Button>
                   </div>
                   {deliveries.length === 0 ? <p className="text-xs text-slate-500 py-2">No deliveries yet</p> : (
                     <Table className="w-full table-auto"><TableHeader><TableRow className="border-slate-600 hover:bg-transparent">
@@ -399,12 +404,25 @@ export const DCEntries = ({ filters, user }) => {
         <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="delivery-form-dialog">
           <DialogHeader><DialogTitle className="text-green-400">Add Delivery / डिलीवरी जोड़ें</DialogTitle></DialogHeader>
           <form onSubmit={handleAddDelivery} className="space-y-3">
-            {/* Common fields (shared across all trucks) */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Read-only DC info (auto from parent DC) */}
+            {(() => {
+              const parentDc = dcs.find(d => d.id === delForm.dc_id);
+              if (!parentDc) return null;
+              return (
+                <div className="bg-slate-900/50 border border-slate-700 rounded-md px-3 py-2 grid grid-cols-3 gap-x-3 gap-y-1 text-[11px]">
+                  <div><span className="text-slate-400">DC No:</span> <span className="text-amber-300 font-bold">{parentDc.dc_number || '-'}</span></div>
+                  <div><span className="text-slate-400">Depot:</span> <span className="text-white font-semibold">{parentDc.depot_name || '-'}</span></div>
+                  <div><span className="text-slate-400">Depot Code:</span> <span className="text-white font-mono">{parentDc.depot_code || '-'}</span></div>
+                </div>
+              );
+            })()}
+            <div className="grid grid-cols-3 gap-3">
               <div><Label className="text-xs text-slate-400">Date</Label>
                 <Input type="date" value={delForm.date} onChange={e => setDelForm(p=>({...p,date:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="delivery-form-date" /></div>
-              <div><Label className="text-xs text-slate-400">Godown</Label>
-                <Input value={delForm.godown_name} onChange={e => setDelForm(p=>({...p,godown_name:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>
+              <div><Label className="text-xs text-slate-400">FCI Lot No</Label>
+                <Input value={delForm.fci_lot_no} onChange={e => setDelForm(p=>({...p,fci_lot_no:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-fci-lot" /></div>
+              <div><Label className="text-xs text-slate-400">Contract No</Label>
+                <Input value={delForm.contract_no} onChange={e => setDelForm(p=>({...p,contract_no:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-contract" /></div>
             </div>
 
             {/* Trucks section */}
@@ -433,14 +451,14 @@ export const DCEntries = ({ filters, user }) => {
                     )}
                   </div>
                   {/* RST Number — auto-fill trigger */}
-                  <div><Label className="text-[10px] text-slate-400">RST</Label>
+                  <div><Label className="text-[10px] text-slate-400">RST No.</Label>
                     <Input
                       type="number"
                       value={truck.rst_no}
                       onChange={e => setDelForm(p => ({ ...p, trucks: p.trucks.map((t, i) => i === idx ? { ...t, rst_no: e.target.value } : t) }))}
                       onBlur={e => lookupRstAndFill(idx, e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); lookupRstAndFill(idx, e.target.value); } }}
-                      className="bg-slate-700 border-slate-600 text-white h-7 text-xs"
+                      className="bg-slate-700 border-slate-600 text-white h-7 text-xs w-24"
                       data-testid={`delivery-truck-${idx}-rst`}
                     />
                   </div>
