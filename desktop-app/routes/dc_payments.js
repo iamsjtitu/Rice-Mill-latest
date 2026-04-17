@@ -270,51 +270,98 @@ module.exports = function(database) {
     res.status(404).json({ detail: 'Not found' });
   }));
 
-  // Delivery Invoice HTML
+  // Delivery Invoice HTML (FCI-style Challan)
   router.get('/api/dc-deliveries/invoice/:id', safeSync(async (req, res) => {
     if (!database.data.dc_deliveries) return res.status(404).json({ detail: 'Not found' });
     const delivery = database.data.dc_deliveries.find(d => d.id === req.params.id);
     if (!delivery) return res.status(404).json({ detail: 'Delivery not found' });
-    const dc = (database.data.dc_entries||[]).find(e => e.id === delivery.dc_id);
+    const dc = (database.data.dc_entries||[]).find(e => e.id === delivery.dc_id) || {};
     const settings = database.data.settings || {};
     const millName = settings.mill_name || 'NAVKAR AGRO';
-    const millAddr = settings.mill_address || 'JOLKO, KESINGA';
-    const dcNum = dc ? dc.dc_number : '';
-    const cashPaid = delivery.cash_paid || 0;
-    const dieselPaid = delivery.diesel_paid || 0;
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Delivery Invoice</title>
-    <style>body{font-family:Arial;margin:20px}table{width:100%;border-collapse:collapse}
-    td,th{border:1px solid #333;padding:6px 10px;text-align:left}th{background:#1a365d;color:#fff}
-    .header{text-align:center;margin-bottom:15px}.header h1{margin:0;font-size:22px}
-    .header p{margin:2px 0;color:#555;font-size:12px}.info-grid{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
-    .info-item{flex:1;min-width:140px;background:#f7f7f7;padding:6px 10px;border-radius:4px}
-    .info-item label{font-size:10px;color:#666;display:block}.info-item span{font-size:13px;font-weight:bold}
-    .total-row{background:#f0f0f0;font-weight:bold}
-    @media print{body{margin:0}button{display:none}}</style></head><body>
-    <div class="header"><h1>${millName}</h1><p>${millAddr} - Delivery Challan</p></div>
-    <div class="info-grid">
-      <div class="info-item"><label>DC Number</label><span>${dcNum}</span></div>
-      <div class="info-item"><label>Date</label><span>${fmtDate(delivery.date)}</span></div>
-      <div class="info-item"><label>Invoice No</label><span>${delivery.invoice_no||''}</span></div>
-      <div class="info-item"><label>RST No</label><span>${delivery.rst_no||''}</span></div>
-      <div class="info-item"><label>E-Way Bill</label><span>${delivery.eway_bill_no||''}</span></div>
-      <div class="info-item"><label>Vehicle No</label><span>${delivery.vehicle_no||''}</span></div>
-      <div class="info-item"><label>Driver</label><span>${delivery.driver_name||''}</span></div>
-      <div class="info-item"><label>Slip No</label><span>${delivery.slip_no||''}</span></div>
-      <div class="info-item"><label>Godown</label><span>${delivery.godown_name||''}</span></div>
+    const millCode = settings.mill_code || settings.miller_code || '';
+    const millerLabel = millCode ? `${millName} (${millCode})` : millName;
+    const dcNum = dc.dc_number || '';
+    const riceType = dc.rice_type || 'parboiled';
+    const variety = riceType === 'parboiled' ? 'Boiled Normal' : 'Raw Normal';
+    const packingMaterial = 'New Jute Bag';
+    const noOfLot = dc.no_of_lots || '-';
+    const totalBags = +(delivery.bags_used || 0);
+    const kmsYear = delivery.kms_year || dc.kms_year || '';
+    const gunnySeason = (delivery.season || dc.season || '').toUpperCase();
+    const fciLotNo = delivery.fci_lot_no || '-';
+    const contractNo = delivery.contract_no || '-';
+    const depotCode = dc.depot_code || '-';
+    const depotName = dc.depot_name || '-';
+    const fmtDMY = s => { try { const d = new Date((s||'').split('T')[0]); if (isNaN(d)) return s; return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); } catch { return s; } };
+    const fmtDMonY = s => { try { const d = new Date((s||'').split('T')[0]); if (isNaN(d)) return s; const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return String(d.getDate()).padStart(2,'0')+' '+months[d.getMonth()]+' '+d.getFullYear(); } catch { return s; } };
+    const splitJ = s => (s||'').split('/').map(x=>x.trim()).filter(Boolean);
+    const vehicles = splitJ(delivery.vehicle_no);
+    const drivers = splitJ(delivery.driver_name);
+    const nTrucks = Math.max(vehicles.length, 1);
+    const bagsPerTruck = +(totalBags / nTrucks).toFixed(2);
+    const weightPerTruck = +((+(delivery.quantity_qntl||0)) / nTrucks).toFixed(2);
+    let truckRows = '';
+    for (let i=0;i<nTrucks;i++) {
+      const vh = vehicles[i] || '';
+      const dr = drivers[i] || '';
+      truckRows += `<tr><td>${i+1}</td><td>${vh}</td><td>${dr}</td><td>-</td><td>${bagsPerTruck.toFixed(2)}</td><td>${weightPerTruck.toFixed(2)}</td></tr>`;
+    }
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Delivery Challan - ${dcNum}</title>
+    <style>
+      @page { size: A4; margin: 15mm 12mm; }
+      body { font-family: Arial, sans-serif; margin: 0; color: #000; font-size: 12px; }
+      .hdr-grid { display: grid; grid-template-columns: 140px 1fr 110px 1fr; gap: 6px 14px; margin-bottom: 22px; }
+      .hdr-grid .l { font-weight: 400; color: #222; }
+      .hdr-grid .v { font-weight: 400; color: #000; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+      th, td { border: 1px solid #555; padding: 8px 10px; text-align: left; vertical-align: top; font-size: 12px; }
+      th { font-weight: 700; background: #fff; }
+      .sign { margin-top: 35px; display: flex; justify-content: space-between; }
+      .sign div { border-top: 1px solid #333; width: 180px; text-align: center; padding-top: 5px; font-size: 11px; }
+      .noprint { text-align: center; margin-top: 20px; }
+      .noprint button { padding: 8px 28px; background: #1a365d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+      @media print { .noprint { display: none; } body { -webkit-print-color-adjust: exact; } }
+    </style></head><body>
+
+    <div class="hdr-grid">
+      <div class="l">Miller Name &amp; Code:</div><div class="v">${millerLabel}</div>
+      <div class="l">Contract No:</div><div class="v">${contractNo}</div>
+
+      <div class="l">Depot Code:</div><div class="v">${depotCode}</div>
+      <div class="l">Depot:</div><div class="v">${depotName}</div>
+
+      <div class="l">Vehicle No.:</div><div class="v">${vehicles.length ? vehicles.join(', ') : '-'}</div>
+      <div class="l">Driver Name:</div><div class="v">${drivers.length ? drivers.join(', ') : '-'}</div>
+
+      <div class="l">KMS:</div><div class="v">${kmsYear || '-'}</div>
+      <div class="l">Date:</div><div class="v">${fmtDMY(delivery.date)}</div>
     </div>
-    <table><tr><th>Item</th><th style="text-align:right">Details</th></tr>
-      <tr><td>Quantity</td><td style="text-align:right">${delivery.quantity_qntl||0} Quintals</td></tr>
-      <tr><td>Bags Used (Govt)</td><td style="text-align:right">${delivery.bags_used||0}</td></tr>
-      <tr><td>Cash Paid</td><td style="text-align:right">Rs.${cashPaid.toLocaleString('en-IN',{minimumFractionDigits:2})}</td></tr>
-      <tr><td>Diesel Paid</td><td style="text-align:right">Rs.${dieselPaid.toLocaleString('en-IN',{minimumFractionDigits:2})}</td></tr>
-      <tr><td>CGST</td><td style="text-align:right">Rs.${(delivery.cgst_amount||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td></tr>
-      <tr><td>SGST</td><td style="text-align:right">Rs.${(delivery.sgst_amount||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td></tr>
-      <tr class="total-row"><td>Total Payment</td><td style="text-align:right">Rs.${(cashPaid+dieselPaid).toLocaleString('en-IN',{minimumFractionDigits:2})}</td></tr>
+
+    <table>
+      <thead><tr>
+        <th>Sl#</th><th>DC No.</th><th>DC Date</th><th>Variety</th><th>Packing Material</th>
+        <th>No. Of Lot</th><th>No Of Bag./Packaging Material</th><th>KMS of the Packaging Material</th>
+        <th>Gunny Season</th><th>FCI Lot No</th>
+      </tr></thead>
+      <tbody><tr>
+        <td>1</td><td>${dcNum || '-'}</td><td>${fmtDMonY(dc.date)}</td><td>${variety}</td><td>${packingMaterial}</td>
+        <td>${noOfLot}</td><td>${totalBags.toFixed(2)}</td><td>${kmsYear || '-'}</td>
+        <td>${gunnySeason || '-'}</td><td>${fciLotNo}</td>
+      </tr></tbody>
     </table>
-    ${delivery.notes ? `<p style="margin-top:10px;font-size:12px;color:#555">Notes: ${delivery.notes}</p>` : ''}
-    <div style="margin-top:30px;display:flex;justify-content:space-between"><div style="border-top:1px solid #333;width:150px;text-align:center;padding-top:5px;font-size:11px">Signature</div></div>
-    <button onclick="window.print()" style="margin-top:15px;padding:8px 24px;background:#1a365d;color:white;border:none;border-radius:4px;cursor:pointer">Print</button>
+
+    <table>
+      <thead><tr>
+        <th>Sl#</th><th>VechicleNumber</th><th>DriverName</th><th>DriverContactNo</th>
+        <th>Vehiclewise Bag No</th><th>Bag Weight</th>
+      </tr></thead>
+      <tbody>${truckRows}</tbody>
+    </table>
+
+    ${delivery.notes ? `<p style="margin-top:8px;font-size:12px;color:#333"><b>Notes:</b> ${delivery.notes}</p>` : ''}
+
+    <div class="sign"><div>Miller Signature</div><div>Receiver Signature</div></div>
+    <div class="noprint"><button onclick="window.print()">Print</button></div>
     </body></html>`;
     res.set('Content-Type', 'text/html');
     res.send(html);

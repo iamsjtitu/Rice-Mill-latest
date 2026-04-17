@@ -294,20 +294,22 @@ export const DCEntries = ({ filters, user }) => {
                   </div>
                   {deliveries.length === 0 ? <p className="text-xs text-slate-500 py-2">No deliveries yet</p> : (
                     <Table className="w-full table-auto"><TableHeader><TableRow className="border-slate-600 hover:bg-transparent">
-                      {['Date','Qty (Q)','Invoice','RST','Vehicle','Bags','Cash','Diesel','Godown',''].map(h =>
+                      {['Date','FCI Lot','Contract','RST','Vehicle','Driver','Bags','Qty (Q)','Cash','Diesel','Depot Exp',''].map(h =>
                         <TableHead key={h} className="text-slate-400 text-[10px] py-1">{h}</TableHead>)}
                     </TableRow></TableHeader>
                     <TableBody>{deliveries.map(d => (
                       <TableRow key={d.id} className="border-slate-700" data-testid={`delivery-row-${d.id}`}>
                         <TableCell className="text-slate-200 text-[11px] py-1">{fmtDate(d.date)}</TableCell>
-                        <TableCell className="text-green-400 text-[11px] py-1 font-semibold">{d.quantity_qntl} Q</TableCell>
-                        <TableCell className="text-slate-300 text-[11px] py-1">{d.invoice_no || '-'}</TableCell>
+                        <TableCell className="text-sky-300 text-[11px] py-1 font-semibold">{d.fci_lot_no || '-'}</TableCell>
+                        <TableCell className="text-slate-300 text-[11px] py-1">{d.contract_no || '-'}</TableCell>
                         <TableCell className="text-slate-300 text-[11px] py-1">{d.rst_no || '-'}</TableCell>
-                        <TableCell className="text-slate-300 text-[11px] py-1">{d.vehicle_no}</TableCell>
+                        <TableCell className="text-slate-300 text-[11px] py-1">{d.vehicle_no || '-'}</TableCell>
+                        <TableCell className="text-slate-400 text-[11px] py-1">{d.driver_name || '-'}</TableCell>
                         <TableCell className="text-amber-400 text-[11px] py-1">{d.bags_used || '-'}</TableCell>
+                        <TableCell className="text-green-400 text-[11px] py-1 font-semibold">{d.quantity_qntl} Q</TableCell>
                         <TableCell className="text-red-400 text-[11px] py-1">{d.cash_paid ? `₹${d.cash_paid}` : '-'}</TableCell>
                         <TableCell className="text-orange-400 text-[11px] py-1">{d.diesel_paid ? `₹${d.diesel_paid}` : '-'}</TableCell>
-                        <TableCell className="text-slate-400 text-[11px] py-1">{d.godown_name}</TableCell>
+                        <TableCell className="text-purple-400 text-[11px] py-1">{d.depot_expenses ? `₹${d.depot_expenses}` : '-'}</TableCell>
                         <TableCell className="py-1 flex gap-1">
                           <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-blue-400" onClick={() => window.open(`${API}/dc-deliveries/invoice/${d.id}`, '_blank')} title="Print Invoice"><FileText className="w-2.5 h-2.5" /></Button>
                           {user.role === 'admin' && <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-red-400" onClick={() => handleDeleteDelivery(d.id)}><Trash2 className="w-2.5 h-2.5" /></Button>}

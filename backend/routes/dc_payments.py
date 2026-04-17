@@ -254,41 +254,105 @@ async def get_delivery_invoice(delivery_id: str):
     dc = await db.dc_entries.find_one({"id": delivery.get("dc_id", "")}, {"_id": 0})
     settings = await db.settings.find_one({}, {"_id": 0}) or {}
     mill_name = settings.get("mill_name", "NAVKAR AGRO")
-    mill_address = settings.get("mill_address", "JOLKO, KESINGA")
-    dc_number = dc.get("dc_number", "") if dc else ""
-    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Delivery Invoice</title>
-    <style>body{{font-family:Arial;margin:20px}}table{{width:100%;border-collapse:collapse}}
-    td,th{{border:1px solid #333;padding:6px 10px;text-align:left}}th{{background:#1a365d;color:#fff}}
-    .header{{text-align:center;margin-bottom:15px}}.header h1{{margin:0;font-size:22px}}
-    .header p{{margin:2px 0;color:#555;font-size:12px}}.info-grid{{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}}
-    .info-item{{flex:1;min-width:140px;background:#f7f7f7;padding:6px 10px;border-radius:4px}}
-    .info-item label{{font-size:10px;color:#666;display:block}}.info-item span{{font-size:13px;font-weight:bold}}
-    .total-row{{background:#f0f0f0;font-weight:bold}}
-    @media print{{body{{margin:0}}button{{display:none}}}}</style></head><body>
-    <div class="header"><h1>{mill_name}</h1><p>{mill_address} - Delivery Challan</p></div>
-    <div class="info-grid">
-      <div class="info-item"><label>DC Number</label><span>{dc_number}</span></div>
-      <div class="info-item"><label>Date</label><span>{delivery.get('date','')}</span></div>
-      <div class="info-item"><label>Invoice No</label><span>{delivery.get('invoice_no','')}</span></div>
-      <div class="info-item"><label>RST No</label><span>{delivery.get('rst_no','')}</span></div>
-      <div class="info-item"><label>E-Way Bill</label><span>{delivery.get('eway_bill_no','')}</span></div>
-      <div class="info-item"><label>Vehicle No</label><span>{delivery.get('vehicle_no','')}</span></div>
-      <div class="info-item"><label>Driver</label><span>{delivery.get('driver_name','')}</span></div>
-      <div class="info-item"><label>Slip No</label><span>{delivery.get('slip_no','')}</span></div>
-      <div class="info-item"><label>Godown</label><span>{delivery.get('godown_name','')}</span></div>
+    mill_code = settings.get("mill_code", "") or settings.get("miller_code", "")
+    dc_number = (dc or {}).get("dc_number", "")
+    dc_date_raw = (dc or {}).get("date", "")
+    rice_type = (dc or {}).get("rice_type", "parboiled")
+    variety = "Boiled Normal" if rice_type == "parboiled" else "Raw Normal"
+    packing_material = "New Jute Bag"
+    no_of_lot = (dc or {}).get("no_of_lots", "") or "-"
+    total_bags = delivery.get("bags_used", 0) or 0
+    kms_year = delivery.get("kms_year", "") or (dc or {}).get("kms_year", "")
+    gunny_season = (delivery.get("season") or (dc or {}).get("season", "")).upper()
+    fci_lot_no = delivery.get("fci_lot_no", "-") or "-"
+    contract_no = delivery.get("contract_no", "")
+    depot_code = (dc or {}).get("depot_code", "")
+    depot_name = (dc or {}).get("depot_name", "")
+    # Format dates dd mmm yyyy
+    def fmt_date(s):
+        try:
+            from datetime import datetime as dt
+            d = dt.fromisoformat((s or "").split("T")[0])
+            return d.strftime("%d %b %Y")
+        except Exception:
+            return s or ""
+    def fmt_dmy(s):
+        try:
+            from datetime import datetime as dt
+            d = dt.fromisoformat((s or "").split("T")[0])
+            return d.strftime("%d/%m/%Y")
+        except Exception:
+            return s or ""
+    # Split slash-joined truck data
+    def split_j(s): return [p.strip() for p in (s or "").split("/") if p.strip()]
+    vehicles = split_j(delivery.get("vehicle_no", ""))
+    drivers = split_j(delivery.get("driver_name", ""))
+    n_trucks = max(len(vehicles), 1)
+    bags_per_truck = round((total_bags / n_trucks), 2) if n_trucks else 0
+    qty_qntl = float(delivery.get("quantity_qntl", 0) or 0)
+    weight_per_truck = round((qty_qntl / n_trucks), 2) if n_trucks else 0
+    miller_label = f"{mill_name}" + (f" ({mill_code})" if mill_code else "")
+    truck_rows = ""
+    for i in range(n_trucks):
+        vh = vehicles[i] if i < len(vehicles) else ""
+        dr = drivers[i] if i < len(drivers) else ""
+        truck_rows += f"<tr><td>{i+1}</td><td>{vh}</td><td>{dr}</td><td>-</td><td>{bags_per_truck:.2f}</td><td>{weight_per_truck:.2f}</td></tr>"
+    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Delivery Challan - {dc_number}</title>
+    <style>
+      @page {{ size: A4; margin: 15mm 12mm; }}
+      body {{ font-family: Arial, sans-serif; margin: 0; color: #000; font-size: 12px; }}
+      .hdr-grid {{ display: grid; grid-template-columns: 140px 1fr 110px 1fr; gap: 6px 14px; margin-bottom: 22px; }}
+      .hdr-grid .l {{ font-weight: 400; color: #222; }}
+      .hdr-grid .v {{ font-weight: 400; color: #000; }}
+      table {{ width: 100%; border-collapse: collapse; margin-bottom: 18px; }}
+      th, td {{ border: 1px solid #555; padding: 8px 10px; text-align: left; vertical-align: top; font-size: 12px; }}
+      th {{ font-weight: 700; background: #fff; }}
+      .sign {{ margin-top: 35px; display: flex; justify-content: space-between; }}
+      .sign div {{ border-top: 1px solid #333; width: 180px; text-align: center; padding-top: 5px; font-size: 11px; }}
+      .noprint {{ text-align: center; margin-top: 20px; }}
+      .noprint button {{ padding: 8px 28px; background: #1a365d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }}
+      @media print {{ .noprint {{ display: none; }} body {{ -webkit-print-color-adjust: exact; }} }}
+    </style></head><body>
+
+    <div class="hdr-grid">
+      <div class="l">Miller Name &amp; Code:</div><div class="v">{miller_label}</div>
+      <div class="l">Contract No:</div><div class="v">{contract_no or '-'}</div>
+
+      <div class="l">Depot Code:</div><div class="v">{depot_code or '-'}</div>
+      <div class="l">Depot:</div><div class="v">{depot_name or '-'}</div>
+
+      <div class="l">Vehicle No.:</div><div class="v">{', '.join(vehicles) if vehicles else '-'}</div>
+      <div class="l">Driver Name:</div><div class="v">{', '.join(drivers) if drivers else '-'}</div>
+
+      <div class="l">KMS:</div><div class="v">{kms_year or '-'}</div>
+      <div class="l">Date:</div><div class="v">{fmt_dmy(delivery.get('date',''))}</div>
     </div>
-    <table><tr><th>Item</th><th style="text-align:right">Details</th></tr>
-      <tr><td>Quantity</td><td style="text-align:right">{delivery.get('quantity_qntl',0)} Quintals</td></tr>
-      <tr><td>Bags Used (Govt)</td><td style="text-align:right">{delivery.get('bags_used',0)}</td></tr>
-      <tr><td>Cash Paid</td><td style="text-align:right">Rs.{delivery.get('cash_paid',0):,.2f}</td></tr>
-      <tr><td>Diesel Paid</td><td style="text-align:right">Rs.{delivery.get('diesel_paid',0):,.2f}</td></tr>
-      <tr><td>CGST</td><td style="text-align:right">Rs.{delivery.get('cgst_amount',0):,.2f}</td></tr>
-      <tr><td>SGST</td><td style="text-align:right">Rs.{delivery.get('sgst_amount',0):,.2f}</td></tr>
-      <tr class="total-row"><td>Total Payment</td><td style="text-align:right">Rs.{(delivery.get('cash_paid',0)+delivery.get('diesel_paid',0)):,.2f}</td></tr>
+
+    <table>
+      <thead><tr>
+        <th>Sl#</th><th>DC No.</th><th>DC Date</th><th>Variety</th><th>Packing Material</th>
+        <th>No. Of Lot</th><th>No Of Bag./Packaging Material</th><th>KMS of the Packaging Material</th>
+        <th>Gunny Season</th><th>FCI Lot No</th>
+      </tr></thead>
+      <tbody><tr>
+        <td>1</td><td>{dc_number or '-'}</td><td>{fmt_date(dc_date_raw)}</td><td>{variety}</td><td>{packing_material}</td>
+        <td>{no_of_lot}</td><td>{total_bags:.2f}</td><td>{kms_year or '-'}</td>
+        <td>{gunny_season or '-'}</td><td>{fci_lot_no}</td>
+      </tr></tbody>
     </table>
-    {f'<p style="margin-top:10px;font-size:12px;color:#555">Notes: {delivery.get("notes","")}</p>' if delivery.get('notes') else ''}
-    <div style="margin-top:30px;display:flex;justify-content:space-between"><div style="border-top:1px solid #333;width:150px;text-align:center;padding-top:5px;font-size:11px">Signature</div></div>
-    <button onclick="window.print()" style="margin-top:15px;padding:8px 24px;background:#1a365d;color:white;border:none;border-radius:4px;cursor:pointer">Print</button>
+
+    <table>
+      <thead><tr>
+        <th>Sl#</th><th>VechicleNumber</th><th>DriverName</th><th>DriverContactNo</th>
+        <th>Vehiclewise Bag No</th><th>Bag Weight</th>
+      </tr></thead>
+      <tbody>{truck_rows}</tbody>
+    </table>
+
+    {f'<p style="margin-top:8px;font-size:12px;color:#333"><b>Notes:</b> {delivery.get("notes","")}</p>' if delivery.get('notes') else ''}
+
+    <div class="sign"><div>Miller Signature</div><div>Receiver Signature</div></div>
+    <div class="noprint"><button onclick="window.print()">Print</button></div>
     </body></html>"""
     return Response(content=html, media_type="text/html")
 
