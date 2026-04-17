@@ -400,5 +400,87 @@ module.exports = function(database) {
     addPdfTable(doc, headers, rows, [60, 50, 60, 70, 50, 80]); await safePdfPipe(doc, res);
   }));
 
+  // ===== DC STACKS =====
+  router.get('/api/dc-stacks', safeSync(async (req, res) => {
+    if (!database.data.dc_stacks) database.data.dc_stacks = [];
+    let stacks = [...database.data.dc_stacks];
+    const { kms_year, season } = req.query;
+    if (kms_year) stacks = stacks.filter(s => s.kms_year === kms_year);
+    if (season) stacks = stacks.filter(s => s.season === season);
+    // Attach lots count and delivered count
+    const lots = database.data.dc_stack_lots || [];
+    stacks = stacks.map(s => {
+      const sLots = lots.filter(l => l.stack_id === s.id);
+      const deliveredLots = sLots.filter(l => l.status === 'delivered').length;
+      const lastDelivered = sLots.filter(l => l.status === 'delivered').sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+      return { ...s, lots_delivered: deliveredLots, lots_total: sLots.length, lots: sLots, last_delivered_date: lastDelivered?.date || null };
+    });
+    stacks.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    res.json(stacks);
+  }));
+
+  router.post('/api/dc-stacks', safeSync(async (req, res) => {
+    if (!database.data.dc_stacks) database.data.dc_stacks = [];
+    const d = req.body;
+    const stack = { id: uuidv4(), ...d, created_at: new Date().toISOString() };
+    database.data.dc_stacks.push(stack);
+    database.save();
+    res.json(stack);
+  }));
+
+  router.put('/api/dc-stacks/:id', safeSync(async (req, res) => {
+    if (!database.data.dc_stacks) return res.status(404).json({ detail: 'Not found' });
+    const idx = database.data.dc_stacks.findIndex(s => s.id === req.params.id);
+    if (idx < 0) return res.status(404).json({ detail: 'Stack not found' });
+    database.data.dc_stacks[idx] = { ...database.data.dc_stacks[idx], ...req.body, updated_at: new Date().toISOString() };
+    database.save();
+    res.json(database.data.dc_stacks[idx]);
+  }));
+
+  router.delete('/api/dc-stacks/:id', safeSync(async (req, res) => {
+    if (!database.data.dc_stacks) return res.status(404).json({ detail: 'Not found' });
+    database.data.dc_stacks = database.data.dc_stacks.filter(s => s.id !== req.params.id);
+    // Also delete associated lots
+    if (database.data.dc_stack_lots) {
+      database.data.dc_stack_lots = database.data.dc_stack_lots.filter(l => l.stack_id !== req.params.id);
+    }
+    database.save();
+    res.json({ success: true });
+  }));
+
+  // ===== DC STACK LOTS =====
+  router.get('/api/dc-stacks/:stackId/lots', safeSync(async (req, res) => {
+    const lots = (database.data.dc_stack_lots || []).filter(l => l.stack_id === req.params.stackId);
+    lots.sort((a, b) => a.lot_number - b.lot_number);
+    res.json(lots);
+  }));
+
+  router.post('/api/dc-stacks/:stackId/lots', safeSync(async (req, res) => {
+    if (!database.data.dc_stack_lots) database.data.dc_stack_lots = [];
+    const d = req.body;
+    const existingLots = database.data.dc_stack_lots.filter(l => l.stack_id === req.params.stackId);
+    const lotNumber = existingLots.length + 1;
+    const lot = { id: uuidv4(), stack_id: req.params.stackId, lot_number: lotNumber, ...d, status: d.status || 'pending', created_at: new Date().toISOString() };
+    database.data.dc_stack_lots.push(lot);
+    database.save();
+    res.json(lot);
+  }));
+
+  router.put('/api/dc-stacks/:stackId/lots/:lotId', safeSync(async (req, res) => {
+    if (!database.data.dc_stack_lots) return res.status(404).json({ detail: 'Not found' });
+    const idx = database.data.dc_stack_lots.findIndex(l => l.id === req.params.lotId);
+    if (idx < 0) return res.status(404).json({ detail: 'Lot not found' });
+    database.data.dc_stack_lots[idx] = { ...database.data.dc_stack_lots[idx], ...req.body, updated_at: new Date().toISOString() };
+    database.save();
+    res.json(database.data.dc_stack_lots[idx]);
+  }));
+
+  router.delete('/api/dc-stacks/:stackId/lots/:lotId', safeSync(async (req, res) => {
+    if (!database.data.dc_stack_lots) return res.status(404).json({ detail: 'Not found' });
+    database.data.dc_stack_lots = database.data.dc_stack_lots.filter(l => l.id !== req.params.lotId);
+    database.save();
+    res.json({ success: true });
+  }));
+
   return router;
 };

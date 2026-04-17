@@ -1273,3 +1273,71 @@ async def export_gunny_purchase_report_pdf(kms_year: Optional[str] = None, seaso
         headers={"Content-Disposition": f"attachment; filename=gunny_purchase_report_{datetime.now().strftime('%Y%m%d')}.pdf"})
 
 
+
+# ===== DC STACKS =====
+@router.get("/dc-stacks")
+async def get_dc_stacks(kms_year: Optional[str] = None, season: Optional[str] = None):
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    stacks = await db.dc_stacks.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    for s in stacks:
+        lots = await db.dc_stack_lots.find({"stack_id": s["id"]}, {"_id": 0}).sort("lot_number", 1).to_list(100)
+        s["lots"] = lots
+        s["lots_total"] = len(lots)
+        delivered = [l for l in lots if l.get("status") == "delivered"]
+        s["lots_delivered"] = len(delivered)
+        s["last_delivered_date"] = max((l.get("date", "") for l in delivered), default=None) if delivered else None
+    return stacks
+
+@router.post("/dc-stacks")
+async def create_dc_stack(data: dict):
+    data["id"] = str(uuid.uuid4())
+    data["created_at"] = datetime.now(timezone.utc).isoformat()
+    await db.dc_stacks.insert_one(data)
+    data.pop("_id", None)
+    return data
+
+@router.put("/dc-stacks/{stack_id}")
+async def update_dc_stack(stack_id: str, data: dict):
+    data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.dc_stacks.update_one({"id": stack_id}, {"$set": data})
+    updated = await db.dc_stacks.find_one({"id": stack_id}, {"_id": 0})
+    return updated
+
+@router.delete("/dc-stacks/{stack_id}")
+async def delete_dc_stack(stack_id: str):
+    await db.dc_stacks.delete_one({"id": stack_id})
+    await db.dc_stack_lots.delete_many({"stack_id": stack_id})
+    return {"success": True}
+
+# ===== DC STACK LOTS =====
+@router.get("/dc-stacks/{stack_id}/lots")
+async def get_stack_lots(stack_id: str):
+    lots = await db.dc_stack_lots.find({"stack_id": stack_id}, {"_id": 0}).sort("lot_number", 1).to_list(100)
+    return lots
+
+@router.post("/dc-stacks/{stack_id}/lots")
+async def create_stack_lot(stack_id: str, data: dict):
+    existing = await db.dc_stack_lots.count_documents({"stack_id": stack_id})
+    data["id"] = str(uuid.uuid4())
+    data["stack_id"] = stack_id
+    data["lot_number"] = existing + 1
+    data["status"] = data.get("status", "pending")
+    data["created_at"] = datetime.now(timezone.utc).isoformat()
+    await db.dc_stack_lots.insert_one(data)
+    data.pop("_id", None)
+    return data
+
+@router.put("/dc-stacks/{stack_id}/lots/{lot_id}")
+async def update_stack_lot(stack_id: str, lot_id: str, data: dict):
+    data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.dc_stack_lots.update_one({"id": lot_id}, {"$set": data})
+    updated = await db.dc_stack_lots.find_one({"id": lot_id}, {"_id": 0})
+    return updated
+
+@router.delete("/dc-stacks/{stack_id}/lots/{lot_id}")
+async def delete_stack_lot(stack_id: str, lot_id: str):
+    await db.dc_stack_lots.delete_one({"id": lot_id})
+    return {"success": True}
+

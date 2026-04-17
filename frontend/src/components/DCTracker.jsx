@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import DCStacks from "./DCStacks";
 import { Label } from "@/components/ui/label";
 import { Trash2, Plus, RefreshCw, Download, FileText, Truck, ClipboardList, ChevronDown, ChevronUp, IndianRupee, Package, Edit, Clock, History, Search } from "lucide-react";
 import { useConfirm } from "./ConfirmProvider";
@@ -996,9 +997,23 @@ export const GunnyBags = ({ filters, user }) => {
 
 // ===== MAIN DC TRACKER COMPONENT (Govt Rice / DC) =====
 const DCTracker = ({ filters, user }) => {
+  const [activeSubTab, setActiveSubTab] = useState("stacks");
   return (
     <div className="space-y-3" data-testid="dc-tracker">
-      <DCEntries filters={filters} user={user} />
+      <div className="flex gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700 w-fit">
+        {[
+          { id: "stacks", label: "Stacks" },
+          { id: "dc", label: "DC Entries" },
+        ].map(({ id, label }) => (
+          <Button key={id} onClick={() => setActiveSubTab(id)} variant={activeSubTab === id ? "default" : "ghost"} size="sm"
+            className={activeSubTab === id ? "bg-emerald-500 text-white" : "text-slate-400 hover:text-white hover:bg-slate-700"}
+            data-testid={`dc-subtab-${id}`}>
+            {label}
+          </Button>
+        ))}
+      </div>
+      {activeSubTab === "stacks" && <DCStacks filters={filters} />}
+      {activeSubTab === "dc" && <DCEntries filters={filters} user={user} />}
     </div>
   );
 };

@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.0.0",
+    date: "Apr 2026",
+    title: "v104.0.0 - DC Stacks + Lot Management",
+    items: [
+      { type: "new", text: "Govt Rice / DC > Stacks sub-tab: Stack cards with Depot, TEC, Booking ID, Lot progress" },
+      { type: "new", text: "Lot Management: Add/Delete lots per stack with Date, Agency, ACK No, Trucks, Bags, Weight" },
+      { type: "new", text: "Lot number buttons: Green=delivered, Yellow=pending (click to toggle)" },
+    ],
+  },
+  {
     version: "103.0.0",
     date: "Apr 2026",
     title: "v103.0.0 - DC Register: Depot + FCI/RRC Fields",
