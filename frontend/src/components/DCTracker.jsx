@@ -205,7 +205,7 @@ export const DCEntries = ({ filters, user }) => {
               <TableCell className="text-xs"><span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${dc.delivery_to === 'RRC' ? 'bg-purple-500/25 text-purple-300 border border-purple-500/40' : 'bg-blue-500/25 text-blue-300 border border-blue-500/40'}`}>{dc.delivery_to || 'FCI'}</span></TableCell>
               <TableCell className="text-slate-300 text-xs">{dc.depot_name || <span className="text-slate-600 italic">—</span>}</TableCell>
               <TableCell className="text-slate-400 text-xs font-mono">{dc.depot_code || <span className="text-slate-600 italic">—</span>}</TableCell>
-              <TableCell className="text-xs"><span className={`px-2 py-0.5 rounded text-xs font-bold ${(dc.rice_type||'')==='parboiled' ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40' : 'bg-sky-500/25 text-sky-300 border border-sky-500/40'}`}>{(dc.rice_type||'')==='parboiled' ? 'Usna' : 'Arwa'}</span></TableCell>
+              <TableCell className="text-xs"><span className={`px-2 py-0.5 rounded text-xs font-bold ${(dc.rice_type||'')==='parboiled' ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40' : 'bg-sky-500/25 text-sky-300 border border-sky-500/40'}`}>{(dc.rice_type||'')==='parboiled' ? 'Usna' : 'Raw Rice'}</span></TableCell>
               <TableCell className="text-white text-sm text-right font-medium">{dc.quantity_qntl} Q</TableCell>
               <TableCell className="text-green-400 text-sm text-right font-medium">{dc.delivered_qntl} Q</TableCell>
               <TableCell className="text-red-400 text-sm text-right font-medium">{dc.pending_qntl} Q</TableCell>
