@@ -217,6 +217,48 @@ async def add_dc_delivery(delivery: DCDelivery, username: str = ""):
         }
         await db.gunny_bags.insert_one(bag_entry)
 
+    # Auto-entry: Add Lot to matching DC Stack (if found)
+    stack_query = {
+        "depot_name": dc.get("depot_name", ""),
+        "depot_code": dc.get("depot_code", ""),
+        "rice_type": dc.get("rice_type", "parboiled"),
+        "kms_year": d.get("kms_year", ""),
+        "season": d.get("season", ""),
+    }
+    # Only filter by non-empty depot to avoid wrong matches
+    if stack_query["depot_name"] or stack_query["depot_code"]:
+        matching_stacks = await db.dc_stacks.find(stack_query, {"_id": 0}).sort("created_at", 1).to_list(50)
+        # Prefer a stack with room (lot_count < total_lots) else use first
+        target_stack = None
+        for s in matching_stacks:
+            total_lots = int(s.get("total_lots") or 0)
+            current_count = await db.dc_stack_lots.count_documents({"stack_id": s["id"]})
+            if total_lots == 0 or current_count < total_lots:
+                target_stack = s
+                break
+        if target_stack is None and matching_stacks:
+            target_stack = matching_stacks[0]
+        if target_stack:
+            existing = await db.dc_stack_lots.count_documents({"stack_id": target_stack["id"]})
+            # Count trucks from slash-joined vehicle_no
+            veh_raw = (d.get("vehicle_no") or "").strip()
+            n_trucks = len([p for p in veh_raw.split("/") if p.strip()]) or 1
+            lot_data = {
+                "id": str(uuid.uuid4()),
+                "stack_id": target_stack["id"],
+                "lot_number": existing + 1,
+                "date": d.get("date", ""),
+                "agency": d.get("party_name", "") or "",
+                "lot_ack_no": d.get("fci_lot_no", "") or "",
+                "no_of_trucks": n_trucks,
+                "bags": int(d.get("bags_used", 0) or 0),
+                "nett_weight_qtl": float(d.get("quantity_qntl", 0) or 0),
+                "status": "delivered",
+                "linked_delivery_id": d["id"],
+                "created_at": now_iso,
+            }
+            await db.dc_stack_lots.insert_one(lot_data)
+
     return d
 
 
@@ -241,6 +283,8 @@ async def delete_dc_delivery(delivery_id: str):
     ]}})
     await db.gunny_bags.delete_many({"reference": f"delivery:{ref_prefix}"})
     await db.diesel_accounts.delete_many({"linked_entry_id": delivery_id})
+    # Clean up auto-created stack lot
+    await db.dc_stack_lots.delete_many({"linked_delivery_id": delivery_id})
     result = await db.dc_deliveries.delete_one({"id": delivery_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Delivery not found")

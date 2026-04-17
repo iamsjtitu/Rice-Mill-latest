@@ -229,6 +229,39 @@ module.exports = function(database) {
         notes: 'Auto: DC delivery bags used', ...base
       });
     }
+    // Auto-entry: Add Lot to matching DC Stack (if found)
+    const stacks = database.data.dc_stacks || [];
+    const matchingStacks = stacks.filter(s =>
+      s.depot_name === (dc.depot_name||'') && s.depot_code === (dc.depot_code||'') &&
+      s.rice_type === (dc.rice_type||'parboiled') &&
+      s.kms_year === (del.kms_year||'') && s.season === (del.season||'')
+    );
+    if (matchingStacks.length && (dc.depot_name || dc.depot_code)) {
+      if (!database.data.dc_stack_lots) database.data.dc_stack_lots = [];
+      let targetStack = null;
+      for (const s of matchingStacks) {
+        const total = parseInt(s.total_lots) || 0;
+        const cnt = database.data.dc_stack_lots.filter(l => l.stack_id === s.id).length;
+        if (total === 0 || cnt < total) { targetStack = s; break; }
+      }
+      if (!targetStack) targetStack = matchingStacks[0];
+      const existing = database.data.dc_stack_lots.filter(l => l.stack_id === targetStack.id).length;
+      const nTrucks = ((del.vehicle_no||'').split('/').map(x=>x.trim()).filter(Boolean).length) || 1;
+      database.data.dc_stack_lots.push({
+        id: uuidv4(),
+        stack_id: targetStack.id,
+        lot_number: existing + 1,
+        date: del.date || '',
+        agency: del.party_name || '',
+        lot_ack_no: del.fci_lot_no || '',
+        no_of_trucks: nTrucks,
+        bags: +(del.bags_used || 0),
+        nett_weight_qtl: +(del.quantity_qntl || 0),
+        status: 'delivered',
+        linked_delivery_id: del.id,
+        created_at: now
+      });
+    }
     database.save(); res.json(del);
   }));
 
@@ -264,6 +297,10 @@ module.exports = function(database) {
       }
       if (database.data.gunny_bags) {
         database.data.gunny_bags = database.data.gunny_bags.filter(b => b.reference !== `delivery:${refPrefix}`);
+      }
+      // Clean up auto-created stack lot
+      if (database.data.dc_stack_lots) {
+        database.data.dc_stack_lots = database.data.dc_stack_lots.filter(l => l.linked_delivery_id !== deliveryId);
       }
       database.save();
       return res.json({ message: 'Delivery deleted', id: deliveryId });
