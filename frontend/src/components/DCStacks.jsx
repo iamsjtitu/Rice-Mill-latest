@@ -279,16 +279,19 @@ export default function DCStacks({ filters }) {
                         {lot.status === 'delivered' ? 'Delivered' : 'Pending'}
                       </span>
                     </td>
-                    <td className="py-1.5 px-2 text-center">
-                      <label className="inline-flex items-center gap-1.5 cursor-pointer" onClick={e => e.stopPropagation()}>
-                        <input type="checkbox" checked={lot.approval === 'approved'} onChange={async (e) => {
-                          const val = e.target.checked ? 'approved' : 'rejected';
-                          try { await axios.put(`${API}/dc-stacks/${selectedStack.id}/lots/${lot.id}`, { approval: val }); fetchStacks(); } catch(err) { toast.error('Update failed'); }
-                        }} className="rounded border-slate-500 w-4 h-4" />
+                    <td className="py-1.5 px-2 text-center" onClick={e => e.stopPropagation()}>
+                      <div className="inline-flex items-center gap-1.5 cursor-pointer">
+                        <input type="checkbox" checked={lot.approval === 'approved'} 
+                          onClick={e => e.stopPropagation()}
+                          onChange={async (e) => {
+                            e.stopPropagation();
+                            const val = e.target.checked ? 'approved' : 'rejected';
+                            try { await axios.put(`${API}/dc-stacks/${selectedStack.id}/lots/${lot.id}`, { approval: val }); fetchStacks(); } catch(err) { toast.error('Update failed'); }
+                          }} className="rounded border-slate-500 w-4 h-4 cursor-pointer" data-testid={`lot-approval-${lot.id}`} />
                         <span className={`text-[10px] font-bold ${lot.approval === 'approved' ? 'text-emerald-400' : lot.approval === 'rejected' ? 'text-red-400' : 'text-slate-500'}`}>
                           {lot.approval === 'approved' ? 'Approved' : lot.approval === 'rejected' ? 'Rejected' : 'Pending'}
                         </span>
-                      </label>
+                      </div>
                     </td>
                     <td className="py-1.5 px-2">
                       <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-red-400" onClick={() => handleDeleteLot(selectedStack.id, lot.id)}>
