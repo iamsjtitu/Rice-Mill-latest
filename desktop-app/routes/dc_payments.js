@@ -422,9 +422,9 @@ module.exports = function(database) {
       .letterhead h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 1px; }
       .letterhead .tagline { margin: 4px 0 0; opacity: .85; font-size: 12px; font-weight: 400; letter-spacing: 0.3px; }
       .doc-badge { display: inline-block; margin-top: 10px; padding: 4px 16px; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.4); border-radius: 20px; font-size: 11px; letter-spacing: 3px; font-weight: 600; }
-      .info-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 28px; }
+      .info-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(4, auto); grid-auto-flow: column; gap: 10px 28px; }
       .info-card .row { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed #cbd5e1; padding: 4px 0; }
-      .info-card .row:last-child, .info-card .row:nth-last-child(2) { border-bottom: none; }
+      .info-card .row.no-border { border-bottom: none; }
       .info-card .l { color: #64748b; font-size: 11px; font-weight: 500; }
       .info-card .v { color: #0f172a; font-weight: 600; text-align: right; }
       .info-card .v.accent { color: #1e3a8a; font-weight: 700; }
@@ -451,12 +451,13 @@ module.exports = function(database) {
 
     <div class="info-card">
       <div class="row"><span class="l">Contract No</span><span class="v accent">${contractNo}</span></div>
-      <div class="row"><span class="l">Date</span><span class="v">${fmtDMY(delivery.date)}</span></div>
       <div class="row"><span class="l">Party Name</span><span class="v">${partyName || '-'}</span></div>
       <div class="row"><span class="l">Depot</span><span class="v">${depotName}</span></div>
-      <div class="row"><span class="l">Depot Code</span><span class="v">${depotCode}</span></div>
-      <div class="row"><span class="l">Season</span><span class="v">${gunnySeason || '-'}</span></div>
+      <div class="row no-border"><span class="l">Depot Code</span><span class="v">${depotCode}</span></div>
+      <div class="row"><span class="l">Date</span><span class="v">${fmtDMY(delivery.date)}</span></div>
       <div class="row"><span class="l">KMS</span><span class="v">${kmsYear || '-'}</span></div>
+      <div class="row"><span class="l">Season</span><span class="v">${gunnySeason || '-'}</span></div>
+      <div class="row no-border"></div>
     </div>
 
     <div class="section-title">DC Details</div>
