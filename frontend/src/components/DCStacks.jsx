@@ -16,6 +16,51 @@ const API = `${BACKEND_URL}/api`;
 
 function fmtDate(d) { if (!d) return ''; try { const p = d.split('T')[0].split('-'); return `${p[2]}-${p[1]}-${p[0]}`; } catch { return d; } }
 function daysAgo(d) { if (!d) return ''; const diff = Math.floor((Date.now() - new Date(d)) / 86400000); if (diff === 0) return 'Today'; if (diff === 1) return '1 day ago'; return `${diff} days ago`; }
+function daysLeft(d) { if (!d) return null; const diff = Math.ceil((new Date(d) - Date.now()) / 86400000); return diff; }
+
+function getStackStatus(stack) {
+  const lots = stack.lots || [];
+  const allotted = stack.allotted_date;
+  if (!allotted) return null;
+  
+  const firstLotDeadline = new Date(allotted);
+  firstLotDeadline.setDate(firstLotDeadline.getDate() + 2);
+  const fullDeadline = new Date(allotted);
+  fullDeadline.setDate(fullDeadline.getDate() + 7);
+  
+  const deliveredLots = lots.filter(l => l.status === 'delivered');
+  const totalLots = parseInt(stack.total_lots) || lots.length;
+  const now = new Date();
+  
+  // Check 1st lot deadline (2 days)
+  if (deliveredLots.length === 0 && now > firstLotDeadline) {
+    return { type: 'cancelled', label: 'CANCELLED', color: 'bg-red-600 text-white', desc: '1st lot 2 din mein nahi hua — Stack cancel' };
+  }
+  
+  // Check full delivery deadline (7 days) 
+  if (deliveredLots.length < totalLots && now > fullDeadline) {
+    return { type: 'lapsed', label: 'LAPSED', color: 'bg-orange-600 text-white', desc: '7 din mein poora delivery nahi hua — Stack lapse' };
+  }
+  
+  // Completed
+  if (totalLots > 0 && deliveredLots.length >= totalLots) {
+    return { type: 'completed', label: 'COMPLETED', color: 'bg-emerald-600 text-white', desc: 'Sab lots delivered' };
+  }
+  
+  // Warnings
+  const firstDaysLeft = daysLeft(firstLotDeadline.toISOString().split('T')[0]);
+  const fullDaysLeft = daysLeft(fullDeadline.toISOString().split('T')[0]);
+  
+  if (deliveredLots.length === 0 && firstDaysLeft !== null && firstDaysLeft <= 1 && firstDaysLeft >= 0) {
+    return { type: 'urgent', label: `1st LOT: ${firstDaysLeft}d left!`, color: 'bg-red-500 text-white animate-pulse', desc: `1st lot ${firstDaysLeft === 0 ? 'aaj' : 'kal'} tak dena hai!` };
+  }
+  
+  if (fullDaysLeft !== null && fullDaysLeft <= 2 && fullDaysLeft >= 0) {
+    return { type: 'warning', label: `${fullDaysLeft}d left`, color: 'bg-amber-500 text-white', desc: `Full delivery deadline ${fullDaysLeft} din baaki` };
+  }
+  
+  return { type: 'active', label: 'ACTIVE', color: 'bg-blue-500 text-white', desc: `1st lot: ${fmtDate(firstLotDeadline.toISOString().split('T')[0])} | Full: ${fmtDate(fullDeadline.toISOString().split('T')[0])}` };
+}
 
 export default function DCStacks({ filters }) {
   const [stacks, setStacks] = useState([]);
@@ -105,39 +150,56 @@ export default function DCStacks({ filters }) {
        : stacks.length === 0 ? <p className="text-slate-400 text-sm py-8 text-center">Koi stack nahi. "New Stack" se add karein.</p>
        : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {stacks.map(stack => (
-            <div key={stack.id} className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedStack(selectedStack?.id === stack.id ? null : stack)} data-testid={`stack-card-${stack.id}`}>
+          {stacks.map(stack => {
+            const deadlineStatus = getStackStatus(stack);
+            const allottedD = stack.allotted_date ? new Date(stack.allotted_date) : null;
+            const firstLotDL = allottedD ? new Date(allottedD.getTime() + 2 * 86400000).toISOString().split('T')[0] : '';
+            const fullDL = allottedD ? new Date(allottedD.getTime() + 7 * 86400000).toISOString().split('T')[0] : '';
+            return (
+            <div key={stack.id} className={`bg-white border rounded-lg shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow ${deadlineStatus?.type === 'cancelled' ? 'border-red-400' : deadlineStatus?.type === 'lapsed' ? 'border-orange-400' : 'border-slate-200'}`} onClick={() => setSelectedStack(selectedStack?.id === stack.id ? null : stack)} data-testid={`stack-card-${stack.id}`}>
               {/* Green Header */}
-              <div className="bg-emerald-600 text-white px-3 py-2 flex items-center justify-between">
+              <div className={`text-white px-3 py-2 flex items-center justify-between ${deadlineStatus?.type === 'cancelled' ? 'bg-red-600' : deadlineStatus?.type === 'lapsed' ? 'bg-orange-600' : deadlineStatus?.type === 'completed' ? 'bg-emerald-700' : 'bg-emerald-600'}`}>
                 <span className="font-bold text-sm">{stack.depot_name} - {stack.depot_code} # Stack: {stack.stack_no || '-'}</span>
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-white/70 hover:text-white hover:bg-emerald-700" onClick={e => { e.stopPropagation(); handleDeleteStack(stack.id); }}>
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-white/70 hover:text-white hover:bg-black/20" onClick={e => { e.stopPropagation(); handleDeleteStack(stack.id); }}>
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>
               </div>
 
+              {/* Deadline Status Badge */}
+              {deadlineStatus && (
+                <div className={`px-3 py-1 text-center text-xs font-bold ${deadlineStatus.color}`} title={deadlineStatus.desc}>
+                  {deadlineStatus.label} {deadlineStatus.desc && `— ${deadlineStatus.desc}`}
+                </div>
+              )}
+
               {/* Body */}
               <div className="p-3 space-y-2">
-                {/* KMS + Type row */}
                 <div className="flex items-center justify-between">
                   <span className="text-emerald-700 font-semibold text-xs">KMS {stack.kms_year} {stack.delivery_to} {stack.rice_type === 'parboiled' ? 'Usna' : 'Arwa'}</span>
                   <span className="text-red-500 font-bold text-xs">{stack.delivery_to === 'RRC' ? 'State CMR' : 'FCI CMR'}</span>
                 </div>
 
-                {/* TEC / Booking */}
                 {(stack.tec || stack.booking_id) && (
                   <p className="text-slate-600 text-xs">TEC / Booking ID: {stack.tec || '-'} / {stack.booking_id || '-'}</p>
                 )}
 
-                {/* Progress */}
                 <div className="text-center py-2">
                   <span className="text-4xl font-black text-red-500">{stack.lots_delivered || 0}/{stack.total_lots || stack.lots_total || 0}</span>
                 </div>
 
-                {/* Details */}
+                {/* Deadlines */}
                 <div className="space-y-1.5 border-t border-slate-100 pt-2 text-xs">
                   <div className="flex justify-between border-b border-slate-100 pb-1">
                     <span className="font-bold text-slate-700">Allotted:</span>
                     <span className="text-slate-600">{daysAgo(stack.allotted_date)} <span className="text-slate-400">[{fmtDate(stack.allotted_date)}]</span></span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-100 pb-1">
+                    <span className="font-bold text-red-600">1st Lot Deadline (2d):</span>
+                    <span className="text-red-600 font-semibold">{fmtDate(firstLotDL)}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-100 pb-1">
+                    <span className="font-bold text-orange-600">Full Delivery (7d):</span>
+                    <span className="text-orange-600 font-semibold">{fmtDate(fullDL)}</span>
                   </div>
                   {stack.last_delivered_date && (
                     <div className="flex justify-between border-b border-slate-100 pb-1">
@@ -172,7 +234,7 @@ export default function DCStacks({ filters }) {
                 </div>
               </div>
             </div>
-          ))}
+          );})}
         </div>
       )}
 
