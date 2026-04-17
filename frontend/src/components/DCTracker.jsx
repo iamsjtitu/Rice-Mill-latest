@@ -190,6 +190,7 @@ export const DCEntries = ({ filters, user }) => {
   const driverSuggestions = useMemo(() => [...new Set(allDeliveries.flatMap(d => splitJoined(d.driver_name)))].sort(), [allDeliveries]);
   const bagsSuggestions = useMemo(() => [...new Set(allDeliveries.map(d => String(d.bags_used || '')).filter(v => v && v !== '0'))].sort((a,b) => (+a)-(+b)), [allDeliveries]);
   const weightSuggestions = useMemo(() => [...new Set(allDeliveries.map(d => String(d.quantity_qntl || '')).filter(v => v && v !== '0'))].sort((a,b) => (+a)-(+b)), [allDeliveries]);
+  const contractSuggestions = useMemo(() => [...new Set(allDeliveries.map(d => (d.contract_no || '').trim()).filter(Boolean))].sort(), [allDeliveries]);
 
   // Filter DCs by search query (DC number or delivery invoice number)
   const filteredDCs = searchQuery.trim()
@@ -422,7 +423,8 @@ export const DCEntries = ({ filters, user }) => {
               <div><Label className="text-xs text-slate-400">FCI Lot No</Label>
                 <Input value={delForm.fci_lot_no} onChange={e => setDelForm(p=>({...p,fci_lot_no:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-fci-lot" /></div>
               <div><Label className="text-xs text-slate-400">Contract No</Label>
-                <Input value={delForm.contract_no} onChange={e => setDelForm(p=>({...p,contract_no:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-contract" /></div>
+                <Input list="del-contract-list" value={delForm.contract_no} onChange={e => setDelForm(p=>({...p,contract_no:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-contract" autoComplete="off" />
+                <datalist id="del-contract-list">{contractSuggestions.map(v => <option key={v} value={v} />)}</datalist></div>
             </div>
 
             {/* Trucks section */}
