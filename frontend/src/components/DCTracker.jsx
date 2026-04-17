@@ -432,17 +432,15 @@ export const DCEntries = ({ filters, user }) => {
                       </Button>
                     )}
                   </div>
-                  {/* RST Number — highlighted auto-fill trigger */}
-                  <div className="bg-sky-900/30 border border-sky-600/40 rounded px-2 py-1.5">
-                    <Label className="text-[10px] text-sky-300 font-bold">⚡ RST Number (Auto-fill from Vehicle Weight Sale)</Label>
+                  {/* RST Number — auto-fill trigger */}
+                  <div><Label className="text-[10px] text-slate-400">RST</Label>
                     <Input
                       type="number"
                       value={truck.rst_no}
                       onChange={e => setDelForm(p => ({ ...p, trucks: p.trucks.map((t, i) => i === idx ? { ...t, rst_no: e.target.value } : t) }))}
                       onBlur={e => lookupRstAndFill(idx, e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); lookupRstAndFill(idx, e.target.value); } }}
-                      placeholder="RST # (press Enter or Tab to fetch)"
-                      className="bg-slate-700 border-sky-500/50 text-white h-7 text-xs mt-0.5"
+                      className="bg-slate-700 border-slate-600 text-white h-7 text-xs"
                       data-testid={`delivery-truck-${idx}-rst`}
                     />
                   </div>
