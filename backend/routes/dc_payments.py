@@ -217,49 +217,124 @@ async def add_dc_delivery(delivery: DCDelivery, username: str = ""):
         }
         await db.gunny_bags.insert_one(bag_entry)
 
-    # Auto-entry: Add Lot to matching DC Stack (if found)
-    stack_query = {
-        "depot_name": dc.get("depot_name", ""),
-        "depot_code": dc.get("depot_code", ""),
-        "rice_type": dc.get("rice_type", "parboiled"),
-        "kms_year": d.get("kms_year", ""),
-        "season": d.get("season", ""),
-    }
-    # Only filter by non-empty depot to avoid wrong matches
-    if stack_query["depot_name"] or stack_query["depot_code"]:
-        matching_stacks = await db.dc_stacks.find(stack_query, {"_id": 0}).sort("created_at", 1).to_list(50)
-        # Prefer a stack with room (lot_count < total_lots) else use first
-        target_stack = None
-        for s in matching_stacks:
-            total_lots = int(s.get("total_lots") or 0)
-            current_count = await db.dc_stack_lots.count_documents({"stack_id": s["id"]})
-            if total_lots == 0 or current_count < total_lots:
-                target_stack = s
-                break
-        if target_stack is None and matching_stacks:
-            target_stack = matching_stacks[0]
-        if target_stack:
-            existing = await db.dc_stack_lots.count_documents({"stack_id": target_stack["id"]})
-            # Count trucks from slash-joined vehicle_no
-            veh_raw = (d.get("vehicle_no") or "").strip()
-            n_trucks = len([p for p in veh_raw.split("/") if p.strip()]) or 1
-            lot_data = {
-                "id": str(uuid.uuid4()),
-                "stack_id": target_stack["id"],
-                "lot_number": existing + 1,
-                "date": d.get("date", ""),
-                "agency": d.get("party_name", "") or "",
-                "lot_ack_no": d.get("fci_lot_no", "") or "",
-                "no_of_trucks": n_trucks,
-                "bags": int(d.get("bags_used", 0) or 0),
-                "nett_weight_qtl": float(d.get("quantity_qntl", 0) or 0),
-                "status": "delivered",
-                "linked_delivery_id": d["id"],
-                "created_at": now_iso,
-            }
-            await db.dc_stack_lots.insert_one(lot_data)
+    # Auto-entry: Add Lot to matching DC Stack (LENIENT matching - case-insensitive, trim, score-based)
+    def _norm(v): return (str(v) if v is not None else "").strip().upper()
+    dc_depot_n = _norm(dc.get("depot_name", ""))
+    dc_depot_c = _norm(dc.get("depot_code", ""))
+    dc_kms = _norm(dc.get("kms_year") or d.get("kms_year"))
+    dc_season = _norm(dc.get("season") or d.get("season"))
+    dc_rice = _norm(dc.get("rice_type", "parboiled"))
+    all_stacks = await db.dc_stacks.find({}, {"_id": 0}).sort("created_at", 1).to_list(500)
+    scored = []
+    for s in all_stacks:
+        s_depot_n = _norm(s.get("depot_name", ""))
+        s_depot_c = _norm(s.get("depot_code", ""))
+        depot_match = (s_depot_n and s_depot_n == dc_depot_n) or (s_depot_c and s_depot_c == dc_depot_c)
+        if not depot_match:
+            continue
+        score = 0
+        if s_depot_n == dc_depot_n: score += 2
+        if s_depot_c == dc_depot_c: score += 2
+        if _norm(s.get("kms_year")) == dc_kms: score += 2
+        if _norm(s.get("season")) == dc_season: score += 2
+        if _norm(s.get("rice_type")) == dc_rice: score += 1
+        scored.append((score, s))
+    scored.sort(key=lambda x: -x[0])
+    target_stack = None
+    for _, s in scored:
+        total_lots = int(s.get("total_lots") or 0)
+        current_count = await db.dc_stack_lots.count_documents({"stack_id": s["id"]})
+        if total_lots == 0 or current_count < total_lots:
+            target_stack = s; break
+    if target_stack is None and scored:
+        target_stack = scored[0][1]
+    if target_stack:
+        existing = await db.dc_stack_lots.count_documents({"stack_id": target_stack["id"]})
+        veh_raw = (d.get("vehicle_no") or "").strip()
+        n_trucks = len([p for p in veh_raw.split("/") if p.strip()]) or 1
+        lot_data = {
+            "id": str(uuid.uuid4()),
+            "stack_id": target_stack["id"],
+            "lot_number": existing + 1,
+            "date": d.get("date", ""),
+            "agency": d.get("party_name", "") or "",
+            "lot_ack_no": d.get("fci_lot_no", "") or "",
+            "no_of_trucks": n_trucks,
+            "bags": int(d.get("bags_used", 0) or 0),
+            "nett_weight_qtl": float(d.get("quantity_qntl", 0) or 0),
+            "status": "delivered",
+            "linked_delivery_id": d["id"],
+            "created_at": now_iso,
+        }
+        await db.dc_stack_lots.insert_one(lot_data)
 
     return d
+
+
+@router.post("/dc-deliveries/{delivery_id}/link-stack")
+async def link_delivery_to_stack(delivery_id: str, username: str = "system"):
+    """Backfill: Manually link an existing delivery to a matching DC Stack as a new lot."""
+    d = await db.dc_deliveries.find_one({"id": delivery_id}, {"_id": 0})
+    if not d:
+        raise HTTPException(status_code=404, detail="Delivery not found")
+    dc = await db.dc_entries.find_one({"id": d.get("dc_id", "")}, {"_id": 0})
+    if not dc:
+        raise HTTPException(status_code=404, detail="Parent DC not found")
+    # Check if already linked
+    existing_lot = await db.dc_stack_lots.find_one({"linked_delivery_id": delivery_id}, {"_id": 0})
+    if existing_lot:
+        return {"linked": False, "reason": "Already linked to a stack lot"}
+    # Same lenient matching as auto-link
+    def _norm(v): return (str(v) if v is not None else "").strip().upper()
+    dc_depot_n = _norm(dc.get("depot_name", ""))
+    dc_depot_c = _norm(dc.get("depot_code", ""))
+    dc_kms = _norm(dc.get("kms_year") or d.get("kms_year"))
+    dc_season = _norm(dc.get("season") or d.get("season"))
+    dc_rice = _norm(dc.get("rice_type", "parboiled"))
+    all_stacks = await db.dc_stacks.find({}, {"_id": 0}).to_list(500)
+    scored = []
+    for s in all_stacks:
+        s_depot_n = _norm(s.get("depot_name", ""))
+        s_depot_c = _norm(s.get("depot_code", ""))
+        if not ((s_depot_n and s_depot_n == dc_depot_n) or (s_depot_c and s_depot_c == dc_depot_c)):
+            continue
+        score = 0
+        if s_depot_n == dc_depot_n: score += 2
+        if s_depot_c == dc_depot_c: score += 2
+        if _norm(s.get("kms_year")) == dc_kms: score += 2
+        if _norm(s.get("season")) == dc_season: score += 2
+        if _norm(s.get("rice_type")) == dc_rice: score += 1
+        scored.append((score, s))
+    scored.sort(key=lambda x: -x[0])
+    if not scored:
+        return {"linked": False, "reason": f"Koi matching stack nahi mila. DC depot='{dc.get('depot_name','')}' code='{dc.get('depot_code','')}' ke saath koi stack match nahi ho raha. Stack banaye ya Depot details match karao."}
+    target_stack = None
+    for _, s in scored:
+        total_lots = int(s.get("total_lots") or 0)
+        current_count = await db.dc_stack_lots.count_documents({"stack_id": s["id"]})
+        if total_lots == 0 or current_count < total_lots:
+            target_stack = s; break
+    if target_stack is None:
+        target_stack = scored[0][1]
+    existing = await db.dc_stack_lots.count_documents({"stack_id": target_stack["id"]})
+    veh_raw = (d.get("vehicle_no") or "").strip()
+    n_trucks = len([p for p in veh_raw.split("/") if p.strip()]) or 1
+    lot_data = {
+        "id": str(uuid.uuid4()),
+        "stack_id": target_stack["id"],
+        "lot_number": existing + 1,
+        "date": d.get("date", ""),
+        "agency": d.get("party_name", "") or "",
+        "lot_ack_no": d.get("fci_lot_no", "") or "",
+        "no_of_trucks": n_trucks,
+        "bags": int(d.get("bags_used", 0) or 0),
+        "nett_weight_qtl": float(d.get("quantity_qntl", 0) or 0),
+        "status": "delivered",
+        "linked_delivery_id": delivery_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.dc_stack_lots.insert_one(lot_data)
+    return {"linked": True, "stack_info": f"{target_stack.get('depot_name','')} ({target_stack.get('depot_code','')}) stack#{target_stack.get('stack_no','-')} | Lot #{existing+1}", "lot_id": lot_data["id"]}
 
 
 @router.get("/dc-deliveries")

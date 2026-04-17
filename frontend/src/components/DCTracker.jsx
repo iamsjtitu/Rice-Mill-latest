@@ -105,6 +105,19 @@ export const DCEntries = ({ filters, user }) => {
     } catch (e) { toast.error(e.response?.data?.detail || e.message); }
   };
 
+  // Manually trigger auto-lot linking for an existing delivery (backfill)
+  const handleLinkToStack = async (deliveryId) => {
+    try {
+      const r = await axios.post(`${API}/dc-deliveries/${deliveryId}/link-stack?username=${user.username}`);
+      if (r.data?.linked) {
+        toast.success(`Lot added to stack: ${r.data.stack_info || ''}`);
+      } else {
+        toast.warning(r.data?.reason || 'Koi matching stack nahi mila. Depot Name/Code aur Stack ka Depot verify karein.');
+      }
+      fetchData();
+    } catch (e) { toast.error(e.response?.data?.detail || e.message); }
+  };
+
   // Lookup Vehicle Weight by RST (Sale entries) and auto-fill the target truck row
   const lookupRstAndFill = async (truckIdx, rstStr) => {
     const rst = parseInt((rstStr || '').toString().trim());
@@ -316,6 +329,7 @@ export const DCEntries = ({ filters, user }) => {
                         <TableCell className="text-orange-400 text-[11px] py-1">{d.diesel_paid ? `₹${d.diesel_paid}` : '-'}</TableCell>
                         <TableCell className="text-purple-400 text-[11px] py-1">{d.depot_expenses ? `₹${d.depot_expenses}` : '-'}</TableCell>
                         <TableCell className="py-1 flex gap-1">
+                          <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-sky-400" onClick={() => handleLinkToStack(d.id)} title="Link to Stack (manual)" data-testid={`delivery-link-stack-${d.id}`}><Package className="w-2.5 h-2.5" /></Button>
                           <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-blue-400" onClick={() => window.open(`${API}/dc-deliveries/invoice/${d.id}?download=1`, '_blank')} title="Download PDF" data-testid={`delivery-pdf-${d.id}`}><Download className="w-2.5 h-2.5" /></Button>
                           {user.role === 'admin' && <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-red-400" onClick={() => handleDeleteDelivery(d.id)}><Trash2 className="w-2.5 h-2.5" /></Button>}
                         </TableCell>

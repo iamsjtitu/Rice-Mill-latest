@@ -229,22 +229,37 @@ module.exports = function(database) {
         notes: 'Auto: DC delivery bags used', ...base
       });
     }
-    // Auto-entry: Add Lot to matching DC Stack (if found)
+    // Auto-entry: Add Lot to matching DC Stack (if found) — LENIENT matching
     const stacks = database.data.dc_stacks || [];
-    const matchingStacks = stacks.filter(s =>
-      s.depot_name === (dc.depot_name||'') && s.depot_code === (dc.depot_code||'') &&
-      s.rice_type === (dc.rice_type||'parboiled') &&
-      s.kms_year === (del.kms_year||'') && s.season === (del.season||'')
-    );
-    if (matchingStacks.length && (dc.depot_name || dc.depot_code)) {
+    const norm = v => (v || '').toString().trim().toUpperCase();
+    const dcDepotN = norm(dc.depot_name), dcDepotC = norm(dc.depot_code);
+    const dcKms = norm(dc.kms_year || del.kms_year), dcSeason = norm(dc.season || del.season);
+    const dcRice = norm(dc.rice_type || 'parboiled');
+    // Score each stack: higher is better
+    const scored = stacks.map(s => {
+      let score = 0;
+      const sDepotN = norm(s.depot_name), sDepotC = norm(s.depot_code);
+      // Depot must match (name OR code) — mandatory
+      const depotMatch = (sDepotN && sDepotN === dcDepotN) || (sDepotC && sDepotC === dcDepotC);
+      if (!depotMatch) return { s, score: -1 };
+      if (sDepotN === dcDepotN) score += 2;
+      if (sDepotC === dcDepotC) score += 2;
+      if (norm(s.kms_year) === dcKms) score += 2;
+      if (norm(s.season) === dcSeason) score += 2;
+      if (norm(s.rice_type) === dcRice) score += 1;
+      return { s, score };
+    }).filter(x => x.score >= 0).sort((a,b) => b.score - a.score);
+
+    if (scored.length) {
       if (!database.data.dc_stack_lots) database.data.dc_stack_lots = [];
+      // Prefer top-scored with room
       let targetStack = null;
-      for (const s of matchingStacks) {
+      for (const {s} of scored) {
         const total = parseInt(s.total_lots) || 0;
         const cnt = database.data.dc_stack_lots.filter(l => l.stack_id === s.id).length;
         if (total === 0 || cnt < total) { targetStack = s; break; }
       }
-      if (!targetStack) targetStack = matchingStacks[0];
+      if (!targetStack) targetStack = scored[0].s;
       const existing = database.data.dc_stack_lots.filter(l => l.stack_id === targetStack.id).length;
       const nTrucks = ((del.vehicle_no||'').split('/').map(x=>x.trim()).filter(Boolean).length) || 1;
       database.data.dc_stack_lots.push({
@@ -261,8 +276,60 @@ module.exports = function(database) {
         linked_delivery_id: del.id,
         created_at: now
       });
+      console.log(`[auto-lot] Linked delivery ${del.id.slice(0,8)} → stack ${targetStack.depot_name} (${targetStack.depot_code}) stack_no=${targetStack.stack_no} lot#${existing+1}`);
+    } else {
+      console.log(`[auto-lot] No matching stack for delivery ${del.id.slice(0,8)} | DC depot="${dc.depot_name}"/"${dc.depot_code}" kms=${dcKms} season=${dcSeason}`);
     }
     database.save(); res.json(del);
+  }));
+
+  router.post('/api/dc-deliveries/:id/link-stack', safeSync(async (req, res) => {
+    if (!database.data.dc_deliveries) return res.status(404).json({ detail: 'No deliveries' });
+    const d = database.data.dc_deliveries.find(x => x.id === req.params.id);
+    if (!d) return res.status(404).json({ detail: 'Delivery not found' });
+    const dc = (database.data.dc_entries || []).find(e => e.id === d.dc_id);
+    if (!dc) return res.status(404).json({ detail: 'Parent DC not found' });
+    if (!database.data.dc_stack_lots) database.data.dc_stack_lots = [];
+    const existingLot = database.data.dc_stack_lots.find(l => l.linked_delivery_id === req.params.id);
+    if (existingLot) return res.json({ linked: false, reason: 'Already linked to a stack lot' });
+    const norm = v => (v || '').toString().trim().toUpperCase();
+    const dcDepotN = norm(dc.depot_name), dcDepotC = norm(dc.depot_code);
+    const dcKms = norm(dc.kms_year || d.kms_year), dcSeason = norm(dc.season || d.season);
+    const dcRice = norm(dc.rice_type || 'parboiled');
+    const stacks = database.data.dc_stacks || [];
+    const scored = stacks.map(s => {
+      const sDepotN = norm(s.depot_name), sDepotC = norm(s.depot_code);
+      const depotMatch = (sDepotN && sDepotN === dcDepotN) || (sDepotC && sDepotC === dcDepotC);
+      if (!depotMatch) return { s, score: -1 };
+      let score = 0;
+      if (sDepotN === dcDepotN) score += 2;
+      if (sDepotC === dcDepotC) score += 2;
+      if (norm(s.kms_year) === dcKms) score += 2;
+      if (norm(s.season) === dcSeason) score += 2;
+      if (norm(s.rice_type) === dcRice) score += 1;
+      return { s, score };
+    }).filter(x => x.score >= 0).sort((a,b) => b.score - a.score);
+    if (!scored.length) {
+      return res.json({ linked: false, reason: `Koi matching stack nahi mila. DC depot="${dc.depot_name||''}" code="${dc.depot_code||''}" ke saath koi stack match nahi ho raha.` });
+    }
+    let targetStack = null;
+    for (const {s} of scored) {
+      const total = parseInt(s.total_lots) || 0;
+      const cnt = database.data.dc_stack_lots.filter(l => l.stack_id === s.id).length;
+      if (total === 0 || cnt < total) { targetStack = s; break; }
+    }
+    if (!targetStack) targetStack = scored[0].s;
+    const existing = database.data.dc_stack_lots.filter(l => l.stack_id === targetStack.id).length;
+    const nTrucks = ((d.vehicle_no||'').split('/').map(x=>x.trim()).filter(Boolean).length) || 1;
+    const lot = {
+      id: uuidv4(), stack_id: targetStack.id, lot_number: existing + 1,
+      date: d.date || '', agency: d.party_name || '', lot_ack_no: d.fci_lot_no || '',
+      no_of_trucks: nTrucks, bags: +(d.bags_used||0), nett_weight_qtl: +(d.quantity_qntl||0),
+      status: 'delivered', linked_delivery_id: req.params.id, created_at: new Date().toISOString()
+    };
+    database.data.dc_stack_lots.push(lot);
+    database.save();
+    res.json({ linked: true, stack_info: `${targetStack.depot_name||''} (${targetStack.depot_code||''}) stack#${targetStack.stack_no||'-'} | Lot #${existing+1}`, lot_id: lot.id });
   }));
 
   router.get('/api/dc-deliveries', safeSync(async (req, res) => {
