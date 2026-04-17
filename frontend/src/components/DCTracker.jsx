@@ -433,7 +433,7 @@ export const DCEntries = ({ filters, user }) => {
                 <Input list="del-contract-list" value={delForm.contract_no} onChange={e => setDelForm(p=>({...p,contract_no:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-contract" autoComplete="off" />
                 <datalist id="del-contract-list">{contractSuggestions.map(v => <option key={v} value={v} />)}</datalist></div>
             </div>
-            <div><Label className="text-xs text-slate-400">Party Name <span className="text-[10px] text-slate-500">(RST auto-fill hote hi bhar jayega)</span></Label>
+            <div><Label className="text-xs text-slate-400">Party Name</Label>
               <Input list="del-party-list" value={delForm.party_name} onChange={e => setDelForm(p=>({...p,party_name:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-party" autoComplete="off" />
               <datalist id="del-party-list">{partyNameSuggestions.map(v => <option key={v} value={v} />)}</datalist></div>
 
