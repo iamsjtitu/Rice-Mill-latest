@@ -305,71 +305,75 @@ module.exports = function(database) {
     for (let i=0;i<nTrucks;i++) {
       const vh = vehicles[i] || '';
       const dr = drivers[i] || '';
-      truckRows += `<tr><td>${i+1}</td><td>${vh}</td><td>${dr}</td><td>-</td><td>${bagsPerTruck.toFixed(2)}</td><td>${weightPerTruck.toFixed(2)}</td></tr>`;
+      truckRows += `<tr><td>${i+1}</td><td><b>${vh}</b></td><td>${dr || '-'}</td><td class="num">${bagsPerTruck.toFixed(2)}</td><td class="num">${weightPerTruck.toFixed(2)}</td></tr>`;
     }
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Delivery Challan - ${dcNum}</title>
     <style>
-      @page { size: A4; margin: 15mm 12mm; }
-      body { font-family: Arial, sans-serif; margin: 0; color: #000; font-size: 12px; }
-      .letterhead { text-align: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 18px; }
-      .letterhead h1 { margin: 0 0 2px; font-size: 22px; letter-spacing: 0.5px; color: #1a365d; }
-      .letterhead .tagline { margin: 0; color: #555; font-size: 11px; }
-      .letterhead .doc-title { margin-top: 6px; font-size: 13px; font-weight: 700; letter-spacing: 2px; color: #000; }
-      .hdr-grid { display: grid; grid-template-columns: 140px 1fr 110px 1fr; gap: 6px 14px; margin-bottom: 22px; }
-      .hdr-grid .l { font-weight: 400; color: #222; }
-      .hdr-grid .v { font-weight: 400; color: #000; }
-      table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
-      th, td { border: 1px solid #555; padding: 8px 10px; text-align: left; vertical-align: top; font-size: 12px; }
-      th { font-weight: 700; background: #fff; }
-      .sign { margin-top: 35px; display: flex; justify-content: space-between; }
-      .sign div { border-top: 1px solid #333; width: 180px; text-align: center; padding-top: 5px; font-size: 11px; }
-      .noprint { text-align: center; margin-top: 20px; }
-      .noprint button { padding: 8px 28px; background: #1a365d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
-      @media print { .noprint { display: none; } body { -webkit-print-color-adjust: exact; } }
+      @page { size: A4; margin: 14mm 14mm; }
+      * { box-sizing: border-box; }
+      body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; color: #0f172a; font-size: 12px; background: #fff; }
+      .letterhead { background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%); color: #fff; padding: 18px 24px; border-radius: 10px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 14px rgba(30,58,138,.25); }
+      .letterhead h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 1px; }
+      .letterhead .tagline { margin: 4px 0 0; opacity: .85; font-size: 12px; font-weight: 400; letter-spacing: 0.3px; }
+      .doc-badge { display: inline-block; margin-top: 10px; padding: 4px 16px; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.4); border-radius: 20px; font-size: 11px; letter-spacing: 3px; font-weight: 600; }
+      .info-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 28px; }
+      .info-card .row { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed #cbd5e1; padding: 4px 0; }
+      .info-card .row:last-child, .info-card .row:nth-last-child(2) { border-bottom: none; }
+      .info-card .l { color: #64748b; font-size: 11px; font-weight: 500; }
+      .info-card .v { color: #0f172a; font-weight: 600; text-align: right; }
+      .info-card .v.accent { color: #1e3a8a; font-weight: 700; }
+      .section-title { color: #1e3a8a; font-size: 11px; font-weight: 700; letter-spacing: 2px; margin: 18px 0 8px; text-transform: uppercase; border-left: 3px solid #3730a3; padding-left: 8px; }
+      table { width: 100%; border-collapse: separate; border-spacing: 0; margin-bottom: 16px; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+      th, td { padding: 9px 11px; text-align: left; font-size: 11.5px; border-bottom: 1px solid #e2e8f0; }
+      th { background: #1e3a8a; color: #fff; font-weight: 600; font-size: 11px; letter-spacing: 0.3px; border-bottom: none; }
+      tbody tr:nth-child(even) { background: #f8fafc; }
+      tbody tr:hover { background: #eff6ff; }
+      td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+      .sign { margin-top: 38px; display: flex; justify-content: space-between; gap: 40px; }
+      .sign div { flex: 1; border-top: 1.5px solid #1e3a8a; padding-top: 6px; text-align: center; font-size: 11px; color: #475569; font-weight: 500; }
+      .noprint { text-align: center; margin-top: 28px; }
+      .noprint button { padding: 10px 32px; background: linear-gradient(135deg, #1e3a8a, #3730a3); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; box-shadow: 0 4px 10px rgba(30,58,138,.3); }
+      .noprint button:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(30,58,138,.4); }
+      @media print { .noprint { display: none; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
     </style></head><body>
 
     <div class="letterhead">
       <h1>${millerLabel}</h1>
       ${millTagline ? `<p class="tagline">${millTagline}</p>` : ''}
-      <div class="doc-title">DELIVERY CHALLAN</div>
+      <div class="doc-badge">DELIVERY CHALLAN</div>
     </div>
 
-    <div class="hdr-grid">
-      <div class="l">Miller Name &amp; Code:</div><div class="v">${millerLabel}</div>
-      <div class="l">Contract No:</div><div class="v">${contractNo}</div>
-
-      <div class="l">Depot Code:</div><div class="v">${depotCode}</div>
-      <div class="l">Depot:</div><div class="v">${depotName}</div>
-
-      <div class="l">Vehicle No.:</div><div class="v">${vehicles.length ? vehicles.join(', ') : '-'}</div>
-      <div class="l">Driver Name:</div><div class="v">${drivers.length ? drivers.join(', ') : '-'}</div>
-
-      <div class="l">KMS:</div><div class="v">${kmsYear || '-'}</div>
-      <div class="l">Date:</div><div class="v">${fmtDMY(delivery.date)}</div>
+    <div class="info-card">
+      <div class="row"><span class="l">Contract No</span><span class="v accent">${contractNo}</span></div>
+      <div class="row"><span class="l">Date</span><span class="v">${fmtDMY(delivery.date)}</span></div>
+      <div class="row"><span class="l">Depot Code</span><span class="v">${depotCode}</span></div>
+      <div class="row"><span class="l">Depot</span><span class="v">${depotName}</span></div>
+      <div class="row"><span class="l">KMS</span><span class="v">${kmsYear || '-'}</span></div>
+      <div class="row"><span class="l">Season</span><span class="v">${gunnySeason || '-'}</span></div>
     </div>
 
+    <div class="section-title">DC Details</div>
     <table>
       <thead><tr>
-        <th>Sl#</th><th>DC No.</th><th>DC Date</th><th>Variety</th><th>Packing Material</th>
-        <th>No. Of Lot</th><th>No Of Bag./Packaging Material</th><th>KMS of the Packaging Material</th>
-        <th>Gunny Season</th><th>FCI Lot No</th>
+        <th style="width:40px">Sl#</th><th>DC No.</th><th>DC Date</th><th>Packing Material</th>
+        <th class="num">Total Bags</th><th>FCI Lot No</th>
       </tr></thead>
       <tbody><tr>
-        <td>1</td><td>${dcNum || '-'}</td><td>${fmtDMonY(dc.date)}</td><td>${variety}</td><td>${packingMaterial}</td>
-        <td>${noOfLot}</td><td>${totalBags.toFixed(2)}</td><td>${kmsYear || '-'}</td>
-        <td>${gunnySeason || '-'}</td><td>${fciLotNo}</td>
+        <td>1</td><td><b>${dcNum || '-'}</b></td><td>${fmtDMonY(dc.date)}</td><td>${packingMaterial}</td>
+        <td class="num">${totalBags.toFixed(2)}</td><td><b>${fciLotNo}</b></td>
       </tr></tbody>
     </table>
 
+    <div class="section-title">Truck-wise Breakdown</div>
     <table>
       <thead><tr>
-        <th>Sl#</th><th>VechicleNumber</th><th>DriverName</th><th>DriverContactNo</th>
-        <th>Vehiclewise Bag No</th><th>Bag Weight</th>
+        <th style="width:40px">Sl#</th><th>Vehicle Number</th><th>Driver Name</th>
+        <th class="num">Bags</th><th class="num">Weight (Qtl)</th>
       </tr></thead>
       <tbody>${truckRows}</tbody>
     </table>
 
-    ${delivery.notes ? `<p style="margin-top:8px;font-size:12px;color:#333"><b>Notes:</b> ${delivery.notes}</p>` : ''}
+    ${delivery.notes ? `<div class="section-title">Notes</div><p style="font-size:12px;color:#334155;margin-top:0;padding:8px 12px;background:#f1f5f9;border-radius:6px">${delivery.notes}</p>` : ''}
 
     <div class="sign"><div>Miller Signature</div><div>Receiver Signature</div></div>
     <div class="noprint"><button onclick="window.print()">Download as PDF</button></div>
