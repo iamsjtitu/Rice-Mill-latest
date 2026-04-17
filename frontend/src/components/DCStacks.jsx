@@ -44,10 +44,9 @@ function getStackStatus(stack) {
     }
   }
   
-  // To be finished — validity 7 days (informational, no lapse)
+  // To be finished — validity 7 days (fixed text, informational)
   if (deliveredLots.length < totalLots) {
-    const d = daysLeft(fullDL.toISOString().split('T')[0]);
-    deadlines.push({ label: 'To be finished', value: d !== null && d >= 0 ? `within ${d} days` : 'overdue', color: 'text-orange-600', bold: false });
+    deadlines.push({ label: 'To be finished', value: 'within 7 days', color: 'text-orange-600', bold: false });
   }
   
   // Delivery Due — remaining time from now to full deadline
