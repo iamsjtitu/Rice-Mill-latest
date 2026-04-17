@@ -314,6 +314,7 @@ async def update_branding(data: dict, username: str = "", role: str = ""):
     branding_data = {
         "company_name": data.get("company_name", "NAVKAR AGRO"),
         "tagline": data.get("tagline", ""),
+        "mill_code": data.get("mill_code", ""),
         "custom_fields": clean_fields,
         "updated_by": username,
         "updated_at": datetime.now(timezone.utc).isoformat()
@@ -326,6 +327,7 @@ async def update_branding(data: dict, username: str = "", role: str = ""):
         "key": "branding",
         "company_name": branding_data["company_name"],
         "tagline": branding_data["tagline"],
+        "mill_code": branding_data["mill_code"],
         "custom_fields": clean_fields,
     }
     # Also set legacy fields from custom_fields for old code

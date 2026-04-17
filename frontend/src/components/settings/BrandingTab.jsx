@@ -10,7 +10,7 @@ import { Trash2, Plus, Key } from "lucide-react";
 import { API } from "./settingsConstants";
 
 function BrandingTab({ user, onBrandingUpdate }) {
-  const [brandingForm, setBrandingForm] = useState({ company_name: "", tagline: "", custom_fields: [] });
+  const [brandingForm, setBrandingForm] = useState({ company_name: "", tagline: "", mill_code: "", custom_fields: [] });
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -69,6 +69,17 @@ function BrandingTab({ user, onBrandingUpdate }) {
               data-testid="branding-tagline"
             />
             <p className="text-xs text-slate-500 mt-1">Example: JOLKO, KESINGA - Mill Entry System</p>
+          </div>
+          <div>
+            <Label className="text-slate-300 text-lg">Mill Code / मिल कोड</Label>
+            <Input
+              value={brandingForm.mill_code || ""}
+              onChange={(e) => setBrandingForm(prev => ({ ...prev, mill_code: e.target.value }))}
+              placeholder="e.g. M150841"
+              className="bg-slate-700 border-slate-600 text-white mt-2 font-mono"
+              data-testid="branding-mill-code"
+            />
+            <p className="text-xs text-slate-500 mt-1">FCI Registered Miller Code. Delivery challan & PDF exports mein "Company Name (Mill Code)" dikhega</p>
           </div>
         </div>
 

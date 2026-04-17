@@ -276,9 +276,10 @@ module.exports = function(database) {
     const delivery = database.data.dc_deliveries.find(d => d.id === req.params.id);
     if (!delivery) return res.status(404).json({ detail: 'Delivery not found' });
     const dc = (database.data.dc_entries||[]).find(e => e.id === delivery.dc_id) || {};
-    const settings = database.data.settings || {};
-    const millName = settings.mill_name || 'NAVKAR AGRO';
-    const millCode = settings.mill_code || settings.miller_code || '';
+    const branding = database.data.branding || {};
+    const millName = branding.company_name || 'NAVKAR AGRO';
+    const millCode = branding.mill_code || '';
+    const millTagline = branding.tagline || '';
     const millerLabel = millCode ? `${millName} (${millCode})` : millName;
     const dcNum = dc.dc_number || '';
     const riceType = dc.rice_type || 'parboiled';
@@ -310,6 +311,10 @@ module.exports = function(database) {
     <style>
       @page { size: A4; margin: 15mm 12mm; }
       body { font-family: Arial, sans-serif; margin: 0; color: #000; font-size: 12px; }
+      .letterhead { text-align: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 18px; }
+      .letterhead h1 { margin: 0 0 2px; font-size: 22px; letter-spacing: 0.5px; color: #1a365d; }
+      .letterhead .tagline { margin: 0; color: #555; font-size: 11px; }
+      .letterhead .doc-title { margin-top: 6px; font-size: 13px; font-weight: 700; letter-spacing: 2px; color: #000; }
       .hdr-grid { display: grid; grid-template-columns: 140px 1fr 110px 1fr; gap: 6px 14px; margin-bottom: 22px; }
       .hdr-grid .l { font-weight: 400; color: #222; }
       .hdr-grid .v { font-weight: 400; color: #000; }
@@ -322,6 +327,12 @@ module.exports = function(database) {
       .noprint button { padding: 8px 28px; background: #1a365d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
       @media print { .noprint { display: none; } body { -webkit-print-color-adjust: exact; } }
     </style></head><body>
+
+    <div class="letterhead">
+      <h1>${millerLabel}</h1>
+      ${millTagline ? `<p class="tagline">${millTagline}</p>` : ''}
+      <div class="doc-title">DELIVERY CHALLAN</div>
+    </div>
 
     <div class="hdr-grid">
       <div class="l">Miller Name &amp; Code:</div><div class="v">${millerLabel}</div>
@@ -361,7 +372,8 @@ module.exports = function(database) {
     ${delivery.notes ? `<p style="margin-top:8px;font-size:12px;color:#333"><b>Notes:</b> ${delivery.notes}</p>` : ''}
 
     <div class="sign"><div>Miller Signature</div><div>Receiver Signature</div></div>
-    <div class="noprint"><button onclick="window.print()">Print</button></div>
+    <div class="noprint"><button onclick="window.print()">Download as PDF</button></div>
+    ${req.query.download ? '<script>window.addEventListener("load", () => setTimeout(() => window.print(), 300));</script>' : ''}
     </body></html>`;
     res.set('Content-Type', 'text/html');
     res.send(html);

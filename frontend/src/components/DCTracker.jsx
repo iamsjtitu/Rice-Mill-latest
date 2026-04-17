@@ -311,7 +311,7 @@ export const DCEntries = ({ filters, user }) => {
                         <TableCell className="text-orange-400 text-[11px] py-1">{d.diesel_paid ? `₹${d.diesel_paid}` : '-'}</TableCell>
                         <TableCell className="text-purple-400 text-[11px] py-1">{d.depot_expenses ? `₹${d.depot_expenses}` : '-'}</TableCell>
                         <TableCell className="py-1 flex gap-1">
-                          <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-blue-400" onClick={() => window.open(`${API}/dc-deliveries/invoice/${d.id}`, '_blank')} title="Print Invoice"><FileText className="w-2.5 h-2.5" /></Button>
+                          <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-blue-400" onClick={() => window.open(`${API}/dc-deliveries/invoice/${d.id}?download=1`, '_blank')} title="Download PDF" data-testid={`delivery-pdf-${d.id}`}><Download className="w-2.5 h-2.5" /></Button>
                           {user.role === 'admin' && <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-red-400" onClick={() => handleDeleteDelivery(d.id)}><Trash2 className="w-2.5 h-2.5" /></Button>}
                         </TableCell>
                       </TableRow>

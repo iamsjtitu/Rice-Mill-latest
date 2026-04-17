@@ -247,14 +247,16 @@ async def delete_dc_delivery(delivery_id: str):
 
 
 @router.get("/dc-deliveries/invoice/{delivery_id}")
-async def get_delivery_invoice(delivery_id: str):
+async def get_delivery_invoice(delivery_id: str, download: int = 0):
     delivery = await db.dc_deliveries.find_one({"id": delivery_id}, {"_id": 0})
     if not delivery:
         raise HTTPException(status_code=404, detail="Delivery not found")
     dc = await db.dc_entries.find_one({"id": delivery.get("dc_id", "")}, {"_id": 0})
-    settings = await db.settings.find_one({}, {"_id": 0}) or {}
-    mill_name = settings.get("mill_name", "NAVKAR AGRO")
-    mill_code = settings.get("mill_code", "") or settings.get("miller_code", "")
+    from utils.branding_helper import get_branding_data
+    branding = await get_branding_data()
+    mill_name = branding.get("company_name", "NAVKAR AGRO")
+    mill_code = branding.get("mill_code", "") or ""
+    mill_tagline = branding.get("tagline", "")
     dc_number = (dc or {}).get("dc_number", "")
     dc_date_raw = (dc or {}).get("date", "")
     rice_type = (dc or {}).get("rice_type", "parboiled")
@@ -301,6 +303,10 @@ async def get_delivery_invoice(delivery_id: str):
     <style>
       @page {{ size: A4; margin: 15mm 12mm; }}
       body {{ font-family: Arial, sans-serif; margin: 0; color: #000; font-size: 12px; }}
+      .letterhead {{ text-align: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 18px; }}
+      .letterhead h1 {{ margin: 0 0 2px; font-size: 22px; letter-spacing: 0.5px; color: #1a365d; }}
+      .letterhead .tagline {{ margin: 0; color: #555; font-size: 11px; }}
+      .letterhead .doc-title {{ margin-top: 6px; font-size: 13px; font-weight: 700; letter-spacing: 2px; color: #000; }}
       .hdr-grid {{ display: grid; grid-template-columns: 140px 1fr 110px 1fr; gap: 6px 14px; margin-bottom: 22px; }}
       .hdr-grid .l {{ font-weight: 400; color: #222; }}
       .hdr-grid .v {{ font-weight: 400; color: #000; }}
@@ -313,6 +319,12 @@ async def get_delivery_invoice(delivery_id: str):
       .noprint button {{ padding: 8px 28px; background: #1a365d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }}
       @media print {{ .noprint {{ display: none; }} body {{ -webkit-print-color-adjust: exact; }} }}
     </style></head><body>
+
+    <div class="letterhead">
+      <h1>{miller_label}</h1>
+      {f'<p class="tagline">{mill_tagline}</p>' if mill_tagline else ''}
+      <div class="doc-title">DELIVERY CHALLAN</div>
+    </div>
 
     <div class="hdr-grid">
       <div class="l">Miller Name &amp; Code:</div><div class="v">{miller_label}</div>
@@ -352,7 +364,8 @@ async def get_delivery_invoice(delivery_id: str):
     {f'<p style="margin-top:8px;font-size:12px;color:#333"><b>Notes:</b> {delivery.get("notes","")}</p>' if delivery.get('notes') else ''}
 
     <div class="sign"><div>Miller Signature</div><div>Receiver Signature</div></div>
-    <div class="noprint"><button onclick="window.print()">Print</button></div>
+    <div class="noprint"><button onclick="window.print()">Download as PDF</button></div>
+    {'<script>window.addEventListener("load", () => setTimeout(() => window.print(), 300));</script>' if download else ''}
     </body></html>"""
     return Response(content=html, media_type="text/html")
 
@@ -395,12 +408,12 @@ async def export_dc_excel(kms_year: Optional[str] = None, season: Optional[str] 
     dcs = await db.dc_entries.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
     all_deliveries = await db.dc_deliveries.find(query, {"_id": 0}).to_list(5000)
     wb = Workbook(); ws = wb.active; ws.title = "DC Register"
-    ncols = 9
+    ncols = 11
     title = "DC Register / डीसी रजिस्टर"
     if kms_year: title += f" | FY {kms_year}"
     style_excel_title(ws, title, ncols)
     
-    headers = ['DC No', 'Date', 'Rice Type', 'Allotted (Q)', 'Delivered (Q)', 'Pending (Q)', 'Status', 'Deadline', 'Godown']
+    headers = ['DC No', 'Date', 'To', 'Depot Name', 'Depot Code', 'Rice Type', 'Lots', 'Allotted (Q)', 'Delivered (Q)', 'Pending (Q)', 'Status']
     for col, h in enumerate(headers, 1):
         ws.cell(row=4, column=col, value=h)
     style_excel_header_row(ws, 4, ncols)
@@ -410,9 +423,9 @@ async def export_dc_excel(kms_year: Optional[str] = None, season: Optional[str] 
         deld = round(sum(d.get("quantity_qntl", 0) for d in all_deliveries if d.get("dc_id") == dc["id"]), 2)
         pend = round(dc["quantity_qntl"] - deld, 2)
         status = "Completed" if deld >= dc["quantity_qntl"] else ("Partial" if deld > 0 else "Pending")
-        for col, v in enumerate([dc.get("dc_number",""), fmt_date(dc.get("date","")), (dc.get("rice_type","")).capitalize(), dc["quantity_qntl"], deld, pend, status, fmt_date(dc.get("deadline","")), dc.get("godown_name","")], 1):
+        for col, v in enumerate([dc.get("dc_number",""), fmt_date(dc.get("date","")), dc.get("delivery_to","FCI"), dc.get("depot_name",""), dc.get("depot_code",""), (dc.get("rice_type","")).capitalize(), dc.get("no_of_lots",""), dc["quantity_qntl"], deld, pend, status], 1):
             ws.cell(row=row, column=col, value=v)
-            if col in [4,5,6]: ws.cell(row=row, column=col).alignment = Alignment(horizontal='right')
+            if col in [8,9,10]: ws.cell(row=row, column=col).alignment = Alignment(horizontal='right')
         row += 1
     if dcs:
         style_excel_data_rows(ws, data_start, row - 1, ncols, headers)
@@ -420,23 +433,23 @@ async def export_dc_excel(kms_year: Optional[str] = None, season: Optional[str] 
     total_allot = round(sum(d["quantity_qntl"] for d in dcs), 2)
     total_del = round(sum(d.get("quantity_qntl",0) for d in all_deliveries), 2)
     ws.cell(row=row, column=1, value="TOTAL")
-    ws.cell(row=row, column=4, value=total_allot)
-    ws.cell(row=row, column=5, value=total_del)
-    ws.cell(row=row, column=6, value=round(total_allot-total_del, 2))
+    ws.cell(row=row, column=8, value=total_allot)
+    ws.cell(row=row, column=9, value=total_del)
+    ws.cell(row=row, column=10, value=round(total_allot-total_del, 2))
     style_excel_total_row(ws, row, ncols)
     
     # Delivery detail sheet
     ws2 = wb.create_sheet("Deliveries")
-    dheaders = ['DC No', 'Date', 'Invoice No', 'RST No', 'E-Way Bill', 'Qty (Q)', 'Vehicle', 'Driver', 'Bags', 'Cash Paid', 'Diesel Paid', 'CGST', 'SGST', 'Godown', 'Note']
+    dheaders = ['DC No', 'Date', 'FCI Lot', 'Contract No', 'RST No', 'Qty (Q)', 'Vehicle', 'Driver', 'Bags', 'Cash Paid', 'Diesel Paid', 'Depot Expenses', 'Note']
     for col, h in enumerate(dheaders, 1):
         ws2.cell(row=1, column=col, value=h)
     style_excel_header_row(ws2, 1, len(dheaders))
     dc_map = {d["id"]: d.get("dc_number","") for d in dcs}
     for i, dl in enumerate(sorted(all_deliveries, key=lambda x: x.get("date","")), 2):
-        vals = [dc_map.get(dl.get("dc_id",""),""), fmt_date(dl.get("date","")), dl.get("invoice_no",""), dl.get("rst_no",""),
-                dl.get("eway_bill_no",""), dl.get("quantity_qntl",0), dl.get("vehicle_no",""), dl.get("driver_name",""),
+        vals = [dc_map.get(dl.get("dc_id",""),""), fmt_date(dl.get("date","")), dl.get("fci_lot_no",""), dl.get("contract_no",""), dl.get("rst_no",""),
+                dl.get("quantity_qntl",0), dl.get("vehicle_no",""), dl.get("driver_name",""),
                 dl.get("bags_used",0), dl.get("cash_paid",0), dl.get("diesel_paid",0),
-                dl.get("cgst_amount",0), dl.get("sgst_amount",0), dl.get("godown_name",""), dl.get("notes","")]
+                dl.get("depot_expenses",0), dl.get("notes","")]
         for col, v in enumerate(vals, 1):
             ws2.cell(row=i, column=col, value=v)
     if all_deliveries:
@@ -470,17 +483,17 @@ async def export_dc_pdf(kms_year: Optional[str] = None, season: Optional[str] = 
     elements = []; styles = get_pdf_styles()
     elements.extend(await get_pdf_company_header_from_db())
     elements.append(Paragraph("DC Register / डीसी रजिस्टर", styles['Title'])); elements.append(Spacer(1, 12))
-    data = [['DC No','Date','Type','Allotted(Q)','Delivered(Q)','Pending(Q)','Status','Deadline','Godown']]
+    data = [['DC No','Date','To','Depot Name','Depot Code','Type','Lots','Allotted(Q)','Delivered(Q)','Pending(Q)','Status']]
     ta = td = 0
     for dc in dcs:
         deld = round(sum(d.get("quantity_qntl",0) for d in all_deliveries if d.get("dc_id")==dc["id"]),2)
         pend = round(dc["quantity_qntl"]-deld,2); ta += dc["quantity_qntl"]; td += deld
         status = "Done" if deld >= dc["quantity_qntl"] else ("Partial" if deld > 0 else "Pending")
-        data.append([dc.get("dc_number",""), fmt_date(dc.get("date","")), (dc.get("rice_type","")).capitalize()[:5], dc["quantity_qntl"], deld, pend, status, fmt_date(dc.get("deadline","")), dc.get("godown_name","")[:12]])
-    data.append(['TOTAL','','', round(ta,2), round(td,2), round(ta-td,2), '','',''])
-    table = RLTable(data, colWidths=[55,55,40,55,55,50,40,55,60], repeatRows=1)
+        data.append([dc.get("dc_number",""), fmt_date(dc.get("date","")), dc.get("delivery_to","FCI"), (dc.get("depot_name","") or "")[:16], dc.get("depot_code",""), (dc.get("rice_type","")).capitalize()[:5], dc.get("no_of_lots",""), dc["quantity_qntl"], deld, pend, status])
+    data.append(['TOTAL','','','','','','', round(ta,2), round(td,2), round(ta-td,2), ''])
+    table = RLTable(data, colWidths=[50,50,30,75,55,38,32,55,60,55,45], repeatRows=1)
     style_cmds = get_pdf_table_style(len(data))
-    style_cmds.append(('ALIGN',(3,0),(5,-1),'RIGHT'))
+    style_cmds.append(('ALIGN',(7,0),(9,-1),'RIGHT'))
     table.setStyle(TableStyle(style_cmds))
     elements.append(table); doc.build(elements); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
