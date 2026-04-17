@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.8.0
+## Current Version: v104.8.1
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind
@@ -34,7 +34,8 @@
 - Voucher No field added to all By-Product sale entries
 
 ## Recent Changes (Apr 2026)
-- **v104.8.0 (Feb 2026)**: DC Entries UI enhancement — (1) "Depot" column ko 2 alag columns mein split kiya: "Depot Name" aur "Code" for better readability/filter. (2) Har DC row pe inline **Edit** button (pencil icon, sky-400) add kiya jo quick "Edit Depot Info" dialog kholta hai — sirf depot_name, depot_code, delivery_to, no_of_lots fields edit hote hain (quantity/date untouched). Purane DC entries jinka depot empty hai, unhe ek-ek click se bharne ka quick way.
+- **v104.8.1 (Feb 2026)**: DC Entries — Depot Name aur Depot Code fields par auto-suggestion (datalist) add kiya. Suggestions dynamically purane DC entries se aati hain (unique, non-empty, sorted). Dono "New DC" form aur "Edit Depot Info" dialog mein available hain.
+- v104.8.0: DC Entries UI — Depot column split into "Depot Name" + "Code", inline Edit button per row
 - v104.7.2: DC Entries Depot save fix (4 fields missing in backends)
 - v104.7.1: DCStacks Approval Checkbox fix — leftover `setSelectedStack` → `setSelectedStackId` references
 - v104.7.0: DC Stacks/Lots system, Govt Links auto-login via Electron IPC, Sales Register reorganization, MSP Payments moved back to Payments tab

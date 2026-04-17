@@ -125,6 +125,10 @@ export const DCEntries = ({ filters, user }) => {
     return <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${cls}`}>{s === 'completed' ? 'Done' : s === 'partial' ? 'Partial' : 'Pending'}</span>;
   };
 
+  // Build depot suggestions from historical DC entries (unique, non-empty, sorted)
+  const depotNameSuggestions = useMemo(() => [...new Set((dcs || []).map(d => (d.depot_name || '').trim()).filter(Boolean))].sort(), [dcs]);
+  const depotCodeSuggestions = useMemo(() => [...new Set((dcs || []).map(d => (d.depot_code || '').trim()).filter(Boolean))].sort(), [dcs]);
+
   // Filter DCs by search query (DC number or delivery invoice number)
   const filteredDCs = searchQuery.trim()
     ? dcs.filter(dc => {
@@ -259,9 +263,11 @@ export const DCEntries = ({ filters, user }) => {
             <p className="text-[11px] text-slate-400 bg-slate-900/50 border border-slate-700 rounded px-2 py-1.5">Quickly fill ya update karein purane DC entries ka depot data. Quantity/Date change nahi hogi.</p>
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-slate-400">Depot Name</Label>
-                <Input value={editDepotForm.depot_name} onChange={e => setEditDepotForm(p => ({...p, depot_name: e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="edit-depot-name" autoFocus /></div>
+                <Input list="edit-depot-name-list" value={editDepotForm.depot_name} onChange={e => setEditDepotForm(p => ({...p, depot_name: e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="edit-depot-name" autoFocus autoComplete="off" />
+                <datalist id="edit-depot-name-list">{depotNameSuggestions.map(v => <option key={v} value={v} />)}</datalist></div>
               <div><Label className="text-xs text-slate-400">Depot Code</Label>
-                <Input value={editDepotForm.depot_code} onChange={e => setEditDepotForm(p => ({...p, depot_code: e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="edit-depot-code" /></div>
+                <Input list="edit-depot-code-list" value={editDepotForm.depot_code} onChange={e => setEditDepotForm(p => ({...p, depot_code: e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="edit-depot-code" autoComplete="off" />
+                <datalist id="edit-depot-code-list">{depotCodeSuggestions.map(v => <option key={v} value={v} />)}</datalist></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-slate-400">Delivery To</Label>
@@ -311,9 +317,11 @@ export const DCEntries = ({ filters, user }) => {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-slate-400">Depot Name</Label>
-                <Input value={form.depot_name} onChange={e => setForm(p=>({...p,depot_name:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="dc-form-depot-name" /></div>
+                <Input list="dc-depot-name-list" value={form.depot_name} onChange={e => setForm(p=>({...p,depot_name:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="dc-form-depot-name" autoComplete="off" />
+                <datalist id="dc-depot-name-list">{depotNameSuggestions.map(v => <option key={v} value={v} />)}</datalist></div>
               <div><Label className="text-xs text-slate-400">Depot Code</Label>
-                <Input value={form.depot_code} onChange={e => setForm(p=>({...p,depot_code:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="dc-form-depot-code" /></div>
+                <Input list="dc-depot-code-list" value={form.depot_code} onChange={e => setForm(p=>({...p,depot_code:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="dc-form-depot-code" autoComplete="off" />
+                <datalist id="dc-depot-code-list">{depotCodeSuggestions.map(v => <option key={v} value={v} />)}</datalist></div>
             </div>
             <div><Label className="text-xs text-slate-400">Notes</Label>
               <Input value={form.notes} onChange={e => setForm(p=>({...p,notes:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="dc-form-notes" /></div>
