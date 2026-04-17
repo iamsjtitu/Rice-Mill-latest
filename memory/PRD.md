@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.10.0
+## Current Version: v104.11.0
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind
@@ -34,9 +34,9 @@
 - Voucher No field added to all By-Product sale entries
 
 ## Recent Changes (Apr 2026)
-- **v104.10.0 (Feb 2026)**: Add Delivery form cleanup + Depot Expenses. (1) Hataye: Invoice Number, E-Way Bill, CGST, SGST fields UI se (backend mein schema ke saath rahenge — optional). (2) Naya field: **Depot Expenses (Rs.)** — purple badge — ye amount Cash Book se auto nikasi ho jaayegi (`delivery_depot:xxxxxxxx` reference, party_type="Depot", category="Depot"). Delete pe auto-cleanup. Python + Desktop JS + Local Server teeno mein parity. (3) Auto-suggestion (datalist) add kiya Vehicle No, Driver Name, Bags (Govt), Weight (Qtl) fields pe — suggestions historical deliveries se (slash-joined values split karke).
-- v104.9.0: Add Delivery — Multi-Truck support (dynamic trucks array, live total, combined vehicle_no "TRK1 / TRK2")
-- v104.8.2: DC Type column Arwa → "Raw Rice"
+- **v104.11.0 (Feb 2026)**: RST Auto-fill + Sale Tick System. (1) Add Delivery form mein "RST Number" field COMMON se hatayi aur har Truck ke andar (highlighted sky card) move kari. Auto-fill trigger: onBlur ya Enter press pe `/api/vehicle-weight/by-rst/{rst}?kms_year=X` fetch. Agar trans_type "Dispatch(Sale)" hai → Vehicle No + Bags (tot_pkts) + Weight (net_wt/100 Qtl) truck mein fill, Cash Paid + Diesel Paid common mein CUMULATIVELY add. Non-sale entries warn karti hain, 404 pe error. Multi-truck scenarios support — har truck ka alag RST. Save pe rst_no slash-joined ("9001 / 9002") store hota hai. (2) Naya endpoint: `/api/vehicle-weight/linked-rst-sale?kms_year=X` — dc_deliveries se sale RSTs return karta hai (slash split handle karta hai). Teeno backends (Python + Desktop JS + Local Server) mein parity. (3) Vehicle Weight page mein action column mein naya **sky CheckCircle tick** add — `linkedRstSale.has(rst_no)` ho toh "DC Delivery done (Sale linked)" tooltip ke saath dikhta hai. Delete button sale-linked entries pe hide ho jaata hai accidental delete prevent karne ke liye.
+- v104.10.0: Add Delivery cleanup + Depot Expenses (cash book auto nikasi) + truck-row auto-suggestions
+- v104.9.0: Multi-Truck Add Delivery (dynamic trucks, slash-joined vehicle_no)
 - v104.7.2: DC Entries Depot save fix (4 fields missing in backends)
 - v104.7.1: DCStacks Approval Checkbox fix — leftover `setSelectedStack` → `setSelectedStackId` references
 - v104.7.0: DC Stacks/Lots system, Govt Links auto-login via Electron IPC, Sales Register reorganization, MSP Payments moved back to Payments tab

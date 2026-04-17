@@ -450,6 +450,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
   const [editForm, setEditForm] = useState({});
   const [photoDialog, setPhotoDialog] = useState({ open: false, data: null, loading: false });
   const [linkedRst, setLinkedRst] = useState(new Set());
+  const [linkedRstSale, setLinkedRstSale] = useState(new Set());
   const [zoomImg, setZoomImg] = useState(null); // for photo zoom
   const [tpWarning, setTpWarning] = useState("");
   const canManualWeight = user?.permissions?.can_manual_weight !== false && user?.role === 'admin' || user?.permissions?.can_manual_weight === true;
@@ -529,11 +530,12 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
       if (vwFilters.party_name) fp.append("party_name", vwFilters.party_name);
       if (vwFilters.farmer_name) fp.append("farmer_name", vwFilters.farmer_name);
       if (vwFilters.rst_no) fp.append("rst_no", vwFilters.rst_no);
-      const [eR, pR, nR, lR] = await Promise.all([
+      const [eR, pR, nR, lR, lSR] = await Promise.all([
         axios.get(`${API}/vehicle-weight?${fp.toString()}`, { signal: ctrl.signal }),
         axios.get(`${API}/vehicle-weight/pending?kms_year=${kms}`, { signal: ctrl.signal }),
         axios.get(`${API}/vehicle-weight/next-rst?kms_year=${kms}`, { signal: ctrl.signal }),
-        axios.get(`${API}/vehicle-weight/linked-rst?kms_year=${kms}`, { signal: ctrl.signal })
+        axios.get(`${API}/vehicle-weight/linked-rst?kms_year=${kms}`, { signal: ctrl.signal }),
+        axios.get(`${API}/vehicle-weight/linked-rst-sale?kms_year=${kms}`, { signal: ctrl.signal }).catch(() => ({ data: { linked_rst: [] } }))
       ]);
       setEntries(eR.data.entries || []);
       setVwTotalPages(eR.data.total_pages || 1);
@@ -542,6 +544,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
       setPending(pR.data.pending || []);
       setNextRst(nR.data.rst_no || 1);
       setLinkedRst(new Set(lR.data.linked_rst || []));
+      setLinkedRstSale(new Set(lSR.data.linked_rst || []));
     } catch (e) { if (!ctrl.signal.aborted) toast.error("Data fetch error"); }
     if (!ctrl.signal.aborted) setLoading(false);
   }, [kms, vwPage, vwFilters]);
@@ -1386,11 +1389,14 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                           )}
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-purple-600" onClick={() => handlePrint(e)} data-testid={`vw-print-${e.id}`} title="Print"><Printer className="w-3 h-3" /></Button>
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-blue-600" onClick={() => handlePdf(e)} data-testid={`vw-pdf-${e.id}`} title="Download"><Download className="w-3 h-3" /></Button>
+                          {linkedRstSale.has(e.rst_no) && (
+                            <span className="h-6 w-6 flex items-center justify-center text-sky-500" title="DC Delivery done (Sale linked)" data-testid={`vw-sale-linked-${e.id}`}><CheckCircle className="w-4 h-4" /></span>
+                          )}
                           {linkedRst.has(e.rst_no) && !canEditVwLinked ? (
                             <span className="h-6 w-6 flex items-center justify-center text-green-500" title="Mill Entry done" data-testid={`vw-linked-${e.id}`}><CheckCircle className="w-4 h-4" /></span>
-                          ) : (
+                          ) : !linkedRstSale.has(e.rst_no) ? (
                             <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400 hover:text-red-600" onClick={() => handleDelete(e.id)} data-testid={`vw-del-${e.id}`} title="Delete"><Trash2 className="w-3 h-3" /></Button>
-                          )}
+                          ) : null}
                         </div>
                       </TableCell>
                     </TableRow>

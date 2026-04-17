@@ -375,6 +375,28 @@ async def get_linked_rst(kms_year: str = ""):
     return {"linked_rst": list(linked)}
 
 
+@router.get("/vehicle-weight/linked-rst-sale")
+async def get_linked_rst_sale(kms_year: str = ""):
+    """Get RST numbers from DC Deliveries (sale dispatches) that are linked to Vehicle Weight Sale entries.
+    Handles slash-joined multi-truck RSTs like '123 / 124'."""
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    dels = await db["dc_deliveries"].find(query, {"_id": 0, "rst_no": 1}).to_list(50000)
+    linked = set()
+    for d in dels:
+        raw = (d.get("rst_no") or "").strip()
+        if not raw:
+            continue
+        # Split slash-joined RSTs (multi-truck deliveries)
+        for part in raw.split("/"):
+            p = part.strip()
+            if p:
+                try: linked.add(int(p))
+                except: pass
+    return {"linked_rst": list(linked)}
+
+
 @router.get("/vehicle-weight/pending-count")
 async def get_pending_vw_count(kms_year: str = ""):
     """Count VW entries that don't have a corresponding Mill Entry."""

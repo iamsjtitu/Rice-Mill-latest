@@ -31,7 +31,7 @@ export const DCEntries = ({ filters, user }) => {
   const [riceStockAvail, setRiceStockAvail] = useState(null);
   const [riceStockByType, setRiceStockByType] = useState({ parboiled: null, raw: null });
   const [form, setForm] = useState({ dc_number: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", rice_type: "parboiled", depot_name: "", depot_code: "", no_of_lots: "", delivery_to: "FCI", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
-  const [delForm, setDelForm] = useState({ dc_id: "", date: new Date().toISOString().split('T')[0], godown_name: "", rst_no: "", cash_paid: "", diesel_paid: "", depot_expenses: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif", trucks: [{ vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] });
+  const [delForm, setDelForm] = useState({ dc_id: "", date: new Date().toISOString().split('T')[0], godown_name: "", cash_paid: "", diesel_paid: "", depot_expenses: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif", trucks: [{ rst_no: "", vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] });
   const [searchQuery, setSearchQuery] = useState("");
   const [editDepot, setEditDepot] = useState(null);
   const [editDepotForm, setEditDepotForm] = useState({ depot_name: '', depot_code: '', delivery_to: 'FCI', no_of_lots: '' });
@@ -84,7 +84,7 @@ export const DCEntries = ({ filters, user }) => {
         dc_id: delForm.dc_id,
         date: delForm.date,
         godown_name: delForm.godown_name,
-        rst_no: delForm.rst_no,
+        rst_no: join('rst_no'),
         notes: delForm.notes,
         kms_year: delForm.kms_year,
         season: delForm.season,
@@ -98,9 +98,48 @@ export const DCEntries = ({ filters, user }) => {
         depot_expenses: parseFloat(delForm.depot_expenses) || 0,
       });
       toast.success("Delivery add hui!"); setShowDeliveryForm(false);
-      setDelForm({ dc_id: "", date: new Date().toISOString().split('T')[0], godown_name: "", rst_no: "", cash_paid: "", diesel_paid: "", depot_expenses: "", notes: "", kms_year: filters.kms_year || CURRENT_KMS, season: filters.season || "Kharif", trucks: [{ vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] });
+      setDelForm({ dc_id: "", date: new Date().toISOString().split('T')[0], godown_name: "", cash_paid: "", diesel_paid: "", depot_expenses: "", notes: "", kms_year: filters.kms_year || CURRENT_KMS, season: filters.season || "Kharif", trucks: [{ rst_no: "", vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] });
       fetchDeliveries(expandedDC); fetchData();
     } catch (e) { toast.error(e.response?.data?.detail || e.message); }
+  };
+
+  // Lookup Vehicle Weight by RST (Sale entries) and auto-fill the target truck row
+  const lookupRstAndFill = async (truckIdx, rstStr) => {
+    const rst = parseInt((rstStr || '').toString().trim());
+    if (!rst || isNaN(rst) || rst <= 0) return;
+    try {
+      const res = await axios.get(`${API}/vehicle-weight/by-rst/${rst}`, { params: { kms_year: filters.kms_year || CURRENT_KMS } });
+      const vw = res?.data?.entry;
+      if (!vw) return;
+      // Only Sale/Dispatch entries auto-fill
+      const tType = (vw.trans_type || '').toLowerCase();
+      if (!tType.includes('dispatch') && !tType.includes('sale')) {
+        toast.warning(`RST #${rst} is "${vw.trans_type || 'Unknown'}" — sale/dispatch type nahi hai`);
+        return;
+      }
+      const netQtl = (parseFloat(vw.net_wt) || 0) / 100;  // kg → Qtl
+      setDelForm(prev => {
+        const newTrucks = prev.trucks.map((t, i) => i === truckIdx ? {
+          ...t,
+          vehicle_no: vw.vehicle_no || t.vehicle_no,
+          bags_used: String(vw.tot_pkts || t.bags_used || ''),
+          quantity_qntl: netQtl > 0 ? String(netQtl.toFixed(2)) : t.quantity_qntl,
+        } : t);
+        // Add cash/diesel from this RST to common fields (cumulative)
+        const prevCash = parseFloat(prev.cash_paid) || 0;
+        const prevDiesel = parseFloat(prev.diesel_paid) || 0;
+        return {
+          ...prev,
+          trucks: newTrucks,
+          cash_paid: (prevCash + (parseFloat(vw.cash_paid) || 0)).toString(),
+          diesel_paid: (prevDiesel + (parseFloat(vw.diesel_paid) || 0)).toString(),
+        };
+      });
+      toast.success(`RST #${rst} auto-filled`);
+    } catch (e) {
+      if (e.response?.status === 404) toast.error(`RST #${rst} not found in Vehicle Weight`);
+      else toast.error('RST lookup failed');
+    }
   };
 
   const handleDeleteDC = async (id) => { if (!await showConfirm("Delete DC", "DC delete karein?")) return; try { await axios.delete(`${API}/dc-entries/${id}`); toast.success("DC deleted"); fetchData(); } catch (e) { toast.error("Delete nahi hua"); } };
@@ -361,11 +400,9 @@ export const DCEntries = ({ filters, user }) => {
           <DialogHeader><DialogTitle className="text-green-400">Add Delivery / डिलीवरी जोड़ें</DialogTitle></DialogHeader>
           <form onSubmit={handleAddDelivery} className="space-y-3">
             {/* Common fields (shared across all trucks) */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-slate-400">Date</Label>
                 <Input type="date" value={delForm.date} onChange={e => setDelForm(p=>({...p,date:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="delivery-form-date" /></div>
-              <div><Label className="text-xs text-slate-400">RST Number</Label>
-                <Input value={delForm.rst_no} onChange={e => setDelForm(p=>({...p,rst_no:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-rst" /></div>
               <div><Label className="text-xs text-slate-400">Godown</Label>
                 <Input value={delForm.godown_name} onChange={e => setDelForm(p=>({...p,godown_name:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>
             </div>
@@ -394,6 +431,20 @@ export const DCEntries = ({ filters, user }) => {
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     )}
+                  </div>
+                  {/* RST Number — highlighted auto-fill trigger */}
+                  <div className="bg-sky-900/30 border border-sky-600/40 rounded px-2 py-1.5">
+                    <Label className="text-[10px] text-sky-300 font-bold">⚡ RST Number (Auto-fill from Vehicle Weight Sale)</Label>
+                    <Input
+                      type="number"
+                      value={truck.rst_no}
+                      onChange={e => setDelForm(p => ({ ...p, trucks: p.trucks.map((t, i) => i === idx ? { ...t, rst_no: e.target.value } : t) }))}
+                      onBlur={e => lookupRstAndFill(idx, e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); lookupRstAndFill(idx, e.target.value); } }}
+                      placeholder="RST # (press Enter or Tab to fetch)"
+                      className="bg-slate-700 border-sky-500/50 text-white h-7 text-xs mt-0.5"
+                      data-testid={`delivery-truck-${idx}-rst`}
+                    />
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div><Label className="text-[10px] text-slate-400">Vehicle No</Label>

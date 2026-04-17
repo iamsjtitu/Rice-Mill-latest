@@ -774,6 +774,22 @@ module.exports = function(database) {
     res.json({ linked_rst: linked });
   }));
 
+  router.get('/api/vehicle-weight/linked-rst-sale', safeAsync(async (req, res) => {
+    const kmsYear = req.query.kms_year || '';
+    let dels = col('dc_deliveries');
+    if (kmsYear) dels = dels.filter(d => d.kms_year === kmsYear);
+    const linked = new Set();
+    dels.forEach(d => {
+      const raw = (d.rst_no || '').toString().trim();
+      if (!raw) return;
+      raw.split('/').forEach(p => {
+        const n = parseInt(p.trim());
+        if (!isNaN(n)) linked.add(n);
+      });
+    });
+    res.json({ linked_rst: [...linked] });
+  }));
+
 
   router.get('/api/vehicle-weight/pending-count', safeAsync(async (req, res) => {
     const kmsYear = req.query.kms_year || '';
