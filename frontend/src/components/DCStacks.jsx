@@ -21,45 +21,66 @@ function daysLeft(d) { if (!d) return null; const diff = Math.ceil((new Date(d) 
 function getStackStatus(stack) {
   const lots = stack.lots || [];
   const allotted = stack.allotted_date;
-  if (!allotted) return null;
+  if (!allotted) return { deadlines: [] };
   
-  const firstLotDeadline = new Date(allotted);
-  firstLotDeadline.setDate(firstLotDeadline.getDate() + 2);
-  const fullDeadline = new Date(allotted);
-  fullDeadline.setDate(fullDeadline.getDate() + 7);
+  const allottedMs = new Date(allotted).getTime();
+  const firstLotDL = new Date(allottedMs + 2 * 86400000);
+  const fullDL = new Date(allottedMs + 7 * 86400000);
+  const now = new Date();
   
   const deliveredLots = lots.filter(l => l.status === 'delivered');
   const totalLots = parseInt(stack.total_lots) || lots.length;
-  const now = new Date();
+  const hasFirstLot = deliveredLots.length > 0;
   
-  // Check 1st lot deadline (2 days)
-  if (deliveredLots.length === 0 && now > firstLotDeadline) {
-    return { type: 'cancelled', label: 'CANCELLED', color: 'bg-red-600 text-white', desc: '1st lot 2 din mein nahi hua — Stack cancel' };
+  // Build deadlines array
+  const deadlines = [];
+  
+  // 1st Lot deadline — only show if no lot delivered yet
+  if (!hasFirstLot) {
+    const d = daysLeft(firstLotDL.toISOString().split('T')[0]);
+    if (d !== null && d < 0) {
+      deadlines.push({ label: '1st Lot Overdue', value: 'CANCELLED', color: 'text-red-600', bold: true });
+    } else {
+      deadlines.push({ label: '1st Lot Deadline', value: `within ${Math.max(d, 0)} days`, color: 'text-red-600', bold: true });
+    }
   }
   
-  // Check full delivery deadline (7 days) 
-  if (deliveredLots.length < totalLots && now > fullDeadline) {
-    return { type: 'lapsed', label: 'LAPSED', color: 'bg-orange-600 text-white', desc: '7 din mein poora delivery nahi hua — Stack lapse' };
+  // Full delivery deadline — always show if not completed
+  if (deliveredLots.length < totalLots) {
+    const d = daysLeft(fullDL.toISOString().split('T')[0]);
+    if (d !== null && d < 0) {
+      deadlines.push({ label: 'To be finished', value: 'LAPSED', color: 'text-orange-600', bold: true });
+    } else {
+      deadlines.push({ label: 'To be finished', value: `within ${Math.max(d, 0)} days`, color: 'text-orange-600', bold: false });
+    }
   }
   
-  // Completed
-  if (totalLots > 0 && deliveredLots.length >= totalLots) {
-    return { type: 'completed', label: 'COMPLETED', color: 'bg-emerald-600 text-white', desc: 'Sab lots delivered' };
+  // Delivery Due — days since last delivered or allotted
+  if (hasFirstLot && deliveredLots.length < totalLots) {
+    const lastDel = deliveredLots.sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+    const lastDate = lastDel?.date || allotted;
+    const daysSince = Math.floor((now - new Date(lastDate)) / 86400000);
+    const fullDaysLeft = daysLeft(fullDL.toISOString().split('T')[0]);
+    const dueIn = Math.max(fullDaysLeft || 0, 0);
+    deadlines.push({ label: 'Delivery Due', value: `within ${dueIn} days`, color: 'text-blue-600', bold: false });
   }
   
-  // Warnings
-  const firstDaysLeft = daysLeft(firstLotDeadline.toISOString().split('T')[0]);
-  const fullDaysLeft = daysLeft(fullDeadline.toISOString().split('T')[0]);
-  
-  if (deliveredLots.length === 0 && firstDaysLeft !== null && firstDaysLeft <= 1 && firstDaysLeft >= 0) {
-    return { type: 'urgent', label: `1st LOT: ${firstDaysLeft}d left!`, color: 'bg-red-500 text-white animate-pulse', desc: `1st lot ${firstDaysLeft === 0 ? 'aaj' : 'kal'} tak dena hai!` };
+  // Status badge
+  let badge = null;
+  if (!hasFirstLot && now > firstLotDL) {
+    badge = { label: 'CANCELLED', color: 'bg-red-600 text-white', desc: '1st lot 2 din mein nahi hua' };
+  } else if (deliveredLots.length < totalLots && now > fullDL) {
+    badge = { label: 'LAPSED', color: 'bg-orange-600 text-white', desc: '7 din mein delivery nahi hua' };
+  } else if (totalLots > 0 && deliveredLots.length >= totalLots) {
+    badge = { label: 'COMPLETED', color: 'bg-emerald-600 text-white', desc: 'Sab lots delivered' };
+  } else if (!hasFirstLot) {
+    const d = daysLeft(firstLotDL.toISOString().split('T')[0]);
+    if (d !== null && d <= 1) badge = { label: `1st LOT: ${d}d left!`, color: 'bg-red-500 text-white animate-pulse', desc: '' };
   }
   
-  if (fullDaysLeft !== null && fullDaysLeft <= 2 && fullDaysLeft >= 0) {
-    return { type: 'warning', label: `${fullDaysLeft}d left`, color: 'bg-amber-500 text-white', desc: `Full delivery deadline ${fullDaysLeft} din baaki` };
-  }
+  const headerColor = badge?.label === 'CANCELLED' ? 'bg-red-600' : badge?.label === 'LAPSED' ? 'bg-orange-600' : badge?.label === 'COMPLETED' ? 'bg-emerald-700' : 'bg-emerald-600';
   
-  return { type: 'active', label: 'ACTIVE', color: 'bg-blue-500 text-white', desc: `1st lot: ${fmtDate(firstLotDeadline.toISOString().split('T')[0])} | Full: ${fmtDate(fullDeadline.toISOString().split('T')[0])}` };
+  return { deadlines, badge, headerColor };
 }
 
 export default function DCStacks({ filters }) {
@@ -151,24 +172,21 @@ export default function DCStacks({ filters }) {
        : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {stacks.map(stack => {
-            const deadlineStatus = getStackStatus(stack);
-            const allottedD = stack.allotted_date ? new Date(stack.allotted_date) : null;
-            const firstLotDL = allottedD ? new Date(allottedD.getTime() + 2 * 86400000).toISOString().split('T')[0] : '';
-            const fullDL = allottedD ? new Date(allottedD.getTime() + 7 * 86400000).toISOString().split('T')[0] : '';
+            const status = getStackStatus(stack);
             return (
-            <div key={stack.id} className={`bg-white border rounded-lg shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow ${deadlineStatus?.type === 'cancelled' ? 'border-red-400' : deadlineStatus?.type === 'lapsed' ? 'border-orange-400' : 'border-slate-200'}`} onClick={() => setSelectedStack(selectedStack?.id === stack.id ? null : stack)} data-testid={`stack-card-${stack.id}`}>
-              {/* Green Header */}
-              <div className={`text-white px-3 py-2 flex items-center justify-between ${deadlineStatus?.type === 'cancelled' ? 'bg-red-600' : deadlineStatus?.type === 'lapsed' ? 'bg-orange-600' : deadlineStatus?.type === 'completed' ? 'bg-emerald-700' : 'bg-emerald-600'}`}>
+            <div key={stack.id} className={`bg-white border rounded-lg shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow ${status.badge?.label === 'CANCELLED' ? 'border-red-400' : status.badge?.label === 'LAPSED' ? 'border-orange-400' : 'border-slate-200'}`} onClick={() => setSelectedStack(selectedStack?.id === stack.id ? null : stack)} data-testid={`stack-card-${stack.id}`}>
+              {/* Header */}
+              <div className={`text-white px-3 py-2 flex items-center justify-between ${status.headerColor || 'bg-emerald-600'}`}>
                 <span className="font-bold text-sm">{stack.depot_name} - {stack.depot_code} # Stack: {stack.stack_no || '-'}</span>
                 <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-white/70 hover:text-white hover:bg-black/20" onClick={e => { e.stopPropagation(); handleDeleteStack(stack.id); }}>
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>
               </div>
 
-              {/* Deadline Status Badge */}
-              {deadlineStatus && (
-                <div className={`px-3 py-1 text-center text-xs font-bold ${deadlineStatus.color}`} title={deadlineStatus.desc}>
-                  {deadlineStatus.label} {deadlineStatus.desc && `— ${deadlineStatus.desc}`}
+              {/* Status Badge */}
+              {status.badge && (
+                <div className={`px-3 py-1 text-center text-xs font-bold ${status.badge.color}`}>
+                  {status.badge.label}
                 </div>
               )}
 
@@ -193,14 +211,12 @@ export default function DCStacks({ filters }) {
                     <span className="font-bold text-slate-700">Allotted:</span>
                     <span className="text-slate-600">{daysAgo(stack.allotted_date)} <span className="text-slate-400">[{fmtDate(stack.allotted_date)}]</span></span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-100 pb-1">
-                    <span className="font-bold text-red-600">1st Lot Deadline (2d):</span>
-                    <span className="text-red-600 font-semibold">{fmtDate(firstLotDL)}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-slate-100 pb-1">
-                    <span className="font-bold text-orange-600">Full Delivery (7d):</span>
-                    <span className="text-orange-600 font-semibold">{fmtDate(fullDL)}</span>
-                  </div>
+                  {status.deadlines.map((dl, i) => (
+                    <div key={i} className="flex justify-between border-b border-slate-100 pb-1">
+                      <span className={`font-bold ${dl.color}`}>{dl.label}:</span>
+                      <span className={`${dl.bold ? 'font-bold' : 'font-semibold'} ${dl.color}`}>{dl.value}</span>
+                    </div>
+                  ))}
                   {stack.last_delivered_date && (
                     <div className="flex justify-between border-b border-slate-100 pb-1">
                       <span className="font-bold text-slate-700">Last Delivered:</span>
