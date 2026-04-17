@@ -97,6 +97,13 @@ export default function DCStacks({ filters }) {
 
   useEffect(() => { fetchStacks(); }, [fetchStacks]);
 
+  // Build suggestions from all existing lots
+  const allLots = stacks.flatMap(s => s.lots || []);
+  const agencySuggestions = [...new Set(allLots.map(l => l.agency).filter(Boolean))].sort();
+  const truckSuggestions = [...new Set(allLots.map(l => String(l.no_of_trucks)).filter(v => v && v !== '0'))].sort((a,b) => a-b);
+  const bagSuggestions = [...new Set(allLots.map(l => String(l.bags)).filter(v => v && v !== '0'))].sort((a,b) => a-b);
+  const weightSuggestions = [...new Set(allLots.map(l => String(l.nett_weight_qtl)).filter(v => v && v !== '0'))].sort((a,b) => a-b);
+
   const handleSaveStack = async () => {
     if (!form.depot_name) { toast.error('Depot Name required'); return; }
     try {
@@ -355,17 +362,21 @@ export default function DCStacks({ filters }) {
               <div><Label className="text-xs text-slate-600 font-bold">Date</Label>
                 <Input type="date" value={lotForm.date} onChange={e => setLotForm(p=>({...p,date:e.target.value}))} className="h-9 text-sm" /></div>
               <div><Label className="text-xs text-slate-600 font-bold">Agency</Label>
-                <Input value={lotForm.agency} onChange={e => setLotForm(p=>({...p,agency:e.target.value}))} placeholder="Choose" className="h-9 text-sm" /></div>
+                <Input list="agency-list" value={lotForm.agency} onChange={e => setLotForm(p=>({...p,agency:e.target.value}))} placeholder="Choose" className="h-9 text-sm" />
+                <datalist id="agency-list">{agencySuggestions.map(a => <option key={a} value={a} />)}</datalist></div>
               <div><Label className="text-xs text-slate-600 font-bold">LOT/ACK No</Label>
                 <Input value={lotForm.lot_ack_no} onChange={e => setLotForm(p=>({...p,lot_ack_no:e.target.value}))} className="h-9 text-sm" /></div>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div><Label className="text-xs text-slate-600 font-bold">No Of Trucks</Label>
-                <Input type="number" value={lotForm.no_of_trucks} onChange={e => setLotForm(p=>({...p,no_of_trucks:e.target.value}))} className="h-9 text-sm bg-slate-100" /></div>
+                <Input list="trucks-list" type="number" value={lotForm.no_of_trucks} onChange={e => setLotForm(p=>({...p,no_of_trucks:e.target.value}))} className="h-9 text-sm bg-slate-100" />
+                <datalist id="trucks-list">{truckSuggestions.map(v => <option key={v} value={v} />)}</datalist></div>
               <div><Label className="text-xs text-slate-600 font-bold">Bags</Label>
-                <Input type="number" value={lotForm.bags} onChange={e => setLotForm(p=>({...p,bags:e.target.value}))} className="h-9 text-sm bg-slate-100" /></div>
+                <Input list="bags-list" type="number" value={lotForm.bags} onChange={e => setLotForm(p=>({...p,bags:e.target.value}))} className="h-9 text-sm bg-slate-100" />
+                <datalist id="bags-list">{bagSuggestions.map(v => <option key={v} value={v} />)}</datalist></div>
               <div><Label className="text-xs text-slate-600 font-bold">Nett Weight (In Qtl)</Label>
-                <Input type="number" value={lotForm.nett_weight_qtl} onChange={e => setLotForm(p=>({...p,nett_weight_qtl:e.target.value}))} className="h-9 text-sm bg-slate-100" /></div>
+                <Input list="weight-list" type="number" value={lotForm.nett_weight_qtl} onChange={e => setLotForm(p=>({...p,nett_weight_qtl:e.target.value}))} className="h-9 text-sm bg-slate-100" />
+                <datalist id="weight-list">{weightSuggestions.map(v => <option key={v} value={v} />)}</datalist></div>
             </div>
             <div className="flex justify-end gap-2 pt-3 border-t">
               <Button variant="outline" onClick={() => setLotDialog({ open: false, stackId: null, stackInfo: '' })} className="text-slate-600">Close</Button>
