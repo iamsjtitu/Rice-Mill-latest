@@ -18,7 +18,7 @@ module.exports = function(database) {
   router.post('/api/dc-entries', safeSync(async (req, res) => {
     if (!database.data.dc_entries) database.data.dc_entries = [];
     const d = req.body;
-    const entry = { id: uuidv4(), dc_number: d.dc_number||'', date: d.date||'', quantity_qntl: +(d.quantity_qntl||0), rice_type: d.rice_type||'parboiled', godown_name: d.godown_name||'', deadline: d.deadline||'', notes: d.notes||'', kms_year: d.kms_year||'', season: d.season||'', created_by: req.query.username||'', created_at: new Date().toISOString() };
+    const entry = { id: uuidv4(), dc_number: d.dc_number||'', date: d.date||'', quantity_qntl: +(d.quantity_qntl||0), rice_type: d.rice_type||'parboiled', godown_name: d.godown_name||'', depot_name: d.depot_name||'', depot_code: d.depot_code||'', delivery_to: d.delivery_to||'FCI', no_of_lots: d.no_of_lots||'', deadline: d.deadline||'', notes: d.notes||'', kms_year: d.kms_year||'', season: d.season||'', created_by: req.query.username||'', created_at: new Date().toISOString() };
     database.data.dc_entries.push(entry); database.save(); res.json(entry);
   }));
 

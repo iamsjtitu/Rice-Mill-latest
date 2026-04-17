@@ -23,6 +23,10 @@ class DCEntry(BaseModel):
     quantity_qntl: float = 0
     rice_type: str = "parboiled"  # parboiled / raw
     godown_name: str = ""
+    depot_name: str = ""
+    depot_code: str = ""
+    delivery_to: str = "FCI"  # FCI / RRC
+    no_of_lots: str = ""
     deadline: str = ""
     notes: str = ""
     kms_year: str = ""

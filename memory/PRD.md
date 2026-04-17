@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.7.1
+## Current Version: v104.7.2
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind
@@ -34,7 +34,8 @@
 - Voucher No field added to all By-Product sale entries
 
 ## Recent Changes (Apr 2026)
-- **v104.7.1 (Feb 2026 fix)**: DCStacks Approval Checkbox fix — renamed leftover `setSelectedStack` → `setSelectedStackId` references in onClick handlers (lines 124, 166, 252). Previous v104.7.0 attempt had partially renamed state but left 3 broken setter references, causing silent ReferenceError on stack card click / delete / close. Approval checkbox inside detail panel now toggles correctly.
+- **v104.7.2 (Feb 2026 fix)**: DC Entries form Depot Name / Depot Code / Delivery To / No of Lots save fix — teeno backends (Python DCEntry model, Desktop JS, Local Server JS) ye 4 fields drop kar rahe the (Python `extra="ignore"`, JS explicit field whitelist mein missing). Ab sab save & return ho rahe hain. Table ke "Depot" column mein ab `DepotName (DepotCode)` format mein data dikhega.
+- v104.7.1: DCStacks Approval Checkbox fix — leftover `setSelectedStack` → `setSelectedStackId` references
 - v104.7.0: DC Stacks/Lots system, Govt Links auto-login via Electron IPC, Sales Register reorganization, MSP Payments moved back to Payments tab
 - v94.0.0: Professional Weight Report PDF + Branding, WhatsApp PDF via tmpfiles.org, Desktop JS PDF generator with addPdfHeader
 - v92.0.0: Major tab reorganization, Gunny Bag upgrade (Bran/Broken P.Pkt, OUT form, realtime stock, Opening Stock), Watermark fix + Print watermark, Milling Register Season removed
