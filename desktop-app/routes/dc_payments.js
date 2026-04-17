@@ -140,6 +140,7 @@ module.exports = function(database) {
       invoice_no: d.invoice_no||'', rst_no: d.rst_no||'', eway_bill_no: d.eway_bill_no||'',
       contract_no: d.contract_no||'',
       fci_lot_no: d.fci_lot_no||'',
+      party_name: d.party_name||'',
       bags_used: +(d.bags_used||0), cash_paid: +(d.cash_paid||0), diesel_paid: +(d.diesel_paid||0),
       depot_expenses: +(d.depot_expenses||0),
       cgst_amount: +(d.cgst_amount||0), sgst_amount: +(d.sgst_amount||0),
@@ -293,6 +294,7 @@ module.exports = function(database) {
     const contractNo = delivery.contract_no || '-';
     const depotCode = dc.depot_code || '-';
     const depotName = dc.depot_name || '-';
+    const partyName = delivery.party_name || '';
     const fmtDMY = s => { try { const d = new Date((s||'').split('T')[0]); if (isNaN(d)) return s; return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); } catch { return s; } };
     const fmtDMonY = s => { try { const d = new Date((s||'').split('T')[0]); if (isNaN(d)) return s; const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return String(d.getDate()).padStart(2,'0')+' '+months[d.getMonth()]+' '+d.getFullYear(); } catch { return s; } };
     const splitJ = s => (s||'').split('/').map(x=>x.trim()).filter(Boolean);
@@ -346,10 +348,11 @@ module.exports = function(database) {
     <div class="info-card">
       <div class="row"><span class="l">Contract No</span><span class="v accent">${contractNo}</span></div>
       <div class="row"><span class="l">Date</span><span class="v">${fmtDMY(delivery.date)}</span></div>
-      <div class="row"><span class="l">Depot Code</span><span class="v">${depotCode}</span></div>
+      <div class="row"><span class="l">Party Name</span><span class="v">${partyName || '-'}</span></div>
       <div class="row"><span class="l">Depot</span><span class="v">${depotName}</span></div>
-      <div class="row"><span class="l">KMS</span><span class="v">${kmsYear || '-'}</span></div>
+      <div class="row"><span class="l">Depot Code</span><span class="v">${depotCode}</span></div>
       <div class="row"><span class="l">Season</span><span class="v">${gunnySeason || '-'}</span></div>
+      <div class="row"><span class="l">KMS</span><span class="v">${kmsYear || '-'}</span></div>
     </div>
 
     <div class="section-title">DC Details</div>

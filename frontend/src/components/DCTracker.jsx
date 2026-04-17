@@ -31,7 +31,7 @@ export const DCEntries = ({ filters, user }) => {
   const [riceStockAvail, setRiceStockAvail] = useState(null);
   const [riceStockByType, setRiceStockByType] = useState({ parboiled: null, raw: null });
   const [form, setForm] = useState({ dc_number: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", rice_type: "parboiled", depot_name: "", depot_code: "", no_of_lots: "", delivery_to: "FCI", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
-  const [delForm, setDelForm] = useState({ dc_id: "", date: new Date().toISOString().split('T')[0], cash_paid: "", diesel_paid: "", depot_expenses: "", contract_no: "", fci_lot_no: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif", trucks: [{ rst_no: "", vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] });
+  const [delForm, setDelForm] = useState({ dc_id: "", date: new Date().toISOString().split('T')[0], cash_paid: "", diesel_paid: "", depot_expenses: "", contract_no: "", fci_lot_no: "", party_name: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif", trucks: [{ rst_no: "", vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] });
   const [searchQuery, setSearchQuery] = useState("");
   const [editDepot, setEditDepot] = useState(null);
   const [editDepotForm, setEditDepotForm] = useState({ depot_name: '', depot_code: '', delivery_to: 'FCI', no_of_lots: '' });
@@ -86,6 +86,7 @@ export const DCEntries = ({ filters, user }) => {
         rst_no: join('rst_no'),
         contract_no: delForm.contract_no,
         fci_lot_no: delForm.fci_lot_no,
+        party_name: delForm.party_name,
         notes: delForm.notes,
         kms_year: delForm.kms_year,
         season: delForm.season,
@@ -99,7 +100,7 @@ export const DCEntries = ({ filters, user }) => {
         depot_expenses: parseFloat(delForm.depot_expenses) || 0,
       });
       toast.success("Delivery add hui!"); setShowDeliveryForm(false);
-      setDelForm({ dc_id: "", date: new Date().toISOString().split('T')[0], cash_paid: "", diesel_paid: "", depot_expenses: "", contract_no: "", fci_lot_no: "", notes: "", kms_year: filters.kms_year || CURRENT_KMS, season: filters.season || "Kharif", trucks: [{ rst_no: "", vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] });
+      setDelForm({ dc_id: "", date: new Date().toISOString().split('T')[0], cash_paid: "", diesel_paid: "", depot_expenses: "", contract_no: "", fci_lot_no: "", party_name: "", notes: "", kms_year: filters.kms_year || CURRENT_KMS, season: filters.season || "Kharif", trucks: [{ rst_no: "", vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] });
       fetchDeliveries(expandedDC); fetchData();
     } catch (e) { toast.error(e.response?.data?.detail || e.message); }
   };
@@ -132,6 +133,8 @@ export const DCEntries = ({ filters, user }) => {
         return {
           ...prev,
           trucks: newTrucks,
+          // Fill party_name if not already filled (first RST wins)
+          party_name: prev.party_name || vw.party_name || '',
           cash_paid: (prevCash + (parseFloat(vw.cash_paid) || 0)).toString(),
           diesel_paid: (prevDiesel + (parseFloat(vw.diesel_paid) || 0)).toString(),
         };
@@ -191,6 +194,7 @@ export const DCEntries = ({ filters, user }) => {
   const bagsSuggestions = useMemo(() => [...new Set(allDeliveries.map(d => String(d.bags_used || '')).filter(v => v && v !== '0'))].sort((a,b) => (+a)-(+b)), [allDeliveries]);
   const weightSuggestions = useMemo(() => [...new Set(allDeliveries.map(d => String(d.quantity_qntl || '')).filter(v => v && v !== '0'))].sort((a,b) => (+a)-(+b)), [allDeliveries]);
   const contractSuggestions = useMemo(() => [...new Set(allDeliveries.map(d => (d.contract_no || '').trim()).filter(Boolean))].sort(), [allDeliveries]);
+  const partyNameSuggestions = useMemo(() => [...new Set(allDeliveries.map(d => (d.party_name || '').trim()).filter(Boolean))].sort(), [allDeliveries]);
 
   // Filter DCs by search query (DC number or delivery invoice number)
   const filteredDCs = searchQuery.trim()
@@ -294,7 +298,7 @@ export const DCEntries = ({ filters, user }) => {
                   </div>
                   {deliveries.length === 0 ? <p className="text-xs text-slate-500 py-2">No deliveries yet</p> : (
                     <Table className="w-full table-auto"><TableHeader><TableRow className="border-slate-600 hover:bg-transparent">
-                      {['Date','FCI Lot','Contract','RST','Vehicle','Driver','Bags','Qty (Q)','Cash','Diesel','Depot Exp',''].map(h =>
+                      {['Date','FCI Lot','Contract','Party','RST','Vehicle','Driver','Bags','Qty (Q)','Cash','Diesel','Depot Exp',''].map(h =>
                         <TableHead key={h} className="text-slate-400 text-[10px] py-1">{h}</TableHead>)}
                     </TableRow></TableHeader>
                     <TableBody>{deliveries.map(d => (
@@ -302,6 +306,7 @@ export const DCEntries = ({ filters, user }) => {
                         <TableCell className="text-slate-200 text-[11px] py-1">{fmtDate(d.date)}</TableCell>
                         <TableCell className="text-sky-300 text-[11px] py-1 font-semibold">{d.fci_lot_no || '-'}</TableCell>
                         <TableCell className="text-slate-300 text-[11px] py-1">{d.contract_no || '-'}</TableCell>
+                        <TableCell className="text-slate-300 text-[11px] py-1">{d.party_name || '-'}</TableCell>
                         <TableCell className="text-slate-300 text-[11px] py-1">{d.rst_no || '-'}</TableCell>
                         <TableCell className="text-slate-300 text-[11px] py-1">{d.vehicle_no || '-'}</TableCell>
                         <TableCell className="text-slate-400 text-[11px] py-1">{d.driver_name || '-'}</TableCell>
@@ -428,6 +433,9 @@ export const DCEntries = ({ filters, user }) => {
                 <Input list="del-contract-list" value={delForm.contract_no} onChange={e => setDelForm(p=>({...p,contract_no:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-contract" autoComplete="off" />
                 <datalist id="del-contract-list">{contractSuggestions.map(v => <option key={v} value={v} />)}</datalist></div>
             </div>
+            <div><Label className="text-xs text-slate-400">Party Name <span className="text-[10px] text-slate-500">(RST auto-fill hote hi bhar jayega)</span></Label>
+              <Input list="del-party-list" value={delForm.party_name} onChange={e => setDelForm(p=>({...p,party_name:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-party" autoComplete="off" />
+              <datalist id="del-party-list">{partyNameSuggestions.map(v => <option key={v} value={v} />)}</datalist></div>
 
             {/* Trucks section */}
             <div className="bg-slate-900/50 border border-slate-700 rounded-md p-2.5 space-y-2">

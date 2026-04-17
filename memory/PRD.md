@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.14.1
+## Current Version: v104.15.0
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind

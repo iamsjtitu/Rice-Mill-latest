@@ -53,6 +53,7 @@ class DCDelivery(BaseModel):
     depot_expenses: float = 0  # Depot expenses → cash book auto nikasi
     contract_no: str = ""
     fci_lot_no: str = ""
+    party_name: str = ""
     eway_bill_no: str = ""
     cgst_amount: float = 0
     sgst_amount: float = 0
@@ -270,6 +271,7 @@ async def get_delivery_invoice(delivery_id: str, download: int = 0):
     contract_no = delivery.get("contract_no", "")
     depot_code = (dc or {}).get("depot_code", "")
     depot_name = (dc or {}).get("depot_name", "")
+    party_name = delivery.get("party_name", "") or ""
     # Format dates dd mmm yyyy
     def fmt_date(s):
         try:
@@ -338,10 +340,11 @@ async def get_delivery_invoice(delivery_id: str, download: int = 0):
     <div class="info-card">
       <div class="row"><span class="l">Contract No</span><span class="v accent">{contract_no or '-'}</span></div>
       <div class="row"><span class="l">Date</span><span class="v">{fmt_dmy(delivery.get('date',''))}</span></div>
-      <div class="row"><span class="l">Depot Code</span><span class="v">{depot_code or '-'}</span></div>
+      <div class="row"><span class="l">Party Name</span><span class="v">{party_name or '-'}</span></div>
       <div class="row"><span class="l">Depot</span><span class="v">{depot_name or '-'}</span></div>
-      <div class="row"><span class="l">KMS</span><span class="v">{kms_year or '-'}</span></div>
+      <div class="row"><span class="l">Depot Code</span><span class="v">{depot_code or '-'}</span></div>
       <div class="row"><span class="l">Season</span><span class="v">{gunny_season or '-'}</span></div>
+      <div class="row"><span class="l">KMS</span><span class="v">{kms_year or '-'}</span></div>
     </div>
 
     <div class="section-title">DC Details</div>
