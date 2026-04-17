@@ -32,10 +32,9 @@ function getStackStatus(stack) {
   const totalLots = parseInt(stack.total_lots) || lots.length;
   const hasFirstLot = deliveredLots.length > 0;
   
-  // Build deadlines array
   const deadlines = [];
   
-  // 1st Lot deadline — only show if no lot delivered yet
+  // 1st Lot deadline (2 days) — only if no lot delivered yet
   if (!hasFirstLot) {
     const d = daysLeft(firstLotDL.toISOString().split('T')[0]);
     if (d !== null && d < 0) {
@@ -45,40 +44,31 @@ function getStackStatus(stack) {
     }
   }
   
-  // Full delivery deadline — always show if not completed
+  // To be finished — validity 7 days (informational, no lapse)
   if (deliveredLots.length < totalLots) {
     const d = daysLeft(fullDL.toISOString().split('T')[0]);
-    if (d !== null && d < 0) {
-      deadlines.push({ label: 'To be finished', value: 'LAPSED', color: 'text-orange-600', bold: true });
-    } else {
-      deadlines.push({ label: 'To be finished', value: `within ${Math.max(d, 0)} days`, color: 'text-orange-600', bold: false });
-    }
+    deadlines.push({ label: 'To be finished', value: d !== null && d >= 0 ? `within ${d} days` : 'overdue', color: 'text-orange-600', bold: false });
   }
   
-  // Delivery Due — days since last delivered or allotted
+  // Delivery Due — remaining time from now to full deadline
   if (hasFirstLot && deliveredLots.length < totalLots) {
-    const lastDel = deliveredLots.sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
-    const lastDate = lastDel?.date || allotted;
-    const daysSince = Math.floor((now - new Date(lastDate)) / 86400000);
     const fullDaysLeft = daysLeft(fullDL.toISOString().split('T')[0]);
     const dueIn = Math.max(fullDaysLeft || 0, 0);
     deadlines.push({ label: 'Delivery Due', value: `within ${dueIn} days`, color: 'text-blue-600', bold: false });
   }
   
-  // Status badge
+  // Status badge — only cancelled if 1st lot not done in 2 days. NO lapse.
   let badge = null;
   if (!hasFirstLot && now > firstLotDL) {
-    badge = { label: 'CANCELLED', color: 'bg-red-600 text-white', desc: '1st lot 2 din mein nahi hua' };
-  } else if (deliveredLots.length < totalLots && now > fullDL) {
-    badge = { label: 'LAPSED', color: 'bg-orange-600 text-white', desc: '7 din mein delivery nahi hua' };
+    badge = { label: 'CANCELLED', color: 'bg-red-600 text-white' };
   } else if (totalLots > 0 && deliveredLots.length >= totalLots) {
-    badge = { label: 'COMPLETED', color: 'bg-emerald-600 text-white', desc: 'Sab lots delivered' };
+    badge = { label: 'COMPLETED', color: 'bg-emerald-600 text-white' };
   } else if (!hasFirstLot) {
     const d = daysLeft(firstLotDL.toISOString().split('T')[0]);
-    if (d !== null && d <= 1) badge = { label: `1st LOT: ${d}d left!`, color: 'bg-red-500 text-white animate-pulse', desc: '' };
+    if (d !== null && d <= 1) badge = { label: `1st LOT: ${d}d left!`, color: 'bg-red-500 text-white animate-pulse' };
   }
   
-  const headerColor = badge?.label === 'CANCELLED' ? 'bg-red-600' : badge?.label === 'LAPSED' ? 'bg-orange-600' : badge?.label === 'COMPLETED' ? 'bg-emerald-700' : 'bg-emerald-600';
+  const headerColor = badge?.label === 'CANCELLED' ? 'bg-red-600' : badge?.label === 'COMPLETED' ? 'bg-emerald-700' : 'bg-emerald-600';
   
   return { deadlines, badge, headerColor };
 }
