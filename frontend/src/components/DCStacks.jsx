@@ -76,7 +76,8 @@ export default function DCStacks({ filters }) {
   const [stacks, setStacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [selectedStack, setSelectedStack] = useState(null);
+  const [selectedStackId, setSelectedStackId] = useState(null);
+  const selectedStack = stacks.find(s => s.id === selectedStackId) || null;
   const [lotDialog, setLotDialog] = useState({ open: false, stackId: null, stackInfo: '' });
   const [lotForm, setLotForm] = useState({ date: new Date().toISOString().split('T')[0], agency: '', lot_ack_no: '', no_of_trucks: 1, bags: '', nett_weight_qtl: '', status: 'delivered' });
 
@@ -120,7 +121,7 @@ export default function DCStacks({ filters }) {
     try {
       await axios.delete(`${API}/dc-stacks/${id}`);
       toast.success('Stack deleted');
-      if (selectedStack?.id === id) setSelectedStack(null);
+      if (selectedStackId === id) setSelectedStackId(null);
       fetchStacks();
     } catch (e) { toast.error('Delete failed'); }
   };
@@ -162,7 +163,7 @@ export default function DCStacks({ filters }) {
           {stacks.map(stack => {
             const status = getStackStatus(stack);
             return (
-            <div key={stack.id} className={`bg-white border rounded-lg shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow ${status.badge?.label === 'CANCELLED' ? 'border-red-400' : status.badge?.label === 'LAPSED' ? 'border-orange-400' : 'border-slate-200'}`} onClick={() => setSelectedStack(selectedStack?.id === stack.id ? null : stack)} data-testid={`stack-card-${stack.id}`}>
+            <div key={stack.id} className={`bg-white border rounded-lg shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow ${status.badge?.label === 'CANCELLED' ? 'border-red-400' : status.badge?.label === 'LAPSED' ? 'border-orange-400' : 'border-slate-200'}`} onClick={() => setSelectedStackId(selectedStackId === stack.id ? null : stack.id)} data-testid={`stack-card-${stack.id}`}>
               {/* Header */}
               <div className={`text-white px-3 py-2 flex items-center justify-between ${status.headerColor || 'bg-emerald-600'}`}>
                 <span className="font-bold text-sm">{stack.depot_name} - {stack.depot_code} # Stack: {stack.stack_no || '-'}</span>
@@ -248,7 +249,7 @@ export default function DCStacks({ filters }) {
         <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 mt-3" data-testid="stack-detail">
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-amber-400 font-bold text-sm">{selectedStack.depot_name} - Stack {selectedStack.stack_no} | Lots</h4>
-            <Button size="sm" variant="ghost" className="text-slate-400" onClick={() => setSelectedStack(null)}>Close</Button>
+            <Button size="sm" variant="ghost" className="text-slate-400" onClick={() => setSelectedStackId(null)}>Close</Button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">

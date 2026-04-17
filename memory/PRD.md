@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v101.3.0
+## Current Version: v104.7.1
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind
@@ -34,6 +34,8 @@
 - Voucher No field added to all By-Product sale entries
 
 ## Recent Changes (Apr 2026)
+- **v104.7.1 (Feb 2026 fix)**: DCStacks Approval Checkbox fix — renamed leftover `setSelectedStack` → `setSelectedStackId` references in onClick handlers (lines 124, 166, 252). Previous v104.7.0 attempt had partially renamed state but left 3 broken setter references, causing silent ReferenceError on stack card click / delete / close. Approval checkbox inside detail panel now toggles correctly.
+- v104.7.0: DC Stacks/Lots system, Govt Links auto-login via Electron IPC, Sales Register reorganization, MSP Payments moved back to Payments tab
 - v94.0.0: Professional Weight Report PDF + Branding, WhatsApp PDF via tmpfiles.org, Desktop JS PDF generator with addPdfHeader
 - v92.0.0: Major tab reorganization, Gunny Bag upgrade (Bran/Broken P.Pkt, OUT form, realtime stock, Opening Stock), Watermark fix + Print watermark, Milling Register Season removed
 - v94.0.1-fix: Vehicle Weight View Dialog fixed (gross_wt, tare_wt, remark, avg/bag now show correctly). LAN Weighbridge polling fixed (local-server proxy to desktop-app via weighbridge_host setting)
