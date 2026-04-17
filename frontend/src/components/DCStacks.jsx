@@ -144,14 +144,6 @@ export default function DCStacks({ filters }) {
     } catch (e) { toast.error('Delete failed'); }
   };
 
-  const toggleLotStatus = async (stackId, lot) => {
-    const newStatus = lot.status === 'delivered' ? 'pending' : 'delivered';
-    try {
-      await axios.put(`${API}/dc-stacks/${stackId}/lots/${lot.id}`, { status: newStatus });
-      fetchStacks();
-    } catch (e) { toast.error('Update failed'); }
-  };
-
   return (
     <div className="space-y-3" data-testid="dc-stacks">
       {/* Header */}
@@ -230,12 +222,13 @@ export default function DCStacks({ filters }) {
                   <p className="text-slate-700 font-bold text-xs mb-1">LOT Details</p>
                   <div className="flex flex-wrap gap-1">
                     {(stack.lots || []).map(lot => (
-                      <button key={lot.id} onClick={e => { e.stopPropagation(); toggleLotStatus(stack.id, lot); }}
+                      <div key={lot.id}
                         className={`w-8 h-8 rounded text-xs font-bold border ${lot.status === 'delivered' ? 'bg-emerald-500 text-white border-emerald-600' : 'bg-amber-100 text-amber-700 border-amber-300'}`}
-                        title={`Lot ${lot.lot_number} - ${lot.status} | ${lot.bags || 0} bags | ${lot.nett_weight_qtl || 0} Q\nClick to toggle status`}
-                        data-testid={`lot-btn-${lot.id}`}>
+                        title={`Lot ${lot.lot_number} - ${lot.status} | ${lot.bags || 0} bags | ${lot.nett_weight_qtl || 0} Q${lot.approval ? ` | ${lot.approval}` : ''}`}
+                        data-testid={`lot-btn-${lot.id}`}
+                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                         {lot.lot_number}
-                      </button>
+                      </div>
                     ))}
                     <button onClick={e => { e.stopPropagation(); setLotDialog({ open: true, stackId: stack.id, stackInfo: `TEC: ${stack.tec || '-'} ${stack.depot_code || ''} ${stack.depot_name || ''} ${stack.kms_year || ''} ${stack.delivery_to || ''}` }); }}
                       className="w-8 h-8 rounded text-xs font-bold border border-blue-300 bg-white text-blue-600 hover:bg-blue-50"
@@ -268,6 +261,7 @@ export default function DCStacks({ filters }) {
                 <th className="py-1 px-2 text-right">Bags</th>
                 <th className="py-1 px-2 text-right">Weight(Q)</th>
                 <th className="py-1 px-2 text-center">Status</th>
+                <th className="py-1 px-2 text-center">Approval</th>
                 <th className="py-1 px-2"></th>
               </tr></thead>
               <tbody>
@@ -285,6 +279,17 @@ export default function DCStacks({ filters }) {
                         {lot.status === 'delivered' ? 'Delivered' : 'Pending'}
                       </span>
                     </td>
+                    <td className="py-1.5 px-2 text-center">
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer" onClick={e => e.stopPropagation()}>
+                        <input type="checkbox" checked={lot.approval === 'approved'} onChange={async (e) => {
+                          const val = e.target.checked ? 'approved' : 'rejected';
+                          try { await axios.put(`${API}/dc-stacks/${selectedStack.id}/lots/${lot.id}`, { approval: val }); fetchStacks(); } catch(err) { toast.error('Update failed'); }
+                        }} className="rounded border-slate-500 w-4 h-4" />
+                        <span className={`text-[10px] font-bold ${lot.approval === 'approved' ? 'text-emerald-400' : lot.approval === 'rejected' ? 'text-red-400' : 'text-slate-500'}`}>
+                          {lot.approval === 'approved' ? 'Approved' : lot.approval === 'rejected' ? 'Rejected' : 'Pending'}
+                        </span>
+                      </label>
+                    </td>
                     <td className="py-1.5 px-2">
                       <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-red-400" onClick={() => handleDeleteLot(selectedStack.id, lot.id)}>
                         <Trash2 className="w-3 h-3" />
@@ -293,7 +298,7 @@ export default function DCStacks({ filters }) {
                   </tr>
                 ))}
                 {(selectedStack.lots || []).length === 0 && (
-                  <tr><td colSpan={9} className="py-4 text-center text-slate-500">Koi lot nahi. "+" button se add karein.</td></tr>
+                  <tr><td colSpan={10} className="py-4 text-center text-slate-500">Koi lot nahi. "+" button se add karein.</td></tr>
                 )}
               </tbody>
             </table>
