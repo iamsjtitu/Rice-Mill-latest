@@ -29,7 +29,7 @@ export const DCEntries = ({ filters, user }) => {
   const [showDeliveryForm, setShowDeliveryForm] = useState(false);
   const [riceStockAvail, setRiceStockAvail] = useState(null);
   const [riceStockByType, setRiceStockByType] = useState({ parboiled: null, raw: null });
-  const [form, setForm] = useState({ dc_number: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", rice_type: "parboiled", depot_name: "", depot_code: "", no_of_lots: "", delivery_to: "FCI", deadline: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
+  const [form, setForm] = useState({ dc_number: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", rice_type: "parboiled", depot_name: "", depot_code: "", no_of_lots: "", delivery_to: "FCI", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
   const [delForm, setDelForm] = useState({ dc_id: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", vehicle_no: "", driver_name: "", slip_no: "", godown_name: "", invoice_no: "", rst_no: "", eway_bill_no: "", bags_used: "", cash_paid: "", diesel_paid: "", cgst_amount: "", sgst_amount: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -63,7 +63,7 @@ export const DCEntries = ({ filters, user }) => {
     try {
       await axios.post(`${API}/dc-entries?username=${user.username}`, { ...form, quantity_qntl: parseFloat(form.quantity_qntl) });
       toast.success("DC add ho gaya!"); setShowForm(false);
-      setForm({ dc_number: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", rice_type: "parboiled", depot_name: "", depot_code: "", no_of_lots: "", delivery_to: "FCI", deadline: "", notes: "", kms_year: filters.kms_year || CURRENT_KMS, season: filters.season || "Kharif" });
+      setForm({ dc_number: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", rice_type: "parboiled", depot_name: "", depot_code: "", no_of_lots: "", delivery_to: "FCI", notes: "", kms_year: filters.kms_year || CURRENT_KMS, season: filters.season || "Kharif" });
       fetchData();
     } catch (e) { toast.error("Error: " + (e.response?.data?.detail || e.message)); }
   };
@@ -164,12 +164,11 @@ export const DCEntries = ({ filters, user }) => {
           <TableHead className="text-slate-300 text-xs text-right">Pending(Q)</TableHead>
           <TableHead className="text-slate-300 text-xs">Status</TableHead>
           <TableHead className="text-slate-300 text-xs">Lots</TableHead>
-          <TableHead className="text-slate-300 text-xs">Deadline</TableHead>
           <TableHead className="text-slate-300 text-xs w-8"></TableHead>
         </TableRow></TableHeader>
         <TableBody>
-          {loading ? <TableRow><TableCell colSpan={13} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-          : filteredDCs.length === 0 ? <TableRow><TableCell colSpan={13} className="text-center text-slate-400 py-8">{searchQuery ? "Koi result nahi mila." : 'Koi DC nahi hai. "New DC" click karein.'}</TableCell></TableRow>
+          {loading ? <TableRow><TableCell colSpan={12} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
+          : filteredDCs.length === 0 ? <TableRow><TableCell colSpan={12} className="text-center text-slate-400 py-8">{searchQuery ? "Koi result nahi mila." : 'Koi DC nahi hai. "New DC" click karein.'}</TableCell></TableRow>
           : filteredDCs.map(dc => (<React.Fragment key={dc.id}>
             <TableRow key={dc.id} className="border-slate-700 cursor-pointer hover:bg-slate-750" onClick={() => handleExpandDC(dc.id)} data-testid={`dc-row-${dc.id}`}>
               <TableCell className="w-8 px-2">{expandedDC === dc.id ? <ChevronUp className="w-3 h-3 text-slate-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}</TableCell>
@@ -183,12 +182,11 @@ export const DCEntries = ({ filters, user }) => {
               <TableCell className="text-red-400 text-sm text-right font-medium">{dc.pending_qntl} Q</TableCell>
               <TableCell>{statusBadge(dc.status)}</TableCell>
               <TableCell className="text-slate-300 text-xs text-center">{dc.no_of_lots || '-'}</TableCell>
-              <TableCell className="text-slate-300 text-xs">{dc.deadline || '-'}</TableCell>
               <TableCell className="w-8 px-2">{user.role === 'admin' && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400" onClick={(e) => { e.stopPropagation(); handleDeleteDC(dc.id); }}><Trash2 className="w-3 h-3" /></Button>}</TableCell>
             </TableRow>
             {expandedDC === dc.id && (
               <TableRow key={`${dc.id}-del`} className="border-slate-700 bg-slate-900/50">
-                <TableCell colSpan={13} className="p-3">
+                <TableCell colSpan={12} className="p-3">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs text-amber-400 font-medium">Deliveries for {dc.dc_number}</p>
                     <Button onClick={() => { setDelForm(f => ({ ...f, dc_id: dc.id, kms_year: dc.kms_year, season: dc.season, godown_name: dc.godown_name, _rice_type: dc.rice_type || 'parboiled' })); setShowDeliveryForm(true); }} size="sm" className="bg-green-600 hover:bg-green-700 text-white h-6 text-xs" data-testid="dc-add-delivery-btn"><Plus className="w-3 h-3 mr-1" /> Add Delivery</Button>
@@ -257,10 +255,6 @@ export const DCEntries = ({ filters, user }) => {
                 <Input value={form.depot_name} onChange={e => setForm(p=>({...p,depot_name:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="dc-form-depot-name" /></div>
               <div><Label className="text-xs text-slate-400">Depot Code</Label>
                 <Input value={form.depot_code} onChange={e => setForm(p=>({...p,depot_code:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="dc-form-depot-code" /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs text-slate-400">Deadline</Label>
-                <Input type="date" value={form.deadline} onChange={e => setForm(p=>({...p,deadline:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="dc-form-deadline" /></div>
             </div>
             <div><Label className="text-xs text-slate-400">Notes</Label>
               <Input value={form.notes} onChange={e => setForm(p=>({...p,notes:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="dc-form-notes" /></div>
