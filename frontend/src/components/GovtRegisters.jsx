@@ -1119,6 +1119,14 @@ export function MillingRegister({ filters, user }) {
         </div>
       </div>
 
+      <Tabs defaultValue="register" className="w-full">
+        <TabsList className="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700">
+          <TabsTrigger value="register" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900 text-xs" data-testid="mr-tab-register">Register</TabsTrigger>
+          <TabsTrigger value="verification" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900 text-xs" data-testid="mr-tab-verification">Verification Report</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="register" className="space-y-3 mt-3">
+
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-3">
         <Card className="border"><CardContent className="p-3 text-center">

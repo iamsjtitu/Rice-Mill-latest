@@ -1002,6 +1002,72 @@ module.exports = function(database) {
     };
   }
 
+  // GET /api/govt-registers/verification-report — FCI Weekly Verification Auto-compute
+  router.get('/api/govt-registers/verification-report', safeSync(async (req, res) => {
+    const kmsYear = req.query.kms_year || '';
+    const season = req.query.season || '';
+    const fromDate = req.query.from_date || '';
+    const toDate = req.query.to_date || '';
+    const lastMeter = +(req.query.last_meter_reading || 0);
+    const unitsPerQtl = +(req.query.units_per_qtl || 6);
+    const riceRecovery = +(req.query.rice_recovery || 0.67);
+
+    const filter = x => (!kmsYear || x.kms_year === kmsYear) && (!season || x.season === season);
+    const inRange = d => {
+      if (!d) return { before: false, week: false };
+      const ds = String(d).split('T')[0];
+      const before = fromDate && ds <= fromDate;
+      const week = fromDate && toDate && ds > fromDate && ds <= toDate;
+      return { before, week };
+    };
+    const agg = (arr, field) => {
+      let before = 0, week = 0;
+      for (const x of arr) {
+        const r = inRange(x.date); const v = +(x[field] || 0);
+        if (r.before) before += v; if (r.week) week += v;
+      }
+      return { before, week };
+    };
+
+    const milling = (database.data.milling_entries || []).filter(filter);
+    for (const m of milling) m.rice_out = m.cmr_delivery_qntl || m.rice_qntl || 0;
+    const releases = (database.data.paddy_release || []).filter(filter);
+    const deliveries = (database.data.dc_deliveries || []).filter(filter);
+
+    const pR = agg(releases, 'qty_qtl');
+    const mL = agg(milling, 'paddy_input_qntl');
+    const rP = agg(milling, 'rice_out');
+    const dL = agg(deliveries, 'quantity_qntl');
+
+    const paddyProg = pR.before + pR.week;
+    const milledProg = mL.before + mL.week;
+    const riceProg = rP.before + rP.week;
+    const delivProg = dL.before + dL.week;
+
+    const unitsConsumed = +(mL.week * unitsPerQtl).toFixed(2);
+    const presentMeter = +(lastMeter + unitsConsumed).toFixed(2);
+
+    res.json({
+      period: { from_date: fromDate, to_date: toDate, kms_year: kmsYear, season: season },
+      meter: { last_reading: +lastMeter.toFixed(2), present_reading: presentMeter, units_consumed: unitsConsumed, units_per_qtl: unitsPerQtl },
+      weekly: {
+        paddy_received: +pR.week.toFixed(2), paddy_milled: +mL.week.toFixed(2),
+        rice_produced: +rP.week.toFixed(2), rice_delivered: +dL.week.toFixed(2),
+        expected_rice: +(mL.week * riceRecovery).toFixed(2),
+      },
+      progressive: {
+        paddy_received: +paddyProg.toFixed(2), paddy_milled: +milledProg.toFixed(2),
+        rice_produced: +riceProg.toFixed(2), rice_delivered: +delivProg.toFixed(2),
+        expected_rice: +(milledProg * riceRecovery).toFixed(2),
+      },
+      book_balance: {
+        paddy: +(paddyProg - milledProg).toFixed(2),
+        rice: +(riceProg - delivProg).toFixed(2),
+      },
+      settings: { units_per_qtl: unitsPerQtl, rice_recovery: riceRecovery }
+    });
+  }));
+
   // GET /api/govt-registers/milling-register
   router.get('/api/govt-registers/milling-register', safeSync(async (req, res) => {
     const { kms_year, season } = req.query;

@@ -1238,6 +1238,112 @@ def _fmt_date_short(d):
     return str(d)
 
 
+@router.get("/govt-registers/verification-report")
+async def get_verification_report(
+    kms_year: Optional[str] = None,
+    season: Optional[str] = None,
+    from_date: Optional[str] = None,  # previous verification date (YYYY-MM-DD)
+    to_date: Optional[str] = None,    # current verification date (YYYY-MM-DD)
+    last_meter_reading: float = 0,    # 4b. Metre Reading at last verification
+    units_per_qtl: float = 6.0,       # config: electricity units per quintal
+    rice_recovery: float = 0.67       # rice output ratio (67% FCI standard)
+):
+    """Compute FCI Weekly Verification Report from Milling Register data.
+    - 4c. Present Metre Reading = 4b + 4d
+    - 4d. Total units Consumed = Paddy Milled × units_per_qtl
+    - Paddy / Rice / Delivery progressives derived from milling + paddy_release + dc_deliveries
+    """
+    q = {}
+    if kms_year: q["kms_year"] = kms_year
+    if season: q["season"] = season
+
+    def _in_range(d):
+        if not d: return (False, False)
+        ds = str(d).split("T")[0]
+        before = (from_date and ds <= from_date)
+        current_week = (from_date and to_date and ds > from_date and ds <= to_date)
+        return (before, current_week)
+
+    # Aggregate (before = till previous verification, this_week = this reporting period)
+    def agg(docs, field):
+        before = 0.0; this_week = 0.0
+        for x in docs:
+            d = x.get("date", "")
+            bf, tw = _in_range(d)
+            v = x.get(field, 0) or 0
+            if bf: before += v
+            if tw: this_week += v
+        return before, this_week
+
+    milling = await db.milling_entries.find(q, {"_id": 0, "date": 1, "paddy_input_qntl": 1, "rice_qntl": 1, "cmr_delivery_qntl": 1}).to_list(50000)
+    releases = await db.paddy_release.find(q, {"_id": 0, "date": 1, "qty_qtl": 1}).to_list(50000)
+    deliveries = await db.dc_deliveries.find(q, {"_id": 0, "date": 1, "quantity_qntl": 1}).to_list(50000)
+
+    # Normalize rice field for milling
+    for m in milling:
+        m["rice_out"] = m.get("cmr_delivery_qntl") or m.get("rice_qntl") or 0
+
+    paddy_prev, paddy_week = agg(releases, "qty_qtl")
+    milled_prev, milled_week = agg(milling, "paddy_input_qntl")
+    rice_prev, rice_week = agg(milling, "rice_out")
+    deliv_prev, deliv_week = agg(deliveries, "quantity_qntl")
+
+    paddy_prog = paddy_prev + paddy_week
+    milled_prog = milled_prev + milled_week
+    rice_prog_milling = rice_prev + rice_week
+    deliv_prog = deliv_prev + deliv_week
+
+    # Electricity meter calculations (4c / 4d)
+    units_consumed = round(milled_week * units_per_qtl, 2)
+    present_meter = round((last_meter_reading or 0) + units_consumed, 2)
+
+    # Book balance calculations
+    book_balance_paddy = round(paddy_prog - milled_prog, 2)
+    # Rice delivered progressive = deliv_prog (sum of all dc_deliveries till to_date)
+    book_balance_rice = round(rice_prog_milling - deliv_prog, 2)
+
+    # Rice recovery expected (formula-based cross-check)
+    expected_rice_from_milling_week = round(milled_week * rice_recovery, 2)
+    expected_rice_from_milling_prog = round(milled_prog * rice_recovery, 2)
+
+    return {
+        "period": {
+            "from_date": from_date or "",
+            "to_date": to_date or "",
+            "kms_year": kms_year or "",
+            "season": season or "",
+        },
+        "meter": {
+            "last_reading": round(last_meter_reading or 0, 2),      # 4b
+            "present_reading": present_meter,                        # 4c
+            "units_consumed": units_consumed,                        # 4d
+            "units_per_qtl": units_per_qtl,
+        },
+        "weekly": {
+            "paddy_received": round(paddy_week, 2),
+            "paddy_milled": round(milled_week, 2),
+            "rice_produced": round(rice_week, 2),
+            "rice_delivered": round(deliv_week, 2),
+            "expected_rice": expected_rice_from_milling_week,
+        },
+        "progressive": {
+            "paddy_received": round(paddy_prog, 2),
+            "paddy_milled": round(milled_prog, 2),
+            "rice_produced": round(rice_prog_milling, 2),
+            "rice_delivered": round(deliv_prog, 2),
+            "expected_rice": expected_rice_from_milling_prog,
+        },
+        "book_balance": {
+            "paddy": book_balance_paddy,
+            "rice": book_balance_rice,
+        },
+        "settings": {
+            "units_per_qtl": units_per_qtl,
+            "rice_recovery": rice_recovery,
+        }
+    }
+
+
 @router.get("/govt-registers/milling-register/excel")
 async def export_milling_register_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
     from io import BytesIO
