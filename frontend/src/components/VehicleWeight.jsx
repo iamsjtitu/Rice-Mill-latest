@@ -58,31 +58,52 @@ function useRealScale() {
   return { weight, stable, running: connected, connected, scheduleNext };
 }
 
-/* ─── LAN Scale (Poll weight from desktop API over network) ─── */
+/* ─── LAN Scale (Poll weight from Desktop App API — either default backend or custom weighbridge_host) ─── */
 function useLanScale() {
   const [weight, setWeight] = useState(0);
   const [stable, setStable] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [wbHost, setWbHost] = useState("");
+
+  // Fetch weighbridge_host once at mount — allows pointing to a specific Desktop App's IP (e.g. http://192.168.1.10:9000)
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const r = await fetch(`${API}/settings/weighbridge-host`);
+        if (r.ok && active) {
+          const d = await r.json();
+          setWbHost((d.url || d.value || "").trim());
+        }
+      } catch {}
+    })();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     let active = true;
     const poll = async () => {
       try {
-        const r = await fetch(`${API}/weighbridge/live-weight`);
+        // If weighbridge_host is set, hit `${wbHost}/api/weighbridge/live-weight` directly (works across networks).
+        // Otherwise fall back to main API (Desktop App's own LAN server).
+        const base = wbHost ? (wbHost.replace(/\/$/, '') + "/api") : API;
+        const r = await fetch(`${base}/weighbridge/live-weight`, { cache: "no-store" });
         if (r.ok && active) {
           const d = await r.json();
           setWeight(d.weight || 0);
           setStable(d.stable || false);
           setConnected(d.connected || false);
+        } else if (active) {
+          setConnected(false);
         }
       } catch (e) { if (active) setConnected(false); }
     };
     poll();
     const iv = setInterval(poll, 500);
     return () => { active = false; clearInterval(iv); };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [wbHost]);
 
-  const scheduleNext = useCallback(() => {}, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const scheduleNext = useCallback(() => {}, []);
   return { weight, stable, running: connected, connected, scheduleNext };
 }
 
@@ -124,15 +145,16 @@ function useSimulatorScale(active = true) {
   return { weight, stable, running, scheduleNext, startMeasure };
 }
 
-/* ─── Auto-select: Real scale in Electron, LAN poll over network, Simulator in Web ─── */
+/* ─── Auto-select: Real scale in Electron, LAN poll over network (local + remote), Simulator in Web ─── */
 function useLiveScale() {
   const isElectronApp = _isElectron && window.electronAPI?.serialGetStatus;
-  const isLanBrowser = _isElectron && !window.electronAPI;
   const real = useRealScale();
   const lan = useLanScale();
-  const sim = useSimulatorScale(!isElectronApp && !isLanBrowser);
+  // If LAN poll is connected (weighbridge reachable via configured host or direct API), prefer it.
+  // Simulator runs only when neither Electron real nor LAN is connected.
+  const sim = useSimulatorScale(!isElectronApp && !lan.connected);
   if (isElectronApp) return real;
-  if (isLanBrowser) return lan;
+  if (lan.connected) return lan;
   return sim;
 }
 
