@@ -318,8 +318,8 @@ export const DCEntries = ({ filters, user }) => {
                       <TableRow key={d.id} className="border-slate-700" data-testid={`delivery-row-${d.id}`}>
                         <TableCell className="text-slate-200 text-[11px] py-1">{fmtDate(d.date)}</TableCell>
                         <TableCell className="text-sky-300 text-[11px] py-1 font-semibold">{d.fci_lot_no || '-'}</TableCell>
-                        <TableCell className="text-slate-300 text-[11px] py-1">{d.contract_no || '-'}</TableCell>
-                        <TableCell className="text-slate-300 text-[11px] py-1">{d.party_name || '-'}</TableCell>
+                        <TableCell className="text-slate-300 text-[11px] py-1 whitespace-nowrap">{d.contract_no || '-'}</TableCell>
+                        <TableCell className="text-slate-300 text-[11px] py-1 whitespace-nowrap">{d.party_name || '-'}</TableCell>
                         <TableCell className="text-slate-300 text-[11px] py-1">{d.rst_no || '-'}</TableCell>
                         <TableCell className="text-slate-300 text-[11px] py-1">{d.vehicle_no || '-'}</TableCell>
                         <TableCell className="text-slate-400 text-[11px] py-1">{d.driver_name || '-'}</TableCell>
