@@ -8,6 +8,24 @@ const router = express.Router();
 // PUBLIC — called by customer desktop-apps (no super admin auth)
 // ================================================================
 
+// GET /api/license/lookup/:key — read-only preview (shows mill name without activating)
+router.get('/lookup/:key', (req, res) => {
+  const upperKey = String(req.params.key || '').trim().toUpperCase();
+  // Skip strict format check — DB lookup is source of truth (admin can create keys with any format via custom_key)
+  const data = db.getData();
+  const lic = data.licenses.find(l => l.key === upperKey);
+  if (!lic) return res.status(404).json({ error: 'License key not found' });
+  if (lic.status !== 'active') return res.status(403).json({ error: `License is ${lic.status}` });
+  if (lic.expires_at && new Date(lic.expires_at) < new Date()) return res.status(403).json({ error: 'License expired' });
+  res.json({
+    customer_name: lic.customer_name,
+    mill_name: lic.mill_name,
+    plan: lic.plan,
+    expires_at: lic.expires_at,
+    is_master: !!lic.is_master,
+  });
+});
+
 // POST /api/license/activate
 // Body: { key, machine_fingerprint, pc_info }
 // Flow: Loose binding — any NEW fingerprint replaces the old active machine (previous PC gets kicked off)
@@ -16,7 +34,7 @@ router.post('/activate', (req, res) => {
   if (!key || !machine_fingerprint) return res.status(400).json({ error: 'key and machine_fingerprint required' });
 
   const upperKey = String(key).trim().toUpperCase();
-  if (!verifyLicenseFormat(upperKey)) return res.status(400).json({ error: 'Invalid license key format' });
+  // Skip strict format check — DB lookup is source of truth (admin can create keys with any format via custom_key)
 
   const data = db.getData();
   const lic = data.licenses.find(l => l.key === upperKey);

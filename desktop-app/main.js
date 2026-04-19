@@ -2815,6 +2815,14 @@ function createActivationWindow(errorMessage) {
 // IPC for Activation window
 ipcMain.handle('license:pc-info', () => licenseManager.getPcInfo());
 ipcMain.handle('license:last-error', () => lastLicenseError);
+ipcMain.handle('license:lookup', async (event, key) => {
+  try {
+    const data = await licenseManager.lookupLicense(key);
+    return { ok: true, data };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
 ipcMain.handle('license:activate', async (event, key) => {
   try {
     const cache = await licenseManager.activateLicense(key);

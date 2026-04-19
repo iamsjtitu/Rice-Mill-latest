@@ -64,6 +64,21 @@
     .error { color: var(--revoked); font-size: 13px; margin-top: 14px; text-align: center; min-height: 18px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.02em; }
     .success { color: var(--active); font-size: 13px; margin-top: 14px; text-align: center; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.02em; }
 
+    .lookup-preview {
+      margin-top: 18px; padding: 16px 18px; background: linear-gradient(135deg, rgba(5,150,105,0.06), rgba(5,150,105,0.02));
+      border: 1px solid rgba(5,150,105,0.22); border-radius: 12px;
+      display: flex; align-items: center; gap: 14px;
+      animation: slide-in .25s cubic-bezier(.22,.61,.36,1);
+    }
+    .lookup-check { width: 32px; height: 32px; background: var(--active); color: #fff; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; flex-shrink: 0; box-shadow: 0 0 16px rgba(5,150,105,0.35); }
+    .lookup-text { flex: 1; min-width: 0; }
+    .lookup-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.22em; color: var(--active); font-weight: 600; }
+    .lookup-mill { font-size: 15px; font-weight: 700; margin-top: 2px; letter-spacing: -0.01em; color: var(--text); }
+    .lookup-customer { font-size: 12px; color: var(--text-2); margin-top: 1px; }
+    .lookup-plan { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.15em; color: var(--text); padding: 4px 10px; background: rgba(5,150,105,0.12); border: 1px solid rgba(5,150,105,0.25); border-radius: 20px; text-transform: uppercase; font-weight: 600; flex-shrink: 0; }
+
+    @keyframes slide-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
     .footnote { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); text-align: center; }
     .footnote p { color: var(--text-3); font-size: 12px; line-height: 1.6; }
     .footnote strong { color: var(--text); font-weight: 600; }
@@ -103,6 +118,16 @@
           <span class="btn-arrow">→</span>
         </button>
 
+        <div id="lookup-preview" class="lookup-preview" style="display:none">
+          <div class="lookup-check">✓</div>
+          <div class="lookup-text">
+            <div class="lookup-label">LICENSED TO</div>
+            <div class="lookup-mill" id="lookup-mill">—</div>
+            <div class="lookup-customer" id="lookup-customer">—</div>
+          </div>
+          <div class="lookup-plan" id="lookup-plan">—</div>
+        </div>
+
         <div id="status-msg" class="error"></div>
       </form>
 
@@ -127,12 +152,44 @@
     }).catch(() => {});
 
     // Auto-format: uppercase + dashes
+    const preview = document.getElementById('lookup-preview');
+    const lookupMill = document.getElementById('lookup-mill');
+    const lookupCustomer = document.getElementById('lookup-customer');
+    const lookupPlan = document.getElementById('lookup-plan');
+    let lookupTimer = null;
+    let lastLookupKey = '';
+
+    const KEY_PATTERN = /^9X-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+
     input.addEventListener('input', (e) => {
       let val = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
-      // Auto-insert dashes after every 4 chars (max 4 segments after 9X-)
-      const parts = val.split('-');
-      // If user is typing cleanly in 4-char chunks, just uppercase
       e.target.value = val;
+      // Reset preview when user edits
+      preview.style.display = 'none';
+      statusMsg.textContent = '';
+
+      // Schedule lookup if key looks complete
+      if (lookupTimer) clearTimeout(lookupTimer);
+      if (KEY_PATTERN.test(val) && val !== lastLookupKey) {
+        lookupTimer = setTimeout(async () => {
+          lastLookupKey = val;
+          try {
+            const res = await ipcRenderer.invoke('license:lookup', val);
+            if (res.ok && res.data) {
+              lookupMill.textContent = res.data.mill_name || 'Unknown Mill';
+              lookupCustomer.textContent = res.data.customer_name || '';
+              const planMap = { lifetime: 'Lifetime', yearly: 'Yearly', trial: 'Trial' };
+              lookupPlan.textContent = planMap[res.data.plan] || res.data.plan;
+              preview.style.display = 'flex';
+              statusMsg.className = 'success';
+              statusMsg.textContent = '✓ Key verified · click Activate to finish';
+            } else {
+              statusMsg.className = 'error';
+              statusMsg.textContent = res.error || 'Key not found';
+            }
+          } catch (e2) { /* silent — user will see error on Activate */ }
+        }, 500);
+      }
     });
 
     input.focus();

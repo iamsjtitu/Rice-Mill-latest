@@ -156,7 +156,46 @@ function httpPost(urlStr, body, timeoutMs = 10000) {
   });
 }
 
+function httpGet(urlStr, timeoutMs = 10000) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(urlStr);
+    const isHttps = u.protocol === 'https:';
+    const lib = isHttps ? https : http;
+    const req = lib.request({
+      method: 'GET',
+      hostname: u.hostname,
+      port: u.port || (isHttps ? 443 : 80),
+      path: u.pathname + u.search,
+      timeout: timeoutMs,
+    }, (res) => {
+      let chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => {
+        const text = Buffer.concat(chunks).toString('utf8');
+        try {
+          const json = JSON.parse(text);
+          if (res.statusCode >= 200 && res.statusCode < 300) resolve(json);
+          else reject(new Error(json.error || `HTTP ${res.statusCode}`));
+        } catch (e) { reject(new Error('Invalid response')); }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(new Error('Timeout')); });
+    req.end();
+  });
+}
+
 // ====== Public API ======
+
+/**
+ * Lookup a license key (read-only preview) — returns mill name / customer / plan
+ * without activating. Used by activation UI to show "Activating for: X" before commit.
+ */
+async function lookupLicense(key) {
+  if (!key || !key.trim()) throw new Error('License key required');
+  const cleanKey = key.trim().toUpperCase();
+  return httpGet(LICENSE_SERVER_URL + '/api/license/lookup/' + encodeURIComponent(cleanKey), 6000);
+}
 
 /**
  * Check license status at startup.
@@ -282,6 +321,7 @@ module.exports = {
   getMachineFingerprint,
   getPcInfo,
   checkLicenseOnStartup,
+  lookupLicense,
   activateLicense,
   sendHeartbeat,
   startBackgroundHeartbeat,

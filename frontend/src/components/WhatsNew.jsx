@@ -12,6 +12,7 @@ const CHANGELOG = [
     title: "v104.25.0 - License Activation System (Desktop-app Enforcement)",
     items: [
       { type: "new", text: "🔐 Desktop-app ab admin.9x.design ke central license server se validate hoti hai — key format 9X-XXXX-XXXX-XXXX-XXXX" },
+      { type: "new", text: "✨ Activation screen pe live key preview — key type karte hi 'Licensed To: Shri Ram Agro · Lifetime' dikh jaata hai, customer confidence badhata hai" },
       { type: "new", text: "🎨 Premium light-theme Activation Window jab license nahi ho ya expired ho — same aesthetic jaise admin dashboard" },
       { type: "new", text: "🖥️ Machine fingerprint (MAC+hostname+CPU hash) based loose binding — ek license ek active PC, naye PC pe activate karne se purane ko auto-kick off" },
       { type: "new", text: "📅 30-day offline grace — agar internet band ho customer ke paas, license 30 din tak kaam karegi locally" },
