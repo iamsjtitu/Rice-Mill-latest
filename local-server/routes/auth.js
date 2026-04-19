@@ -569,12 +569,17 @@ module.exports = function(database) {
   router.get('/api/settings/verification-meter', safeSync(async (req, res) => {
     const settings = database.data.app_settings || [];
     const s = settings.find(x => x.setting_id === 'verification_meter');
-    if (!s) return res.json({ last_meter_reading: 0, last_verification_date: '', units_per_qtl: 6.0, rice_recovery: 0.67 });
+    if (!s) return res.json({ last_meter_reading: 0, last_verification_date: '', units_per_qtl: 6.0, rice_recovery: 0.67,
+                              electricity_kw: 0, electricity_kv: 0, milling_capacity_mt: 0, variety: 'Boiled' });
     res.json({
       last_meter_reading: +(s.last_meter_reading || 0),
       last_verification_date: s.last_verification_date || '',
       units_per_qtl: +(s.units_per_qtl || 6.0),
       rice_recovery: +(s.rice_recovery || 0.67),
+      electricity_kw: +(s.electricity_kw || 0),
+      electricity_kv: +(s.electricity_kv || 0),
+      milling_capacity_mt: +(s.milling_capacity_mt || 0),
+      variety: s.variety || 'Boiled',
     });
   }));
 
@@ -587,6 +592,10 @@ module.exports = function(database) {
       last_verification_date: String(d.last_verification_date || ''),
       units_per_qtl: +(d.units_per_qtl || 6.0),
       rice_recovery: +(d.rice_recovery || 0.67),
+      electricity_kw: +(d.electricity_kw || 0),
+      electricity_kv: +(d.electricity_kv || 0),
+      milling_capacity_mt: +(d.milling_capacity_mt || 0),
+      variety: String(d.variety || 'Boiled'),
       updated_at: new Date().toISOString(),
     };
     const idx = database.data.app_settings.findIndex(x => x.setting_id === 'verification_meter');

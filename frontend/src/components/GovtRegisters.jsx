@@ -1044,7 +1044,7 @@ export function MillingRegister({ filters, user }) {
   const [releaseStock, setReleaseStock] = useState(null);
   const [isReleaseOpen, setIsReleaseOpen] = useState(false);
   const [editingRelId, setEditingRelId] = useState(null);
-  const [relForm, setRelForm] = useState({ date: new Date().toISOString().split("T")[0], qty_qtl: "", ro_number: "", kms_year: "", season: "" });
+  const [relForm, setRelForm] = useState({ date: new Date().toISOString().split("T")[0], qty_qtl: "", ro_number: "", agency: "OSCSC_OWN", kms_year: "", season: "" });
   const showConfirm = useConfirm();
 
   // ======= Verification Report State =======
@@ -1057,6 +1057,10 @@ export function MillingRegister({ filters, user }) {
     last_meter_reading: 0,
     units_per_qtl: 6,
     rice_recovery: 0.67,
+    variety: "Boiled",
+    electricity_kw: 0,
+    electricity_kv: 0,
+    milling_capacity_mt: 0,
   });
   const [vrSavedMeter, setVrSavedMeter] = useState(0);
 
@@ -1073,6 +1077,10 @@ export function MillingRegister({ filters, user }) {
           from_date: d.last_verification_date || prev.from_date,
           units_per_qtl: +(d.units_per_qtl || 6),
           rice_recovery: +(d.rice_recovery || 0.67),
+          variety: d.variety || "Boiled",
+          electricity_kw: +(d.electricity_kw || 0),
+          electricity_kv: +(d.electricity_kv || 0),
+          milling_capacity_mt: +(d.milling_capacity_mt || 0),
         }));
       } catch (e) { logger.error(e); }
     })();
@@ -1081,6 +1089,19 @@ export function MillingRegister({ filters, user }) {
   const fetchVerification = async () => {
     if (!vrForm.from_date || !vrForm.to_date) { toast.error("From & To date chahiye"); return; }
     if (vrForm.from_date >= vrForm.to_date) { toast.error("From date To se pehle honi chahiye"); return; }
+    // Auto-save electricity/capacity + variety before generating (so next time it persists)
+    try {
+      await axios.put(`${API}/settings/verification-meter`, {
+        last_meter_reading: vrForm.last_meter_reading || 0,
+        last_verification_date: vrForm.from_date,
+        units_per_qtl: vrForm.units_per_qtl,
+        rice_recovery: vrForm.rice_recovery,
+        variety: vrForm.variety,
+        electricity_kw: vrForm.electricity_kw,
+        electricity_kv: vrForm.electricity_kv,
+        milling_capacity_mt: vrForm.milling_capacity_mt,
+      });
+    } catch (e) { logger.error(e); }
     setVrLoading(true);
     try {
       const params = new URLSearchParams();
@@ -1091,7 +1112,8 @@ export function MillingRegister({ filters, user }) {
       params.append("last_meter_reading", String(vrForm.last_meter_reading || 0));
       params.append("units_per_qtl", String(vrForm.units_per_qtl || 6));
       params.append("rice_recovery", String(vrForm.rice_recovery || 0.67));
-      const res = await axios.get(`${API}/govt-registers/verification-report?${params}`);
+      params.append("variety", vrForm.variety || "Boiled");
+      const res = await axios.get(`${API}/govt-registers/verification-report/full?${params}`);
       setVr(res.data);
     } catch (e) { logger.error(e); toast.error("Verification report error"); }
     setVrLoading(false);
@@ -1100,17 +1122,39 @@ export function MillingRegister({ filters, user }) {
   const saveVerificationMeter = async () => {
     try {
       // Save current "present meter reading" as next week's "last reading"
-      const nextMeter = vr ? vr.meter.present_reading : vrForm.last_meter_reading;
+      const nextMeter = vr ? vr.header.meter.present_reading : vrForm.last_meter_reading;
       const nextDate = vrForm.to_date;
       await axios.put(`${API}/settings/verification-meter`, {
         last_meter_reading: nextMeter,
         last_verification_date: nextDate,
         units_per_qtl: vrForm.units_per_qtl,
         rice_recovery: vrForm.rice_recovery,
+        variety: vrForm.variety,
+        electricity_kw: vrForm.electricity_kw,
+        electricity_kv: vrForm.electricity_kv,
+        milling_capacity_mt: vrForm.milling_capacity_mt,
       });
       setVrSavedMeter(+nextMeter);
       toast.success(`Saved! Next week default: Meter ${nextMeter}, From ${nextDate}`);
     } catch (e) { toast.error(e.response?.data?.detail || "Save error"); }
+  };
+
+  const downloadVerificationPdf = async () => {
+    if (!vrForm.from_date || !vrForm.to_date) { toast.error("Pehle Generate karein"); return; }
+    try {
+      const params = new URLSearchParams();
+      if (filters.kms_year) params.append("kms_year", filters.kms_year);
+      if (filters.season) params.append("season", filters.season);
+      params.append("from_date", vrForm.from_date);
+      params.append("to_date", vrForm.to_date);
+      params.append("last_meter_reading", String(vrForm.last_meter_reading || 0));
+      params.append("units_per_qtl", String(vrForm.units_per_qtl || 6));
+      params.append("rice_recovery", String(vrForm.rice_recovery || 0.67));
+      params.append("variety", vrForm.variety || "Boiled");
+      const { downloadFile } = await import('../utils/download');
+      downloadFile(`/api/govt-registers/verification-report/pdf?${params}`, `Verification_Report_${vrForm.to_date}.pdf`);
+      toast.success("PDF downloaded!");
+    } catch (e) { toast.error("PDF download failed"); }
   };
 
   const fetchData = useCallback(async () => {
@@ -1142,12 +1186,12 @@ export function MillingRegister({ filters, user }) {
 
   const openNewRelease = () => {
     setEditingRelId(null);
-    setRelForm({ date: new Date().toISOString().split("T")[0], qty_qtl: "", ro_number: "", kms_year: filters.kms_year || "", season: filters.season || "" });
+    setRelForm({ date: new Date().toISOString().split("T")[0], qty_qtl: "", ro_number: "", agency: "OSCSC_OWN", kms_year: filters.kms_year || "", season: filters.season || "" });
     setIsReleaseOpen(true);
   };
   const openEditRelease = (r) => {
     setEditingRelId(r.id);
-    setRelForm({ date: r.date || "", qty_qtl: String(r.qty_qtl || ""), ro_number: r.ro_number || "", kms_year: r.kms_year || "", season: r.season || "" });
+    setRelForm({ date: r.date || "", qty_qtl: String(r.qty_qtl || ""), ro_number: r.ro_number || "", agency: r.agency || "OSCSC_OWN", kms_year: r.kms_year || "", season: r.season || "" });
     setIsReleaseOpen(true);
   };
   const handleRelSubmit = async (e) => {
@@ -1233,6 +1277,7 @@ export function MillingRegister({ filters, user }) {
                 <thead><tr className="border-b border-slate-300 dark:border-slate-600">
                   <th className="text-left py-1 px-2 text-slate-600 dark:text-slate-400">Date</th>
                   <th className="text-left py-1 px-2 text-slate-600 dark:text-slate-400">RO Number</th>
+                  <th className="text-left py-1 px-2 text-slate-600 dark:text-slate-400">Agency</th>
                   <th className="text-right py-1 px-2 text-slate-600 dark:text-slate-400">Qty (Qtl)</th>
                   <th className="py-1 px-1 w-[60px]"></th>
                 </tr></thead>
@@ -1241,6 +1286,7 @@ export function MillingRegister({ filters, user }) {
                     <tr key={r.id} className="border-b border-slate-200 dark:border-slate-700/50 hover:bg-blue-50/50 dark:hover:bg-slate-700/30">
                       <td className="py-1 px-2 text-slate-800 dark:text-white">{fmtD(r.date)}</td>
                       <td className="py-1 px-2 text-teal-700 dark:text-cyan-400 font-medium">{r.ro_number}</td>
+                      <td className="py-1 px-2 text-slate-600 dark:text-slate-300">{({OSCSC_OWN:'OSCSC (OWN)',OSCSC_KORAPUT:'OSCSC (Koraput)',NAFED:'NAFED',TDCC:'TDCC',LEVY:'Levy A/c'}[r.agency||'OSCSC_OWN'])}</td>
                       <td className="py-1 px-2 text-right text-amber-600 dark:text-amber-400 font-bold">{(r.qty_qtl || 0).toLocaleString()}</td>
                       <td className="py-1 px-1">
                         <div className="flex gap-0.5">
@@ -1269,6 +1315,14 @@ export function MillingRegister({ filters, user }) {
               <p className="text-[9px] text-slate-500 mt-0.5">TP Stock Available: <span className="text-green-400">{tpAfterRelease.toLocaleString()} Qtl</span></p></div>
             <div><Label className="text-[10px] text-slate-400">RO Number</Label>
               <Input value={relForm.ro_number} onChange={e => setRelForm(p => ({ ...p, ro_number: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-xs" /></div>
+            <div><Label className="text-[10px] text-slate-400">Agency *</Label>
+              <select value={relForm.agency || "OSCSC_OWN"} onChange={e => setRelForm(p => ({ ...p, agency: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-xs w-full rounded px-2" data-testid="paddy-release-agency">
+                <option value="OSCSC_OWN">OSCSC (OWN)</option>
+                <option value="OSCSC_KORAPUT">OSCSC (Koraput)</option>
+                <option value="NAFED">NAFED</option>
+                <option value="TDCC">TDCC</option>
+                <option value="LEVY">Levy A/c</option>
+              </select></div>
             <Button type="submit" className="bg-amber-500 hover:bg-amber-600 text-slate-900 w-full">{editingRelId ? "Update" : "Release Paddy"}</Button>
           </form>
         </DialogContent>
@@ -1344,15 +1398,20 @@ export function MillingRegister({ filters, user }) {
                     {vrLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />} Generate
                   </Button>
                   {vr && (
-                    <Button onClick={() => window.print()} variant="outline" size="sm" className="h-7 text-[10px]" data-testid="vr-print-btn">
-                      <FileText className="w-3 h-3 mr-1" /> Print
-                    </Button>
+                    <>
+                      <Button onClick={downloadVerificationPdf} size="sm" className="bg-red-600 hover:bg-red-700 text-white h-7 text-[10px]" data-testid="vr-pdf-btn">
+                        <Download className="w-3 h-3 mr-1" /> PDF (Annexure-1)
+                      </Button>
+                      <Button onClick={() => window.print()} variant="outline" size="sm" className="h-7 text-[10px]" data-testid="vr-print-btn">
+                        <FileText className="w-3 h-3 mr-1" /> Print
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>
 
-              {/* Input Controls */}
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 p-2 rounded bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700">
+              {/* Input Controls: Dates + Meter + Capacity */}
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-2 p-2 rounded bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700">
                 <div>
                   <Label className="text-[10px] text-slate-500">Previous Verification Date</Label>
                   <Input type="date" value={vrForm.from_date} onChange={e => setVrForm(p => ({ ...p, from_date: e.target.value }))} className="h-7 text-xs" data-testid="vr-from-date" />
@@ -1366,120 +1425,42 @@ export function MillingRegister({ filters, user }) {
                   <Input type="number" step="0.01" value={vrForm.last_meter_reading} onChange={e => setVrForm(p => ({ ...p, last_meter_reading: +e.target.value || 0 }))} className="h-7 text-xs" data-testid="vr-last-meter" />
                 </div>
                 <div>
-                  <Label className="text-[10px] text-slate-500">Units / Quintal</Label>
+                  <Label className="text-[10px] text-slate-500">2b. Variety</Label>
+                  <select value={vrForm.variety} onChange={e => setVrForm(p => ({ ...p, variety: e.target.value }))} className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2 h-7 text-xs w-full" data-testid="vr-variety">
+                    <option value="Boiled">Boiled</option>
+                    <option value="Raw">Raw</option>
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-[10px] text-slate-500">Units / Qtl</Label>
                   <Input type="number" step="0.1" value={vrForm.units_per_qtl} onChange={e => setVrForm(p => ({ ...p, units_per_qtl: +e.target.value || 0 }))} className="h-7 text-xs" data-testid="vr-units-per-qtl" />
                 </div>
                 <div>
                   <Label className="text-[10px] text-slate-500">Rice Recovery %</Label>
                   <Input type="number" step="0.01" value={vrForm.rice_recovery} onChange={e => setVrForm(p => ({ ...p, rice_recovery: +e.target.value || 0 }))} className="h-7 text-xs" data-testid="vr-rice-recovery" />
                 </div>
+                <div>
+                  <Label className="text-[10px] text-slate-500">4a. Electricity Contract (KW)</Label>
+                  <Input type="number" step="0.01" value={vrForm.electricity_kw} onChange={e => setVrForm(p => ({ ...p, electricity_kw: +e.target.value || 0 }))} className="h-7 text-xs" data-testid="vr-elec-kw" />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-slate-500">4a. Contract (KV)</Label>
+                  <Input type="number" step="0.01" value={vrForm.electricity_kv} onChange={e => setVrForm(p => ({ ...p, electricity_kv: +e.target.value || 0 }))} className="h-7 text-xs" data-testid="vr-elec-kv" />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-slate-500">1d. Milling Capacity (MT)</Label>
+                  <Input type="number" step="0.01" value={vrForm.milling_capacity_mt} onChange={e => setVrForm(p => ({ ...p, milling_capacity_mt: +e.target.value || 0 }))} className="h-7 text-xs" data-testid="vr-mill-cap" />
+                </div>
               </div>
 
               {!vr && !vrLoading && (
                 <div className="text-center py-8 text-xs text-slate-500">
-                  Dates select karke <span className="text-amber-600 font-semibold">Generate</span> pe click karein
+                  Dates + settings enter karke <span className="text-amber-600 font-semibold">Generate</span> pe click karein
                 </div>
               )}
               {vrLoading && <div className="text-center py-6"><Loader2 className="w-6 h-6 mx-auto animate-spin text-amber-500" /></div>}
 
-              {vr && (
-                <div className="space-y-3">
-                  {/* Meter Section (4b, 4c, 4d) */}
-                  <Card className="border border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20">
-                    <CardContent className="p-3">
-                      <h5 className="text-xs font-bold text-blue-700 dark:text-blue-400 mb-2">4. Electricity Metre Reading</h5>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="p-2 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                          <p className="text-[10px] text-slate-500">4b. Last Reading</p>
-                          <p className="text-lg font-bold text-slate-700 dark:text-slate-200" data-testid="vr-4b-last">{vr.meter.last_reading.toLocaleString()}</p>
-                          <p className="text-[9px] text-slate-400">units</p>
-                        </div>
-                        <div className="p-2 rounded bg-white dark:bg-slate-800 border border-blue-300 dark:border-blue-700">
-                          <p className="text-[10px] text-slate-500">4c. Present Reading</p>
-                          <p className="text-lg font-bold text-blue-700 dark:text-blue-400" data-testid="vr-4c-present">{vr.meter.present_reading.toLocaleString()}</p>
-                          <p className="text-[9px] text-slate-400">= 4b + 4d</p>
-                        </div>
-                        <div className="p-2 rounded bg-white dark:bg-slate-800 border border-orange-300 dark:border-orange-700">
-                          <p className="text-[10px] text-slate-500">4d. Units Consumed</p>
-                          <p className="text-lg font-bold text-orange-600 dark:text-amber-400" data-testid="vr-4d-units">{vr.meter.units_consumed.toLocaleString()}</p>
-                          <p className="text-[9px] text-slate-400">Paddy Milled × {vr.meter.units_per_qtl}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Weekly vs Progressive Table */}
-                  <Card className="border">
-                    <CardContent className="p-0 overflow-x-auto">
-                      <table className="w-full text-xs" data-testid="vr-totals-table">
-                        <thead>
-                          <tr className="bg-slate-100 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700">
-                            <th className="text-left py-2 px-3 font-bold text-slate-700 dark:text-slate-200">Particulars</th>
-                            <th className="text-right py-2 px-3 font-bold text-slate-700 dark:text-slate-200">This Week (Qtl)</th>
-                            <th className="text-right py-2 px-3 font-bold text-slate-700 dark:text-slate-200">Progressive (Qtl)</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr className="border-b border-slate-200 dark:border-slate-700/50 hover:bg-blue-50/40 dark:hover:bg-slate-800/40">
-                            <td className="py-1.5 px-3 text-slate-700 dark:text-slate-300">1. Paddy Released (CM A/c)</td>
-                            <td className="py-1.5 px-3 text-right text-blue-700 dark:text-blue-400 font-semibold">{vr.weekly.paddy_received.toLocaleString()}</td>
-                            <td className="py-1.5 px-3 text-right text-blue-700 dark:text-blue-400 font-semibold">{vr.progressive.paddy_received.toLocaleString()}</td>
-                          </tr>
-                          <tr className="border-b border-slate-200 dark:border-slate-700/50 hover:bg-blue-50/40 dark:hover:bg-slate-800/40">
-                            <td className="py-1.5 px-3 text-slate-700 dark:text-slate-300">2. Paddy Milled</td>
-                            <td className="py-1.5 px-3 text-right text-orange-600 dark:text-amber-400 font-semibold">{vr.weekly.paddy_milled.toLocaleString()}</td>
-                            <td className="py-1.5 px-3 text-right text-orange-600 dark:text-amber-400 font-semibold">{vr.progressive.paddy_milled.toLocaleString()}</td>
-                          </tr>
-                          <tr className="border-b border-slate-200 dark:border-slate-700/50 hover:bg-blue-50/40 dark:hover:bg-slate-800/40">
-                            <td className="py-1.5 px-3 text-slate-700 dark:text-slate-300">3. Rice Produced (Actual)</td>
-                            <td className="py-1.5 px-3 text-right text-green-700 dark:text-emerald-400 font-semibold">{vr.weekly.rice_produced.toLocaleString()}</td>
-                            <td className="py-1.5 px-3 text-right text-green-700 dark:text-emerald-400 font-semibold">{vr.progressive.rice_produced.toLocaleString()}</td>
-                          </tr>
-                          <tr className="border-b border-slate-200 dark:border-slate-700/50 bg-emerald-50/40 dark:bg-emerald-950/10">
-                            <td className="py-1.5 px-3 text-slate-600 dark:text-slate-400 text-[11px] italic">   Expected Rice ({(vr.settings.rice_recovery * 100).toFixed(0)}% recovery)</td>
-                            <td className="py-1.5 px-3 text-right text-emerald-600 dark:text-emerald-400 text-[11px]">{vr.weekly.expected_rice.toLocaleString()}</td>
-                            <td className="py-1.5 px-3 text-right text-emerald-600 dark:text-emerald-400 text-[11px]">{vr.progressive.expected_rice.toLocaleString()}</td>
-                          </tr>
-                          <tr className="border-b border-slate-200 dark:border-slate-700/50 hover:bg-blue-50/40 dark:hover:bg-slate-800/40">
-                            <td className="py-1.5 px-3 text-slate-700 dark:text-slate-300">4. Rice Delivered (FCI/RRC)</td>
-                            <td className="py-1.5 px-3 text-right text-purple-700 dark:text-purple-400 font-semibold">{vr.weekly.rice_delivered.toLocaleString()}</td>
-                            <td className="py-1.5 px-3 text-right text-purple-700 dark:text-purple-400 font-semibold">{vr.progressive.rice_delivered.toLocaleString()}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </CardContent>
-                  </Card>
-
-                  {/* Book Balance */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <Card className="border border-orange-300 dark:border-orange-700/50 bg-orange-50/40 dark:bg-orange-950/20">
-                      <CardContent className="p-3 text-center">
-                        <p className="text-[10px] text-slate-500">5. Book Balance of Paddy</p>
-                        <p className="text-xl font-bold text-orange-700 dark:text-amber-400" data-testid="vr-bb-paddy">{vr.book_balance.paddy.toLocaleString()} <span className="text-xs text-slate-400">Qtl</span></p>
-                        <p className="text-[10px] text-slate-400">= Released − Milled (Progressive)</p>
-                      </CardContent>
-                    </Card>
-                    <Card className="border border-teal-300 dark:border-teal-700/50 bg-teal-50/40 dark:bg-teal-950/20">
-                      <CardContent className="p-3 text-center">
-                        <p className="text-[10px] text-slate-500">6. Book Balance of Rice</p>
-                        <p className="text-xl font-bold text-teal-700 dark:text-cyan-400" data-testid="vr-bb-rice">{vr.book_balance.rice.toLocaleString()} <span className="text-xs text-slate-400">Qtl</span></p>
-                        <p className="text-[10px] text-slate-400">= Produced − Delivered (Progressive)</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Save as Default */}
-                  <div className="flex items-center justify-between p-2 rounded bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50">
-                    <div>
-                      <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Next week ke liye save karein?</p>
-                      <p className="text-[10px] text-slate-500">Present Reading ({vr.meter.present_reading}) aur Date ({vr.period.to_date}) ko default banaye</p>
-                    </div>
-                    <Button onClick={saveVerificationMeter} size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900 h-7 text-[10px]" data-testid="vr-save-meter-btn">
-                      Save as Default
-                    </Button>
-                  </div>
-                </div>
-              )}
+              {vr && <AnnexureOneView vr={vr} onSaveMeter={saveVerificationMeter} />}
             </CardContent>
           </Card>
         </TabsContent>
@@ -1829,6 +1810,215 @@ function SecurityDepositManager({ filters, user }) {
 }
 
 // ============ HELPER COMPONENTS ============
+// ============ ANNEXURE-1 VIEW (exact FCI format table) ============
+const AGENCY_LABELS = {
+  OSCSC_OWN: "OSCSC(OWN)",
+  OSCSC_KORAPUT: "OSCSC(Koraput)",
+  NAFED: "NAFED",
+  TDCC: "TDCC",
+  LEVY: "Levy A/c",
+};
+const RICE_LABELS = { RRC: "RRC", FCI: "FCI", RRC_FRK: "RRC FRK", FCI_FRK: "FCI FRK" };
+
+function NumCell({ v, bold = false, colored = false }) {
+  const val = Number(v || 0);
+  const cls = `border border-slate-400 dark:border-slate-600 px-2 py-1 text-right text-[11px] ${bold ? 'font-bold' : ''} ${colored && val !== 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-800 dark:text-slate-200'}`;
+  return <td className={cls}>{val.toFixed(val === Math.round(val) ? 2 : 2)}</td>;
+}
+function TxtCell({ children, className = "" }) {
+  return <td className={`border border-slate-400 dark:border-slate-600 px-2 py-1 text-[11px] ${className}`}>{children}</td>;
+}
+
+function AnnexureOneView({ vr, onSaveMeter }) {
+  const fmtD = d => { if (!d) return ''; const p = String(d).split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0].slice(2)}` : d; };
+  const h = vr.header || {};
+  const ag = vr.agencies || [];
+  const rc = vr.rice_cols || [];
+  const P = vr.paddy || {};
+  const R = vr.rice || {};
+
+  const renderPaddyRow = (sl, label, key, colored = false) => {
+    const row = P[key] || { by_agency: {}, total: 0 };
+    return (
+      <tr>
+        <TxtCell className="text-center font-bold">{sl}</TxtCell>
+        <TxtCell>{label}</TxtCell>
+        {ag.map(a => <NumCell key={a} v={row.by_agency?.[a]} colored={colored} />)}
+        <NumCell v={row.total} bold colored={colored} />
+      </tr>
+    );
+  };
+  const renderRiceRow = (sl, label, key, colored = false) => {
+    const row = R[key] || { by_col: {}, total: 0 };
+    return (
+      <tr>
+        <TxtCell className="text-center font-bold">{sl}</TxtCell>
+        <TxtCell>{label}</TxtCell>
+        {rc.map(c => <NumCell key={c} v={row.by_col?.[c]} colored={colored} />)}
+        <NumCell v={row.total} bold colored={colored} />
+      </tr>
+    );
+  };
+
+  return (
+    <div className="space-y-2 bg-white dark:bg-slate-900 p-3 rounded border border-slate-300 dark:border-slate-700" id="annexure-1-print">
+      {/* Title */}
+      <div className="flex items-center justify-between mb-1">
+        <div className="text-[10px] text-slate-500">0</div>
+        <div className="text-center flex-1">
+          <div className="text-base font-bold underline text-slate-900 dark:text-slate-100">Verification Report of Authorized Officer</div>
+        </div>
+        <div className="text-[10px] text-slate-500">Annexure-1</div>
+      </div>
+
+      {/* Miller Details Table */}
+      <table className="w-full border-collapse text-[11px]" data-testid="vr-header-table">
+        <tbody>
+          <tr>
+            <TxtCell className="w-[16%]"><span className="font-semibold">1a. Miller Name:</span></TxtCell>
+            <TxtCell className="w-[26%]">{h.miller_name || '-'}</TxtCell>
+            <TxtCell className="w-[12%]"><span className="font-semibold">1b. Address:</span></TxtCell>
+            <TxtCell className="w-[18%]">{h.address || '-'}</TxtCell>
+            <TxtCell className="w-[18%]"><span className="font-semibold">4a. Electricity Contract (KW)</span></TxtCell>
+            <TxtCell className="text-center">{h.electricity_kw || 0}</TxtCell>
+            <TxtCell className="text-center w-[10%]">{h.electricity_kv || 0} KV</TxtCell>
+          </tr>
+          <tr>
+            <TxtCell><span className="font-semibold">1c. Miller Code:</span></TxtCell>
+            <TxtCell>{h.miller_code || '-'}</TxtCell>
+            <TxtCell><span className="font-semibold">1d. Milling Capacity:</span></TxtCell>
+            <TxtCell>{h.milling_capacity_mt || 0} MT</TxtCell>
+            <TxtCell><span className="font-semibold">4b. Metre Reading at last verification</span></TxtCell>
+            <TxtCell colSpan={2} className="text-right">{(h.meter?.last_reading || 0).toLocaleString()}</TxtCell>
+          </tr>
+          <tr>
+            <TxtCell><span className="font-semibold">2a. KMS:</span></TxtCell>
+            <TxtCell>{h.kms_year || '-'}</TxtCell>
+            <TxtCell><span className="font-semibold">2b. Variety:</span></TxtCell>
+            <TxtCell>{h.variety || '-'}</TxtCell>
+            <TxtCell><span className="font-semibold">4c. Present Metre Reading</span></TxtCell>
+            <TxtCell colSpan={2} className="text-right text-red-600 dark:text-red-400 font-bold">{(h.meter?.present_reading || 0).toLocaleString()}</TxtCell>
+          </tr>
+          <tr>
+            <TxtCell><span className="font-semibold">3a. Last Verification Date:</span></TxtCell>
+            <TxtCell>{fmtD(h.last_verification_date)}</TxtCell>
+            <TxtCell><span className="font-semibold">3b. Present Verification Date:</span></TxtCell>
+            <TxtCell>{fmtD(h.present_verification_date)}</TxtCell>
+            <TxtCell><span className="font-semibold">4d. Total units Consumed</span></TxtCell>
+            <TxtCell colSpan={2} className="text-right text-red-600 dark:text-red-400 font-bold">{(h.meter?.units_consumed || 0).toLocaleString()}</TxtCell>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* Main Paddy/Rice Table */}
+      <table className="w-full border-collapse text-[11px] mt-2">
+        <thead>
+          <tr className="bg-slate-100 dark:bg-slate-800">
+            <TxtCell className="text-center font-bold w-[6%]">Sl No</TxtCell>
+            <TxtCell className="w-[30%] font-bold">Particulars</TxtCell>
+            {ag.map(a => <TxtCell key={a} className="text-center font-bold">{AGENCY_LABELS[a] || a}</TxtCell>)}
+            <TxtCell className="text-center font-bold">TOTAL</TxtCell>
+          </tr>
+        </thead>
+        <tbody>
+          {/* Paddy Section */}
+          {renderPaddyRow('I', 'Paddy Procured/Received during the week', 'I_week')}
+          {renderPaddyRow('II', 'Prog Paddy Procured/Received till verification date', 'II_prog', true)}
+          {renderPaddyRow('III', 'Paddy Milled during the week', 'III_week')}
+          {renderPaddyRow('IV', 'Progressive paddy milled till verification date', 'IV_prog', true)}
+          {renderPaddyRow('V', 'Book Balance of Paddy Stock (Sl No II-IV)', 'V_book', true)}
+          {renderPaddyRow('VI', 'Verified balance of paddy', 'VI_verified', true)}
+        </tbody>
+      </table>
+
+      {/* Rice Table with different column headers */}
+      <table className="w-full border-collapse text-[11px]">
+        <thead>
+          <tr className="bg-slate-100 dark:bg-slate-800">
+            <TxtCell className="text-center font-bold w-[6%]">Sl No</TxtCell>
+            <TxtCell className="w-[30%] font-bold">Particulars</TxtCell>
+            {ag.map(a => <TxtCell key={a} className="text-center font-bold">{AGENCY_LABELS[a] || a}</TxtCell>)}
+            <TxtCell className="text-center font-bold">TOTAL</TxtCell>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <TxtCell className="text-center font-bold">VII</TxtCell>
+            <TxtCell>Rice received from the milling during the week</TxtCell>
+            {ag.map(a => <NumCell key={a} v={0} />)}
+            <NumCell v={R.VII_week?.total} bold />
+          </tr>
+          <tr>
+            <TxtCell className="text-center font-bold">VIII</TxtCell>
+            <TxtCell>Progressive rice received from milling till date</TxtCell>
+            {ag.map(a => <NumCell key={a} v={0} />)}
+            <NumCell v={R.VIII_prog?.total} bold colored />
+          </tr>
+        </tbody>
+      </table>
+
+      {/* Rice delivery sub-header with RRC/FCI/RRC FRK/FCI FRK columns */}
+      <table className="w-full border-collapse text-[11px]">
+        <thead>
+          <tr className="bg-slate-100 dark:bg-slate-800">
+            <TxtCell className="text-center font-bold w-[6%]">Sl No</TxtCell>
+            <TxtCell className="w-[36%] font-bold">Particulars</TxtCell>
+            {rc.map(c => <TxtCell key={c} className="text-center font-bold">{RICE_LABELS[c] || c}</TxtCell>)}
+            <TxtCell className="text-center font-bold">TOTAL</TxtCell>
+          </tr>
+        </thead>
+        <tbody>
+          {renderRiceRow('IX', 'Rice delivered during the week against DC', 'IX_week')}
+          {renderRiceRow('X', 'Progressive DC issued till verification', 'X_prog_issued')}
+          {renderRiceRow('XI', 'Prog. Rice delivered against total DC issued', 'XI_prog_delivered', true)}
+          {renderRiceRow('XII', 'Balance of rice remain undelivered against DC (Sl no X-XI)', 'XII_undelivered', true)}
+          <tr>
+            <TxtCell className="text-center font-bold">XIII</TxtCell>
+            <TxtCell>Book balance of rice (Sl no VIII-XI)</TxtCell>
+            <NumCell v={0} /><NumCell v={0} /><NumCell v={0} /><NumCell v={0} />
+            <NumCell v={R.XIII_book?.total} bold colored />
+          </tr>
+          <tr>
+            <TxtCell className="text-center font-bold">XIV</TxtCell>
+            <TxtCell>Verified balance of rice</TxtCell>
+            <NumCell v={0} /><NumCell v={0} /><NumCell v={0} /><NumCell v={0} />
+            <NumCell v={R.XIV_verified?.total} bold colored />
+          </tr>
+        </tbody>
+      </table>
+
+      {/* Footer */}
+      <div className="mt-3 space-y-1 text-[10px] text-slate-600 dark:text-slate-400">
+        <p>Total qty of CMB delivered as per M-reporting by the miller &nbsp; qtls</p>
+        <p>It is certified that there is no missappropriation/diversion by the miller and paddy/rice available has been stored safely</p>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-4 text-[10px] text-slate-700 dark:text-slate-300">
+        <div>
+          <p className="font-semibold">Name and Signature of Miller Agent/Authorised Representative</p>
+          <p className="mt-1">Copy Submitted to CSO cum District Manager, Kalahandi/Concerned Miller</p>
+          <p className="text-slate-500">*Milling Capacity per shift of 8 hrs</p>
+        </div>
+        <div className="text-right">
+          <p className="font-semibold">Signature of Authorised Officer</p>
+          <p className="mt-1">(With Name &amp; Designation)</p>
+        </div>
+      </div>
+
+      {/* Save as Default */}
+      <div className="flex items-center justify-between p-2 mt-3 rounded bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 print:hidden">
+        <div>
+          <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Next week ke liye save karein?</p>
+          <p className="text-[10px] text-slate-500">Present Reading ({h.meter?.present_reading}) aur Date ({fmtD(h.present_verification_date)}) ko default banaye</p>
+        </div>
+        <Button onClick={onSaveMeter} size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900 h-7 text-[10px]" data-testid="vr-save-meter-btn">
+          Save as Default
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Helper component
 function SummaryCard({ label, value, color }) {
   const colors = {
     green: "bg-green-900/30 border-green-700/50 text-green-400",

@@ -676,12 +676,17 @@ async def get_verification_meter_settings():
     """Persisted Last Metre Reading + Last Verification Date for FCI Weekly Verification Report."""
     doc = await db.app_settings.find_one({"setting_id": "verification_meter"}, {"_id": 0})
     if not doc:
-        return {"last_meter_reading": 0, "last_verification_date": "", "units_per_qtl": 6.0, "rice_recovery": 0.67}
+        return {"last_meter_reading": 0, "last_verification_date": "", "units_per_qtl": 6.0, "rice_recovery": 0.67,
+                "electricity_kw": 0, "electricity_kv": 0, "milling_capacity_mt": 0, "variety": "Boiled"}
     return {
         "last_meter_reading": float(doc.get("last_meter_reading", 0) or 0),
         "last_verification_date": doc.get("last_verification_date", "") or "",
         "units_per_qtl": float(doc.get("units_per_qtl", 6.0) or 6.0),
         "rice_recovery": float(doc.get("rice_recovery", 0.67) or 0.67),
+        "electricity_kw": float(doc.get("electricity_kw", 0) or 0),
+        "electricity_kv": float(doc.get("electricity_kv", 0) or 0),
+        "milling_capacity_mt": float(doc.get("milling_capacity_mt", 0) or 0),
+        "variety": doc.get("variety", "Boiled") or "Boiled",
     }
 
 @router.put("/settings/verification-meter")
@@ -693,6 +698,10 @@ async def update_verification_meter_settings(data: dict):
         "last_verification_date": str(data.get("last_verification_date", "") or ""),
         "units_per_qtl": float(data.get("units_per_qtl", 6.0) or 6.0),
         "rice_recovery": float(data.get("rice_recovery", 0.67) or 0.67),
+        "electricity_kw": float(data.get("electricity_kw", 0) or 0),
+        "electricity_kv": float(data.get("electricity_kv", 0) or 0),
+        "milling_capacity_mt": float(data.get("milling_capacity_mt", 0) or 0),
+        "variety": str(data.get("variety", "Boiled") or "Boiled"),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.app_settings.update_one(

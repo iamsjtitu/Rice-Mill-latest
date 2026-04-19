@@ -1354,6 +1354,369 @@ async def get_verification_report(
     }
 
 
+# ============ ANNEXURE-1 FULL VERIFICATION REPORT ============
+def _agency_key(agent_name: str, agency_field: str = "") -> str:
+    """Map free-form agent/agency name to standard agency key."""
+    if agency_field:
+        k = agency_field.strip().upper()
+        if k in ("OSCSC_OWN", "OSCSC_KORAPUT", "NAFED", "TDCC", "LEVY"):
+            return k
+    a = (agent_name or "").strip().lower()
+    if not a: return "OSCSC_OWN"
+    if "koraput" in a: return "OSCSC_KORAPUT"
+    if "nafed" in a: return "NAFED"
+    if "tdcc" in a: return "TDCC"
+    if "levy" in a: return "LEVY"
+    return "OSCSC_OWN"
+
+
+@router.get("/govt-registers/verification-report/full")
+async def get_verification_report_full(
+    kms_year: Optional[str] = None,
+    season: Optional[str] = None,
+    from_date: Optional[str] = None,     # previous verification date (exclusive lower bound)
+    to_date: Optional[str] = None,       # current verification date (inclusive upper bound)
+    last_meter_reading: float = 0,
+    units_per_qtl: float = 6.0,
+    rice_recovery: float = 0.67,
+    variety: str = "Boiled",
+):
+    """Annexure-1 Verification Report of Authorized Officer (full FCI format).
+    Agency-wise split for Paddy (I-VI); RRC/FCI/RRC_FRK/FCI_FRK split for Rice (VII-XIV).
+    """
+    AGENCIES = ["OSCSC_OWN", "OSCSC_KORAPUT", "NAFED", "TDCC", "LEVY"]
+    RICE_COLS = ["RRC", "FCI", "RRC_FRK", "FCI_FRK"]
+    zero_agencies = lambda: {a: 0.0 for a in AGENCIES}
+    zero_rice = lambda: {c: 0.0 for c in RICE_COLS}
+
+    q = {}
+    if kms_year: q["kms_year"] = kms_year
+    if season: q["season"] = season
+
+    def in_week(d):
+        if not d: return False
+        ds = str(d).split("T")[0]
+        return (not from_date or ds > from_date) and (not to_date or ds <= to_date)
+
+    def till_to(d):
+        if not d: return False
+        ds = str(d).split("T")[0]
+        return (not to_date or ds <= to_date)
+
+    # ===== I & II: Paddy Procured (from mill_entries.tp_weight grouped by agent_name) =====
+    mill_docs = await db.mill_entries.find(q, {"_id": 0, "date": 1, "tp_weight": 1, "agent_name": 1}).to_list(100000)
+    i_week = zero_agencies(); ii_prog = zero_agencies()
+    for m in mill_docs:
+        tpw = float(m.get("tp_weight", 0) or 0)
+        if tpw <= 0: continue
+        d = m.get("date", "")
+        k = _agency_key(m.get("agent_name", ""))
+        if till_to(d): ii_prog[k] += tpw
+        if in_week(d): i_week[k] += tpw
+
+    # ===== III & IV: Paddy Milled (milling_entries grouped by paddy_release agency ratio) =====
+    milling = await db.milling_entries.find(q, {"_id": 0, "date": 1, "paddy_input_qntl": 1, "rice_qntl": 1, "cmr_delivery_qntl": 1}).to_list(100000)
+    releases = await db.paddy_release.find(q, {"_id": 0, "date": 1, "qty_qtl": 1, "agency": 1}).to_list(100000)
+
+    # Agency ratio of paddy_release till to_date
+    rel_by_agency = zero_agencies()
+    for r in releases:
+        if till_to(r.get("date", "")):
+            k = _agency_key("", r.get("agency", ""))
+            rel_by_agency[k] += float(r.get("qty_qtl", 0) or 0)
+    rel_total = sum(rel_by_agency.values()) or 0
+
+    iii_week_total = 0.0; iv_prog_total = 0.0
+    rice_vii_week = 0.0; rice_viii_prog = 0.0
+    for m in milling:
+        d = m.get("date", "")
+        paddy = float(m.get("paddy_input_qntl", 0) or 0)
+        rice = float(m.get("cmr_delivery_qntl", 0) or 0) or float(m.get("rice_qntl", 0) or 0)
+        if till_to(d):
+            iv_prog_total += paddy
+            rice_viii_prog += rice
+        if in_week(d):
+            iii_week_total += paddy
+            rice_vii_week += rice
+
+    def split_by_ratio(total):
+        out = zero_agencies()
+        if rel_total > 0 and total > 0:
+            for k in AGENCIES:
+                out[k] = round(total * rel_by_agency[k] / rel_total, 2)
+        elif total > 0:
+            out["OSCSC_OWN"] = round(total, 2)
+        return out
+
+    iii_week = split_by_ratio(iii_week_total)
+    iv_prog = split_by_ratio(iv_prog_total)
+
+    # ===== V & VI: Book Balance of Paddy = II - IV =====
+    v_book_bal = {k: round(ii_prog[k] - iv_prog[k], 2) for k in AGENCIES}
+    vi_verified = dict(v_book_bal)  # same unless manually adjusted
+
+    # ===== IX: Rice delivered during week against DC (split RRC/FCI/RRC_FRK/FCI_FRK) =====
+    deliveries = await db.dc_deliveries.find(q, {"_id": 0, "date": 1, "quantity_qntl": 1, "dc_id": 1, "godown_name": 1}).to_list(100000)
+    dc_ids = list({d.get("dc_id") for d in deliveries if d.get("dc_id")})
+    dc_map = {}
+    if dc_ids:
+        dc_docs = await db.dc_entries.find({"id": {"$in": dc_ids}}, {"_id": 0, "id": 1, "delivery_to": 1}).to_list(10000)
+        dc_map = {d.get("id"): (d.get("delivery_to") or "").strip().upper() for d in dc_docs}
+
+    ix_week = zero_rice(); xi_prog_delivered = zero_rice()
+    for d in deliveries:
+        qty = float(d.get("quantity_qntl", 0) or 0)
+        to = dc_map.get(d.get("dc_id"), "")
+        if not to:
+            godown = (d.get("godown_name", "") or "").lower()
+            to = "FCI" if "fci" in godown else "RRC"
+        col = to if to in ("FCI", "RRC") else "RRC"
+        # TODO: FRK support (all non-FRK for now)
+        if till_to(d.get("date", "")): xi_prog_delivered[col] += qty
+        if in_week(d.get("date", "")): ix_week[col] += qty
+
+    # ===== X: Progressive DC issued till verification =====
+    dc_all = await db.dc_entries.find(q, {"_id": 0, "date": 1, "quantity_qntl": 1, "delivery_to": 1}).to_list(100000)
+    x_prog_issued = zero_rice()
+    for d in dc_all:
+        if till_to(d.get("date", "")):
+            to = (d.get("delivery_to") or "").strip().upper()
+            col = to if to in ("FCI", "RRC") else "RRC"
+            x_prog_issued[col] += float(d.get("quantity_qntl", 0) or 0)
+
+    # XII: Balance undelivered against DC = X - XI
+    xii_undelivered = {c: round(x_prog_issued[c] - xi_prog_delivered[c], 2) for c in RICE_COLS}
+    # XIII: Book balance of rice = VIII - XI_prog (total delivered progressive)
+    xiii_book_rice_total = round(rice_viii_prog - sum(xi_prog_delivered.values()), 2)
+    xiv_verified_rice_total = xiii_book_rice_total
+
+    def sum_a(d): return round(sum(d.values()), 2)
+    def sum_r(d): return round(sum(d.values()), 2)
+
+    # Meter calculations
+    units_consumed = round(iii_week_total * units_per_qtl, 2)
+    present_meter = round((last_meter_reading or 0) + units_consumed, 2)
+
+    # Load miller details from branding + settings
+    branding = await db.branding.find_one({}, {"_id": 0}) or {}
+    settings = await db.app_settings.find_one({"setting_id": "verification_meter"}, {"_id": 0}) or {}
+
+    def _round_dict(d): return {k: round(v, 2) for k, v in d.items()}
+
+    return {
+        "header": {
+            "miller_name": branding.get("company_name", ""),
+            "miller_code": branding.get("mill_code", ""),
+            "address": branding.get("tagline", ""),
+            "milling_capacity_mt": float(settings.get("milling_capacity_mt", 0) or 0),
+            "kms_year": kms_year or "",
+            "variety": variety or settings.get("variety", "Boiled"),
+            "last_verification_date": from_date or "",
+            "present_verification_date": to_date or "",
+            "electricity_kw": float(settings.get("electricity_kw", 0) or 0),
+            "electricity_kv": float(settings.get("electricity_kv", 0) or 0),
+            "meter": {
+                "last_reading": round(last_meter_reading or 0, 2),
+                "present_reading": present_meter,
+                "units_consumed": units_consumed,
+            },
+        },
+        "agencies": AGENCIES,
+        "rice_cols": RICE_COLS,
+        "paddy": {
+            "I_week":      {"by_agency": _round_dict(i_week),      "total": sum_a(i_week)},
+            "II_prog":     {"by_agency": _round_dict(ii_prog),     "total": sum_a(ii_prog)},
+            "III_week":    {"by_agency": _round_dict(iii_week),    "total": sum_a(iii_week)},
+            "IV_prog":     {"by_agency": _round_dict(iv_prog),     "total": sum_a(iv_prog)},
+            "V_book":      {"by_agency": _round_dict(v_book_bal),  "total": sum_a(v_book_bal)},
+            "VI_verified": {"by_agency": _round_dict(vi_verified), "total": sum_a(vi_verified)},
+        },
+        "rice": {
+            "VII_week":       {"total": round(rice_vii_week, 2)},
+            "VIII_prog":      {"total": round(rice_viii_prog, 2)},
+            "IX_week":        {"by_col": _round_dict(ix_week),          "total": sum_r(ix_week)},
+            "X_prog_issued":  {"by_col": _round_dict(x_prog_issued),    "total": sum_r(x_prog_issued)},
+            "XI_prog_delivered": {"by_col": _round_dict(xi_prog_delivered), "total": sum_r(xi_prog_delivered)},
+            "XII_undelivered":{"by_col": _round_dict(xii_undelivered),  "total": sum_r(xii_undelivered)},
+            "XIII_book":      {"total": xiii_book_rice_total},
+            "XIV_verified":   {"total": xiv_verified_rice_total},
+        },
+        "settings": {
+            "units_per_qtl": units_per_qtl,
+            "rice_recovery": rice_recovery,
+        }
+    }
+
+
+# ============ ANNEXURE-1 PDF EXPORT ============
+@router.get("/govt-registers/verification-report/pdf")
+async def export_verification_report_pdf(
+    kms_year: Optional[str] = None,
+    season: Optional[str] = None,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    last_meter_reading: float = 0,
+    units_per_qtl: float = 6.0,
+    rice_recovery: float = 0.67,
+    variety: str = "Boiled",
+):
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors as rlcolors
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from fastapi.responses import Response
+
+    vr = await get_verification_report_full(
+        kms_year=kms_year, season=season, from_date=from_date, to_date=to_date,
+        last_meter_reading=last_meter_reading, units_per_qtl=units_per_qtl,
+        rice_recovery=rice_recovery, variety=variety,
+    )
+    h = vr["header"]
+    AGENCIES = vr["agencies"]; RICE_COLS = vr["rice_cols"]
+    P = vr["paddy"]; R = vr["rice"]
+    AGENCY_LABEL = {"OSCSC_OWN":"OSCSC(OWN)","OSCSC_KORAPUT":"OSCSC(Koraput)","NAFED":"NAFED","TDCC":"TDCC","LEVY":"Levy A/c"}
+    RICE_LABEL = {"RRC":"RRC","FCI":"FCI","RRC_FRK":"RRC FRK","FCI_FRK":"FCI FRK"}
+
+    def fmt_d(d):
+        if not d: return ""
+        p = str(d).split("-")
+        return f"{p[2]}-{p[1]}-{p[0][2:]}" if len(p) == 3 else d
+    def num(v):
+        try: return f"{float(v or 0):.2f}"
+        except: return "0.00"
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
+    styles = getSampleStyleSheet()
+    title_s = ParagraphStyle('t', parent=styles['Heading1'], fontSize=12, alignment=TA_CENTER, spaceAfter=6)
+    foot_s = ParagraphStyle('f', parent=styles['Normal'], fontSize=8, alignment=TA_LEFT, spaceBefore=2)
+
+    story = []
+    story.append(Paragraph("<u><b>Verification Report of Authorized Officer</b></u> &nbsp;&nbsp;&nbsp;&nbsp;<font size=7>Annexure-1</font>", title_s))
+
+    header_tbl = [
+        ["1a. Miller Name:", h["miller_name"], "1b. Address:", h["address"], "4a. Electricity Contract (KW)", str(h["electricity_kw"]), f"{h['electricity_kv']} KV"],
+        ["1c. Miller Code:", h["miller_code"], "1d. Milling Capacity:", f"{h['milling_capacity_mt']} MT", "4b. Metre Reading at last verification", num(h["meter"]["last_reading"]), ""],
+        ["2a. KMS:", h["kms_year"], "2b. Variety:", h["variety"], "4c. Present Metre Reading", num(h["meter"]["present_reading"]), ""],
+        ["3a. Last Verification Date:", fmt_d(h["last_verification_date"]), "3b. Present Verification Date:", fmt_d(h["present_verification_date"]), "4d. Total units Consumed", num(h["meter"]["units_consumed"]), ""],
+    ]
+    ht = RLTable(header_tbl, colWidths=[32*mm, 28*mm, 30*mm, 26*mm, 42*mm, 18*mm, 14*mm])
+    ht.setStyle(TableStyle([
+        ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
+        ('FONTSIZE', (0,0), (-1,-1), 7.5),
+        ('GRID', (0,0), (-1,-1), 0.5, rlcolors.black),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('FONTNAME', (0,0), (0,-1), 'Helvetica-Bold'),
+        ('FONTNAME', (2,0), (2,-1), 'Helvetica-Bold'),
+        ('FONTNAME', (4,0), (4,-1), 'Helvetica-Bold'),
+        ('ALIGN', (5,0), (6,-1), 'RIGHT'),
+        ('TEXTCOLOR', (5,2), (5,3), rlcolors.red),
+        ('FONTNAME', (5,2), (5,3), 'Helvetica-Bold'),
+    ]))
+    story.append(ht); story.append(Spacer(1, 4))
+
+    # Paddy + Rice VII/VIII Table (agency columns)
+    p_header = ["Sl No", "Particulars"] + [AGENCY_LABEL[a] for a in AGENCIES] + ["TOTAL"]
+    paddy_def = [
+        ("I", "Paddy Procured/Received during the week", "I_week", False),
+        ("II", "Prog Paddy Procured/Received till verification date", "II_prog", True),
+        ("III", "Paddy Milled during the week", "III_week", False),
+        ("IV", "Progressive paddy milled till verification date", "IV_prog", True),
+        ("V", "Book Balance of Paddy Stock (Sl No II-IV)", "V_book", True),
+        ("VI", "Verified balance of paddy", "VI_verified", True),
+    ]
+    pt_data = [p_header]; pt_red = []
+    for i, (sl, label, key, colored) in enumerate(paddy_def, start=1):
+        row = P.get(key, {"by_agency":{}, "total":0})
+        pt_data.append([sl, label] + [num(row["by_agency"].get(a, 0)) for a in AGENCIES] + [num(row["total"])])
+        if colored: pt_red.append(i)
+    for (sl, label, key, colored) in [("VII", "Rice received from the milling during the week", "VII_week", False), ("VIII", "Progressive rice received from milling till date", "VIII_prog", True)]:
+        total = R[key]["total"]
+        pt_data.append([sl, label] + [num(0)]*len(AGENCIES) + [num(total)])
+        if colored: pt_red.append(len(pt_data) - 1)
+
+    col_widths = [10*mm, 58*mm] + [18*mm]*len(AGENCIES) + [22*mm]
+    pt = RLTable(pt_data, colWidths=col_widths, repeatRows=1)
+    pt_style = [
+        ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
+        ('FONTSIZE', (0,0), (-1,-1), 7.5),
+        ('GRID', (0,0), (-1,-1), 0.5, rlcolors.black),
+        ('BACKGROUND', (0,0), (-1,0), rlcolors.lightgrey),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('ALIGN', (0,0), (-1,0), 'CENTER'),
+        ('ALIGN', (0,1), (0,-1), 'CENTER'),
+        ('ALIGN', (2,1), (-1,-1), 'RIGHT'),
+        ('FONTNAME', (-1,1), (-1,-1), 'Helvetica-Bold'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+    ]
+    for rnum in pt_red: pt_style.append(('TEXTCOLOR', (2, rnum), (-1, rnum), rlcolors.red))
+    pt.setStyle(TableStyle(pt_style))
+    story.append(pt); story.append(Spacer(1, 4))
+
+    # Rice Part 2 (IX-XIV, rice columns)
+    r_header = ["Sl No", "Particulars"] + [RICE_LABEL[c] for c in RICE_COLS] + ["TOTAL"]
+    rice2_def = [
+        ("IX", "Rice delivered during the week against DC", "IX_week", False),
+        ("X", "Progressive DC issued till verification", "X_prog_issued", False),
+        ("XI", "Prog. Rice delivered against total DC issued", "XI_prog_delivered", True),
+        ("XII", "Balance of rice remain undelivered against DC (Sl no X-XI)", "XII_undelivered", True),
+    ]
+    r_data = [r_header]; r_red = []
+    for i, (sl, label, key, colored) in enumerate(rice2_def, start=1):
+        row = R.get(key, {"by_col":{}, "total":0})
+        r_data.append([sl, label] + [num(row["by_col"].get(c, 0)) for c in RICE_COLS] + [num(row["total"])])
+        if colored: r_red.append(i)
+    r_data.append(["XIII", "Book balance of rice (Sl no VIII-XI)"] + [num(0)]*len(RICE_COLS) + [num(R["XIII_book"]["total"])])
+    r_red.append(len(r_data) - 1)
+    r_data.append(["XIV", "Verified balance of rice"] + [num(0)]*len(RICE_COLS) + [num(R["XIV_verified"]["total"])])
+    r_red.append(len(r_data) - 1)
+
+    col_widths2 = [10*mm, 66*mm, 18*mm, 18*mm, 20*mm, 20*mm, 22*mm]
+    rt = RLTable(r_data, colWidths=col_widths2, repeatRows=1)
+    rt_style = [
+        ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
+        ('FONTSIZE', (0,0), (-1,-1), 7.5),
+        ('GRID', (0,0), (-1,-1), 0.5, rlcolors.black),
+        ('BACKGROUND', (0,0), (-1,0), rlcolors.lightgrey),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('ALIGN', (0,0), (-1,0), 'CENTER'),
+        ('ALIGN', (0,1), (0,-1), 'CENTER'),
+        ('ALIGN', (2,1), (-1,-1), 'RIGHT'),
+        ('FONTNAME', (-1,1), (-1,-1), 'Helvetica-Bold'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+    ]
+    for rnum in r_red: rt_style.append(('TEXTCOLOR', (2, rnum), (-1, rnum), rlcolors.red))
+    rt.setStyle(TableStyle(rt_style))
+    story.append(rt); story.append(Spacer(1, 6))
+
+    story.append(Paragraph("Total qty of CMB delivered as per M-reporting by the miller &nbsp;&nbsp; qtls", foot_s))
+    story.append(Paragraph("It is certified that there is no missappropriation/diversion by the miller and paddy/rice available has been stored safely", foot_s))
+    story.append(Spacer(1, 18))
+
+    sig_tbl = RLTable([
+        ["Name and Signature of Miller Agent/Authorised Representative", "Signature of Authorised Officer"],
+        ["Copy Submitted to CSO cum District Manager, Kalahandi/Concerned Miller", "(With Name & Designation)"],
+        ["*Milling Capacity per shift of 8 hrs", ""],
+    ], colWidths=[95*mm, 95*mm])
+    sig_tbl.setStyle(TableStyle([
+        ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
+        ('FONTSIZE', (0,0), (-1,-1), 8),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('ALIGN', (1,0), (1,-1), 'RIGHT'),
+    ]))
+    story.append(sig_tbl)
+
+    doc.build(story)
+    buf.seek(0)
+    return Response(content=buf.read(), media_type="application/pdf",
+                    headers={"Content-Disposition": f"attachment; filename=Verification_Report_{to_date or 'current'}.pdf"})
+
+
+
 @router.get("/govt-registers/milling-register/excel")
 async def export_milling_register_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
     from io import BytesIO

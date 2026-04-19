@@ -1075,6 +1075,267 @@ module.exports = function(database) {
     });
   }));
 
+  // ============ ANNEXURE-1 FULL VERIFICATION REPORT ============
+  function _agencyKey(agentName, agencyField) {
+    if (agencyField) {
+      const k = String(agencyField).trim().toUpperCase();
+      if (['OSCSC_OWN','OSCSC_KORAPUT','NAFED','TDCC','LEVY'].includes(k)) return k;
+    }
+    const a = String(agentName || '').trim().toLowerCase();
+    if (!a) return 'OSCSC_OWN';
+    if (a.includes('koraput')) return 'OSCSC_KORAPUT';
+    if (a.includes('nafed')) return 'NAFED';
+    if (a.includes('tdcc')) return 'TDCC';
+    if (a.includes('levy')) return 'LEVY';
+    return 'OSCSC_OWN';
+  }
+
+  router.get('/api/govt-registers/verification-report/full', safeSync(async (req, res) => {
+    const AGENCIES = ['OSCSC_OWN','OSCSC_KORAPUT','NAFED','TDCC','LEVY'];
+    const RICE_COLS = ['RRC','FCI','RRC_FRK','FCI_FRK'];
+    const zA = () => Object.fromEntries(AGENCIES.map(a => [a, 0]));
+    const zR = () => Object.fromEntries(RICE_COLS.map(c => [c, 0]));
+
+    const kmsYear = req.query.kms_year || '';
+    const season = req.query.season || '';
+    const fromDate = req.query.from_date || '';
+    const toDate = req.query.to_date || '';
+    const lastMeter = +(req.query.last_meter_reading || 0);
+    const unitsPerQtl = +(req.query.units_per_qtl || 6);
+    const riceRecovery = +(req.query.rice_recovery || 0.67);
+    const variety = req.query.variety || 'Boiled';
+
+    const filter = x => (!kmsYear || x.kms_year === kmsYear) && (!season || x.season === season);
+    const inWeek = d => { const ds = String(d || '').split('T')[0]; return ds && (!fromDate || ds > fromDate) && (!toDate || ds <= toDate); };
+    const tillTo = d => { const ds = String(d || '').split('T')[0]; return ds && (!toDate || ds <= toDate); };
+
+    // I & II: Paddy Procured from mill_entries.tp_weight
+    const millEntries = (database.data.mill_entries || []).filter(filter);
+    const iWeek = zA(), iiProg = zA();
+    millEntries.forEach(m => {
+      const tpw = +(m.tp_weight || 0); if (tpw <= 0) return;
+      const k = _agencyKey(m.agent_name, '');
+      if (tillTo(m.date)) iiProg[k] += tpw;
+      if (inWeek(m.date)) iWeek[k] += tpw;
+    });
+
+    // III & IV: Paddy Milled (milling_entries)
+    const milling = (database.data.milling_entries || []).filter(filter);
+    const releases = (database.data.paddy_release || []).filter(filter);
+    const relByAgency = zA();
+    releases.forEach(r => { if (tillTo(r.date)) relByAgency[_agencyKey('', r.agency)] += +(r.qty_qtl || 0); });
+    const relTotal = Object.values(relByAgency).reduce((a,b) => a+b, 0);
+
+    let iiiWeekTotal = 0, ivProgTotal = 0, viiWeek = 0, viiiProg = 0;
+    milling.forEach(m => {
+      const paddy = +(m.paddy_input_qntl || 0);
+      const rice = +(m.cmr_delivery_qntl || 0) || +(m.rice_qntl || 0);
+      if (tillTo(m.date)) { ivProgTotal += paddy; viiiProg += rice; }
+      if (inWeek(m.date)) { iiiWeekTotal += paddy; viiWeek += rice; }
+    });
+
+    const splitByRatio = (total) => {
+      const out = zA();
+      if (relTotal > 0 && total > 0) AGENCIES.forEach(k => { out[k] = +(total * relByAgency[k] / relTotal).toFixed(2); });
+      else if (total > 0) out.OSCSC_OWN = +total.toFixed(2);
+      return out;
+    };
+    const iiiWeek = splitByRatio(iiiWeekTotal);
+    const ivProg = splitByRatio(ivProgTotal);
+
+    const vBook = {}, viVerified = {};
+    AGENCIES.forEach(k => { vBook[k] = +(iiProg[k] - ivProg[k]).toFixed(2); viVerified[k] = vBook[k]; });
+
+    // Rice: IX, X, XI, XII
+    const deliveries = (database.data.dc_deliveries || []).filter(filter);
+    const dcEntriesAll = database.data.dc_entries || [];
+    const dcMap = {};
+    dcEntriesAll.forEach(e => { if (e && e.id) dcMap[e.id] = String(e.delivery_to || '').trim().toUpperCase(); });
+    const ixWeek = zR(), xiProgDel = zR();
+    deliveries.forEach(d => {
+      const qty = +(d.quantity_qntl || 0);
+      let to = dcMap[d.dc_id] || '';
+      if (!to) { const g = String(d.godown_name || '').toLowerCase(); to = g.includes('fci') ? 'FCI' : 'RRC'; }
+      const col = (to === 'FCI' || to === 'RRC') ? to : 'RRC';
+      if (tillTo(d.date)) xiProgDel[col] += qty;
+      if (inWeek(d.date)) ixWeek[col] += qty;
+    });
+
+    const xProgIssued = zR();
+    dcEntriesAll.filter(filter).forEach(d => {
+      if (tillTo(d.date)) {
+        const to = String(d.delivery_to || '').trim().toUpperCase();
+        const col = (to === 'FCI' || to === 'RRC') ? to : 'RRC';
+        xProgIssued[col] += +(d.quantity_qntl || 0);
+      }
+    });
+
+    const xiiUndel = {}; RICE_COLS.forEach(c => { xiiUndel[c] = +(xProgIssued[c] - xiProgDel[c]).toFixed(2); });
+    const xiiiBookRice = +(viiiProg - Object.values(xiProgDel).reduce((a,b) => a+b, 0)).toFixed(2);
+    const xivVerifiedRice = xiiiBookRice;
+
+    const sumA = o => +Object.values(o).reduce((a,b) => a+b, 0).toFixed(2);
+    const sumR = o => +Object.values(o).reduce((a,b) => a+b, 0).toFixed(2);
+    const roundDict = o => { const r = {}; Object.keys(o).forEach(k => r[k] = +(+o[k]).toFixed(2)); return r; };
+
+    const unitsConsumed = +(iiiWeekTotal * unitsPerQtl).toFixed(2);
+    const presentMeter = +(lastMeter + unitsConsumed).toFixed(2);
+
+    const branding = database.data.branding || {};
+    const appSettings = database.data.app_settings || [];
+    const s = appSettings.find(x => x.setting_id === 'verification_meter') || {};
+
+    res.json({
+      header: {
+        miller_name: branding.company_name || '',
+        miller_code: branding.mill_code || '',
+        address: branding.tagline || '',
+        milling_capacity_mt: +(s.milling_capacity_mt || 0),
+        kms_year: kmsYear,
+        variety: variety || s.variety || 'Boiled',
+        last_verification_date: fromDate,
+        present_verification_date: toDate,
+        electricity_kw: +(s.electricity_kw || 0),
+        electricity_kv: +(s.electricity_kv || 0),
+        meter: { last_reading: +lastMeter.toFixed(2), present_reading: presentMeter, units_consumed: unitsConsumed },
+      },
+      agencies: AGENCIES,
+      rice_cols: RICE_COLS,
+      paddy: {
+        I_week: { by_agency: roundDict(iWeek), total: sumA(iWeek) },
+        II_prog: { by_agency: roundDict(iiProg), total: sumA(iiProg) },
+        III_week: { by_agency: roundDict(iiiWeek), total: sumA(iiiWeek) },
+        IV_prog: { by_agency: roundDict(ivProg), total: sumA(ivProg) },
+        V_book: { by_agency: roundDict(vBook), total: sumA(vBook) },
+        VI_verified: { by_agency: roundDict(viVerified), total: sumA(viVerified) },
+      },
+      rice: {
+        VII_week: { total: +viiWeek.toFixed(2) },
+        VIII_prog: { total: +viiiProg.toFixed(2) },
+        IX_week: { by_col: roundDict(ixWeek), total: sumR(ixWeek) },
+        X_prog_issued: { by_col: roundDict(xProgIssued), total: sumR(xProgIssued) },
+        XI_prog_delivered: { by_col: roundDict(xiProgDel), total: sumR(xiProgDel) },
+        XII_undelivered: { by_col: roundDict(xiiUndel), total: sumR(xiiUndel) },
+        XIII_book: { total: xiiiBookRice },
+        XIV_verified: { total: xivVerifiedRice },
+      },
+      settings: { units_per_qtl: unitsPerQtl, rice_recovery: riceRecovery }
+    });
+  }));
+
+  // GET /api/govt-registers/verification-report/pdf — Annexure-1 PDF
+  router.get('/api/govt-registers/verification-report/pdf', safeAsync(async (req, res) => {
+    // Call full endpoint handler via internal invocation
+    const qs = new URLSearchParams(req.query).toString();
+    const axios = require('axios');
+    let vr;
+    try {
+      const port = process.env.PORT || 8001;
+      const r = await axios.get(`http://127.0.0.1:${port}/api/govt-registers/verification-report/full?${qs}`);
+      vr = r.data;
+    } catch (e) {
+      return res.status(500).json({ error: 'Failed to fetch data' });
+    }
+
+    const AGENCY_LABEL = {OSCSC_OWN:'OSCSC(OWN)',OSCSC_KORAPUT:'OSCSC(Koraput)',NAFED:'NAFED',TDCC:'TDCC',LEVY:'Levy A/c'};
+    const RICE_LABEL = {RRC:'RRC',FCI:'FCI',RRC_FRK:'RRC FRK',FCI_FRK:'FCI FRK'};
+    const h = vr.header, P = vr.paddy, R = vr.rice;
+    const AGENCIES = vr.agencies, RICE_COLS = vr.rice_cols;
+
+    const fmtD = d => { if (!d) return ''; const p = String(d).split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0].slice(2)}` : d; };
+    const num = v => (Number(v || 0)).toFixed(2);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=Verification_Report_${req.query.to_date || 'current'}.pdf`);
+    const doc = new PDFDocument({ size: 'A4', margins: { top: 28, left: 28, right: 28, bottom: 28 } });
+    safePdfPipe(doc, res);
+
+    // Title
+    doc.font('Helvetica-Bold').fontSize(12);
+    const titleY = doc.y;
+    doc.text('Verification Report of Authorized Officer', 0, titleY, { align: 'center', width: doc.page.width, underline: true });
+    doc.font('Helvetica').fontSize(7).text('Annexure-1', doc.page.width - 70, titleY + 2);
+    doc.moveDown(0.6);
+
+    // Header 4-row info table (2 halves side by side)
+    const startY = doc.y;
+    const leftHdr = [
+      ['1a. Miller Name:', h.miller_name || '-'],
+      ['1c. Miller Code:', h.miller_code || '-'],
+      ['2a. KMS:', h.kms_year || '-'],
+      ['3a. Last Verification Date:', fmtD(h.last_verification_date)],
+    ];
+    const midHdr = [
+      ['1b. Address:', h.address || '-'],
+      ['1d. Milling Capacity:', `${h.milling_capacity_mt || 0} MT`],
+      ['2b. Variety:', h.variety || '-'],
+      ['3b. Present Verification Date:', fmtD(h.present_verification_date)],
+    ];
+    const rightHdr = [
+      ['4a. Electricity Contract (KW)', `${h.electricity_kw || 0}`, `${h.electricity_kv || 0} KV`],
+      ['4b. Metre Reading at last verification', num(h.meter.last_reading), ''],
+      ['4c. Present Metre Reading', num(h.meter.present_reading), ''],
+      ['4d. Total units Consumed', num(h.meter.units_consumed), ''],
+    ];
+    doc.font('Helvetica').fontSize(7.5);
+    addPdfTable(doc, [], leftHdr.map((row, i) => [row[0], row[1], midHdr[i][0], midHdr[i][1], rightHdr[i][0], rightHdr[i][1], rightHdr[i][2]]), [65, 62, 72, 60, 98, 40, 28], { fontSize: 7.5 });
+
+    doc.moveDown(0.3);
+
+    // Paddy + VII/VIII table
+    const pHeader = ['Sl', 'Particulars', ...AGENCIES.map(a => AGENCY_LABEL[a]), 'TOTAL'];
+    const paddyDef = [
+      ['I', 'Paddy Procured/Received during the week', 'I_week'],
+      ['II', 'Prog Paddy Procured/Received till verification date', 'II_prog'],
+      ['III', 'Paddy Milled during the week', 'III_week'],
+      ['IV', 'Progressive paddy milled till verification date', 'IV_prog'],
+      ['V', 'Book Balance of Paddy Stock (Sl No II-IV)', 'V_book'],
+      ['VI', 'Verified balance of paddy', 'VI_verified'],
+    ];
+    const pRows = paddyDef.map(([sl, label, key]) => {
+      const row = P[key] || { by_agency: {}, total: 0 };
+      return [sl, label, ...AGENCIES.map(a => num(row.by_agency[a] || 0)), num(row.total)];
+    });
+    pRows.push(['VII', 'Rice received from the milling during the week', ...AGENCIES.map(() => num(0)), num(R.VII_week.total)]);
+    pRows.push(['VIII', 'Progressive rice received from milling till date', ...AGENCIES.map(() => num(0)), num(R.VIII_prog.total)]);
+    addPdfTable(doc, pHeader, pRows, [22, 155, 55, 60, 40, 35, 40, 58], { fontSize: 7.5 });
+    doc.moveDown(0.3);
+
+    // Rice part 2
+    const rHeader = ['Sl', 'Particulars', ...RICE_COLS.map(c => RICE_LABEL[c]), 'TOTAL'];
+    const rice2Def = [
+      ['IX', 'Rice delivered during the week against DC', 'IX_week'],
+      ['X', 'Progressive DC issued till verification', 'X_prog_issued'],
+      ['XI', 'Prog. Rice delivered against total DC issued', 'XI_prog_delivered'],
+      ['XII', 'Balance of rice remain undelivered against DC (Sl no X-XI)', 'XII_undelivered'],
+    ];
+    const rRows = rice2Def.map(([sl, label, key]) => {
+      const row = R[key] || { by_col: {}, total: 0 };
+      return [sl, label, ...RICE_COLS.map(c => num(row.by_col[c] || 0)), num(row.total)];
+    });
+    rRows.push(['XIII', 'Book balance of rice (Sl no VIII-XI)', ...RICE_COLS.map(() => num(0)), num(R.XIII_book.total)]);
+    rRows.push(['XIV', 'Verified balance of rice', ...RICE_COLS.map(() => num(0)), num(R.XIV_verified.total)]);
+    addPdfTable(doc, rHeader, rRows, [22, 180, 48, 48, 55, 55, 57], { fontSize: 7.5 });
+
+    doc.moveDown(0.6);
+    doc.font('Helvetica').fontSize(8);
+    doc.text('Total qty of CMB delivered as per M-reporting by the miller   qtls');
+    doc.text('It is certified that there is no missappropriation/diversion by the miller and paddy/rice available has been stored safely');
+    doc.moveDown(1);
+
+    // Signatures
+    const sigY = doc.y;
+    doc.font('Helvetica-Bold').fontSize(8);
+    doc.text('Name and Signature of Miller Agent/Authorised Representative', 28, sigY);
+    doc.text('Signature of Authorised Officer', doc.page.width - 200, sigY);
+    doc.font('Helvetica').fontSize(7.5);
+    doc.text('Copy Submitted to CSO cum District Manager, Kalahandi/Concerned Miller', 28, sigY + 12);
+    doc.text('(With Name & Designation)', doc.page.width - 200, sigY + 12);
+    doc.fontSize(6.5).text('*Milling Capacity per shift of 8 hrs', 28, sigY + 26);
+
+    doc.end();
+  }));
+
   // GET /api/govt-registers/milling-register
   router.get('/api/govt-registers/milling-register', safeSync(async (req, res) => {
     const { kms_year, season } = req.query;

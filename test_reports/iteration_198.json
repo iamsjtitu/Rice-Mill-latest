@@ -1,0 +1,106 @@
+{
+  "summary": "FCI Annexure-1 Verification Report (v104.19.0) - All tests PASSED. Backend: 15/15 API tests passed. Frontend: Annexure-1 layout renders correctly with all required elements.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_annexure1_verification_report.py",
+    "/app/test_reports/pytest/pytest_results_iteration198.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_annexure1_verification_report.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 tests passed)",
+    "frontend": "100% (All UI elements verified)"
+  },
+  "test_credentials": "admin/admin123",
+  "seed_data_creation": "None - used existing test data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "FCI Annexure-1 Verification Report feature fully tested. Key verifications: (1) GET /api/govt-registers/verification-report/full returns correct structure with agencies[], rice_cols[], paddy I-VI, rice VII-XIV. (2) PDF export works (16+ KB, valid %PDF-1.4). (3) Settings persistence for electricity_kw, electricity_kv, milling_capacity_mt, variety via /api/settings/verification-meter. (4) Milling register bug fix verified: FCI delivery shows in FCI column (290 Qtl), RRC=0. (5) Frontend Annexure-1 layout renders with title, miller details, meter readings, paddy table with 5 agencies, rice table with RRC/FCI/RRC_FRK/FCI_FRK columns. (6) Paddy Release form has Agency dropdown with data-testid='paddy-release-agency' and 5 options.",
+  "tests_executed": {
+    "backend_api_tests": [
+      "GET /api/govt-registers/verification-report/full - structure validation - PASS",
+      "GET /api/govt-registers/verification-report/full - agencies list - PASS",
+      "GET /api/govt-registers/verification-report/full - rice_cols list - PASS",
+      "GET /api/govt-registers/verification-report/full - paddy rows I-VI - PASS",
+      "GET /api/govt-registers/verification-report/full - rice rows VII-XIV - PASS",
+      "GET /api/govt-registers/verification-report/full - header fields - PASS",
+      "GET /api/govt-registers/verification-report/full - meter calculation - PASS",
+      "GET /api/govt-registers/verification-report/pdf - HTTP 200 - PASS",
+      "GET /api/govt-registers/verification-report/pdf - content-type - PASS",
+      "GET /api/govt-registers/verification-report/pdf - PDF header - PASS",
+      "GET /api/govt-registers/verification-report/pdf - size > 10KB - PASS",
+      "GET /api/settings/verification-meter - fields - PASS",
+      "PUT /api/settings/verification-meter - save/retrieve - PASS",
+      "GET /api/govt-registers/milling-register - FCI delivery column bug fix - PASS",
+      "GET /api/paddy-release - agency field - PASS"
+    ],
+    "frontend_ui_tests": [
+      "Login with admin/admin123 - PASS",
+      "Navigate to Register > Milling Register - PASS",
+      "Verification Report tab visible and clickable - PASS",
+      "Form inputs: date, meter, variety, electricity KW/KV, capacity - PASS",
+      "Generate button triggers report - PASS",
+      "Annexure-1 title 'Verification Report of Authorized Officer' - PASS",
+      "Annexure-1 label visible - PASS",
+      "Miller Name (NAVKAR AGRO) - PASS",
+      "Miller Code (M150841) - PASS",
+      "Address (JOLKO, KESINGA) - PASS",
+      "Electricity 200 KW / 250 KV - PASS",
+      "Milling Capacity 10 MT - PASS",
+      "Meter readings 4b=50000, 4c=55196, 4d=5196 - PASS",
+      "Paddy table with agencies OSCSC(OWN), OSCSC(Koraput), NAFED, TDCC, Levy A/c - PASS",
+      "Row III Paddy Milled = 866 under OSCSC(OWN) - PASS",
+      "Row IV Progressive = 1732 - PASS",
+      "Rice table with RRC/FCI/RRC_FRK/FCI_FRK columns - PASS",
+      "Row IX FCI = 290 - PASS",
+      "Row XI FCI = 290 (progressive delivered) - PASS",
+      "PDF (Annexure-1) button visible - PASS",
+      "Paddy Release form Agency dropdown with data-testid='paddy-release-agency' - PASS",
+      "Agency dropdown has 5 options - PASS",
+      "Paddy Release table shows Agency column - PASS"
+    ]
+  },
+  "feature_verification": {
+    "annexure1_structure": {
+      "header": {
+        "miller_name": "NAVKAR AGRO",
+        "miller_code": "M150841",
+        "address": "JOLKO, KESINGA",
+        "electricity_kw": 200,
+        "electricity_kv": 250,
+        "milling_capacity_mt": 10,
+        "variety": "Boiled"
+      },
+      "meter_calculation": {
+        "last_reading_4b": 50000,
+        "present_reading_4c": 55196,
+        "units_consumed_4d": 5196,
+        "formula": "4c = 4b + (paddy_milled * 6)"
+      },
+      "agencies": ["OSCSC_OWN", "OSCSC_KORAPUT", "NAFED", "TDCC", "LEVY"],
+      "rice_cols": ["RRC", "FCI", "RRC_FRK", "FCI_FRK"],
+      "paddy_rows": ["I_week", "II_prog", "III_week", "IV_prog", "V_book", "VI_verified"],
+      "rice_rows": ["VII_week", "VIII_prog", "IX_week", "X_prog_issued", "XI_prog_delivered", "XII_undelivered", "XIII_book", "XIV_verified"]
+    },
+    "bug_fix_verified": {
+      "issue": "FCI delivery wrongly showing in RRC column",
+      "fix": "FCI delivery now correctly shows in FCI column",
+      "test_date": "2026-04-17",
+      "expected_rrc": 0,
+      "expected_fci": 290,
+      "status": "FIXED"
+    }
+  },
+  "version_tested": "v104.19.0"
+}

@@ -7,6 +7,21 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.19.0",
+    date: "Feb 2026",
+    title: "v104.19.0 - Annexure-1 Verification Report (FCI Official Format)",
+    items: [
+      { type: "new", text: "Verification Report ab exact FCI Annexure-1 format mein dikhta hai (Miller Name/Code/Address/Capacity header, Electricity KW/KV, Meter Readings 4b/4c/4d)" },
+      { type: "new", text: "14 rows (I-XIV): Paddy Procured/Milled/Book Balance x 5 agencies, Rice Received, Rice Delivered x 4 rice types" },
+      { type: "new", text: "Agency-wise breakdown: OSCSC(OWN) / OSCSC(Koraput) / NAFED / TDCC / Levy A/c" },
+      { type: "new", text: "Rice delivery breakdown: RRC / FCI / RRC FRK / FCI FRK" },
+      { type: "new", text: "Paddy Release form mein naya 'Agency' dropdown (OSCSC OWN default)" },
+      { type: "new", text: "Settings persisted: Electricity Contract (KW/KV), Milling Capacity (MT), Variety" },
+      { type: "new", text: "PDF Export (Annexure-1 button): A4 format, FCI standard, seedha print karke officer ko sign karwayen" },
+      { type: "new", text: "Teeno backends (Python + Desktop JS + Local Server) mein parity" },
+    ],
+  },
+  {
     version: "104.18.1",
     date: "Feb 2026",
     title: "v104.18.1 - Fix: Milling Register FCI vs RRC Column",
