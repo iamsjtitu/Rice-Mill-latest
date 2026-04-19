@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.19.5",
+    date: "Feb 2026",
+    title: "v104.19.5 - VR Excel Export + Tab-specific Buttons",
+    items: [
+      { type: "new", text: "Verification Report ke liye naya dedicated Excel export (exact nested OSCSC format with merged headers)" },
+      { type: "new", text: "Annexure-1 PDF ab proper nested layout mein: OSCSC(OWN)=[RRC,FCI] + OSCSC(Koraput)=[RRC FRK,FCI FRK] as colspan=2 merged cols" },
+      { type: "fix", text: "Top-right Excel/PDF buttons ab sirf 'Register' tab pe dikhte hain (Verification Report tab pe hide)" },
+      { type: "fix", text: "Verification Report ke apne Excel + PDF + Print buttons VR tab ke andar hain" },
+      { type: "note", text: "VR PDF mein koi watermark nahi (clean output officer ke liye)" },
+    ],
+  },
+  {
     version: "104.19.4",
     date: "Feb 2026",
     title: "v104.19.4 - OSCSC(OWN)=[RRC,FCI], OSCSC(Koraput)=[RRC FRK,FCI FRK]",

@@ -1157,6 +1157,24 @@ export function MillingRegister({ filters, user }) {
     } catch (e) { toast.error("PDF download failed"); }
   };
 
+  const downloadVerificationExcel = async () => {
+    if (!vrForm.from_date || !vrForm.to_date) { toast.error("Pehle Generate karein"); return; }
+    try {
+      const params = new URLSearchParams();
+      if (filters.kms_year) params.append("kms_year", filters.kms_year);
+      if (filters.season) params.append("season", filters.season);
+      params.append("from_date", vrForm.from_date);
+      params.append("to_date", vrForm.to_date);
+      params.append("last_meter_reading", String(vrForm.last_meter_reading || 0));
+      params.append("units_per_qtl", String(vrForm.units_per_qtl || 6));
+      params.append("rice_recovery", String(vrForm.rice_recovery || 0.67));
+      params.append("variety", vrForm.variety || "Boiled");
+      const { downloadFile } = await import('../utils/download');
+      downloadFile(`/api/govt-registers/verification-report/excel?${params}`, `Verification_Report_${vrForm.to_date}.xlsx`);
+      toast.success("Excel downloaded!");
+    } catch (e) { toast.error("Excel download failed"); }
+  };
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -1219,14 +1237,18 @@ export function MillingRegister({ filters, user }) {
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-bold text-slate-800 dark:text-amber-400">Milling Register / मिलिंग रजिस्टर</h3>
         <div className="flex items-center gap-2">
-          <Button onClick={async () => { try { const params = new URLSearchParams(); if(filters.kms_year) params.append('kms_year',filters.kms_year); if(filters.season) params.append('season',filters.season); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/govt-registers/milling-register/excel?${params}`, 'milling_register.xlsx'); toast.success("Excel!"); } catch(e) { toast.error("Export failed"); }}}
-            variant="outline" size="sm" className="border-slate-600 text-green-600 dark:text-green-400 hover:bg-slate-100 dark:hover:bg-slate-700 h-7 text-[10px]" data-testid="mr-export-excel">
-            <Download className="w-3 h-3 mr-1" /> Excel
-          </Button>
-          <Button onClick={async () => { try { const params = new URLSearchParams(); if(filters.kms_year) params.append('kms_year',filters.kms_year); if(filters.season) params.append('season',filters.season); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/govt-registers/milling-register/pdf?${params}`, 'milling_register.pdf'); toast.success("PDF!"); } catch(e) { toast.error("Export failed"); }}}
-            variant="outline" size="sm" className="border-slate-600 text-red-600 dark:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-700 h-7 text-[10px]" data-testid="mr-export-pdf">
-            <Download className="w-3 h-3 mr-1" /> PDF
-          </Button>
+          {vrTab === "register" && (
+            <>
+              <Button onClick={async () => { try { const params = new URLSearchParams(); if(filters.kms_year) params.append('kms_year',filters.kms_year); if(filters.season) params.append('season',filters.season); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/govt-registers/milling-register/excel?${params}`, 'milling_register.xlsx'); toast.success("Excel!"); } catch(e) { toast.error("Export failed"); }}}
+                variant="outline" size="sm" className="border-slate-600 text-green-600 dark:text-green-400 hover:bg-slate-100 dark:hover:bg-slate-700 h-7 text-[10px]" data-testid="mr-export-excel">
+                <Download className="w-3 h-3 mr-1" /> Excel
+              </Button>
+              <Button onClick={async () => { try { const params = new URLSearchParams(); if(filters.kms_year) params.append('kms_year',filters.kms_year); if(filters.season) params.append('season',filters.season); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/govt-registers/milling-register/pdf?${params}`, 'milling_register.pdf'); toast.success("PDF!"); } catch(e) { toast.error("Export failed"); }}}
+                variant="outline" size="sm" className="border-slate-600 text-red-600 dark:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-700 h-7 text-[10px]" data-testid="mr-export-pdf">
+                <Download className="w-3 h-3 mr-1" /> PDF
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1399,6 +1421,9 @@ export function MillingRegister({ filters, user }) {
                   </Button>
                   {vr && (
                     <>
+                      <Button onClick={downloadVerificationExcel} size="sm" className="bg-green-600 hover:bg-green-700 text-white h-7 text-[10px]" data-testid="vr-excel-btn">
+                        <Download className="w-3 h-3 mr-1" /> Excel
+                      </Button>
                       <Button onClick={downloadVerificationPdf} size="sm" className="bg-red-600 hover:bg-red-700 text-white h-7 text-[10px]" data-testid="vr-pdf-btn">
                         <Download className="w-3 h-3 mr-1" /> PDF (Annexure-1)
                       </Button>

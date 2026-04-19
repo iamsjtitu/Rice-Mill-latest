@@ -1618,25 +1618,22 @@ async def export_verification_report_pdf(
     ]))
     story.append(ht); story.append(Spacer(1, 4))
 
-    # Unified Paddy + Rice Table (Annexure-1 single table layout)
-    # Header: [Group] [Sl No] [Particulars] [OSCSC_OWN] [OSCSC_Koraput] [NAFED] [TDCC] [Levy] [TOTAL]
-    p_header = ["", "Sl No", "", AGENCY_LABEL["OSCSC_OWN"], AGENCY_LABEL["OSCSC_KORAPUT"], AGENCY_LABEL["NAFED"], AGENCY_LABEL["TDCC"], AGENCY_LABEL["LEVY"], "TOTAL"]
+    # Unified Paddy + Rice Table (Annexure-1 nested format)
+    # Columns: [Group] [Sl] [Particulars] [RRC] [FCI] [RRC FRK] [FCI FRK] [NAFED] [TDCC] [Levy] [TOTAL]
+    # OSCSC(OWN) = RRC+FCI (colSpan=2), OSCSC(Koraput) = RRC FRK+FCI FRK (colSpan=2)
+    main_header = ["", "Sl No", "", "OSCSC(OWN)", "", "OSCSC(Koraput)", "", "NAFED", "TDCC", "Levy A/c", "TOTAL"]
+    data = [main_header]
 
     def paddy_row(sl, label, key):
         row = P.get(key, {"by_agency":{}, "total":0})
-        return ["", sl, label] + [num(row["by_agency"].get(a, 0)) for a in AGENCIES] + [num(row["total"])]
-    def rice_agency_row(sl, label, key):
-        total = R[key]["total"]
-        return ["", sl, label, num(total)] + [num(0)] * (len(AGENCIES) - 1) + [num(total)]
-    def rice_col_row(sl, label, key):
-        row = R.get(key, {"by_col":{}, "total":0})
-        # rice cols fill 4 positions, Levy blank, then TOTAL
-        return ["", sl, label] + [num(row["by_col"].get(c, 0)) for c in RICE_COLS] + ["", num(row["total"])]
-    def rice_total_row(sl, label, key):
-        t = R[key]["total"]
-        return ["", sl, label, num(t), "", "", "", "", num(t)]
+        # OSCSC_OWN value shown in RRC col with merge across FCI; OSCSC_KORAPUT same in RRC FRK col
+        return ["", sl, label, num(row["by_agency"].get("OSCSC_OWN", 0)), "",
+                num(row["by_agency"].get("OSCSC_KORAPUT", 0)), "",
+                num(row["by_agency"].get("NAFED", 0)),
+                num(row["by_agency"].get("TDCC", 0)),
+                num(row["by_agency"].get("LEVY", 0)),
+                num(row["total"])]
 
-    data = [p_header]
     paddy_red_rows = []
     paddy_def = [
         ("I", "Paddy Procured/Received during the week", "I_week", False),
@@ -1650,22 +1647,21 @@ async def export_verification_report_pdf(
         data.append(paddy_row(sl, label, key))
         if colored: paddy_red_rows.append(len(data) - 1)
 
-    # Rice section header in left column
     PADDY_START = 1
-    PADDY_END = len(data) - 1  # inclusive, paddy rowspan
+    PADDY_END = len(data) - 1
     RICE_START = len(data)
 
-    # VII, VIII (rice under agency cols)
-    data.append(rice_agency_row("VII", "Rice received from the milling during the week", "VII_week"))
-    paddy_red_rows.append(len(data) - 1)  # colored red
-    data.append(rice_agency_row("VIII", "Progressive rice received from milling till date", "VIII_prog"))
-    paddy_red_rows.append(len(data) - 1)
+    # VII, VIII: rice received (total under OSCSC_OWN colSpan=2)
+    for (sl, label, key, colored) in [("VII", "Rice received from the milling during the week", "VII_week", True), ("VIII", "Progressive rice received from milling till date", "VIII_prog", True)]:
+        total = R[key]["total"]
+        data.append(["", sl, label, num(total), "", num(0), "", num(0), num(0), num(0), num(total)])
+        if colored: paddy_red_rows.append(len(data) - 1)
 
-    # Sub-header row: RRC | FCI | RRC FRK | FCI FRK
-    data.append(["", "", "", RICE_LABEL["RRC"], RICE_LABEL["FCI"], RICE_LABEL["RRC_FRK"], RICE_LABEL["FCI_FRK"], "", ""])
+    # Sub-header: RRC | FCI | RRC FRK | FCI FRK
+    data.append(["", "", "", "RRC", "FCI", "RRC FRK", "FCI FRK", "", "", "", ""])
     SUBHEADER_ROW = len(data) - 1
 
-    # IX-XII (rice cols)
+    # IX-XII: rice delivery with RRC/FCI under OSCSC_OWN, RRC_FRK/FCI_FRK under OSCSC_KORAPUT
     rice2_def = [
         ("IX", "Rice delivered during the week against DC", "IX_week", False),
         ("X", "Progressive DC issued till verification", "X_prog_issued", False),
@@ -1673,17 +1669,25 @@ async def export_verification_report_pdf(
         ("XII", "Balance of rice remain undelivered against DC (Sl no x-xi)", "XII_undelivered", True),
     ]
     for (sl, label, key, colored) in rice2_def:
-        data.append(rice_col_row(sl, label, key))
+        row = R.get(key, {"by_col":{}, "total":0})
+        data.append(["", sl, label,
+                     num(row["by_col"].get("RRC", 0)),
+                     num(row["by_col"].get("FCI", 0)),
+                     num(row["by_col"].get("RRC_FRK", 0)),
+                     num(row["by_col"].get("FCI_FRK", 0)),
+                     "", "", "",
+                     num(row["total"])])
         if colored: paddy_red_rows.append(len(data) - 1)
 
-    # XIII, XIV (total only)
-    data.append(rice_total_row("XIII", "Book balannce of rice (Sl no viii-ix)", "XIII_book"))
-    paddy_red_rows.append(len(data) - 1)
-    data.append(rice_total_row("XIV", "Verified balance of rice", "XIV_verified"))
-    paddy_red_rows.append(len(data) - 1)
+    # XIII, XIV: total only at RRC position
+    for (sl, label, key) in [("XIII", "Book balannce of rice (Sl no viii-ix)", "XIII_book"), ("XIV", "Verified balance of rice", "XIV_verified")]:
+        t = R[key]["total"]
+        data.append(["", sl, label, num(t), "", "", "", "", "", "", num(t)])
+        paddy_red_rows.append(len(data) - 1)
     RICE_END = len(data) - 1
 
-    col_widths = [7*mm, 10*mm, 55*mm] + [18*mm]*5 + [22*mm]
+    # Column widths (A4 portrait ~190mm usable): total = 190mm
+    col_widths = [7*mm, 8*mm, 40*mm, 13*mm, 13*mm, 14*mm, 14*mm, 17*mm, 15*mm, 17*mm, 22*mm]
     tbl = RLTable(data, colWidths=col_widths, repeatRows=1)
     t_style = [
         ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
@@ -1693,13 +1697,16 @@ async def export_verification_report_pdf(
         ('BACKGROUND', (3, SUBHEADER_ROW), (6, SUBHEADER_ROW), rlcolors.lightgrey),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
         ('FONTNAME', (3, SUBHEADER_ROW), (6, SUBHEADER_ROW), 'Helvetica-Bold'),
+        # Header row: SPAN OSCSC(OWN) over cols 3-4, OSCSC(Koraput) over 5-6
+        ('SPAN', (3, 0), (4, 0)),
+        ('SPAN', (5, 0), (6, 0)),
         ('ALIGN', (0,0), (-1,0), 'CENTER'),
         ('ALIGN', (1,1), (1,-1), 'CENTER'),
         ('ALIGN', (3,1), (-1,-1), 'RIGHT'),
         ('ALIGN', (3, SUBHEADER_ROW), (6, SUBHEADER_ROW), 'CENTER'),
         ('FONTNAME', (-1,1), (-1,-1), 'Helvetica-Bold'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        # Row-group labels (column 0): spans
+        # Row-group labels
         ('SPAN', (0, PADDY_START), (0, PADDY_END)),
         ('SPAN', (0, RICE_START), (0, RICE_END)),
         ('BACKGROUND', (0, PADDY_START), (0, PADDY_END), rlcolors.HexColor('#f5f5f5')),
@@ -1707,10 +1714,25 @@ async def export_verification_report_pdf(
         ('FONTNAME', (0, PADDY_START), (0, RICE_END), 'Helvetica-Bold'),
         ('ALIGN', (0, 0), (0, -1), 'CENTER'),
     ]
+    # Paddy rows I-VI: merge OSCSC_OWN (cols 3-4) and OSCSC_KORAPUT (cols 5-6) for each row
+    for r in range(PADDY_START, PADDY_END + 1):
+        t_style.append(('SPAN', (3, r), (4, r)))
+        t_style.append(('SPAN', (5, r), (6, r)))
+    # Rice rows VII-VIII: same (cols 3-4 merge + cols 5-6 merge)
+    t_style.append(('SPAN', (3, RICE_START), (4, RICE_START)))
+    t_style.append(('SPAN', (5, RICE_START), (6, RICE_START)))
+    t_style.append(('SPAN', (3, RICE_START + 1), (4, RICE_START + 1)))
+    t_style.append(('SPAN', (5, RICE_START + 1), (6, RICE_START + 1)))
+    # Rice rows XIII-XIV: merge cols 3-6 to show single value
+    xiii_row = RICE_END - 1; xiv_row = RICE_END
+    t_style.append(('SPAN', (3, xiii_row), (6, xiii_row)))
+    t_style.append(('SPAN', (3, xiv_row), (6, xiv_row)))
+    t_style.append(('SPAN', (7, xiii_row), (9, xiii_row)))
+    t_style.append(('SPAN', (7, xiv_row), (9, xiv_row)))
+    # Red text for progressive rows
     for rnum in paddy_red_rows:
         t_style.append(('TEXTCOLOR', (3, rnum), (-1, rnum), rlcolors.red))
     tbl.setStyle(TableStyle(t_style))
-    # Set the rowspan cell values for Paddy / Rice
     data[PADDY_START][0] = "Paddy"
     data[RICE_START][0] = "Rice"
 
@@ -1738,6 +1760,214 @@ async def export_verification_report_pdf(
     buf.seek(0)
     return Response(content=buf.read(), media_type="application/pdf",
                     headers={"Content-Disposition": f"attachment; filename=Verification_Report_{to_date or 'current'}.pdf"})
+
+
+# ============ ANNEXURE-1 EXCEL EXPORT ============
+@router.get("/govt-registers/verification-report/excel")
+async def export_verification_report_excel(
+    kms_year: Optional[str] = None,
+    season: Optional[str] = None,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    last_meter_reading: float = 0,
+    units_per_qtl: float = 6.0,
+    rice_recovery: float = 0.67,
+    variety: str = "Boiled",
+):
+    from io import BytesIO
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.utils import get_column_letter
+    from fastapi.responses import Response
+
+    vr = await get_verification_report_full(
+        kms_year=kms_year, season=season, from_date=from_date, to_date=to_date,
+        last_meter_reading=last_meter_reading, units_per_qtl=units_per_qtl,
+        rice_recovery=rice_recovery, variety=variety,
+    )
+    h = vr["header"]; P = vr["paddy"]; R = vr["rice"]
+
+    def fmt_d(d):
+        if not d: return ""
+        p = str(d).split("-")
+        return f"{p[2]}-{p[1]}-{p[0][2:]}" if len(p) == 3 else d
+
+    wb = Workbook(); ws = wb.active; ws.title = "Verification Report"
+    thin = Side(style='thin', color='000000')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    hdr_fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+    subhdr_fill = PatternFill(start_color="E7E6E6", end_color="E7E6E6", fill_type="solid")
+    red_font = Font(color="C00000", bold=True, size=10)
+    bold_font = Font(bold=True, size=10)
+    normal_font = Font(size=10)
+    center = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    right = Alignment(horizontal='right', vertical='center')
+    left = Alignment(horizontal='left', vertical='center', wrap_text=True)
+
+    # Cols: A=Group, B=Sl, C=Particulars, D=RRC, E=FCI, F=RRC FRK, G=FCI FRK, H=NAFED, I=TDCC, J=Levy, K=TOTAL
+    col_widths = {'A': 6, 'B': 6, 'C': 48, 'D': 11, 'E': 11, 'F': 12, 'G': 12, 'H': 14, 'I': 10, 'J': 12, 'K': 15}
+    for col, w in col_widths.items(): ws.column_dimensions[col].width = w
+
+    # Title
+    ws.merge_cells('A1:J1')
+    ws['A1'] = "Verification Report of Authorized Officer"
+    ws['A1'].font = Font(bold=True, size=14, underline='single')
+    ws['A1'].alignment = center
+    ws['K1'] = "Annexure-1"
+    ws['K1'].alignment = Alignment(horizontal='right', vertical='center')
+    ws.row_dimensions[1].height = 24
+
+    # Miller Details Table (rows 2-5) - 7 cols
+    miller_rows = [
+        [("1a. Miller Name:", True), (h["miller_name"], False), ("1b. Address:", True), (h["address"], False), ("4a. Electricity Contract (KW)", True), (str(h["electricity_kw"]), False), (f"{h['electricity_kv']} KV", False)],
+        [("1c. Miller Code:", True), (h["miller_code"], False), ("1d. Milling Capacity*:", True), (f"{h['milling_capacity_mt']} MT", False), ("4b. Metre Reading at last verification", True), (f"{h['meter']['last_reading']:.2f}", False), ("", False)],
+        [("2a. KMS:", True), (h["kms_year"], False), ("2b. Variety:", True), (h["variety"], False), ("4c. Present Metre Reading", True), (f"{h['meter']['present_reading']:.2f}", "red"), ("", False)],
+        [("3a. Last Verification Date:", True), (fmt_d(h["last_verification_date"]), False), ("3b. Present Verification Date:", True), (fmt_d(h["present_verification_date"]), False), ("4d. Total units Consumed", True), (f"{h['meter']['units_consumed']:.2f}", "red"), ("", False)],
+    ]
+    # Allocate cols A-C for miller info (left), D-F (mid), G-I for electricity, J-K (extra)
+    for i, row in enumerate(miller_rows, start=2):
+        # 7 cols: A-B (label+val), C-D (label+val), E (label), F (val), G (val_extra)
+        positions = ['A', 'B', 'C', 'D', 'E', 'F', 'G']  # we'll merge
+        # Simpler: merge A:B for label, C:D for value (pair 1); E:F for label pair 2; G:H for val2; I for label3; J for val3; K for unit
+        # Actually simpler plain: use cols A, B, D, F, H, J, K (7 positions)
+        ws.merge_cells(f'A{i}:B{i}'); ws[f'A{i}'] = row[0][0]; ws[f'A{i}'].font = bold_font if row[0][1] else normal_font; ws[f'A{i}'].border = border; ws[f'A{i}'].alignment = left
+        ws.merge_cells(f'C{i}:D{i}'); ws[f'C{i}'] = row[1][0]; ws[f'C{i}'].font = normal_font; ws[f'C{i}'].border = border; ws[f'C{i}'].alignment = left
+        ws.merge_cells(f'E{i}:F{i}'); ws[f'E{i}'] = row[2][0]; ws[f'E{i}'].font = bold_font; ws[f'E{i}'].border = border; ws[f'E{i}'].alignment = left
+        ws.merge_cells(f'G{i}:H{i}'); ws[f'G{i}'] = row[3][0]; ws[f'G{i}'].font = normal_font; ws[f'G{i}'].border = border; ws[f'G{i}'].alignment = left
+        ws[f'I{i}'] = row[4][0]; ws[f'I{i}'].font = bold_font; ws[f'I{i}'].border = border; ws[f'I{i}'].alignment = left
+        ws[f'J{i}'] = row[5][0]; ws[f'J{i}'].font = red_font if row[5][1] == "red" else normal_font; ws[f'J{i}'].border = border; ws[f'J{i}'].alignment = right
+        ws[f'K{i}'] = row[6][0]; ws[f'K{i}'].font = normal_font; ws[f'K{i}'].border = border; ws[f'K{i}'].alignment = right
+        ws.row_dimensions[i].height = 22
+
+    # Blank row
+    hdr_row = 7
+
+    # Main table header (row 7-8)
+    # Row 7: [blank] [Sl No] [blank] [OSCSC(OWN) colspan=2] [OSCSC(Koraput) colspan=2] [NAFED] [TDCC] [Levy A/c] [TOTAL]
+    ws[f'A{hdr_row}'] = ""; ws[f'B{hdr_row}'] = "Sl No"; ws[f'C{hdr_row}'] = ""
+    ws.merge_cells(f'D{hdr_row}:E{hdr_row}'); ws[f'D{hdr_row}'] = "OSCSC(OWN)"
+    ws.merge_cells(f'F{hdr_row}:G{hdr_row}'); ws[f'F{hdr_row}'] = "OSCSC(Koraput)"
+    ws[f'H{hdr_row}'] = "NAFED"; ws[f'I{hdr_row}'] = "TDCC"; ws[f'J{hdr_row}'] = "Levy A/c"; ws[f'K{hdr_row}'] = "TOTAL"
+    for col in "ABCDEFGHIJK":
+        cell = ws[f'{col}{hdr_row}']; cell.font = bold_font; cell.alignment = center; cell.fill = hdr_fill; cell.border = border
+    ws.row_dimensions[hdr_row].height = 20
+
+    # Data rows
+    cur = hdr_row + 1
+
+    def put_paddy(sl, label, key, colored):
+        nonlocal cur
+        row = P.get(key, {"by_agency":{}, "total":0})
+        own_v = row["by_agency"].get("OSCSC_OWN", 0)
+        kor_v = row["by_agency"].get("OSCSC_KORAPUT", 0)
+        nafed_v = row["by_agency"].get("NAFED", 0)
+        tdcc_v = row["by_agency"].get("TDCC", 0)
+        levy_v = row["by_agency"].get("LEVY", 0)
+        tot_v = row["total"]
+        ws[f'B{cur}'] = sl; ws[f'B{cur}'].font = bold_font; ws[f'B{cur}'].alignment = center; ws[f'B{cur}'].border = border
+        ws[f'C{cur}'] = label; ws[f'C{cur}'].font = normal_font; ws[f'C{cur}'].alignment = left; ws[f'C{cur}'].border = border
+        ws.merge_cells(f'D{cur}:E{cur}'); ws[f'D{cur}'] = own_v; ws[f'D{cur}'].font = red_font if colored else normal_font; ws[f'D{cur}'].alignment = right; ws[f'D{cur}'].border = border; ws[f'D{cur}'].number_format = '0.00'
+        ws.merge_cells(f'F{cur}:G{cur}'); ws[f'F{cur}'] = kor_v; ws[f'F{cur}'].font = red_font if colored else normal_font; ws[f'F{cur}'].alignment = right; ws[f'F{cur}'].border = border; ws[f'F{cur}'].number_format = '0.00'
+        for col, val in [('H', nafed_v), ('I', tdcc_v), ('J', levy_v)]:
+            ws[f'{col}{cur}'] = val; ws[f'{col}{cur}'].font = red_font if colored else normal_font; ws[f'{col}{cur}'].alignment = right; ws[f'{col}{cur}'].border = border; ws[f'{col}{cur}'].number_format = '0.00'
+        ws[f'K{cur}'] = tot_v; ws[f'K{cur}'].font = Font(bold=True, color="C00000") if colored else bold_font; ws[f'K{cur}'].alignment = right; ws[f'K{cur}'].border = border; ws[f'K{cur}'].number_format = '0.00'
+        ws.row_dimensions[cur].height = 22
+        cur += 1
+
+    paddy_start_row = cur
+    paddy_def = [
+        ("I", "Paddy Procured/Received during the week", "I_week", False),
+        ("II", "Prog Paddy Procured/Recived till verification date", "II_prog", True),
+        ("III", "Paddy Milled during the week", "III_week", False),
+        ("IV", "Progressive paddy milled till verification date", "IV_prog", True),
+        ("V", "Book Balance of Paddy Stock(sl No II-IV)", "V_book", True),
+        ("VI", "Verified balance of paddy", "VI_verified", True),
+    ]
+    for (sl, label, key, colored) in paddy_def: put_paddy(sl, label, key, colored)
+    paddy_end_row = cur - 1
+    # Merge A column for "Paddy" label
+    ws.merge_cells(f'A{paddy_start_row}:A{paddy_end_row}')
+    ws[f'A{paddy_start_row}'] = "Paddy"; ws[f'A{paddy_start_row}'].font = bold_font; ws[f'A{paddy_start_row}'].alignment = Alignment(horizontal='center', vertical='center', text_rotation=90); ws[f'A{paddy_start_row}'].fill = subhdr_fill
+    for r in range(paddy_start_row, paddy_end_row + 1): ws[f'A{r}'].border = border
+
+    # VII, VIII: rice received (agency cols)
+    rice_start_row = cur
+    for (sl, label, key) in [("VII", "Rice received from the milling during the week", "VII_week"), ("VIII", "Progressive rice received from milling till date", "VIII_prog")]:
+        total = R[key]["total"]
+        ws[f'B{cur}'] = sl; ws[f'B{cur}'].font = bold_font; ws[f'B{cur}'].alignment = center; ws[f'B{cur}'].border = border
+        ws[f'C{cur}'] = label; ws[f'C{cur}'].font = normal_font; ws[f'C{cur}'].alignment = left; ws[f'C{cur}'].border = border
+        ws.merge_cells(f'D{cur}:E{cur}'); ws[f'D{cur}'] = total; ws[f'D{cur}'].font = red_font; ws[f'D{cur}'].alignment = right; ws[f'D{cur}'].border = border; ws[f'D{cur}'].number_format = '0.00'
+        ws.merge_cells(f'F{cur}:G{cur}'); ws[f'F{cur}'] = 0; ws[f'F{cur}'].alignment = right; ws[f'F{cur}'].border = border; ws[f'F{cur}'].number_format = '0.00'
+        for col in ['H', 'I', 'J']:
+            ws[f'{col}{cur}'] = 0; ws[f'{col}{cur}'].alignment = right; ws[f'{col}{cur}'].border = border; ws[f'{col}{cur}'].number_format = '0.00'
+        ws[f'K{cur}'] = total; ws[f'K{cur}'].font = Font(bold=True, color="C00000"); ws[f'K{cur}'].alignment = right; ws[f'K{cur}'].border = border; ws[f'K{cur}'].number_format = '0.00'
+        ws.row_dimensions[cur].height = 22
+        cur += 1
+
+    # Sub-header row: RRC | FCI | RRC FRK | FCI FRK
+    ws[f'B{cur}'] = ""; ws[f'C{cur}'] = ""
+    for col, lbl in [('D', 'RRC'), ('E', 'FCI'), ('F', 'RRC FRK'), ('G', 'FCI FRK')]:
+        ws[f'{col}{cur}'] = lbl; ws[f'{col}{cur}'].font = bold_font; ws[f'{col}{cur}'].alignment = center; ws[f'{col}{cur}'].fill = subhdr_fill; ws[f'{col}{cur}'].border = border
+    for col in ['A','B','C','H','I','J','K']:
+        ws[f'{col}{cur}'].border = border
+    ws.row_dimensions[cur].height = 20
+    cur += 1
+
+    # IX-XII: rice delivery
+    rice2_def = [
+        ("IX", "Rice delivered during the week against DC", "IX_week", False),
+        ("X", "Progressive DC issued till verification", "X_prog_issued", False),
+        ("XI", "Prog. Rice delivered against total DC issued", "XI_prog_delivered", True),
+        ("XII", "Balance of rice remain undelivered against DC (Sl no x-xi)", "XII_undelivered", True),
+    ]
+    for (sl, label, key, colored) in rice2_def:
+        row = R.get(key, {"by_col":{}, "total":0})
+        ws[f'B{cur}'] = sl; ws[f'B{cur}'].font = bold_font; ws[f'B{cur}'].alignment = center; ws[f'B{cur}'].border = border
+        ws[f'C{cur}'] = label; ws[f'C{cur}'].font = normal_font; ws[f'C{cur}'].alignment = left; ws[f'C{cur}'].border = border
+        for col, ck in [('D', 'RRC'), ('E', 'FCI'), ('F', 'RRC_FRK'), ('G', 'FCI_FRK')]:
+            ws[f'{col}{cur}'] = row["by_col"].get(ck, 0); ws[f'{col}{cur}'].font = red_font if colored else normal_font; ws[f'{col}{cur}'].alignment = right; ws[f'{col}{cur}'].border = border; ws[f'{col}{cur}'].number_format = '0.00'
+        for col in ['H', 'I', 'J']:
+            ws[f'{col}{cur}'].border = border
+        ws[f'K{cur}'] = row["total"]; ws[f'K{cur}'].font = Font(bold=True, color="C00000") if colored else bold_font; ws[f'K{cur}'].alignment = right; ws[f'K{cur}'].border = border; ws[f'K{cur}'].number_format = '0.00'
+        ws.row_dimensions[cur].height = 30 if sl == "XII" else 22
+        cur += 1
+
+    # XIII, XIV
+    for (sl, label, key) in [("XIII", "Book balannce of rice (Sl no viii-ix)", "XIII_book"), ("XIV", "Verified balance of rice", "XIV_verified")]:
+        t = R[key]["total"]
+        ws[f'B{cur}'] = sl; ws[f'B{cur}'].font = bold_font; ws[f'B{cur}'].alignment = center; ws[f'B{cur}'].border = border
+        ws[f'C{cur}'] = label; ws[f'C{cur}'].font = normal_font; ws[f'C{cur}'].alignment = left; ws[f'C{cur}'].border = border
+        ws[f'D{cur}'] = t; ws[f'D{cur}'].font = red_font; ws[f'D{cur}'].alignment = right; ws[f'D{cur}'].border = border; ws[f'D{cur}'].number_format = '0.00'
+        for col in ['E', 'F', 'G', 'H', 'I', 'J']:
+            ws[f'{col}{cur}'].border = border
+        ws[f'K{cur}'] = t; ws[f'K{cur}'].font = Font(bold=True, color="C00000"); ws[f'K{cur}'].alignment = right; ws[f'K{cur}'].border = border; ws[f'K{cur}'].number_format = '0.00'
+        ws.row_dimensions[cur].height = 22
+        cur += 1
+    rice_end_row = cur - 1
+
+    # Merge A column for "Rice" label
+    ws.merge_cells(f'A{rice_start_row}:A{rice_end_row}')
+    ws[f'A{rice_start_row}'] = "Rice"; ws[f'A{rice_start_row}'].font = bold_font; ws[f'A{rice_start_row}'].alignment = Alignment(horizontal='center', vertical='center', text_rotation=90); ws[f'A{rice_start_row}'].fill = subhdr_fill
+    for r in range(rice_start_row, rice_end_row + 1): ws[f'A{r}'].border = border
+
+    # Footer text
+    cur += 1
+    ws[f'A{cur}'] = "Total qty of CMB delivered as per M-reporting by the miller   qtls"; ws[f'A{cur}'].font = normal_font
+    cur += 1
+    ws[f'A{cur}'] = "It is certified that there is no missappropriation /diversion by the miller and paddy/rice available has been stored safely"; ws[f'A{cur}'].font = normal_font
+    cur += 2
+    ws[f'A{cur}'] = "Name and Signature of Miller Agent/Authorised Representative"; ws[f'A{cur}'].font = bold_font
+    ws[f'I{cur}'] = "Signature of Authorised Officer"; ws[f'I{cur}'].font = bold_font
+    cur += 1
+    ws[f'A{cur}'] = "Copy Submitted to CSO cum District Manager, Kalahandi/Concerned Miller"; ws[f'A{cur}'].font = normal_font
+    ws[f'I{cur}'] = "(With Name & Desgination)"; ws[f'I{cur}'].font = normal_font
+    cur += 1
+    ws[f'A{cur}'] = "*Milling Capacity per shift of 8 hrs"; ws[f'A{cur}'].font = Font(size=9, italic=True, color="666666")
+
+    buf = BytesIO(); wb.save(buf); buf.seek(0)
+    return Response(content=buf.read(),
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f"attachment; filename=Verification_Report_{to_date or 'current'}.xlsx"})
 
 
 
