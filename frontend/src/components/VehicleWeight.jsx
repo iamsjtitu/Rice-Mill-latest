@@ -58,12 +58,13 @@ function useRealScale() {
   return { weight, stable, running: connected, connected, scheduleNext };
 }
 
-/* ─── LAN Scale (Poll weight from Desktop App API — either default backend or custom weighbridge_host) ─── */
+/* ─── LAN Scale (WebSocket → HTTP polling fallback) ─── */
 function useLanScale() {
   const [weight, setWeight] = useState(0);
   const [stable, setStable] = useState(false);
   const [connected, setConnected] = useState(false);
   const [wbHost, setWbHost] = useState("");
+  const [wsAlive, setWsAlive] = useState(false);
 
   // Fetch weighbridge_host once at mount — allows pointing to a specific Desktop App's IP (e.g. http://192.168.1.10:9000)
   useEffect(() => {
@@ -80,23 +81,64 @@ function useLanScale() {
     return () => { active = false; };
   }, []);
 
+  // Resolve the base URL used for both WS and HTTP (with mixed-content guard)
+  const resolveBaseUrl = useCallback(() => {
+    // MIXED-CONTENT GUARD: HTTPS page + HTTP wbHost = browser block. Prefer same-origin.
+    if (wbHost) {
+      const wbIsHttp = /^http:\/\//i.test(wbHost);
+      const pageIsHttps = typeof window !== 'undefined' && window.location && window.location.protocol === 'https:';
+      if (!(wbIsHttp && pageIsHttps)) return wbHost.replace(/\/$/, '');
+    }
+    // Same-origin: derive base from API (which is like https://mill.9x.design/api)
+    return API.replace(/\/api\/?$/, '');
+  }, [wbHost]);
+
+  // WebSocket: try to connect; if successful, push weight events arrive directly (no polling)
   useEffect(() => {
+    let ws = null, active = true, reconnectTimer = null;
+    const base = resolveBaseUrl();
+    if (!base) return;
+    const wsUrl = base.replace(/^http/i, 'ws') + '/ws/weighbridge';
+    const connect = () => {
+      try {
+        ws = new WebSocket(wsUrl);
+        ws.onopen = () => { if (!active) { try { ws.close(); } catch {} return; } setWsAlive(true); };
+        ws.onmessage = (ev) => {
+          if (!active) return;
+          try {
+            const d = JSON.parse(ev.data);
+            if (typeof d.weight === 'number') setWeight(d.weight);
+            if (typeof d.stable === 'boolean') setStable(d.stable);
+            if (typeof d.connected === 'boolean') setConnected(d.connected);
+            else if (d.type === 'weight') setConnected(true);
+          } catch {}
+        };
+        ws.onerror = () => { /* handled by onclose */ };
+        ws.onclose = () => {
+          setWsAlive(false);
+          if (active) {
+            // Retry in 3s (handles brief tunnel/network hiccups)
+            reconnectTimer = setTimeout(connect, 3000);
+          }
+        };
+      } catch { setWsAlive(false); }
+    };
+    connect();
+    return () => {
+      active = false;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      try { if (ws && ws.readyState !== WebSocket.CLOSED) ws.close(); } catch {}
+    };
+  }, [resolveBaseUrl]);
+
+  // HTTP polling fallback: only active when WS is NOT alive (keeps compat with older backends)
+  useEffect(() => {
+    if (wsAlive) return; // WS covers us
     let active = true;
+    const base = resolveBaseUrl();
     const poll = async () => {
       try {
-        // If weighbridge_host is set, hit `${wbHost}/api/weighbridge/live-weight` directly (works across networks).
-        // Otherwise fall back to main API (Desktop App's own LAN server).
-        // MIXED-CONTENT GUARD: If current page is HTTPS but wbHost is HTTP (typical LAN IP),
-        // browser will block the request. Fall back to same-origin in that case.
-        let base = API;
-        if (wbHost) {
-          const wbIsHttp = /^http:\/\//i.test(wbHost);
-          const pageIsHttps = typeof window !== 'undefined' && window.location && window.location.protocol === 'https:';
-          if (!(wbIsHttp && pageIsHttps)) {
-            base = wbHost.replace(/\/$/, '') + "/api";
-          }
-        }
-        const r = await fetch(`${base}/weighbridge/live-weight`, { cache: "no-store" });
+        const r = await fetch(`${base}/api/weighbridge/live-weight`, { cache: "no-store" });
         if (r.ok && active) {
           const d = await r.json();
           setWeight(d.weight || 0);
@@ -110,7 +152,7 @@ function useLanScale() {
     poll();
     const iv = setInterval(poll, 500);
     return () => { active = false; clearInterval(iv); };
-  }, [wbHost]);
+  }, [wsAlive, resolveBaseUrl]);
 
   const scheduleNext = useCallback(() => {}, []);
   return { weight, stable, running: connected, connected, scheduleNext };

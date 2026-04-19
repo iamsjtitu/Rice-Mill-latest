@@ -13,7 +13,7 @@ const cors = require('cors');
 const compression = require('compression');
 const { v4: uuidv4 } = require('uuid');
 const { roundAmount } = require('./routes/safe_handler');
-const { initSerialHandler, cleanupSerial, getWeightStatus } = require('./serial-handler');
+const { initSerialHandler, cleanupSerial, getWeightStatus, subscribeWeight } = require('./serial-handler');
 
 // ============ CRASH PROTECTION & ERROR LOGGING ============
 const errorLogPath = path.join(app.getPath('userData'), 'mill-entry-error.log');
@@ -1725,8 +1725,45 @@ function createApiServer(database) {
 
   // Start server on all interfaces (0.0.0.0) so other computers on the network can access
   return new Promise((resolve, reject) => {
+    const attachWebSocket = (httpServer) => {
+      try {
+        const WebSocket = require('ws');
+        const wss = new WebSocket.Server({ server: httpServer, path: '/ws/weighbridge' });
+        wss.on('connection', (ws, req) => {
+          const ip = (req.socket.remoteAddress || '').replace('::ffff:', '');
+          console.log(`[WS] Weighbridge client connected from ${ip} (total: ${wss.clients.size})`);
+          // Send current status immediately so clients don't wait for next serial tick
+          try { ws.send(JSON.stringify({ type: 'status', ...getWeightStatus() })); } catch (_) {}
+          ws.on('error', (e) => console.log('[WS] client error:', e.message));
+          ws.on('close', () => console.log(`[WS] Weighbridge client disconnected (remaining: ${wss.clients.size - 1})`));
+        });
+        // Broadcast every weight update to all connected clients
+        subscribeWeight((payload) => {
+          const msg = JSON.stringify({ type: 'weight', connected: true, ...payload });
+          for (const client of wss.clients) {
+            if (client.readyState === WebSocket.OPEN) {
+              try { client.send(msg); } catch (_) { /* ignore */ }
+            }
+          }
+        });
+        // Periodic connection-status beacon (every 3s) so clients know if serial disconnects
+        setInterval(() => {
+          const msg = JSON.stringify({ type: 'status', ...getWeightStatus() });
+          for (const client of wss.clients) {
+            if (client.readyState === WebSocket.OPEN) {
+              try { client.send(msg); } catch (_) {}
+            }
+          }
+        }, 3000);
+        console.log('[WS] Weighbridge WebSocket server attached at /ws/weighbridge');
+      } catch (e) {
+        console.warn('[WS] Failed to attach WebSocket:', e.message);
+      }
+    };
+
     server = apiApp.listen(DESKTOP_API_PORT, '0.0.0.0', () => {
       console.log(`API Server started on port ${DESKTOP_API_PORT} (accessible on network)`);
+      attachWebSocket(server);
       resolve(DESKTOP_API_PORT);
     });
     server.on('error', (err) => {
@@ -1735,6 +1772,7 @@ function createApiServer(database) {
         server = apiApp.listen(0, '0.0.0.0', () => {
           const port = server.address().port;
           console.log(`API Server started on fallback port ${port}`);
+          attachWebSocket(server);
           resolve(port);
         });
       } else {

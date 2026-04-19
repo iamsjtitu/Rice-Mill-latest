@@ -150,12 +150,14 @@ function openPort(config) {
           const wasStable = isStable;
           isStable = parsed.hasStableFlag || checkStability(parsed.weight);
 
-          sendToRenderer('serial-weight', {
+          const payload = {
             weight: parsed.weight,
             stable: isStable,
             raw: trimmed,
             timestamp: Date.now()
-          });
+          };
+          sendToRenderer('serial-weight', payload);
+          emitWeight(payload);
 
           if (isStable && !wasStable) {
             console.log(`[Serial] Weight STABLE at ${parsed.weight} KG`);
@@ -168,12 +170,14 @@ function openPort(config) {
         if (parsed) {
           lastWeight = parsed.weight;
           isStable = parsed.hasStableFlag || checkStability(parsed.weight);
-          sendToRenderer('serial-weight', {
+          const payload = {
             weight: parsed.weight,
             stable: isStable,
             raw: rawBuffer.trim(),
             timestamp: Date.now()
-          });
+          };
+          sendToRenderer('serial-weight', payload);
+          emitWeight(payload);
         }
         rawBuffer = '';
       }
@@ -303,6 +307,18 @@ function cleanupSerial() {
   closePort();
 }
 
+// Weight subscribers for realtime broadcast (e.g. WebSocket push)
+const weightSubscribers = new Set();
+function subscribeWeight(fn) {
+  weightSubscribers.add(fn);
+  return () => weightSubscribers.delete(fn);
+}
+function emitWeight(payload) {
+  for (const fn of weightSubscribers) {
+    try { fn(payload); } catch (_) { /* ignore subscriber errors */ }
+  }
+}
+
 // Get current weight status (for REST API / LAN access)
 function getWeightStatus() {
   return {
@@ -313,4 +329,4 @@ function getWeightStatus() {
   };
 }
 
-module.exports = { initSerialHandler, cleanupSerial, getWeightStatus };
+module.exports = { initSerialHandler, cleanupSerial, getWeightStatus, subscribeWeight };

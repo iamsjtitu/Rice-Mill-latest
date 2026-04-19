@@ -1,6 +1,6 @@
 {
   "name": "mill-entry-system",
-  "version": "104.22.0",
+  "version": "104.23.0",
   "description": "Mill Entry Management System - Desktop Application",
   "main": "main.js",
   "scripts": {
@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
+    "better-sqlite3": "^11.7.0",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "electron-updater": "^6.1.7",
@@ -32,7 +33,7 @@
     "pdfkit": "^0.13.0",
     "serialport": "^12.0.0",
     "uuid": "^9.0.0",
-    "better-sqlite3": "^11.7.0"
+    "ws": "^8.20.0"
   },
   "build": {
     "appId": "com.millentry.desktop",

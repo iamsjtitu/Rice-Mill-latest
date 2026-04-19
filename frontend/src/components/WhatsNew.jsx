@@ -7,6 +7,20 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.23.0",
+    date: "Feb 2026",
+    title: "v104.23.0 - Real-time Weighbridge via WebSocket",
+    items: [
+      { type: "new", text: "⚡ Weighbridge live weight ab WebSocket push se instant update hota hai — 500ms polling khatam, zero network overhead" },
+      { type: "new", text: "🔌 Backend: Desktop-app me naya WS endpoint `/ws/weighbridge` — serial port se jab bhi weight aata hai, saare connected browsers ko turant broadcast hota hai" },
+      { type: "new", text: "📡 3 seconds me periodic status beacon — agar serial port disconnect ho jaye to browser turant detect kar leta hai" },
+      { type: "new", text: "🔄 Auto-reconnect: tunnel/network hiccup pe 3s me dobara connect ho jata hai" },
+      { type: "new", text: "🛡️ HTTP polling fallback rakha hai — agar WS connection fail ho (old backend/proxy), app polling mode me chala jayega automatically" },
+      { type: "note", text: "🧑‍🤝‍🧑 Multiple browsers (mill.9x.design pe office + weighbridge PC + owner mobile) simultaneously real-time sync — sab same weight dekhege instantly" },
+      { type: "note", text: "Cloudflare Tunnel WebSocket natively support karta hai — extra config nahi chahiye" },
+    ],
+  },
+  {
     version: "104.22.0",
     date: "Feb 2026",
     title: "v104.22.0 - Weighbridge Live Weight Fix (Cloudflare Tunnel)",
