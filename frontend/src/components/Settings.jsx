@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Calculator, HardDrive, ShieldCheck, Send, Package, Scale,
-  Camera, AlertCircle, Key, Users, History, Droplets, ExternalLink,
+  Camera, AlertCircle, Key, Users, History, Droplets, ExternalLink, ShieldAlert,
 } from "lucide-react";
 
 import BrandingTab from "./settings/BrandingTab";
@@ -17,6 +17,7 @@ import UsersTab from "./settings/UsersTab";
 import AuditLogTab from "./settings/AuditLogTab";
 import WatermarkTab from "./settings/WatermarkTab";
 import GovtLinksTab from "./settings/GovtLinksTab";
+import LicenseTab from "./settings/LicenseTab";
 
 const SUB_TABS = [
   { id: "users", label: "Users", icon: Users },
@@ -30,6 +31,7 @@ const SUB_TABS = [
   { id: "camera", label: "Camera", icon: Camera },
   { id: "weighbridge", label: "Weighbridge", icon: Scale },
   { id: "data", label: "Data", icon: HardDrive },
+  { id: "license", label: "License", icon: ShieldAlert },
   { id: "errorlog", label: "Error Log", icon: AlertCircle },
 ];
 
@@ -65,6 +67,7 @@ export default function Settings({ user, setUser, kmsYear, onBrandingUpdate }) {
           <TabsContent value="camera"><CameraSetupTab /></TabsContent>
           <TabsContent value="weighbridge"><WeighbridgeConfigCard /></TabsContent>
           <TabsContent value="data"><DataTab user={user} /></TabsContent>
+          <TabsContent value="license"><LicenseTab /></TabsContent>
           <TabsContent value="errorlog"><ErrorLogTab /></TabsContent>
         </Tabs>
       </div>
