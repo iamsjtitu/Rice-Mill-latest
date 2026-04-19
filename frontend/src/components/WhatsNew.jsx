@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.18.1",
+    date: "Feb 2026",
+    title: "v104.18.1 - Fix: Milling Register FCI vs RRC Column",
+    items: [
+      { type: "fix", text: "Milling Register: DC delivery ab sahi column (FCI ya RRC) mein dikhti hai" },
+      { type: "fix", text: "Classification ab dc_entries.delivery_to se hoti hai (pehle sirf godown_name string check hota tha)" },
+    ],
+  },
+  {
     version: "104.18.0",
     date: "Feb 2026",
     title: "v104.18.0 - Milling Register: FCI Verification Report (Weekly)",

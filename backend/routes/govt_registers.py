@@ -1142,19 +1142,29 @@ async def get_milling_register(kms_year: Optional[str] = None, season: Optional[
         rice = m.get("cmr_delivery_qntl", 0) or m.get("rice_qntl", 0) or 0
         daily_rice_produced[d] = daily_rice_produced.get(d, 0) + rice
 
-    # 3. Rice delivered (from dc_deliveries)
+    # 3. Rice delivered (from dc_deliveries) — classification via parent dc_entries.delivery_to (FCI/RRC)
     del_query = {}
     if kms_year: del_query["kms_year"] = kms_year
     if season: del_query["season"] = season
-    deliveries = await db.dc_deliveries.find(del_query, {"_id": 0, "date": 1, "quantity_qntl": 1, "godown_name": 1}).to_list(50000)
+    deliveries = await db.dc_deliveries.find(del_query, {"_id": 0, "date": 1, "quantity_qntl": 1, "godown_name": 1, "dc_id": 1}).to_list(50000)
+    # Build dc_id -> delivery_to map from dc_entries
+    dc_ids = list({d.get("dc_id") for d in deliveries if d.get("dc_id")})
+    dc_map = {}
+    if dc_ids:
+        dc_docs = await db.dc_entries.find({"id": {"$in": dc_ids}}, {"_id": 0, "id": 1, "delivery_to": 1}).to_list(10000)
+        dc_map = {d.get("id"): (d.get("delivery_to") or "").strip().upper() for d in dc_docs}
     daily_delivery_rrc = {}
     daily_delivery_fci = {}
     for dlv in deliveries:
         d = dlv.get("date", "")
         if not d: continue
         qty = dlv.get("quantity_qntl", 0) or 0
-        godown = (dlv.get("godown_name", "") or "").lower()
-        if "fci" in godown:
+        # Prefer parent DC entry's delivery_to (authoritative). Fallback: godown_name substring.
+        delivery_to = dc_map.get(dlv.get("dc_id"), "")
+        if not delivery_to:
+            godown = (dlv.get("godown_name", "") or "").lower()
+            delivery_to = "FCI" if "fci" in godown else "RRC"
+        if delivery_to == "FCI":
             daily_delivery_fci[d] = daily_delivery_fci.get(d, 0) + qty
         else:
             daily_delivery_rrc[d] = daily_delivery_rrc.get(d, 0) + qty

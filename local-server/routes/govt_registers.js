@@ -935,14 +935,21 @@ module.exports = function(database) {
       daily_rice_produced[d] = (daily_rice_produced[d] || 0) + rice;
     });
 
-    // 3. DC deliveries
+    // 3. DC deliveries — classification via parent dc_entries.delivery_to (FCI/RRC), fallback to godown_name
     const deliveries = (database.data.dc_deliveries || []).filter(matchFn);
+    const dcEntriesAll = database.data.dc_entries || [];
+    const dcMap = {};
+    dcEntriesAll.forEach(e => { if (e && e.id) dcMap[e.id] = String(e.delivery_to || '').trim().toUpperCase(); });
     const daily_delivery_rrc = {}, daily_delivery_fci = {};
     deliveries.forEach(dlv => {
       const d = dlv.date || ''; if (!d) return;
       const qty = Number(dlv.quantity_qntl) || 0;
-      const godown = (dlv.godown_name || '').toLowerCase();
-      if (godown.includes('fci')) daily_delivery_fci[d] = (daily_delivery_fci[d] || 0) + qty;
+      let deliveryTo = dcMap[dlv.dc_id] || '';
+      if (!deliveryTo) {
+        const godown = (dlv.godown_name || '').toLowerCase();
+        deliveryTo = godown.includes('fci') ? 'FCI' : 'RRC';
+      }
+      if (deliveryTo === 'FCI') daily_delivery_fci[d] = (daily_delivery_fci[d] || 0) + qty;
       else daily_delivery_rrc[d] = (daily_delivery_rrc[d] || 0) + qty;
     });
 
