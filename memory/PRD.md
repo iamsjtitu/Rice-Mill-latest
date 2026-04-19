@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.18.0
+## Current Version: v104.19.0
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind
@@ -34,6 +34,9 @@
 - Voucher No field added to all By-Product sale entries
 
 ## Recent Changes (Apr 2026)
+- **v104.19.0 (Feb 2026)**: FCI Annexure-1 Verification Report (exact Govt format). New full Annexure-1 UI + `/api/govt-registers/verification-report/full` endpoint + PDF export `/api/govt-registers/verification-report/pdf` (A4). Agency breakdown: OSCSC OWN/Koraput/NAFED/TDCC/Levy (mapped via mill_entries.agent_name + paddy_release.agency ratio). Rice split: RRC/FCI/RRC FRK/FCI FRK. Paddy Release form: new Agency dropdown. Settings extended: electricity_kw, electricity_kv, milling_capacity_mt, variety. Teeno backends parity. Tested 15/15 backend + full frontend PASSED via testing agent.
+- **v104.18.1 (Feb 2026)**: DC delivery FCI vs RRC column bug fixed. Milling Register ab dc_entries.delivery_to se classify karta hai (pehle sirf godown_name string check tha). Teeno backends parity.
+- **v104.18.0 (Feb 2026)**: Initial simplified Verification Report tab (replaced by v104.19.0 full Annexure-1 format).
 - **v104.11.0 (Feb 2026)**: RST Auto-fill + Sale Tick System. (1) Add Delivery form mein "RST Number" field COMMON se hatayi aur har Truck ke andar (highlighted sky card) move kari. Auto-fill trigger: onBlur ya Enter press pe `/api/vehicle-weight/by-rst/{rst}?kms_year=X` fetch. Agar trans_type "Dispatch(Sale)" hai → Vehicle No + Bags (tot_pkts) + Weight (net_wt/100 Qtl) truck mein fill, Cash Paid + Diesel Paid common mein CUMULATIVELY add. Non-sale entries warn karti hain, 404 pe error. Multi-truck scenarios support — har truck ka alag RST. Save pe rst_no slash-joined ("9001 / 9002") store hota hai. (2) Naya endpoint: `/api/vehicle-weight/linked-rst-sale?kms_year=X` — dc_deliveries se sale RSTs return karta hai (slash split handle karta hai). Teeno backends (Python + Desktop JS + Local Server) mein parity. (3) Vehicle Weight page mein action column mein naya **sky CheckCircle tick** add — `linkedRstSale.has(rst_no)` ho toh "DC Delivery done (Sale linked)" tooltip ke saath dikhta hai. Delete button sale-linked entries pe hide ho jaata hai accidental delete prevent karne ke liye.
 - v104.10.0: Add Delivery cleanup + Depot Expenses (cash book auto nikasi) + truck-row auto-suggestions
 - v104.9.0: Multi-Truck Add Delivery (dynamic trucks, slash-joined vehicle_no)
