@@ -422,6 +422,124 @@ document.getElementById('run-expiry-scan').addEventListener('click', async () =>
   }
 });
 
+// ========== Cloudflare Settings ==========
+function paintCfStatus(s) {
+  const statusEl = document.getElementById('cf-status');
+  if (!s.cloudflare_api_token_set) {
+    statusEl.className = 'settings-status off';
+    statusEl.querySelector('.status-text').innerHTML = '<strong>Not configured.</strong> Paste a Cloudflare API token and save to enable auto-provisioning.';
+  } else if (!s.cloudflare_ready) {
+    statusEl.className = 'settings-status warn';
+    statusEl.querySelector('.status-text').innerHTML = '<strong>Token saved — IDs missing.</strong> Click “Auto-Discover IDs” to complete setup.';
+  } else if (!s.cloudflare_enabled) {
+    statusEl.className = 'settings-status warn';
+    statusEl.querySelector('.status-text').innerHTML = '<strong>Ready, but disabled.</strong> Toggle on to provision customer tunnels.';
+  } else {
+    statusEl.className = 'settings-status ok';
+    statusEl.querySelector('.status-text').innerHTML = '<strong>Live</strong> · Cloudflare auto-provisioning active for zone <code>' + escapeHtml(s.cloudflare_tunnel_domain) + '</code>.';
+  }
+  const idsEl = document.getElementById('cf-ids');
+  if (s.cloudflare_account_id && s.cloudflare_zone_id) {
+    idsEl.style.display = 'grid';
+    document.getElementById('cf-account-id').textContent = s.cloudflare_account_id;
+    document.getElementById('cf-zone-id').textContent = s.cloudflare_zone_id;
+  } else { idsEl.style.display = 'none'; }
+  document.getElementById('setting-cf-token').value = '';
+  document.getElementById('setting-cf-token').placeholder = s.cloudflare_api_token_set
+    ? 'Current: ' + s.cloudflare_api_token_masked + '  ·  paste new token to replace'
+    : 'Paste your Cloudflare API token';
+  document.getElementById('setting-cf-domain').value = s.cloudflare_tunnel_domain || '9x.design';
+  document.getElementById('setting-cf-enabled').checked = !!s.cloudflare_enabled;
+  document.getElementById('cf-toggle-label').textContent = s.cloudflare_enabled ? 'Enabled' : 'Disabled';
+  document.getElementById('cf-key-hint').textContent = s.cloudflare_api_token_set ? '(stored)' : '';
+}
+
+// Extend loadSettings to also paint CF
+const _origLoadSettings = loadSettings;
+loadSettings = async function() {
+  try {
+    const s = await apiCall('GET', '/admin/settings');
+    // reuse original renderer for WhatsApp part (just inline it since we have 's' already)
+    document.getElementById('setting-wa-key').value = '';
+    document.getElementById('setting-wa-key').placeholder = s.whatsapp_api_key_set
+      ? 'Current: ' + s.whatsapp_api_key_masked + '  ·  paste new key to replace'
+      : (s.env_key_available ? 'Using .env fallback · paste here to override' : 'Paste your 360Messenger API key');
+    document.getElementById('setting-wa-cc').value = s.whatsapp_cc || '91';
+    document.getElementById('setting-wa-enabled').checked = !!s.whatsapp_enabled;
+    document.getElementById('toggle-label').textContent = s.whatsapp_enabled ? 'Enabled' : 'Disabled';
+    const waStatus = document.getElementById('settings-status');
+    if (s.whatsapp_api_key_set && s.whatsapp_enabled) {
+      waStatus.className = 'settings-status ok';
+      waStatus.querySelector('.status-text').innerHTML = '<strong>Live</strong> · WhatsApp notifications are active. Key set via admin panel.';
+    } else if (s.env_key_available && s.whatsapp_enabled) {
+      waStatus.className = 'settings-status ok';
+      waStatus.querySelector('.status-text').innerHTML = '<strong>Live</strong> · Using fallback key from <code>.env</code>. Override it here if needed.';
+    } else if (s.whatsapp_api_key_set && !s.whatsapp_enabled) {
+      waStatus.className = 'settings-status warn';
+      waStatus.querySelector('.status-text').innerHTML = '<strong>Key saved, but disabled.</strong> Toggle on to enable notifications.';
+    } else {
+      waStatus.className = 'settings-status off';
+      waStatus.querySelector('.status-text').innerHTML = '<strong>Not configured.</strong> Paste a 360Messenger API key and save to activate customer notifications.';
+    }
+    document.getElementById('key-hint').textContent = s.whatsapp_api_key_set ? '(stored)' : '';
+    paintCfStatus(s);
+  } catch (e) {
+    if (/401|403|Unauthorized/i.test(e.message)) { logout(); return; }
+    document.getElementById('settings-status').className = 'settings-status off';
+    document.getElementById('settings-status').querySelector('.status-text').textContent = 'Error loading: ' + e.message;
+  }
+};
+
+document.getElementById('cf-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = document.getElementById('cf-error'); err.textContent = '';
+  const ok = document.getElementById('cf-success'); ok.textContent = '';
+  const body = {
+    cloudflare_api_token: document.getElementById('setting-cf-token').value.trim() || undefined,
+    cloudflare_tunnel_domain: document.getElementById('setting-cf-domain').value.trim() || undefined,
+    cloudflare_enabled: document.getElementById('setting-cf-enabled').checked,
+  };
+  Object.keys(body).forEach(k => body[k] === undefined && delete body[k]);
+  try {
+    await apiCall('PUT', '/admin/settings', body);
+    ok.textContent = '✓ Cloudflare configuration saved.';
+    // If token was newly provided and IDs are missing, auto-discover
+    const s = await apiCall('GET', '/admin/settings');
+    if (s.cloudflare_api_token_set && !s.cloudflare_ready) {
+      ok.textContent += ' Auto-discovering account & zone…';
+      try {
+        await apiCall('POST', '/admin/settings/cloudflare-discover');
+        ok.textContent = '✓ Saved. Account & Zone discovered.';
+      } catch (e2) { err.textContent = 'Discovery failed: ' + e2.message; }
+    }
+    await loadSettings();
+    setTimeout(() => { ok.textContent = ''; }, 3500);
+  } catch (e3) { err.textContent = e3.message; }
+});
+
+document.getElementById('cf-discover').addEventListener('click', async () => {
+  const err = document.getElementById('cf-error'); err.textContent = '';
+  const ok = document.getElementById('cf-success'); ok.textContent = 'Discovering…';
+  try {
+    const info = await apiCall('POST', '/admin/settings/cloudflare-discover');
+    ok.textContent = `✓ Found account "${info.account_name}" and zone "${info.zone_name}".`;
+    await loadSettings();
+  } catch (e) {
+    ok.textContent = '';
+    err.textContent = e.message;
+  }
+});
+
+document.getElementById('cf-remove').addEventListener('click', async () => {
+  if (!confirm('Remove the saved Cloudflare API token? Existing customer tunnels will keep working, but new provisioning will stop.')) return;
+  try { await apiCall('DELETE', '/admin/settings/cloudflare-token'); await loadSettings(); }
+  catch (e) { alert('Remove failed: ' + e.message); }
+});
+
+document.getElementById('setting-cf-enabled').addEventListener('change', (e) => {
+  document.getElementById('cf-toggle-label').textContent = e.target.checked ? 'Enabled' : 'Disabled';
+});
+
 // ========== Init ==========
 restoreSession();
 if (getToken()) {

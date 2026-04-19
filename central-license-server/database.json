@@ -48,6 +48,11 @@
     "whatsapp_api_key": "",
     "whatsapp_cc": "91",
     "whatsapp_enabled": true,
-    "updated_at": "2026-04-19T18:42:21.375Z"
+    "updated_at": "2026-04-19T19:21:34.022Z",
+    "cloudflare_api_token": "",
+    "cloudflare_account_id": "",
+    "cloudflare_zone_id": "",
+    "cloudflare_tunnel_domain": "9x.design",
+    "cloudflare_enabled": true
   }
 }

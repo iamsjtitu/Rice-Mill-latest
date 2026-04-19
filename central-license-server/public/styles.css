@@ -338,3 +338,14 @@ textarea { resize: vertical; min-height: 60px; font-family: inherit; }
 .test-result.fail { border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.05); color: var(--text-1); }
 .test-result.loading { opacity: 0.7; }
 .test-result strong { font-weight: 600; }
+
+/* Cloudflare discovered IDs */
+.cf-ids {
+  display: grid; grid-template-columns: 1fr; gap: 8px;
+  padding: 12px 14px; border-radius: 8px;
+  background: var(--surface-hover); border: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+}
+.cf-id-row { display: flex; justify-content: space-between; gap: 12px; }
+.cf-id-key { color: var(--text-3); text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; align-self: center; }
+.cf-id-val { color: var(--text-1); word-break: break-all; text-align: right; }

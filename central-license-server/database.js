@@ -15,6 +15,11 @@ const defaultData = {
     whatsapp_api_key: '',     // 360Messenger API key
     whatsapp_cc: '91',        // default country code
     whatsapp_enabled: false,  // master switch (auto-true when key present)
+    cloudflare_api_token: '', // Cloudflare API token (scoped: Tunnel Edit + DNS Edit)
+    cloudflare_account_id: '',// auto-discovered on first token save
+    cloudflare_zone_id: '',   // auto-discovered on first token save
+    cloudflare_tunnel_domain: '9x.design',
+    cloudflare_enabled: false,// master switch for tunnel auto-provisioning
     updated_at: null,
   },
   meta: { version: 1, created_at: new Date().toISOString() },

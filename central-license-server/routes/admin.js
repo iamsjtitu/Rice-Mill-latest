@@ -4,6 +4,7 @@ const db = require('../database');
 const { generateLicenseKey } = require('../utils/licenseGen');
 const { requireSuperAdmin } = require('../middleware/auth');
 const notifier = require('../utils/notifier');
+const cloudflare = require('../utils/cloudflare');
 
 const router = express.Router();
 
@@ -180,39 +181,47 @@ router.post('/licenses/:id/reset-notifications', (req, res) => {
 // GET /api/admin/settings — returns config with API key masked for security
 router.get('/settings', (req, res) => {
   const s = db.getData().settings || {};
-  const key = s.whatsapp_api_key || '';
+  const mask = (k) => k ? (k.slice(0, 4) + '•'.repeat(Math.max(0, k.length - 8)) + k.slice(-4)) : '';
+  const waKey = s.whatsapp_api_key || '';
+  const cfKey = s.cloudflare_api_token || '';
   res.json({
-    whatsapp_api_key_masked: key ? (key.slice(0, 4) + '•'.repeat(Math.max(0, key.length - 8)) + key.slice(-4)) : '',
-    whatsapp_api_key_set: !!key,
+    // WhatsApp
+    whatsapp_api_key_masked: mask(waKey),
+    whatsapp_api_key_set: !!waKey,
     whatsapp_cc: s.whatsapp_cc || '91',
     whatsapp_enabled: s.whatsapp_enabled !== false,
-    updated_at: s.updated_at || null,
-    // Also expose env-var fallback status so user knows if .env is the source
     env_key_available: !!process.env.NOTIFY_WA_API_KEY,
+    // Cloudflare
+    cloudflare_api_token_masked: mask(cfKey),
+    cloudflare_api_token_set: !!cfKey,
+    cloudflare_account_id: s.cloudflare_account_id || '',
+    cloudflare_zone_id: s.cloudflare_zone_id || '',
+    cloudflare_tunnel_domain: s.cloudflare_tunnel_domain || '9x.design',
+    cloudflare_enabled: s.cloudflare_enabled !== false && !!cfKey,
+    cloudflare_ready: !!(cfKey && s.cloudflare_account_id && s.cloudflare_zone_id),
+    updated_at: s.updated_at || null,
   });
 });
 
-// PUT /api/admin/settings — update WhatsApp config
+// PUT /api/admin/settings — update WhatsApp / Cloudflare config
 router.put('/settings', (req, res) => {
   const data = db.getData();
   if (!data.settings) data.settings = {};
-  const { whatsapp_api_key, whatsapp_cc, whatsapp_enabled } = req.body || {};
-  // Only update api_key if a non-empty string is provided (prevents accidental wipe on partial save)
-  if (typeof whatsapp_api_key === 'string' && whatsapp_api_key.trim()) {
-    data.settings.whatsapp_api_key = whatsapp_api_key.trim();
-  }
-  if (typeof whatsapp_cc === 'string' && whatsapp_cc.trim()) {
-    data.settings.whatsapp_cc = whatsapp_cc.trim().replace(/[^0-9]/g, '') || '91';
-  }
-  if (typeof whatsapp_enabled === 'boolean') {
-    data.settings.whatsapp_enabled = whatsapp_enabled;
-  }
+  const b = req.body || {};
+  // WhatsApp
+  if (typeof b.whatsapp_api_key === 'string' && b.whatsapp_api_key.trim()) data.settings.whatsapp_api_key = b.whatsapp_api_key.trim();
+  if (typeof b.whatsapp_cc === 'string' && b.whatsapp_cc.trim()) data.settings.whatsapp_cc = b.whatsapp_cc.trim().replace(/[^0-9]/g, '') || '91';
+  if (typeof b.whatsapp_enabled === 'boolean') data.settings.whatsapp_enabled = b.whatsapp_enabled;
+  // Cloudflare
+  if (typeof b.cloudflare_api_token === 'string' && b.cloudflare_api_token.trim()) data.settings.cloudflare_api_token = b.cloudflare_api_token.trim();
+  if (typeof b.cloudflare_tunnel_domain === 'string' && b.cloudflare_tunnel_domain.trim()) data.settings.cloudflare_tunnel_domain = b.cloudflare_tunnel_domain.trim();
+  if (typeof b.cloudflare_enabled === 'boolean') data.settings.cloudflare_enabled = b.cloudflare_enabled;
   data.settings.updated_at = new Date().toISOString();
   db.saveImmediate();
   res.json({ success: true });
 });
 
-// DELETE /api/admin/settings/whatsapp-key — wipe the API key (separate endpoint for safety)
+// DELETE /api/admin/settings/whatsapp-key — wipe WhatsApp API key
 router.delete('/settings/whatsapp-key', (req, res) => {
   const data = db.getData();
   if (!data.settings) data.settings = {};
@@ -220,6 +229,38 @@ router.delete('/settings/whatsapp-key', (req, res) => {
   data.settings.updated_at = new Date().toISOString();
   db.saveImmediate();
   res.json({ success: true });
+});
+
+// DELETE /api/admin/settings/cloudflare-token — wipe Cloudflare token (also clears discovered IDs)
+router.delete('/settings/cloudflare-token', (req, res) => {
+  const data = db.getData();
+  if (!data.settings) data.settings = {};
+  data.settings.cloudflare_api_token = '';
+  data.settings.cloudflare_account_id = '';
+  data.settings.cloudflare_zone_id = '';
+  data.settings.updated_at = new Date().toISOString();
+  db.saveImmediate();
+  res.json({ success: true });
+});
+
+// POST /api/admin/settings/cloudflare-discover — auto-discover account + zone using saved/provided token
+router.post('/settings/cloudflare-discover', async (req, res) => {
+  const data = db.getData();
+  const s = data.settings || (data.settings = {});
+  const token = (req.body && req.body.token) || s.cloudflare_api_token;
+  const domain = (req.body && req.body.domain) || s.cloudflare_tunnel_domain || '9x.design';
+  if (!token) return res.status(400).json({ error: 'Cloudflare API token not set' });
+  try {
+    const info = await cloudflare.autoDiscover(token, domain);
+    s.cloudflare_account_id = info.account_id;
+    s.cloudflare_zone_id = info.zone_id;
+    s.cloudflare_tunnel_domain = info.zone_name;
+    s.updated_at = new Date().toISOString();
+    db.saveImmediate();
+    res.json({ success: true, ...info });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+  }
 });
 
 // POST /api/admin/settings/test-whatsapp — send a ping message to a phone number to verify config
@@ -231,6 +272,55 @@ router.post('/settings/test-whatsapp', async (req, res) => {
   const text = '*MillEntry License Server*\n\n✓ WhatsApp configuration test successful.\n\nYour admin dashboard is correctly connected to 360Messenger. Customer notifications will now be delivered automatically.';
   const r = await notifier.sendMessage(cleaned, text);
   res.json({ success: !!(r && r.success), result: r, sent_to: cleaned });
+});
+
+// ============ CLOUDFLARE TUNNEL PROVISIONING ============
+
+// POST /api/admin/licenses/:id/provision-tunnel — create or return existing tunnel for a license
+router.post('/licenses/:id/provision-tunnel', async (req, res) => {
+  const data = db.getData();
+  const lic = data.licenses.find(l => l.id === req.params.id);
+  if (!lic) return res.status(404).json({ error: 'License not found' });
+  // Already provisioned? return existing info
+  if (lic.tunnel_id && lic.tunnel_slug) {
+    return res.json({
+      success: true, existed: true,
+      slug: lic.tunnel_slug, hostname: lic.tunnel_hostname,
+      tunnel_id: lic.tunnel_id, tunnel_token: lic.tunnel_token || null,
+    });
+  }
+  try {
+    const info = await cloudflare.provisionTunnel(lic);
+    lic.tunnel_slug = info.slug;
+    lic.tunnel_hostname = info.hostname;
+    lic.tunnel_id = info.tunnel_id;
+    lic.tunnel_token = info.tunnel_token;
+    lic.tunnel_dns_record_id = info.dns_record_id;
+    lic.tunnel_target_port = info.target_port;
+    lic.tunnel_provisioned_at = new Date().toISOString();
+    db.saveImmediate();
+    res.json({ success: true, existed: false, ...info });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+// DELETE /api/admin/licenses/:id/tunnel — delete the Cloudflare tunnel for a license
+router.delete('/licenses/:id/tunnel', async (req, res) => {
+  const data = db.getData();
+  const lic = data.licenses.find(l => l.id === req.params.id);
+  if (!lic) return res.status(404).json({ error: 'License not found' });
+  if (!lic.tunnel_id) return res.json({ success: true, note: 'No tunnel to delete' });
+  const r = await cloudflare.deleteTunnel(lic);
+  // Clear tunnel fields regardless (so admin can re-provision even if CF delete partially failed)
+  lic.tunnel_slug = null;
+  lic.tunnel_hostname = null;
+  lic.tunnel_id = null;
+  lic.tunnel_token = null;
+  lic.tunnel_dns_record_id = null;
+  lic.tunnel_provisioned_at = null;
+  db.saveImmediate();
+  res.json({ success: true, cloudflare_result: r });
 });
 
 // GET /api/admin/stats — dashboard overview

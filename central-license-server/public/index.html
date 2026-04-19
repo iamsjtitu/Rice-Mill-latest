@@ -306,6 +306,59 @@
               </div>
               <div id="expiry-scan-result" class="test-result"></div>
             </div>
+            <div class="glass-panel settings-card wide">
+              <div class="settings-head">
+                <span class="overline">CLOUDFLARE TUNNELS</span>
+                <h3 class="section-title">Auto-Provision Customer Tunnels</h3>
+                <p class="settings-desc">
+                  Each customer installer auto-creates a private tunnel (<code>customer-slug.9x.design</code>) so the mill owner can access their system from anywhere. Paste your Cloudflare API token below, auto-discover your account &amp; zone, and save.
+                  <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener">Get a token →</a>
+                </p>
+              </div>
+
+              <div class="settings-status" id="cf-status">
+                <div class="status-dot"></div>
+                <div class="status-text">Loading configuration…</div>
+              </div>
+
+              <form id="cf-form" class="settings-form">
+                <div class="input-group">
+                  <label>Cloudflare API Token <span class="label-hint" id="cf-key-hint"></span></label>
+                  <input type="password" id="setting-cf-token" autocomplete="off" spellcheck="false" placeholder="Paste token · leave blank to keep existing" />
+                  <div class="input-help">Needs: <code>Tunnel Edit</code> + <code>DNS Edit</code> + <code>Account Read</code>. Zone: your tunnel domain.</div>
+                </div>
+                <div class="input-split">
+                  <div class="input-group">
+                    <label>Tunnel Base Domain</label>
+                    <input type="text" id="setting-cf-domain" placeholder="9x.design" />
+                    <div class="input-help">Customers get <code>&lt;slug&gt;.&lt;domain&gt;</code>. Must be added to Cloudflare.</div>
+                  </div>
+                  <div class="input-group toggle-group">
+                    <label>Auto-Provision Active</label>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="setting-cf-enabled" />
+                      <span class="toggle-slider"></span>
+                      <span class="toggle-label" id="cf-toggle-label">Enabled</span>
+                    </label>
+                  </div>
+                </div>
+                <div class="cf-ids" id="cf-ids" style="display:none">
+                  <div class="cf-id-row"><span class="cf-id-key">Account ID</span><span class="cf-id-val" id="cf-account-id">—</span></div>
+                  <div class="cf-id-row"><span class="cf-id-key">Zone ID</span><span class="cf-id-val" id="cf-zone-id">—</span></div>
+                </div>
+                <div class="settings-actions">
+                  <button type="button" id="cf-remove" class="btn btn-ghost">Remove token</button>
+                  <button type="button" id="cf-discover" class="btn btn-ghost">Auto-Discover IDs</button>
+                  <button type="submit" class="btn btn-primary">
+                    <span class="btn-label">Save Configuration</span>
+                    <span class="btn-arrow">→</span>
+                  </button>
+                </div>
+                <div id="cf-error" class="error-inline"></div>
+                <div id="cf-success" class="success-inline"></div>
+              </form>
+            </div>
+
           </div>
         </section>
 
