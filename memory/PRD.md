@@ -89,14 +89,13 @@
 ## Prioritized Backlog
 - P3: Triple backend code deduplication
 *(Quality Test Report Register and Monthly Return Auto-generation REMOVED from backlog per user request)*
-rom utils/logger.js - NEVER use console directly
-3. NEVER use sed/bash bulk replace on source code files
-4. After ANY backend modification, run `bash /app/scripts/sync-js-routes.sh`
-5. By-product list is HARDCODED in 7 products - do NOT make dynamic
-6. **EVERY fix/feature MUST bump version + add What's New entry** — no exceptions. Use MINOR version (101.1.0, 101.2.0) for fixes, MAJOR (102.0.0) only for big features
-7. **USER USES DESKTOP APP ONLY** — All issues reported are for desktop-app (Electron + Express + Local JSON). Always check/fix in `/app/desktop-app/` first. Python backend is secondary.
-8. **WHITE THEME** — Desktop app uses white/light theme. All new UI elements (totals, highlights, badges) must use light colors (amber-50, green-700, etc.) NOT dark theme colors (slate-900, green-400, etc.)
 
-## Prioritized Backlog
-- P3: Triple backend code deduplication
-*(Quality Test Report Register and Monthly Return Auto-generation REMOVED from backlog per user request)*
+## Recent Changes (Feb 2026)
+- **Verification Report Silent WhatsApp Send via 360Messenger** (DONE):
+  - Removed bulky "WhatsApp Number" + "Group Invite Link" text inputs from `GovtRegisters.jsx` (Verification tab)
+  - Removed old `wa.me` link button that opened WhatsApp Web
+  - Added 2 silent icon buttons — `Phone` (→ default_numbers from settings) and `Users` (→ default_group_id)
+  - New backend route `POST /api/govt-registers/verification-report/send-whatsapp` (Python + Desktop JS + Local Server JS all synced)
+  - Flow: generate PDF/Excel → tmpfiles.org (15s timeout, falls back to REACT_APP_BACKEND_URL direct) → 360Messenger sendMessage/sendGroup with attached URL
+  - Reads WA settings from Settings > Messaging (no per-report config needed)
+  - Tested via curl: both `target:'number'` and `target:'group'` return HTTP 200 + 360Messenger 201 Created

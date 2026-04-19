@@ -1437,5 +1437,142 @@ module.exports = function(database) {
     await promise;
   }));
 
+  // POST /api/govt-registers/verification-report/send-whatsapp — Silent 360Messenger send
+  router.post('/api/govt-registers/verification-report/send-whatsapp', safeAsync(async (req, res) => {
+    const axios = require('axios');
+    const https = require('https');
+    const { URLSearchParams: USP } = require('url');
+
+    const d = req.body || {};
+    const target = String(d.target || 'both').toLowerCase();
+    const fileType = String(d.file_type || 'pdf').toLowerCase();
+
+    // Load WA settings
+    const settings = (database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {};
+    const apiKey = settings.api_key || '';
+    if (!apiKey) return res.json({ success: false, error: 'WhatsApp API key set nahi hai. Settings > Messaging mein set karein.' });
+
+    const countryCode = settings.country_code || '91';
+    let defaultNums = settings.default_numbers || [];
+    if (typeof defaultNums === 'string') defaultNums = defaultNums.split(',').map(n => n.trim()).filter(Boolean);
+    if (!Array.isArray(defaultNums)) defaultNums = [];
+    const groupId = (settings.default_group_id || settings.group_id || '').trim();
+
+    const wantNum = (target === 'number' || target === 'both');
+    const wantGrp = (target === 'group' || target === 'both');
+    if (wantNum && !defaultNums.length && !wantGrp) return res.json({ success: false, error: 'Default number set nahi hai. Settings > Messaging mein add karein.' });
+    if (wantGrp && !groupId && !wantNum) return res.json({ success: false, error: 'Default group set nahi hai. Settings > Messaging mein select karein.' });
+
+    // Fetch PDF/Excel bytes from own endpoint
+    const qs = new USP();
+    for (const k of ['kms_year','season','from_date','to_date']) if (d[k]) qs.append(k, d[k]);
+    for (const k of ['last_meter_reading','units_per_qtl','rice_recovery']) if (d[k] !== undefined) qs.append(k, String(d[k] || 0));
+    if (d.variety) qs.append('variety', d.variety);
+
+    const port = process.env.PORT || 8001;
+    const subpath = fileType === 'excel' ? 'excel' : 'pdf';
+    const ext = fileType === 'excel' ? 'xlsx' : 'pdf';
+    const mime = fileType === 'excel' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/pdf';
+    const fileName = `Verification_Report_${d.to_date || 'current'}.${ext}`;
+
+    let fileBuf;
+    try {
+      const r = await axios.get(`http://127.0.0.1:${port}/api/govt-registers/verification-report/${subpath}?${qs.toString()}`, { responseType: 'arraybuffer', timeout: 60000 });
+      fileBuf = Buffer.from(r.data);
+    } catch (e) {
+      return res.json({ success: false, error: `Report generate fail: ${e.message}` });
+    }
+
+    // Upload to tmpfiles.org
+    const publicUrl = await new Promise((resolve) => {
+      const boundary = '----' + Date.now().toString(16);
+      const head = Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: ${mime}\r\n\r\n`);
+      const tail = Buffer.from(`\r\n--${boundary}--\r\n`);
+      const body = Buffer.concat([head, fileBuf, tail]);
+      const opts = {
+        hostname: 'tmpfiles.org', path: '/api/v1/upload', method: 'POST',
+        headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length }
+      };
+      const rq = https.request(opts, (r) => {
+        let data = '';
+        r.on('data', c => data += c);
+        r.on('end', () => {
+          try {
+            const j = JSON.parse(data);
+            const u = (j && j.data && j.data.url) || '';
+            resolve(u ? u.replace('http://tmpfiles.org/', 'https://tmpfiles.org/dl/') : '');
+          } catch (e) { resolve(''); }
+        });
+      });
+      rq.on('error', () => resolve(''));
+      rq.setTimeout(30000, () => { rq.destroy(); resolve(''); });
+      rq.write(body); rq.end();
+    });
+
+    if (!publicUrl) return res.json({ success: false, error: 'File upload failed, WhatsApp send skip. Retry karein.' });
+
+    // Caption
+    const fmt = s => { if (!s) return ''; const p = String(s).split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0].slice(2)}` : s; };
+    const caption = `*FCI Verification Report (Annexure-1)*\n📅 ${fmt(d.from_date)} → ${fmt(d.to_date)}\n🌾 Variety: ${d.variety || 'Boiled'}\n📎 File: ${fileName}`;
+
+    const cleanPhone = (phone) => {
+      phone = String(phone).trim().replace(/[\s\-\+]/g, '');
+      if (phone.startsWith('0')) phone = phone.substring(1);
+      if (!phone.startsWith(countryCode)) phone = countryCode + phone;
+      return phone;
+    };
+
+    const sendOne = (isGroup, target, text, mediaUrl) => new Promise((resolve) => {
+      const form = new USP();
+      if (isGroup) form.append('groupId', target); else form.append('phonenumber', target);
+      form.append('text', text);
+      if (mediaUrl) form.append('url', mediaUrl);
+      const postData = form.toString();
+      const opts = {
+        hostname: 'api.360messenger.com',
+        path: isGroup ? '/v2/sendGroup' : '/v2/sendMessage',
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(postData) }
+      };
+      const rq = https.request(opts, (r) => {
+        let data = '';
+        r.on('data', c => data += c);
+        r.on('end', () => {
+          try {
+            const j = JSON.parse(data);
+            const ok = j.success || r.statusCode === 201;
+            resolve({ success: !!ok, error: ok ? '' : (j.error || j.message || `HTTP ${r.statusCode}`) });
+          } catch (e) { resolve({ success: false, error: data.substring(0, 200) }); }
+        });
+      });
+      rq.on('error', e => resolve({ success: false, error: e.message }));
+      rq.write(postData); rq.end();
+    });
+
+    const results = [];
+    if (wantNum) {
+      for (const n of defaultNums) {
+        if (n && String(n).trim()) {
+          const r = await sendOne(false, cleanPhone(n), caption, publicUrl);
+          results.push({ target: n, success: r.success, error: r.error });
+        }
+      }
+    }
+    if (wantGrp && groupId) {
+      const r = await sendOne(true, groupId, caption, publicUrl);
+      results.push({ target: 'group', success: r.success, error: r.error });
+    }
+
+    if (!results.length) return res.json({ success: false, error: 'Koi target nahi mila.' });
+    const ok = results.filter(r => r.success).length;
+    const firstErr = (results.find(r => !r.success && r.error) || {}).error || '';
+    res.json({
+      success: ok > 0,
+      message: ok ? `${ok}/${results.length} target pe bhej diya!` : '',
+      error: ok === 0 ? (firstErr || '360Messenger API error') : '',
+      details: results, pdf_url: publicUrl
+    });
+  }));
+
   return router;
 };

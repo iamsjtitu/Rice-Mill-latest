@@ -13,7 +13,7 @@ import {
 import {
   FileSpreadsheet, Plus, Pencil, Trash2, Loader2,
   BookOpen, Package, FlaskConical, ShoppingBag, ClipboardList,
-  RefreshCw, Download, FileText, Search, Truck, Shield, ArrowRightLeft
+  RefreshCw, Download, FileText, Search, Truck, Shield, ArrowRightLeft, Phone, Users
 } from "lucide-react";
 import MandiCustodyRegister from "./MandiCustodyRegister";
 import { useConfirm } from "./ConfirmProvider";
@@ -1061,8 +1061,6 @@ export function MillingRegister({ filters, user }) {
     electricity_kw: 0,
     electricity_kv: 0,
     milling_capacity_mt: 0,
-    whatsapp_number: "",
-    whatsapp_group_link: "",
   });
   const [vrSavedMeter, setVrSavedMeter] = useState(0);
 
@@ -1083,8 +1081,6 @@ export function MillingRegister({ filters, user }) {
           electricity_kw: +(d.electricity_kw || 0),
           electricity_kv: +(d.electricity_kv || 0),
           milling_capacity_mt: +(d.milling_capacity_mt || 0),
-          whatsapp_number: d.whatsapp_number || "",
-          whatsapp_group_link: d.whatsapp_group_link || "",
         }));
       } catch (e) { logger.error(e); }
     })();
@@ -1104,8 +1100,6 @@ export function MillingRegister({ filters, user }) {
         electricity_kw: vrForm.electricity_kw,
         electricity_kv: vrForm.electricity_kv,
         milling_capacity_mt: vrForm.milling_capacity_mt,
-        whatsapp_number: vrForm.whatsapp_number,
-        whatsapp_group_link: vrForm.whatsapp_group_link,
       });
     } catch (e) { logger.error(e); }
     setVrLoading(true);
@@ -1139,8 +1133,6 @@ export function MillingRegister({ filters, user }) {
         electricity_kw: vrForm.electricity_kw,
         electricity_kv: vrForm.electricity_kv,
         milling_capacity_mt: vrForm.milling_capacity_mt,
-        whatsapp_number: vrForm.whatsapp_number,
-        whatsapp_group_link: vrForm.whatsapp_group_link,
       });
       setVrSavedMeter(+nextMeter);
       toast.success(`Saved! Next week default: Meter ${nextMeter}, From ${nextDate}`);
@@ -1183,52 +1175,31 @@ export function MillingRegister({ filters, user }) {
     } catch (e) { toast.error("Excel download failed"); }
   };
 
-  const shareOnWhatsApp = () => {
+  const sendVerificationWA = async (target, fileType = 'pdf') => {
     if (!vr) { toast.error("Pehle Generate karein"); return; }
-    const fmtD = d => { if (!d) return ''; const p = String(d).split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0].slice(2)}` : d; };
-    const h = vr.header || {};
-    const P = vr.paddy || {}; const R = vr.rice || {};
-    const msg = `*FCI Verification Report*\n\n` +
-      `📋 Miller: ${h.miller_name} (${h.miller_code})\n` +
-      `📍 ${h.address}\n` +
-      `🗓️ ${fmtD(h.last_verification_date)} → ${fmtD(h.present_verification_date)}\n` +
-      `🌾 Variety: ${h.variety} | KMS: ${h.kms_year}\n\n` +
-      `*Meter Reading*\n` +
-      `4b Last: ${(h.meter?.last_reading || 0).toLocaleString()}\n` +
-      `4c Present: ${(h.meter?.present_reading || 0).toLocaleString()}\n` +
-      `4d Units Consumed: ${(h.meter?.units_consumed || 0).toLocaleString()}\n\n` +
-      `*Paddy (Qtl)*\n` +
-      `I. Week: ${(P.I_week?.total || 0).toFixed(2)}\n` +
-      `II. Progressive: ${(P.II_prog?.total || 0).toFixed(2)}\n` +
-      `III. Milled (Week): ${(P.III_week?.total || 0).toFixed(2)}\n` +
-      `IV. Milled (Prog): ${(P.IV_prog?.total || 0).toFixed(2)}\n` +
-      `V. Book Balance: ${(P.V_book?.total || 0).toFixed(2)}\n\n` +
-      `*Rice (Qtl)*\n` +
-      `VII. Received (Week): ${(R.VII_week?.total || 0).toFixed(2)}\n` +
-      `VIII. Received (Prog): ${(R.VIII_prog?.total || 0).toFixed(2)}\n` +
-      `IX. Delivered (Week): ${(R.IX_week?.total || 0).toFixed(2)}\n` +
-      `XI. Delivered (Prog): ${(R.XI_prog_delivered?.total || 0).toFixed(2)}\n` +
-      `XIII. Book Balance: ${(R.XIII_book?.total || 0).toFixed(2)}\n\n` +
-      `📎 _PDF/Excel file manually attach karein_`;
-    const txt = encodeURIComponent(msg);
-    const num = String(vrForm.whatsapp_number || "").replace(/[^0-9]/g, '');
-    const grp = String(vrForm.whatsapp_group_link || "").trim();
-    // Priority: Group link > Number > open WhatsApp with just text (pick contact)
-    let url;
-    if (grp && grp.startsWith('http')) {
-      url = grp; // Open group invite link
-      window.open(url, '_blank');
-      // Copy text to clipboard for easy paste
-      try { navigator.clipboard.writeText(msg); toast.success("Group link open! Message clipboard mein copy ho gaya (paste karein)"); } catch { toast.info("Group link opened"); }
-      return;
+    try {
+      const payload = {
+        target,  // 'number' | 'group'
+        file_type: fileType,
+        kms_year: filters.kms_year || "",
+        season: filters.season || "",
+        from_date: vrForm.from_date,
+        to_date: vrForm.to_date,
+        last_meter_reading: vrForm.last_meter_reading || 0,
+        units_per_qtl: vrForm.units_per_qtl || 6,
+        rice_recovery: vrForm.rice_recovery || 0.67,
+        variety: vrForm.variety || "Boiled",
+      };
+      const label = target === 'group' ? 'group' : 'number';
+      toast.loading(`${label === 'group' ? 'Group' : 'Default number'} pe bhej raha hai...`, { id: 'vr-wa' });
+      const res = await axios.post(`${API}/govt-registers/verification-report/send-whatsapp`, payload);
+      toast.dismiss('vr-wa');
+      if (res.data?.success) toast.success(res.data.message || `WhatsApp ${label} pe bhej diya!`);
+      else toast.error(res.data?.error || `WhatsApp ${label} send fail`);
+    } catch (e) {
+      toast.dismiss('vr-wa');
+      toast.error(e.response?.data?.detail || e.response?.data?.error || "WhatsApp send error");
     }
-    if (num) {
-      url = `https://wa.me/${num}?text=${txt}`;
-    } else {
-      url = `https://wa.me/?text=${txt}`;
-    }
-    window.open(url, '_blank');
-    toast.success("WhatsApp open ho raha hai. PDF/Excel file manually attach karein.");
   };
 
   const fetchData = useCallback(async () => {
@@ -1477,8 +1448,11 @@ export function MillingRegister({ filters, user }) {
                   </Button>
                   {vr && (
                     <>
-                      <Button onClick={shareOnWhatsApp} size="sm" className="bg-[#25D366] hover:bg-[#128C7E] text-white h-7 text-[10px]" data-testid="vr-whatsapp-btn">
-                        <FileText className="w-3 h-3 mr-1" /> WhatsApp
+                      <Button onClick={() => sendVerificationWA('number', 'pdf')} size="icon" title="WhatsApp → Default Number (silent)" className="bg-[#25D366] hover:bg-[#128C7E] text-white h-7 w-7" data-testid="vr-whatsapp-num-btn">
+                        <Phone className="w-3 h-3" />
+                      </Button>
+                      <Button onClick={() => sendVerificationWA('group', 'pdf')} size="icon" title="WhatsApp → Default Group (silent)" className="bg-[#128C7E] hover:bg-[#075E54] text-white h-7 w-7" data-testid="vr-whatsapp-grp-btn">
+                        <Users className="w-3 h-3" />
                       </Button>
                       <Button onClick={downloadVerificationExcel} size="sm" className="bg-green-600 hover:bg-green-700 text-white h-7 text-[10px]" data-testid="vr-excel-btn">
                         <Download className="w-3 h-3 mr-1" /> Excel
@@ -1534,14 +1508,6 @@ export function MillingRegister({ filters, user }) {
                 <div>
                   <Label className="text-[10px] text-slate-500">1d. Milling Capacity (MT)</Label>
                   <Input type="number" step="0.01" value={vrForm.milling_capacity_mt} onChange={e => setVrForm(p => ({ ...p, milling_capacity_mt: +e.target.value || 0 }))} className="h-7 text-xs" data-testid="vr-mill-cap" />
-                </div>
-                <div className="col-span-2 md:col-span-3">
-                  <Label className="text-[10px] text-slate-500">📱 WhatsApp Number (with country code, e.g. 919876543210)</Label>
-                  <Input type="text" placeholder="91xxxxxxxxxx" value={vrForm.whatsapp_number} onChange={e => setVrForm(p => ({ ...p, whatsapp_number: e.target.value }))} className="h-7 text-xs" data-testid="vr-whatsapp-number" />
-                </div>
-                <div className="col-span-2 md:col-span-3">
-                  <Label className="text-[10px] text-slate-500">👥 WhatsApp Group Invite Link (optional)</Label>
-                  <Input type="text" placeholder="https://chat.whatsapp.com/..." value={vrForm.whatsapp_group_link} onChange={e => setVrForm(p => ({ ...p, whatsapp_group_link: e.target.value }))} className="h-7 text-xs" data-testid="vr-whatsapp-group" />
                 </div>
               </div>
 

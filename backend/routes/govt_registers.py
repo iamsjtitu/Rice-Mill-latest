@@ -4,7 +4,7 @@ from typing import Optional
 from datetime import datetime, timezone, timedelta
 from database import db
 from utils.date_format import fmt_date
-import uuid, io
+import uuid, io, os
 from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -1975,6 +1975,132 @@ async def export_verification_report_excel(
                     media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": f"attachment; filename=Verification_Report_{to_date or 'current'}.xlsx"})
 
+
+# ============ ANNEXURE-1 SILENT WHATSAPP SEND ============
+@router.post("/govt-registers/verification-report/send-whatsapp")
+async def send_verification_report_whatsapp(data: dict):
+    """Silently send Verification Report (PDF) via 360Messenger to default number(s) and/or group.
+    No wa.me link, no manual attach. Uses WhatsApp settings (default_numbers / default_group_id).
+    Body: { target: 'number'|'group'|'both', kms_year, season, from_date, to_date,
+            last_meter_reading, units_per_qtl, rice_recovery, variety, file_type: 'pdf'|'excel' }
+    """
+    import httpx
+    from routes.whatsapp import _get_wa_settings, _send_wa_message, _send_wa_to_group
+
+    target = (data.get("target") or "both").lower()
+    file_type = (data.get("file_type") or "pdf").lower()
+
+    settings = await _get_wa_settings()
+    if not settings.get("api_key"):
+        return {"success": False, "error": "WhatsApp API key set nahi hai. Settings > Messaging mein set karein."}
+
+    default_numbers = settings.get("default_numbers", [])
+    if isinstance(default_numbers, str):
+        default_numbers = [n.strip() for n in default_numbers.split(",") if n.strip()]
+    if not isinstance(default_numbers, list):
+        default_numbers = []
+    group_id = (settings.get("default_group_id") or settings.get("group_id") or "").strip()
+
+    want_num = target in ("number", "both")
+    want_grp = target in ("group", "both")
+    if want_num and not default_numbers and not want_grp:
+        return {"success": False, "error": "Default number set nahi hai. Settings > Messaging mein add karein."}
+    if want_grp and not group_id and not want_num:
+        return {"success": False, "error": "Default group set nahi hai. Settings > Messaging mein select karein."}
+
+    # Generate file bytes in-process (no HTTP hop)
+    kms_year = data.get("kms_year")
+    season = data.get("season")
+    from_date = data.get("from_date")
+    to_date = data.get("to_date")
+    last_meter_reading = float(data.get("last_meter_reading") or 0)
+    units_per_qtl = float(data.get("units_per_qtl") or 6.0)
+    rice_recovery = float(data.get("rice_recovery") or 0.67)
+    variety = data.get("variety") or "Boiled"
+
+    try:
+        if file_type == "excel":
+            resp = await export_verification_report_excel(
+                kms_year=kms_year, season=season, from_date=from_date, to_date=to_date,
+                last_meter_reading=last_meter_reading, units_per_qtl=units_per_qtl,
+                rice_recovery=rice_recovery, variety=variety)
+            file_bytes = resp.body
+            ext = "xlsx"
+            mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        else:
+            resp = await export_verification_report_pdf(
+                kms_year=kms_year, season=season, from_date=from_date, to_date=to_date,
+                last_meter_reading=last_meter_reading, units_per_qtl=units_per_qtl,
+                rice_recovery=rice_recovery, variety=variety)
+            file_bytes = resp.body
+            ext = "pdf"
+            mime = "application/pdf"
+    except Exception as e:
+        return {"success": False, "error": f"Report generate fail: {e}"}
+
+    # Build public URL for the file — use REACT_APP_BACKEND_URL (always public-accessible).
+    # Try tmpfiles.org first (CDN-backed), fallback to direct backend URL if upload fails.
+    file_name = f"Verification_Report_{to_date or 'current'}.{ext}"
+    public_url = ""
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            up = await client.post("https://tmpfiles.org/api/v1/upload",
+                                   files={"file": (file_name, file_bytes, mime)})
+            if up.status_code == 200:
+                j = up.json()
+                u = j.get("data", {}).get("url", "")
+                if u:
+                    public_url = u.replace("http://tmpfiles.org/", "https://tmpfiles.org/dl/")
+    except Exception as e:
+        import logging as _lg
+        _lg.getLogger("govt_registers").warning(f"tmpfiles upload failed, using backend URL: {e!r}")
+
+    if not public_url:
+        # Fallback: use backend URL directly (publicly reachable via K8s ingress)
+        base_url = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
+        if base_url:
+            from urllib.parse import urlencode
+            q = {k: v for k, v in {
+                "kms_year": kms_year, "season": season, "from_date": from_date, "to_date": to_date,
+                "last_meter_reading": last_meter_reading, "units_per_qtl": units_per_qtl,
+                "rice_recovery": rice_recovery, "variety": variety,
+                "t": int(datetime.now(timezone.utc).timestamp()),
+            }.items() if v not in (None, "")}
+            sub = "excel" if file_type == "excel" else "pdf"
+            public_url = f"{base_url}/api/govt-registers/verification-report/{sub}?{urlencode(q)}"
+
+    if not public_url:
+        return {"success": False, "error": "File upload failed, WhatsApp send skip. Retry karein."}
+
+    # Build caption
+    fmt = lambda d: (f"{d.split('-')[2]}-{d.split('-')[1]}-{d.split('-')[0][2:]}"
+                     if d and len(d.split('-')) == 3 else (d or ""))
+    caption = (
+        f"*FCI Verification Report (Annexure-1)*\n"
+        f"📅 {fmt(from_date)} → {fmt(to_date)}\n"
+        f"🌾 Variety: {variety}\n"
+        f"📎 File: {file_name}"
+    )
+
+    results = []
+    if want_num:
+        for num in default_numbers:
+            if num and str(num).strip():
+                r = await _send_wa_message(str(num).strip(), caption, public_url)
+                results.append({"target": num, "success": r.get("success", False), "error": r.get("error", "")})
+    if want_grp and group_id:
+        r = await _send_wa_to_group(group_id, caption, public_url)
+        results.append({"target": "group", "success": r.get("success", False), "error": r.get("error", "")})
+
+    if not results:
+        return {"success": False, "error": "Koi target nahi mila."}
+
+    ok = sum(1 for r in results if r["success"])
+    first_err = next((r["error"] for r in results if not r["success"] and r.get("error")), "")
+    return {"success": ok > 0,
+            "message": f"{ok}/{len(results)} target pe bhej diya!" if ok else "",
+            "error": first_err if ok == 0 else "",
+            "details": results, "pdf_url": public_url}
 
 
 @router.get("/govt-registers/milling-register/excel")
