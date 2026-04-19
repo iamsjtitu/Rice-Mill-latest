@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.22.0",
+    date: "Feb 2026",
+    title: "v104.22.0 - Weighbridge Live Weight Fix (Cloudflare Tunnel)",
+    items: [
+      { type: "fix", text: "🏋️ Weighbridge LIVE weight ab mill.9x.design (Cloudflare Tunnel) pe sahi dikhega — pehle simulator fake weight (12,924 / 14,329) aa raha tha" },
+      { type: "fix", text: "Root cause: 'Weighbridge Host' setting me LAN IP (http://192.168.x.x) set tha — HTTPS page se HTTP URL browser ne mixed-content block kiya → simulator fallback kick in" },
+      { type: "fix", text: "Fix: weighbridge_host blank kar diya (backend API call) + VehicleWeight.jsx me mixed-content guard add kiya (HTTPS page hone par HTTP wbHost skip → same-origin use)" },
+      { type: "new", text: "⚠️ Settings > Weighbridge tab me amber warning banner add kiya — Cloudflare tunnel users ke liye 'field BLANK chhodein' ka clear note" },
+      { type: "note", text: "👉 Truck ab jab weighbridge pe chadhega, mill.9x.design pe bhi real live weight dikhega (desktop-app ke saath sync)" },
+    ],
+  },
+  {
     version: "104.21.0",
     date: "Feb 2026",
     title: "v104.21.0 - Global KMS Setting + VR Save-to-Group + History",
