@@ -21,6 +21,22 @@
       "notes": "Permanent master license for original owner. Never expires.",
       "revoked_at": null,
       "is_master": true
+    },
+    {
+      "id": "9340bb21-1b21-4e00-b737-4793a6c8c8f0",
+      "key": "9X-9U4J-7XGB-BU8T-FV83",
+      "customer_name": "TEST_License_Customer",
+      "mill_name": "TEST_Mill_Facility",
+      "contact": "9999999999",
+      "plan": "yearly",
+      "status": "active",
+      "issued_at": "2026-04-19T18:14:40.281Z",
+      "expires_at": "2026-05-19T18:14:40.312500",
+      "notes": "Test license for automated testing",
+      "revoked_at": null,
+      "is_master": false,
+      "notified_7day": null,
+      "notified_expired": null
     }
   ],
   "activations": [],

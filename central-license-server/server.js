@@ -17,6 +17,10 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
 // Load DB
 db.load();
 
+// Start expiry notification scheduler (7-day warnings + expiry-day messages)
+const expiryScheduler = require('./utils/expiry-scheduler');
+expiryScheduler.start();
+
 app.use(cors());
 app.use(bodyParser.json({ limit: '1mb' }));
 

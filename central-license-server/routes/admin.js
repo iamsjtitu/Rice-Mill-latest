@@ -3,8 +3,18 @@ const { v4: uuidv4 } = require('uuid');
 const db = require('../database');
 const { generateLicenseKey } = require('../utils/licenseGen');
 const { requireSuperAdmin } = require('../middleware/auth');
+const notifier = require('../utils/notifier');
 
 const router = express.Router();
+
+// Fire-and-forget WhatsApp send — never block the HTTP response
+function fireNotify(promise, label) {
+  Promise.resolve(promise).then(r => {
+    if (r && r.success) console.log(`[notifier:${label}] sent`, r.statusCode || '');
+    else if (r && r.skipped) console.log(`[notifier:${label}] skipped (${r.reason})`);
+    else console.warn(`[notifier:${label}] failed`, (r && (r.error || r.reason)) || '');
+  }).catch(e => console.warn(`[notifier:${label}] error`, e.message));
+}
 
 // All admin routes require super admin authentication
 router.use(requireSuperAdmin);
@@ -66,6 +76,7 @@ router.post('/licenses', (req, res) => {
   };
   data.licenses.push(license);
   db.saveImmediate();
+  fireNotify(notifier.notifyActivated(license), `created:${license.key}`);
   res.json({ success: true, license });
 });
 
@@ -78,11 +89,30 @@ router.put('/licenses/:id', (req, res) => {
   if (customer_name !== undefined) lic.customer_name = String(customer_name).trim();
   if (mill_name !== undefined) lic.mill_name = String(mill_name).trim();
   if (contact !== undefined) lic.contact = String(contact).trim();
-  if (expires_at !== undefined) lic.expires_at = expires_at;
+  if (expires_at !== undefined) {
+    const prevExpiry = lic.expires_at ? new Date(lic.expires_at).getTime() : 0;
+    const newExpiry = expires_at ? new Date(expires_at).getTime() : 0;
+    lic.expires_at = expires_at;
+    // License renewed (pushed further in future) → clear notification flags so
+    // fresh 7-day warning + expiry message can fire next cycle.
+    if (!prevExpiry || newExpiry > prevExpiry) {
+      lic.notified_7day = null;
+      lic.notified_expired = null;
+    }
+  }
   if (notes !== undefined) lic.notes = String(notes).trim();
   if (status !== undefined) {
+    const prevStatus = lic.status;
     lic.status = status;
-    if (status === 'revoked') lic.revoked_at = new Date().toISOString();
+    if (status === 'revoked' && prevStatus !== 'revoked') {
+      lic.revoked_at = new Date().toISOString();
+      fireNotify(notifier.notifyRevoked(lic), `revoked:${lic.key}`);
+    }
+    if (status === 'active' && prevStatus === 'revoked') {
+      // Re-activation after revoke → clear revoked_at & notify customer
+      lic.revoked_at = null;
+      fireNotify(notifier.notifyActivated(lic), `reactivated:${lic.key}`);
+    }
   }
   db.saveImmediate();
   res.json({ success: true, license: lic });
@@ -93,11 +123,13 @@ router.post('/licenses/:id/revoke', (req, res) => {
   const data = db.getData();
   const lic = data.licenses.find(l => l.id === req.params.id);
   if (!lic) return res.status(404).json({ error: 'License not found' });
+  const wasRevoked = lic.status === 'revoked';
   lic.status = 'revoked';
   lic.revoked_at = new Date().toISOString();
   // Deactivate all activations for this license
   (data.activations || []).forEach(a => { if (a.license_id === lic.id) a.active = false; });
   db.saveImmediate();
+  if (!wasRevoked) fireNotify(notifier.notifyRevoked(lic), `revoked:${lic.key}`);
   res.json({ success: true, license: lic });
 });
 
@@ -109,6 +141,38 @@ router.post('/licenses/:id/reset-machine', (req, res) => {
   (data.activations || []).forEach(a => { if (a.license_id === lic.id) a.active = false; });
   db.saveImmediate();
   res.json({ success: true, message: 'Machine binding reset. Customer can re-activate on any PC.' });
+});
+
+// POST /api/admin/licenses/:id/test-notify — send a test WhatsApp to customer's number
+router.post('/licenses/:id/test-notify', async (req, res) => {
+  const data = db.getData();
+  const lic = data.licenses.find(l => l.id === req.params.id);
+  if (!lic) return res.status(404).json({ error: 'License not found' });
+  const kind = (req.body && req.body.kind) || 'activated';
+  let r;
+  if (kind === 'revoked') r = await notifier.notifyRevoked(lic);
+  else if (kind === 'expiring') r = await notifier.notifyExpiringSoon(lic, 7);
+  else if (kind === 'expired') r = await notifier.notifyExpired(lic);
+  else r = await notifier.notifyActivated(lic);
+  res.json({ success: !!(r && r.success), result: r });
+});
+
+// POST /api/admin/expiry-scan — manually trigger the daily expiry notification scan
+router.post('/expiry-scan', async (req, res) => {
+  const scheduler = require('../utils/expiry-scheduler');
+  const result = await scheduler.runScan();
+  res.json(result);
+});
+
+// POST /api/admin/licenses/:id/reset-notifications — clear notified flags (useful after renewing)
+router.post('/licenses/:id/reset-notifications', (req, res) => {
+  const data = db.getData();
+  const lic = data.licenses.find(l => l.id === req.params.id);
+  if (!lic) return res.status(404).json({ error: 'License not found' });
+  lic.notified_7day = null;
+  lic.notified_expired = null;
+  db.saveImmediate();
+  res.json({ success: true });
 });
 
 // GET /api/admin/stats — dashboard overview

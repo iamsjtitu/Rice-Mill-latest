@@ -974,6 +974,10 @@ async function startServer() {
     const whatsappRoutes = require('./routes/whatsapp')(database);
     app.use(whatsappRoutes);
 
+    // License info stub (for LAN deployment — real enforcement is desktop-app only)
+    const licenseRoutes = require('./routes/license')(database);
+    app.use(licenseRoutes);
+
     // Milling routes
     const millingRoutes = require('./routes/milling')(database);
     app.use(millingRoutes);
