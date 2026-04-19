@@ -677,7 +677,8 @@ async def get_verification_meter_settings():
     doc = await db.app_settings.find_one({"setting_id": "verification_meter"}, {"_id": 0})
     if not doc:
         return {"last_meter_reading": 0, "last_verification_date": "", "units_per_qtl": 6.0, "rice_recovery": 0.67,
-                "electricity_kw": 0, "electricity_kv": 0, "milling_capacity_mt": 0, "variety": "Boiled"}
+                "electricity_kw": 0, "electricity_kv": 0, "milling_capacity_mt": 0, "variety": "Boiled",
+                "whatsapp_number": "", "whatsapp_group_link": ""}
     return {
         "last_meter_reading": float(doc.get("last_meter_reading", 0) or 0),
         "last_verification_date": doc.get("last_verification_date", "") or "",
@@ -687,6 +688,8 @@ async def get_verification_meter_settings():
         "electricity_kv": float(doc.get("electricity_kv", 0) or 0),
         "milling_capacity_mt": float(doc.get("milling_capacity_mt", 0) or 0),
         "variety": doc.get("variety", "Boiled") or "Boiled",
+        "whatsapp_number": doc.get("whatsapp_number", "") or "",
+        "whatsapp_group_link": doc.get("whatsapp_group_link", "") or "",
     }
 
 @router.put("/settings/verification-meter")
@@ -702,6 +705,8 @@ async def update_verification_meter_settings(data: dict):
         "electricity_kv": float(data.get("electricity_kv", 0) or 0),
         "milling_capacity_mt": float(data.get("milling_capacity_mt", 0) or 0),
         "variety": str(data.get("variety", "Boiled") or "Boiled"),
+        "whatsapp_number": str(data.get("whatsapp_number", "") or "").strip(),
+        "whatsapp_group_link": str(data.get("whatsapp_group_link", "") or "").strip(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.app_settings.update_one(

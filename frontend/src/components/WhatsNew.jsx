@@ -7,6 +7,19 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.20.0",
+    date: "Feb 2026",
+    title: "v104.20.0 - WhatsApp Share + Auto-Open Downloads (Global)",
+    items: [
+      { type: "new", text: "📱 WhatsApp button Verification Report pe — ek click mein default number/group par report share" },
+      { type: "new", text: "Settings mein save hote hain: Default WhatsApp number (country code ke saath) + Group invite link" },
+      { type: "new", text: "Message auto-generate: Miller info, Meter readings, Paddy/Rice totals, Book balances sab include" },
+      { type: "fix", text: "🚀 GLOBAL: Ab sabhi downloads (Excel, PDF) auto-open ho jate hain — browser mein new tab mein, desktop app mein default application (Excel/Adobe Reader) se" },
+      { type: "fix", text: "Desktop: Save dialog skip — direct Downloads folder mein save + auto-open (unique filename if exists)" },
+      { type: "fix", text: "Excel aur PDF dono mein permanent 2-row header with OSCSC(OWN)=[RRC,FCI] + OSCSC(Koraput)=[RRC FRK,FCI FRK]" },
+    ],
+  },
+  {
     version: "104.19.6",
     date: "Feb 2026",
     title: "v104.19.6 - VR Landscape PDF + Watermark Off + Permanent 2-row Header",

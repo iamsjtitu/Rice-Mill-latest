@@ -2314,28 +2314,26 @@ async function createMainWindow(port) {
         return { success: false, reason: 'Empty response from server' };
       }
 
-      // Determine file extension and filter
-      const ext = filename.split('.').pop() || '*';
-      const isPdf = ext === 'pdf' || data.contentType.includes('pdf');
-      const isExcel = ext === 'xlsx' || data.contentType.includes('spreadsheet') || data.contentType.includes('excel');
-      const filterName = isPdf ? 'PDF Files' : isExcel ? 'Excel Files' : 'Files';
-
+      // Auto-save to Downloads folder with unique filename (no dialog) — user requested global auto-open behavior
+      const fs = require('fs');
       const downloadsDir = app.getPath('downloads');
-      const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
-        defaultPath: path.join(downloadsDir, filename),
-        filters: [{ name: filterName, extensions: [ext] }, { name: 'All Files', extensions: ['*'] }]
-      });
+      if (!fs.existsSync(downloadsDir)) fs.mkdirSync(downloadsDir, { recursive: true });
 
-      if (canceled || !filePath) {
-        console.log('[IPC download-and-save] Cancelled by user');
-        return { success: false, reason: 'cancelled' };
+      // Avoid overwrite: append (N) if file exists
+      let targetPath = path.join(downloadsDir, filename);
+      if (fs.existsSync(targetPath)) {
+        const ext = path.extname(filename);
+        const base = path.basename(filename, ext);
+        let n = 1;
+        while (fs.existsSync(path.join(downloadsDir, `${base} (${n})${ext}`))) n++;
+        targetPath = path.join(downloadsDir, `${base} (${n})${ext}`);
       }
 
-      const fs = require('fs');
-      fs.writeFileSync(filePath, data.buffer);
-      console.log('[IPC download-and-save] Saved:', filePath, 'Size:', data.buffer.length);
-      shell.openPath(filePath);
-      return { success: true, path: filePath };
+      fs.writeFileSync(targetPath, data.buffer);
+      console.log('[IPC download-and-save] Saved:', targetPath, 'Size:', data.buffer.length);
+      // Auto-open with default system application (Excel/PDF viewer/etc.)
+      shell.openPath(targetPath).catch(err => console.error('[shell.openPath]', err));
+      return { success: true, path: targetPath };
     } catch (e) {
       console.error('[IPC download-and-save] Error:', e.message);
       return { success: false, reason: e.message };

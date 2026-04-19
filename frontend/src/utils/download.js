@@ -73,16 +73,25 @@ export const downloadPost = async (url, body, filename) => {
 function _saveBlobBrowser(blobData, contentType, filename) {
   const blob = new Blob([blobData], { type: contentType || 'application/octet-stream' });
   const blobUrl = window.URL.createObjectURL(blob);
+
+  // 1. Trigger download
   const a = document.createElement('a');
   a.style.display = 'none';
   a.href = blobUrl;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
+
+  // 2. Auto-open in new browser tab (user requested global behavior — jaise PDF hota hai)
+  //    Browser will preview PDFs inline; Excel/xlsx will prompt OS to open with default app.
+  setTimeout(() => {
+    try { window.open(blobUrl, '_blank'); } catch (e) { logger.error('Auto-open error:', e); }
+  }, 200);
+
   setTimeout(() => {
     try { document.body.removeChild(a); } catch (e) { logger.error('Cleanup error:', e); }
     window.URL.revokeObjectURL(blobUrl);
-  }, 30000);
+  }, 60000);
 }
 
 function guessFilename(url, contentType) {
