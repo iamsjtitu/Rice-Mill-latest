@@ -7,6 +7,23 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.21.0",
+    date: "Feb 2026",
+    title: "v104.21.0 - Global KMS Setting + VR Save-to-Group + History",
+    items: [
+      { type: "new", text: "🌾 Global KMS Setting: Ab header mein 'KMS' dropdown hai (pehle 'FY' likha tha). Selected KMS year reload/next-login ke baad bhi persist rehta hai." },
+      { type: "new", text: "🎯 Dashboard pe big amber banner: 'ACTIVE KMS · 2025-2026 · Kharif' — ek najar mein pata chalta hai kaunse KMS me kaam ho raha hai" },
+      { type: "new", text: "📢 KMS switch karte hi rich toast dikhegi — entries count + paddy Qtl + rice Qtl (5s)" },
+      { type: "new", text: "💚 Verification Report → 'Save & Send to Group' button (ek click = meter save + silent 360Messenger group send + history entry)" },
+      { type: "new", text: "📜 Verification Report me naya 'History' sub-tab — past saved reports table with Load/Re-send/Delete actions" },
+      { type: "new", text: "📱 Verification Report WhatsApp PDF: 360Messenger se directly PDF attach hoke group/number pe silent send (no more wa.me link)" },
+      { type: "fix", text: "Auto-reset bug fixed in useFilters.js — KMS selection ab force-reset nahi hoti CURRENT_FY pe" },
+      { type: "fix", text: "FY label 13 components mein 'KMS' kar diya (Dashboard, CashBook, Ledgers, Payments, DailyReport, FilterPanel, MillEntryForm, EntryTable, StockTab, ExcelImport, MillingTracker, GSTLedger, FYSummary)" },
+      { type: "fix", text: "Verification Report header se Print button + bulky WA number/group inputs remove kar diye" },
+      { type: "note", text: "Triple parity maintained: Python + Desktop JS + Local Server JS, all synced via /app/scripts/sync-js-routes.sh" },
+    ],
+  },
+  {
     version: "104.20.0",
     date: "Feb 2026",
     title: "v104.20.0 - WhatsApp Share + Auto-Open Downloads (Global)",
