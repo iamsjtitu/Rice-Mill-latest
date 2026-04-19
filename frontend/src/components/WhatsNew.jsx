@@ -7,6 +7,27 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.19.4",
+    date: "Feb 2026",
+    title: "v104.19.4 - OSCSC(OWN)=[RRC,FCI], OSCSC(Koraput)=[RRC FRK,FCI FRK]",
+    items: [
+      { type: "fix", text: "Verification Report ab bilkul Excel jaisa: OSCSC(OWN) ke 2 sub-cols RRC & FCI, OSCSC(Koraput) ke 2 sub-cols RRC FRK & FCI FRK" },
+      { type: "fix", text: "Paddy rows (I-VIII) mein OSCSC(OWN) aur OSCSC(Koraput) dono colSpan=2 merged dikhte hain" },
+      { type: "fix", text: "Rice rows (IX-XII) mein 4 separate sub-cells mein RRC/FCI/RRC FRK/FCI FRK values" },
+    ],
+  },
+  {
+    version: "104.19.3",
+    date: "Feb 2026",
+    title: "v104.19.3 - RRC/FCI/RRC FRK/FCI FRK Nested Under OSCSC(OWN)",
+    items: [
+      { type: "fix", text: "Verification Report ab exact Excel format match karta hai: RRC, FCI, RRC FRK, FCI FRK ye OSCSC(OWN) ke 4 sub-columns hain (pehle independent cols the)" },
+      { type: "fix", text: "OSCSC(OWN) header ab colSpan=4 karke wide banata hai; rows I-VIII mein value merged single cell mein dikhti hai" },
+      { type: "fix", text: "Rows IX-XII mein 4 alag sub-cells RRC/FCI/RRC FRK/FCI FRK ke saath distribute hota hai" },
+      { type: "fix", text: "OSCSC(Koraput), NAFED, TDCC, Levy A/c: paddy section mein data show karte hain, rice section mein blank (as Excel)" },
+    ],
+  },
+  {
     version: "104.19.2",
     date: "Feb 2026",
     title: "v104.19.2 - Annexure-1 Column Alignment Fix",
