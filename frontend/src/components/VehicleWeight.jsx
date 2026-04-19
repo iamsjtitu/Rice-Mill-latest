@@ -86,7 +86,16 @@ function useLanScale() {
       try {
         // If weighbridge_host is set, hit `${wbHost}/api/weighbridge/live-weight` directly (works across networks).
         // Otherwise fall back to main API (Desktop App's own LAN server).
-        const base = wbHost ? (wbHost.replace(/\/$/, '') + "/api") : API;
+        // MIXED-CONTENT GUARD: If current page is HTTPS but wbHost is HTTP (typical LAN IP),
+        // browser will block the request. Fall back to same-origin in that case.
+        let base = API;
+        if (wbHost) {
+          const wbIsHttp = /^http:\/\//i.test(wbHost);
+          const pageIsHttps = typeof window !== 'undefined' && window.location && window.location.protocol === 'https:';
+          if (!(wbIsHttp && pageIsHttps)) {
+            base = wbHost.replace(/\/$/, '') + "/api";
+          }
+        }
         const r = await fetch(`${base}/weighbridge/live-weight`, { cache: "no-store" });
         if (r.ok && active) {
           const d = await r.json();

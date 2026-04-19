@@ -63,6 +63,9 @@ function LanWeighbridgeConfig() {
         <p className="text-slate-400 text-sm mt-1">
           Local Network se weighbridge data dikhane ke liye Desktop App ka URL set karein. Desktop App wahi machine pe run hona chahiye jaha serial port (weighbridge) connected hai.
         </p>
+        <div className="mt-2 p-2 rounded bg-amber-900/30 border border-amber-700/40 text-amber-300 text-[11px] leading-relaxed" data-testid="wb-host-warning">
+          <b>⚠️ Dhyan dein:</b> Agar aap Cloudflare Tunnel (jaise <span className="font-mono">mill.9x.design</span>) ya https ke through access karte hain, toh ye field <b>BLANK chhodein</b> — HTTP LAN IP (192.168.x.x) HTTPS page se reach nahi hoti (browser mixed-content block + LAN bahar se reachable nahi). Blank honge toh app same-origin use karegi aur tunnel ke through real weight aayega.
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
