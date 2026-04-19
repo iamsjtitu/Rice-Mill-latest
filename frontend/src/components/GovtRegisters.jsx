@@ -1820,13 +1820,13 @@ const AGENCY_LABELS = {
 };
 const RICE_LABELS = { RRC: "RRC", FCI: "FCI", RRC_FRK: "RRC FRK", FCI_FRK: "FCI FRK" };
 
-function NumCell({ v, bold = false, colored = false }) {
+function NumCell({ v, bold = false, colored = false, ...rest }) {
   const val = Number(v || 0);
   const cls = `border border-slate-400 dark:border-slate-600 px-2 py-1 text-right text-[11px] ${bold ? 'font-bold' : ''} ${colored && val !== 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-800 dark:text-slate-200'}`;
-  return <td className={cls}>{val.toFixed(val === Math.round(val) ? 2 : 2)}</td>;
+  return <td className={cls} {...rest}>{val.toFixed(val === Math.round(val) ? 2 : 2)}</td>;
 }
-function TxtCell({ children, className = "" }) {
-  return <td className={`border border-slate-400 dark:border-slate-600 px-2 py-1 text-[11px] ${className}`}>{children}</td>;
+function TxtCell({ children, className = "", ...rest }) {
+  return <td className={`border border-slate-400 dark:border-slate-600 px-2 py-1 text-[11px] ${className}`} {...rest}>{children}</td>;
 }
 
 function AnnexureOneView({ vr, onSaveMeter }) {
@@ -1940,12 +1940,23 @@ function AnnexureOneView({ vr, onSaveMeter }) {
       </table>
 
       {/* Single Unified Paddy + Rice Table (Exact Annexure-1 layout) */}
-      <table className="w-full border-collapse text-[11px] mt-2" data-testid="vr-annexure-table">
+      <table className="w-full border-collapse text-[11px] mt-2 table-fixed" data-testid="vr-annexure-table">
+        <colgroup>
+          <col style={{width:'4%'}} />
+          <col style={{width:'5%'}} />
+          <col style={{width:'31%'}} />
+          <col style={{width:'10%'}} />
+          <col style={{width:'10%'}} />
+          <col style={{width:'9%'}} />
+          <col style={{width:'9%'}} />
+          <col style={{width:'11%'}} />
+          <col style={{width:'11%'}} />
+        </colgroup>
         <thead>
           <tr className="bg-slate-100 dark:bg-slate-800">
-            <TxtCell className="text-center font-bold w-[5%]"></TxtCell>
+            <TxtCell className="text-center font-bold"></TxtCell>
             <TxtCell className="text-center font-bold">Sl No</TxtCell>
-            <TxtCell className="text-center font-bold w-[32%]"></TxtCell>
+            <TxtCell className="text-center font-bold"></TxtCell>
             {ag.map(a => <TxtCell key={a} className="text-center font-bold">{AGENCY_LABELS[a] || a}</TxtCell>)}
             <TxtCell className="text-center font-bold">TOTAL</TxtCell>
           </tr>

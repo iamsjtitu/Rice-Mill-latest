@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.19.2",
+    date: "Feb 2026",
+    title: "v104.19.2 - Annexure-1 Column Alignment Fix",
+    items: [
+      { type: "fix", text: "Verification Report table ab proper column widths ke saath dikhta hai (Sl No narrow, Particulars wide)" },
+      { type: "fix", text: "Vertical 'Paddy' aur 'Rice' row-group labels correctly rowspan handle karte hain ab" },
+      { type: "fix", text: "TxtCell component ab rowSpan/colSpan props correctly underlying <td> ko forward karta hai" },
+    ],
+  },
+  {
     version: "104.19.1",
     date: "Feb 2026",
     title: "v104.19.1 - Annexure-1 Layout Fix (Single Unified Table)",
