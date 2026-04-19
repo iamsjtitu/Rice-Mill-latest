@@ -4,6 +4,7 @@
  */
 
 const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
+const licenseManager = require('./license-manager');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -62,6 +63,8 @@ function safeSync(fn) {
 // ============ GLOBAL VARIABLES ============
 let mainWindow = null;
 let splashWindow = null;
+let activationWindow = null;
+let lastLicenseError = null;
 let dataPath = null;
 let db = null;
 let server = null;
@@ -2780,7 +2783,93 @@ process.on('unhandledRejection', (reason) => {
 // Accept self-signed SSL certificates from local cameras/NVRs
 app.commandLine.appendSwitch('ignore-certificate-errors');
 
-app.whenReady().then(() => {
+// ============ LICENSE ENFORCEMENT ============
+function createActivationWindow(errorMessage) {
+  if (activationWindow && !activationWindow.isDestroyed()) {
+    activationWindow.focus();
+    return;
+  }
+  lastLicenseError = errorMessage || null;
+  activationWindow = new BrowserWindow({
+    width: 720, height: 720, resizable: false, minimizable: false, maximizable: false, fullscreenable: false,
+    title: 'MillEntry · License Activation',
+    backgroundColor: '#FAFAF7',
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+      sandbox: false,
+    },
+    autoHideMenuBar: true,
+    show: false,
+  });
+  activationWindow.setMenu(null);
+  activationWindow.loadFile(path.join(__dirname, 'activation-ui', 'index.html'));
+  activationWindow.once('ready-to-show', () => activationWindow.show());
+  activationWindow.on('closed', () => {
+    activationWindow = null;
+    // User closed activation window → quit app (license still not active)
+    if (!mainWindow) app.quit();
+  });
+}
+
+// IPC for Activation window
+ipcMain.handle('license:pc-info', () => licenseManager.getPcInfo());
+ipcMain.handle('license:last-error', () => lastLicenseError);
+ipcMain.handle('license:activate', async (event, key) => {
+  try {
+    const cache = await licenseManager.activateLicense(key);
+    return { ok: true, cache };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+ipcMain.handle('license:activated', async () => {
+  // Called after successful activation — close activation window & start app
+  if (activationWindow && !activationWindow.isDestroyed()) {
+    activationWindow.removeAllListeners('closed');  // prevent quit()
+    activationWindow.close();
+    activationWindow = null;
+  }
+  createSplashWindow();
+  return true;
+});
+ipcMain.handle('license:status', () => licenseManager.getStatus());
+
+app.whenReady().then(async () => {
+  // 1. Check license first
+  try {
+    const lic = await licenseManager.checkLicenseOnStartup();
+    if (!lic.ok) {
+      // Show activation window, block app launch
+      console.log('[License] Activation required:', lic.reason);
+      const errMsg = lic.reason === 'no_activation' ? '' :
+        lic.reason === 'License in use on another PC' ? 'This license is active on a different computer. Activate here to transfer it.' :
+        `License check failed: ${lic.reason}`;
+      createActivationWindow(errMsg);
+      return;
+    }
+    if (lic.offline) {
+      console.log(`[License] Offline mode (${lic.days_remaining} days grace remaining)`);
+    } else {
+      console.log('[License] Validated:', lic.cache.mill_name, lic.cache.is_master ? '(MASTER)' : '');
+    }
+  } catch (e) {
+    console.error('[License] Startup check error:', e);
+    // Fail-open if license module itself errors out (don't brick the app)
+  }
+
+  // 2. Start background heartbeat — revoke → lock app
+  licenseManager.startBackgroundHeartbeat((reason) => {
+    console.warn('[License] Revoked during runtime:', reason);
+    dialog.showMessageBoxSync({
+      type: 'warning', title: 'License Revoked',
+      message: 'License has been revoked.',
+      detail: reason + '\n\nApp will close. Please re-activate.',
+      buttons: ['OK'],
+    });
+    app.quit();
+  });
+
   createSplashWindow();
 });
 

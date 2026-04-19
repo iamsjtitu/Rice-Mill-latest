@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Activate MillEntry</title>
+  <link href="https://fonts.cdnfonts.com/css/satoshi" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #FAFAF7; --surface: #FFFFFF; --surface-2: #F4F3EE;
+      --border: rgba(15, 15, 15, 0.08); --border-strong: rgba(15, 15, 15, 0.18);
+      --text: #0A0A0A; --text-2: #5C5A55; --text-3: #8F8C85;
+      --accent: #E8770A; --accent-dark: #B35A00; --active: #059669; --revoked: #DC2626;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    ::selection { background: var(--accent); color: #fff; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: 'Satoshi', -apple-system, system-ui, sans-serif;
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 24px; position: relative; overflow: hidden;
+    }
+    body::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse 60% 70% at 0% 0%, rgba(232,119,10,0.10) 0%, transparent 60%),
+                  radial-gradient(ellipse 50% 70% at 100% 100%, rgba(37,99,235,0.05) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    body::after {
+      content: ''; position: absolute; inset: 0; opacity: 0.04; pointer-events: none;
+      mix-blend-mode: multiply;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    .wrap { position: relative; z-index: 1; width: 100%; max-width: 580px; }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; justify-content: center; }
+    .brand-glyph { width: 44px; height: 44px; background: var(--text); color: var(--surface); font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 15px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; letter-spacing: -0.05em; }
+    .brand-name { font-weight: 700; font-size: 15px; letter-spacing: -0.02em; display: block; }
+    .brand-sub { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.15em; color: var(--text-3); text-transform: uppercase; margin-top: 2px; display: block; }
+
+    .card { background: rgba(255,255,255,0.85); backdrop-filter: blur(24px); border: 1px solid var(--border); border-radius: 20px; padding: 40px; box-shadow: 0 20px 60px -20px rgba(15, 15, 15, 0.18); animation: slide-up .5s cubic-bezier(.22,.61,.36,1); }
+    .card-head { margin-bottom: 28px; text-align: center; }
+    .overline { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.25em; color: var(--accent); text-transform: uppercase; font-weight: 500; }
+    h1 { font-size: 28px; letter-spacing: -0.03em; margin: 10px 0 8px; line-height: 1.15; }
+    p.desc { color: var(--text-2); line-height: 1.55; font-size: 14px; }
+
+    .form { margin-top: 12px; }
+    label { display: block; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.18em; color: var(--text-3); text-transform: uppercase; font-weight: 500; margin-bottom: 8px; }
+    input {
+      width: 100%; padding: 16px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700; letter-spacing: 0.12em; text-align: center;
+      transition: all .15s;
+    }
+    input:focus { outline: none; border-color: var(--accent); background: #FFF; box-shadow: 0 0 0 3px rgba(232,119,10,0.12); }
+    input::placeholder { color: var(--text-3); font-weight: 500; }
+
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 22px; border: 1px solid transparent; border-radius: 12px; font-weight: 600; font-size: 14px; background: transparent; color: var(--text); transition: all .2s cubic-bezier(.22,.61,.36,1); cursor: pointer; font-family: inherit; }
+    .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); width: 100%; margin-top: 20px; padding: 16px; font-size: 15px; }
+    .btn-primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); box-shadow: 0 8px 24px -4px rgba(232,119,10,0.4); transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: .6; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-arrow { transition: transform .25s; font-family: 'JetBrains Mono', monospace; }
+    .btn:hover .btn-arrow { transform: translateX(4px); }
+
+    .error { color: var(--revoked); font-size: 13px; margin-top: 14px; text-align: center; min-height: 18px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.02em; }
+    .success { color: var(--active); font-size: 13px; margin-top: 14px; text-align: center; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.02em; }
+
+    .footnote { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); text-align: center; }
+    .footnote p { color: var(--text-3); font-size: 12px; line-height: 1.6; }
+    .footnote strong { color: var(--text); font-weight: 600; }
+    .pc-info { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-3); letter-spacing: 0.08em; margin-top: 8px; opacity: 0.7; }
+
+    @keyframes slide-up { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+    .shake { animation: shake .3s; }
+
+    .loader { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <div class="brand-glyph">9X</div>
+      <div>
+        <span class="brand-name">MillEntry System</span>
+        <span class="brand-sub">Enterprise Edition</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <span class="overline">LICENSE ACTIVATION REQUIRED</span>
+        <h1>Welcome to <span style="color:var(--accent)">MillEntry</span></h1>
+        <p class="desc">Apna license key enter karein neeche. Activation ke baad software lifetime chalega aur saare features unlock ho jaayenge.</p>
+      </div>
+
+      <form class="form" id="activate-form">
+        <label for="license-key">LICENSE KEY</label>
+        <input type="text" id="license-key" placeholder="9X-XXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" autocapitalize="characters" required />
+
+        <button type="submit" class="btn btn-primary" id="activate-btn">
+          <span class="btn-label">Activate License</span>
+          <span class="btn-arrow">→</span>
+        </button>
+
+        <div id="status-msg" class="error"></div>
+      </form>
+
+      <div class="footnote">
+        <p>Koi license key nahi hai? Aapke vendor se contact karein — <strong>t2@host9x.com</strong></p>
+        <p class="pc-info" id="pc-info">—</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    const input = document.getElementById('license-key');
+    const btn = document.getElementById('activate-btn');
+    const statusMsg = document.getElementById('status-msg');
+    const pcInfoEl = document.getElementById('pc-info');
+
+    // Fetch PC info for display
+    ipcRenderer.invoke('license:pc-info').then(info => {
+      pcInfoEl.textContent = `PC: ${info.hostname} · ${info.platform} · v${info.app_version}`;
+    }).catch(() => {});
+
+    // Auto-format: uppercase + dashes
+    input.addEventListener('input', (e) => {
+      let val = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+      // Auto-insert dashes after every 4 chars (max 4 segments after 9X-)
+      const parts = val.split('-');
+      // If user is typing cleanly in 4-char chunks, just uppercase
+      e.target.value = val;
+    });
+
+    input.focus();
+
+    document.getElementById('activate-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      statusMsg.className = 'error';
+      statusMsg.textContent = '';
+      const key = input.value.trim();
+      if (!key) { statusMsg.textContent = 'License key required'; return; }
+
+      btn.disabled = true;
+      btn.querySelector('.btn-label').innerHTML = '<span class="loader"></span> Activating...';
+      btn.querySelector('.btn-arrow').style.display = 'none';
+
+      try {
+        const result = await ipcRenderer.invoke('license:activate', key);
+        if (result.ok) {
+          statusMsg.className = 'success';
+          statusMsg.textContent = `✓ Activated for ${result.cache.mill_name}. Launching...`;
+          setTimeout(() => ipcRenderer.invoke('license:activated'), 1200);
+        } else {
+          throw new Error(result.error || 'Activation failed');
+        }
+      } catch (err) {
+        statusMsg.className = 'error';
+        statusMsg.textContent = err.message || 'Activation failed';
+        document.querySelector('.card').classList.add('shake');
+        setTimeout(() => document.querySelector('.card').classList.remove('shake'), 300);
+        btn.disabled = false;
+        btn.querySelector('.btn-label').textContent = 'Activate License';
+        btn.querySelector('.btn-arrow').style.display = '';
+      }
+    });
+
+    // Optional: Pre-fill previous reason if license was revoked
+    ipcRenderer.invoke('license:last-error').then(msg => {
+      if (msg) { statusMsg.className = 'error'; statusMsg.textContent = msg; }
+    }).catch(() => {});
+  </script>
+</body>
+</html>

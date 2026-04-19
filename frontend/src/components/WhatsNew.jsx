@@ -7,6 +7,21 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.25.0",
+    date: "Feb 2026",
+    title: "v104.25.0 - License Activation System (Desktop-app Enforcement)",
+    items: [
+      { type: "new", text: "🔐 Desktop-app ab admin.9x.design ke central license server se validate hoti hai — key format 9X-XXXX-XXXX-XXXX-XXXX" },
+      { type: "new", text: "🎨 Premium light-theme Activation Window jab license nahi ho ya expired ho — same aesthetic jaise admin dashboard" },
+      { type: "new", text: "🖥️ Machine fingerprint (MAC+hostname+CPU hash) based loose binding — ek license ek active PC, naye PC pe activate karne se purane ko auto-kick off" },
+      { type: "new", text: "📅 30-day offline grace — agar internet band ho customer ke paas, license 30 din tak kaam karegi locally" },
+      { type: "new", text: "❤️ Background heartbeat har 24h — revoke / expire detect hote hi app lock + message dikhata hai" },
+      { type: "new", text: "🛡️ AES-256-GCM encrypted local cache (machine-bound) — license file tamper-proof" },
+      { type: "note", text: "Tumhare existing install ke liye MASTER license ready: 9X-NVKR-OWNR-MSTR-2099 (permanent, never expires)" },
+      { type: "note", text: "Central admin server: admin.9x.design (Cloudflare Tunnel → VPS)" },
+    ],
+  },
+  {
     version: "104.24.0",
     date: "Feb 2026",
     title: "v104.24.0 - Weighbridge OFFLINE Message (No More Demo Confusion)",
