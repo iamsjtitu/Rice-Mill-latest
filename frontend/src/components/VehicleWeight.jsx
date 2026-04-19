@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, RefreshCw, Scale, Truck, Clock, CheckCircle, Download, Send, Users, Camera, CameraOff, Wifi, Plus, Eye, EyeOff, Zap, Pencil, Printer, FileSpreadsheet, FileText, Filter, Search, X } from "lucide-react";
+import { Trash2, RefreshCw, Scale, Truck, Clock, CheckCircle, Download, Send, Users, Camera, CameraOff, Wifi, Plus, Eye, EyeOff, Zap, Pencil, Printer, FileSpreadsheet, FileText, Filter, Search, X, AlertTriangle, XCircle } from "lucide-react";
 import { fmtDate } from "../utils/date";
 import AutoSuggest from "./common/AutoSuggest";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
@@ -196,17 +196,20 @@ function useSimulatorScale(active = true) {
   return { weight, stable, running, scheduleNext, startMeasure };
 }
 
-/* ─── Auto-select: Real scale in Electron, LAN poll over network (local + remote), Simulator in Web ─── */
+/* ─── Auto-select: Real scale in Electron, LAN WebSocket/poll over network, Simulator ONLY in ?demo=1 mode ─── */
 function useLiveScale() {
   const isElectronApp = _isElectron && window.electronAPI?.serialGetStatus;
   const real = useRealScale();
   const lan = useLanScale();
-  // If LAN poll is connected (weighbridge reachable via configured host or direct API), prefer it.
-  // Simulator runs only when neither Electron real nor LAN is connected.
-  const sim = useSimulatorScale(!isElectronApp && !lan.connected);
+  // Simulator is OFF by default — agar real/LAN connected nahi hai toh user ko OFFLINE dikhayege
+  // (no fake demo numbers). Demo mode sirf `?demo=1` URL query pe enable hota hai.
+  const demoMode = typeof window !== 'undefined' && window.location && /[?&]demo=1(&|$)/.test(window.location.search);
+  const sim = useSimulatorScale(demoMode && !isElectronApp && !lan.connected);
   if (isElectronApp) return real;
   if (lan.connected) return lan;
-  return sim;
+  if (demoMode) return sim;
+  // OFFLINE: no real data, no demo — return zero state with connected=false so UI can show "switch on" message
+  return { weight: 0, stable: false, running: false, connected: false, scheduleNext: () => {}, startMeasure: () => {} };
 }
 
 /* ─── Single Camera Feed with Snapshot Capture (IP Camera + USB Webcam) ─── */
@@ -969,8 +972,10 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
           <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
             <Scale className="w-5 h-5 text-amber-600" /> Auto Vehicle Weight
           </h2>
-          <Badge variant="outline" className={`text-[10px] h-5 ${scale.running || scale.connected ? 'border-green-500 text-green-700 bg-green-50' : 'border-gray-400 text-slate-400 bg-slate-700'}`}>
-            <Wifi className="w-3 h-3 mr-1" />{_isElectron && window.electronAPI?.serialGetStatus ? (scale.connected ? 'COM Connected' : 'COM Disconnected') : (_isElectron && !window.electronAPI) ? (scale.connected ? 'LAN Scale' : 'LAN No Scale') : 'COM3 Demo'}
+          <Badge variant="outline" className={`text-[10px] h-5 ${scale.connected ? 'border-green-500 text-green-700 bg-green-50' : 'border-red-500 text-red-600 bg-red-50 dark:bg-red-950/30'}`}>
+            <Wifi className="w-3 h-3 mr-1" />{scale.connected
+              ? (_isElectron && window.electronAPI?.serialGetStatus ? 'COM Connected' : 'LAN Live')
+              : 'Weighbridge OFF'}
           </Badge>
         </div>
         <Button onClick={fetchData} variant="ghost" size="sm" className="h-7 text-slate-400 hover:text-slate-200 text-xs" data-testid="vw-refresh">
@@ -1249,21 +1254,38 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
           <Card className="bg-gradient-to-b from-gray-900 to-black border-slate-600 shadow overflow-hidden">
             <div className="bg-gray-800 px-3 py-1.5 flex items-center justify-between border-b border-gray-700">
               <span className="text-slate-500 text-[10px] font-medium flex items-center gap-1"><Scale className="w-3 h-3" /> WEIGHBRIDGE</span>
-              <span className="text-green-400 text-[10px] flex items-center gap-0.5 font-medium">
-                <Wifi className="w-3 h-3" /> COM3
+              <span className={`text-[10px] flex items-center gap-0.5 font-medium ${scale.connected ? 'text-green-400' : 'text-red-400'}`}>
+                <Wifi className="w-3 h-3" /> {scale.connected ? 'COM3' : 'OFFLINE'}
               </span>
             </div>
             <div className="p-4 text-center relative">
-              <div className={`font-mono text-5xl font-black tracking-wider transition-all duration-200 ${
-                scale.stable ? 'text-green-400 drop-shadow-[0_0_20px_rgba(74,222,128,0.4)]'
-                : scale.running ? 'text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.3)]'
-                : 'text-slate-300'
-              }`} data-testid="live-weight-display">
-                {scale.weight > 0 ? scale.weight.toLocaleString() : '00,000'}
-              </div>
-              <div className="text-slate-400 text-[10px] mt-0.5 font-mono tracking-widest">KILOGRAM</div>
-              {scale.stable && <Badge className="mt-2 bg-green-600/20 text-green-400 border-green-500/30 text-[9px]"><CheckCircle className="w-2.5 h-2.5 mr-1" />STABLE - LOCKED</Badge>}
-              {scale.running && !scale.stable && <p className="text-amber-400 text-[9px] mt-2 animate-pulse font-mono">MEASURING...</p>}
+              {!scale.connected ? (
+                <div className="py-3" data-testid="weighbridge-offline-panel">
+                  <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-red-500/10 border border-red-500/40 flex items-center justify-center">
+                    <AlertTriangle className="w-5 h-5 text-red-400" />
+                  </div>
+                  <div className="text-red-400 font-black text-[13px] uppercase tracking-wider">Weighbridge OFF</div>
+                  <p className="text-slate-400 text-[10px] mt-1 leading-snug px-2">
+                    Weighbridge machine ko <b className="text-amber-400">ON karein</b> aur desktop-app me <b className="text-amber-400">COM3 connect</b> karein
+                  </p>
+                  <Badge className="mt-2 bg-red-500/10 text-red-400 border-red-500/30 text-[9px]">
+                    <XCircle className="w-2.5 h-2.5 mr-1" />NO SIGNAL
+                  </Badge>
+                </div>
+              ) : (
+                <>
+                  <div className={`font-mono text-5xl font-black tracking-wider transition-all duration-200 ${
+                    scale.stable ? 'text-green-400 drop-shadow-[0_0_20px_rgba(74,222,128,0.4)]'
+                    : scale.running ? 'text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.3)]'
+                    : 'text-slate-300'
+                  }`} data-testid="live-weight-display">
+                    {scale.weight > 0 ? scale.weight.toLocaleString() : '00,000'}
+                  </div>
+                  <div className="text-slate-400 text-[10px] mt-0.5 font-mono tracking-widest">KILOGRAM</div>
+                  {scale.stable && <Badge className="mt-2 bg-green-600/20 text-green-400 border-green-500/30 text-[9px]"><CheckCircle className="w-2.5 h-2.5 mr-1" />STABLE - LOCKED</Badge>}
+                  {scale.running && !scale.stable && <p className="text-amber-400 text-[9px] mt-2 animate-pulse font-mono">MEASURING...</p>}
+                </>
+              )}
             </div>
           </Card>
 

@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.24.0",
+    date: "Feb 2026",
+    title: "v104.24.0 - Weighbridge OFFLINE Message (No More Demo Confusion)",
+    items: [
+      { type: "fix", text: "🚫 Simulator (fake demo data 12,924 / 14,329 kg) ab by default DISABLED hai — pehle jab weighbridge off hoti thi toh demo dikhta tha aur user confuse hota tha" },
+      { type: "new", text: "🔴 Ab weighbridge OFF hone par clear message dikhega: 'Weighbridge OFF — Machine ON karein aur COM3 connect karein' (red panel + NO SIGNAL badge)" },
+      { type: "new", text: "🟢 Header badge: 'Weighbridge OFF' (red) ya 'COM Connected / LAN Live' (green) — instant status clarity" },
+      { type: "new", text: "🧪 Demo mode sirf `?demo=1` URL query add karne pe chalega (testing/training ke liye) — accident se kabhi enable nahi hoga" },
+      { type: "note", text: "Capture buttons pehle se hi stable weight > 0 check karte hain, so offline me koi fake entry save nahi ho sakti" },
+    ],
+  },
+  {
     version: "104.23.0",
     date: "Feb 2026",
     title: "v104.23.0 - Real-time Weighbridge via WebSocket",
