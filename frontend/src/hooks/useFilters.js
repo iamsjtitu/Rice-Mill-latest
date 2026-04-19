@@ -24,24 +24,17 @@ export function useFilters() {
   const mandiCuttingMapRef = useRef(mandiCuttingMap);
   mandiCuttingMapRef.current = mandiCuttingMap;
 
-  // Load saved FY setting on mount (run once)
+  // Load saved KMS setting on mount (run once)
   useEffect(() => {
     const loadFySetting = async () => {
       try {
         const res = await axios.get(`${API}/fy-settings`);
         if (res.data?.active_fy) {
-          const savedFy = res.data.active_fy;
-          const savedStart = parseInt(savedFy.split('-')[0]) || 0;
-          const currentStart = parseInt(CURRENT_FY.split('-')[0]) || 0;
-          if (savedStart < currentStart) {
-            const season = res.data.season || '';
-            if (season) localStorage.setItem("mill_season", season);
-            setFilters(prev => ({ ...prev, kms_year: CURRENT_FY, season: res.data.season || prev.season }));
-            axios.put(`${API}/fy-settings`, { active_fy: CURRENT_FY, season: res.data.season || 'Kharif' }).catch(e => logger.error('FY settings save error:', e));
-          } else {
-            if (res.data.season) localStorage.setItem("mill_season", res.data.season);
-            setFilters(prev => ({ ...prev, kms_year: savedFy, season: res.data.season || prev.season }));
-          }
+          // KMS selection persists — no auto-reset to CURRENT_FY.
+          // Business runs on KMS calendar (paddy-origin season), not calendar FY.
+          // User explicitly sets KMS and it stays until they change it.
+          if (res.data.season) localStorage.setItem("mill_season", res.data.season);
+          setFilters(prev => ({ ...prev, kms_year: res.data.active_fy, season: res.data.season || prev.season }));
         }
       } catch (e) { logger.error('FY settings load error:', e); }
     };
@@ -49,7 +42,7 @@ export function useFilters() {
     axios.post(`${API}/cash-book/auto-fix`).then(r => {
       if (r.data?.total_fixes > 0) logger.log(`[Auto-Fix] Fixed ${r.data.total_fixes} issues:`, r.data.details);
     }).catch(e => logger.error('Cash book auto-fix error:', e));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mount-only: API/CURRENT_FY are module constants
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mount-only: API is module constant
 
   // Load mandi cutting map from backend on mount (run once)
   useEffect(() => {

@@ -541,7 +541,7 @@ const CashBook = ({ filters, user }) => {
       {/* Opening Balances Display */}
       {obList.length > 0 && (
         <div className="bg-slate-800/30 border border-blue-800/50 rounded-lg p-3">
-          <div className="text-xs font-semibold text-blue-400 mb-2">Opening Balances (FY: {filters.kms_year})</div>
+          <div className="text-xs font-semibold text-blue-400 mb-2">Opening Balances (KMS: {filters.kms_year})</div>
           <div className="flex flex-wrap gap-2">
             {obList.map(ob => (
               <div key={ob.id} className="flex items-center gap-1 bg-slate-700/50 px-2 py-1 rounded text-xs">
@@ -712,7 +712,7 @@ const CashBook = ({ filters, user }) => {
       <Dialog open={isObSettingsOpen} onOpenChange={setIsObSettingsOpen}>
         <DialogContent className="max-w-md bg-slate-800 border-slate-700 text-white" data-testid="ob-settings-dialog">
           <DialogHeader>
-            <DialogTitle className="text-purple-400">Opening Balance Settings (FY: {filters.kms_year || CURRENT_KMS_YEAR})</DialogTitle>
+            <DialogTitle className="text-purple-400">Opening Balance Settings (KMS: {filters.kms_year || CURRENT_KMS_YEAR})</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>

@@ -587,7 +587,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
               <span>${new Date().toLocaleDateString('en-IN')}</span>
             </div>
             <div class="info-item">
-              <label>FY Year / Season</label>
+              <label>KMS Year / Season</label>
               <span>${payment.kms_year} - ${payment.season}</span>
             </div>
             <div class="info-item">

@@ -73,7 +73,7 @@ export function EntryTable({
       <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader>
           <CardTitle className="text-amber-400 flex items-center justify-between">
-            <span>Mill Entries ({entriesTotalCount.toLocaleString()}) - FY: {filters.kms_year || "All"}</span>
+            <span>Mill Entries ({entriesTotalCount.toLocaleString()}) - KMS: {filters.kms_year || "All"}</span>
             <div className="flex items-center gap-3">
               {selectedEntries.length > 0 && (
                 <Button onClick={handleBulkDelete} size="sm" className="bg-red-600 hover:bg-red-700 text-white" data-testid="bulk-delete-btn">

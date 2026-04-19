@@ -849,7 +849,7 @@ const DailyReport = ({ filters }) => {
               </div>
               {filters.kms_year && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">FY Year</span>
+                  <span className="text-slate-400">KMS Year</span>
                   <span className="text-white">{filters.kms_year}</span>
                 </div>
               )}

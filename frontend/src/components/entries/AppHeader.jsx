@@ -110,11 +110,11 @@ export const AppHeader = ({
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            {/* Global FY Selector */}
-            <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-amber-900/30 border border-amber-700/50 rounded-lg" data-testid="global-fy-selector">
+            {/* Global KMS Selector (Kharif Marketing Season — paddy origin year) */}
+            <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-amber-900/30 border border-amber-700/50 rounded-lg" data-testid="global-fy-selector" title="KMS = Kharif Marketing Season. Paddy jis season me aya, usi KMS me delivery/milling entries tag hongi.">
               <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-amber-400" />
               <div className="flex items-center gap-1">
-                <span className="text-amber-400/70 text-[9px] sm:text-[10px] font-medium hidden sm:inline">FY</span>
+                <span className="text-amber-400/70 text-[9px] sm:text-[10px] font-semibold hidden sm:inline">KMS</span>
                 <Select value={filters.kms_year} onValueChange={(v) => handleFyChange(v, undefined)}>
                   <SelectTrigger className="bg-transparent border-0 text-amber-400 font-bold h-5 sm:h-6 text-xs sm:text-sm w-[80px] sm:w-[100px] p-0 focus:ring-0" data-testid="global-fy-year">
                     <SelectValue />

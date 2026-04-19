@@ -107,7 +107,7 @@ export function MillEntryForm({
           {/* FY Year & Season */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <Label className="text-slate-300">FY Year{rstFetched ? ' (Locked)' : ''}</Label>
+              <Label className="text-slate-300">KMS Year{rstFetched ? ' (Locked)' : ''}</Label>
               <Select
                 value={formData.kms_year}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, kms_year: value }))}

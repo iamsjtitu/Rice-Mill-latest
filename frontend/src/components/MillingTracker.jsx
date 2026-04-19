@@ -356,7 +356,7 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <div><Label className="text-[10px] text-slate-400">FY Year</Label><Input value={formData.kms_year} onChange={(e) => setFormData(p => ({ ...p, kms_year: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-7 text-xs" /></div>
+              <div><Label className="text-[10px] text-slate-400">KMS Year</Label><Input value={formData.kms_year} onChange={(e) => setFormData(p => ({ ...p, kms_year: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-7 text-xs" /></div>
               <div><Label className="text-[10px] text-slate-400">Season</Label>
                 <Select value={formData.season} onValueChange={(v) => setFormData(p => ({ ...p, season: v }))}><SelectTrigger className="bg-slate-700 border-slate-600 text-white h-7 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent><SelectItem value="Kharif">Kharif</SelectItem><SelectItem value="Rabi">Rabi</SelectItem></SelectContent></Select></div>

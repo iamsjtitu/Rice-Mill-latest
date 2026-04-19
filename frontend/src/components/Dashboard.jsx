@@ -202,6 +202,23 @@ export const Dashboard = ({ filters, user }) => {
 
   return (
     <div className="space-y-6">
+      {/* Active KMS Banner — super visible reminder of which KMS this view is for */}
+      <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-gradient-to-r from-amber-500/15 via-amber-600/10 to-transparent border border-amber-500/40 dark:border-amber-600/50" data-testid="active-kms-banner">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-md bg-amber-500 text-slate-900 flex items-center justify-center font-black text-base shrink-0 shadow-sm">🌾</div>
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase tracking-wider font-semibold text-amber-700 dark:text-amber-300">Active KMS (Kharif Marketing Season)</div>
+            <div className="text-base sm:text-lg font-extrabold text-amber-800 dark:text-amber-200 leading-tight">
+              {filters.kms_year || "—"} {filters.season ? <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">· {filters.season}</span> : null}
+            </div>
+          </div>
+        </div>
+        <div className="text-[10px] text-slate-600 dark:text-slate-400 hidden sm:block max-w-sm text-right leading-snug">
+          Saari new entries (Paddy / Milling / Delivery / Sale) is KMS mein tag hongi.<br />
+          Change karna ho toh top-right header me <span className="font-semibold text-amber-700 dark:text-amber-300">KMS dropdown</span> se select karein.
+        </div>
+      </div>
+
       {/* Filter Bar + Export */}
       <div className="flex flex-wrap gap-2 items-center">
         <div className="flex gap-1 bg-slate-900 p-0.5 rounded border border-slate-700">
@@ -415,7 +432,7 @@ export const Dashboard = ({ filters, user }) => {
                   />
                 </div>
                 <div>
-                  <Label className="text-slate-300 text-xs">FY Year</Label>
+                  <Label className="text-slate-300 text-xs">KMS Year</Label>
                   <Select
                     value={targetForm.kms_year}
                     onValueChange={(value) => setTargetForm(prev => ({ ...prev, kms_year: value }))}

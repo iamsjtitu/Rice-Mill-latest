@@ -159,7 +159,7 @@ const ExcelImport = ({ filters, user, onImportDone }) => {
               <div className="p-2 bg-amber-900/20 border border-amber-800/30 rounded text-xs text-amber-400">
                 <AlertCircle className="w-3 h-3 inline mr-1" />
                 Cash Paid aur Diesel Paid entries automatically Cash Book aur Diesel Account mein bhi jayengi.
-                {filters.kms_year && <span className="ml-1">FY Year: <b>{filters.kms_year}</b></span>}
+                {filters.kms_year && <span className="ml-1">KMS Year: <b>{filters.kms_year}</b></span>}
                 {filters.season && <span className="ml-1">Season: <b>{filters.season}</b></span>}
               </div>
 

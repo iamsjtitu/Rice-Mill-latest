@@ -138,7 +138,7 @@ const GSTLedger = ({ filters }) => {
       {/* GST Opening Balance Dialog */}
       <Dialog open={showObDialog} onOpenChange={setShowObDialog}>
         <DialogContent className="max-w-sm bg-slate-800 border-slate-700 text-white" data-testid="gst-ob-dialog">
-          <DialogHeader><DialogTitle className="text-purple-400">GST Opening Balance (FY: {filters.kms_year})</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-purple-400">GST Opening Balance (KMS: {filters.kms_year})</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label className="text-xs text-slate-400">CGST Opening Balance (Rs.)</Label>
               <Input type="number" step="0.01" value={obForm.cgst} onChange={e => setObForm(p => ({ ...p, cgst: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gst-ob-cgst" /></div>

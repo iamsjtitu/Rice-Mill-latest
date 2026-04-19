@@ -32,7 +32,7 @@ export function FilterPanel({ filters, setFilters, hasActiveFilters, clearFilter
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         <div>
-          <Label className="text-slate-300 text-sm">FY Year</Label>
+          <Label className="text-slate-300 text-sm">KMS Year</Label>
           <Select
             value={filters.kms_year || "all"}
             onValueChange={(value) => setFilters(prev => ({ ...prev, kms_year: value === "all" ? "" : value }))}

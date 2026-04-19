@@ -112,7 +112,7 @@ function StockTab({ kmsYear, user }) {
       <CardContent>
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-xs text-slate-400">FY: <span className="text-amber-400 font-bold">{kmsYear}</span></p>
+            <p className="text-xs text-slate-400">KMS: <span className="text-amber-400 font-bold">{kmsYear}</span></p>
             <Button
               onClick={carryForward} disabled={carrying} size="sm" variant="outline"
               className="border-cyan-600 text-cyan-400 hover:bg-cyan-900/30 text-xs"

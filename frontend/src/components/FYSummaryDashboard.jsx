@@ -84,7 +84,7 @@ export default function FYSummaryDashboard({ filters }) {
 
   const handleCarryForward = async () => {
     if (!filters.kms_year) {
-      toast.error("Pehle FY Year select karein");
+      toast.error("Pehle KMS Year select karein");
       return;
     }
     const parts = filters.kms_year.split('-');
