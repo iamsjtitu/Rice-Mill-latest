@@ -2103,6 +2103,49 @@ async def send_verification_report_whatsapp(data: dict):
             "details": results, "pdf_url": public_url}
 
 
+# ============ VERIFICATION HISTORY (past saved verification reports) ============
+@router.get("/govt-registers/verification-history")
+async def list_verification_history(kms_year: Optional[str] = None, limit: int = 100):
+    q = {}
+    if kms_year:
+        q["kms_year"] = kms_year
+    cursor = db["verification_history"].find(q, {"_id": 0}).sort("saved_at", -1).limit(int(limit))
+    return [doc async for doc in cursor]
+
+
+@router.post("/govt-registers/verification-history")
+async def add_verification_history(data: dict):
+    entry = {
+        "id": str(uuid.uuid4()),
+        "from_date": (data.get("from_date") or "").strip(),
+        "to_date": (data.get("to_date") or "").strip(),
+        "kms_year": (data.get("kms_year") or "").strip(),
+        "season": (data.get("season") or "").strip(),
+        "variety": data.get("variety") or "Boiled",
+        "last_meter_reading": float(data.get("last_meter_reading") or 0),
+        "present_meter_reading": float(data.get("present_meter_reading") or 0),
+        "units_consumed": float(data.get("units_consumed") or 0),
+        "units_per_qtl": float(data.get("units_per_qtl") or 6.0),
+        "rice_recovery": float(data.get("rice_recovery") or 0.67),
+        "paddy_week_total": float(data.get("paddy_week_total") or 0),
+        "rice_week_total": float(data.get("rice_week_total") or 0),
+        "paddy_book_balance": float(data.get("paddy_book_balance") or 0),
+        "rice_book_balance": float(data.get("rice_book_balance") or 0),
+        "wa_sent": bool(data.get("wa_sent") or False),
+        "wa_targets": data.get("wa_targets") or [],
+        "wa_pdf_url": (data.get("wa_pdf_url") or "").strip(),
+        "saved_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db["verification_history"].insert_one(entry.copy())
+    return {"success": True, "id": entry["id"]}
+
+
+@router.delete("/govt-registers/verification-history/{entry_id}")
+async def delete_verification_history(entry_id: str):
+    r = await db["verification_history"].delete_one({"id": entry_id})
+    return {"success": r.deleted_count > 0}
+
+
 @router.get("/govt-registers/milling-register/excel")
 async def export_milling_register_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
     from io import BytesIO

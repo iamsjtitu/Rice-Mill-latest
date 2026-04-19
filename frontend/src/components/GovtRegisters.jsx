@@ -13,13 +13,20 @@ import {
 import {
   FileSpreadsheet, Plus, Pencil, Trash2, Loader2,
   BookOpen, Package, FlaskConical, ShoppingBag, ClipboardList,
-  RefreshCw, Download, FileText, Search, Truck, Shield, ArrowRightLeft, Phone, Users
+  RefreshCw, Download, FileText, Search, Truck, Shield, ArrowRightLeft, Send, History, Save
 } from "lucide-react";
 import MandiCustodyRegister from "./MandiCustodyRegister";
 import { useConfirm } from "./ConfirmProvider";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import logger from "../utils/logger";
+
+// Official-looking WhatsApp glyph (SVG) for a sundar icon
+const WhatsAppIcon = ({ className = "w-3.5 h-3.5" }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+    <path d="M20.52 3.48A11.77 11.77 0 0 0 12.02 0C5.46 0 .12 5.33.12 11.9a11.8 11.8 0 0 0 1.6 5.95L0 24l6.3-1.65a11.88 11.88 0 0 0 5.72 1.46h.01c6.56 0 11.9-5.33 11.9-11.9a11.76 11.76 0 0 0-3.41-8.43zM12.03 21.8h-.01a9.88 9.88 0 0 1-5.04-1.38l-.36-.21-3.74.98 1-3.64-.23-.37a9.85 9.85 0 0 1-1.52-5.28c0-5.47 4.45-9.9 9.9-9.9 2.65 0 5.14 1.03 7.01 2.9a9.87 9.87 0 0 1 2.9 7.02c0 5.46-4.45 9.9-9.91 9.9zm5.43-7.41c-.3-.15-1.76-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.76.97-.93 1.17-.17.2-.34.22-.64.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.64-2.05-.17-.3-.02-.47.13-.62.13-.13.3-.34.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51-.17-.01-.37-.01-.57-.01-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.48 0 1.47 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.3 1.26.48 1.69.62.71.22 1.35.19 1.86.12.57-.08 1.76-.72 2-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35z"/>
+  </svg>
+);
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -1063,6 +1070,23 @@ export function MillingRegister({ filters, user }) {
     milling_capacity_mt: 0,
   });
   const [vrSavedMeter, setVrSavedMeter] = useState(0);
+  const [vrSubTab, setVrSubTab] = useState("report"); // 'report' | 'history'
+  const [vrHistory, setVrHistory] = useState([]);
+  const [vrHistLoading, setVrHistLoading] = useState(false);
+
+  const refreshVrHistory = useCallback(async () => {
+    setVrHistLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filters.kms_year) params.append("kms_year", filters.kms_year);
+      params.append("limit", "100");
+      const res = await axios.get(`${API}/govt-registers/verification-history?${params}`);
+      setVrHistory(Array.isArray(res.data) ? res.data : []);
+    } catch (e) { logger.error(e); }
+    setVrHistLoading(false);
+  }, [filters.kms_year]);
+
+  useEffect(() => { refreshVrHistory(); }, [refreshVrHistory]);
 
   // Load persisted verification meter settings on mount
   useEffect(() => {
@@ -1120,10 +1144,13 @@ export function MillingRegister({ filters, user }) {
   };
 
   const saveVerificationMeter = async () => {
+    if (!vr) { toast.error("Pehle Generate karein"); return; }
+    const nextMeter = vr.header?.meter?.present_reading ?? vrForm.last_meter_reading;
+    const nextDate = vrForm.to_date;
+    const tid = 'vr-save-send';
+    toast.loading("Save + WhatsApp group pe bhej raha hai...", { id: tid });
+    // 1) Save meter/date
     try {
-      // Save current "present meter reading" as next week's "last reading"
-      const nextMeter = vr ? vr.header.meter.present_reading : vrForm.last_meter_reading;
-      const nextDate = vrForm.to_date;
       await axios.put(`${API}/settings/verification-meter`, {
         last_meter_reading: nextMeter,
         last_verification_date: nextDate,
@@ -1135,8 +1162,62 @@ export function MillingRegister({ filters, user }) {
         milling_capacity_mt: vrForm.milling_capacity_mt,
       });
       setVrSavedMeter(+nextMeter);
-      toast.success(`Saved! Next week default: Meter ${nextMeter}, From ${nextDate}`);
-    } catch (e) { toast.error(e.response?.data?.detail || "Save error"); }
+    } catch (e) {
+      toast.dismiss(tid);
+      toast.error(e.response?.data?.detail || "Save error");
+      return;
+    }
+
+    // 2) Silent WhatsApp group send
+    let waOk = false; let waError = ""; let waPdfUrl = "";
+    try {
+      const res = await axios.post(`${API}/govt-registers/verification-report/send-whatsapp`, {
+        target: 'group',
+        file_type: 'pdf',
+        kms_year: filters.kms_year || "",
+        season: filters.season || "",
+        from_date: vrForm.from_date,
+        to_date: vrForm.to_date,
+        last_meter_reading: vrForm.last_meter_reading || 0,
+        units_per_qtl: vrForm.units_per_qtl || 6,
+        rice_recovery: vrForm.rice_recovery || 0.67,
+        variety: vrForm.variety || "Boiled",
+      });
+      waOk = !!res.data?.success;
+      waError = res.data?.error || "";
+      waPdfUrl = res.data?.pdf_url || "";
+    } catch (e) {
+      waError = e.response?.data?.detail || e.response?.data?.error || e.message || "WA send error";
+    }
+
+    // 3) History entry
+    try {
+      const H = vr.header || {}; const P = vr.paddy || {}; const R = vr.rice || {};
+      await axios.post(`${API}/govt-registers/verification-history`, {
+        from_date: vrForm.from_date,
+        to_date: vrForm.to_date,
+        kms_year: filters.kms_year || "",
+        season: filters.season || "",
+        variety: vrForm.variety || "Boiled",
+        last_meter_reading: +vrForm.last_meter_reading || 0,
+        present_meter_reading: +(H.meter?.present_reading || 0),
+        units_consumed: +(H.meter?.units_consumed || 0),
+        units_per_qtl: +vrForm.units_per_qtl || 6,
+        rice_recovery: +vrForm.rice_recovery || 0.67,
+        paddy_week_total: +(P.I_week?.total || 0),
+        rice_week_total: +(R.VII_week?.total || 0),
+        paddy_book_balance: +(P.V_book?.total || 0),
+        rice_book_balance: +(R.XIII_book?.total || 0),
+        wa_sent: waOk,
+        wa_targets: waOk ? ['group'] : [],
+        wa_pdf_url: waPdfUrl,
+      });
+      if (typeof refreshVrHistory === 'function') refreshVrHistory();
+    } catch (e) { logger.error(e); }
+
+    toast.dismiss(tid);
+    if (waOk) toast.success(`Saved + Group pe bhej diya! Next week Meter: ${nextMeter}, From: ${nextDate}`);
+    else toast.error(`Saved, but WhatsApp group send fail: ${waError}`);
   };
 
   const downloadVerificationPdf = async () => {
@@ -1173,33 +1254,6 @@ export function MillingRegister({ filters, user }) {
       downloadFile(`/api/govt-registers/verification-report/excel?${params}`, `Verification_Report_${vrForm.to_date}.xlsx`);
       toast.success("Excel downloaded!");
     } catch (e) { toast.error("Excel download failed"); }
-  };
-
-  const sendVerificationWA = async (target, fileType = 'pdf') => {
-    if (!vr) { toast.error("Pehle Generate karein"); return; }
-    try {
-      const payload = {
-        target,  // 'number' | 'group'
-        file_type: fileType,
-        kms_year: filters.kms_year || "",
-        season: filters.season || "",
-        from_date: vrForm.from_date,
-        to_date: vrForm.to_date,
-        last_meter_reading: vrForm.last_meter_reading || 0,
-        units_per_qtl: vrForm.units_per_qtl || 6,
-        rice_recovery: vrForm.rice_recovery || 0.67,
-        variety: vrForm.variety || "Boiled",
-      };
-      const label = target === 'group' ? 'group' : 'number';
-      toast.loading(`${label === 'group' ? 'Group' : 'Default number'} pe bhej raha hai...`, { id: 'vr-wa' });
-      const res = await axios.post(`${API}/govt-registers/verification-report/send-whatsapp`, payload);
-      toast.dismiss('vr-wa');
-      if (res.data?.success) toast.success(res.data.message || `WhatsApp ${label} pe bhej diya!`);
-      else toast.error(res.data?.error || `WhatsApp ${label} send fail`);
-    } catch (e) {
-      toast.dismiss('vr-wa');
-      toast.error(e.response?.data?.detail || e.response?.data?.error || "WhatsApp send error");
-    }
   };
 
   const fetchData = useCallback(async () => {
@@ -1440,34 +1494,38 @@ export function MillingRegister({ filters, user }) {
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
                   <h4 className="text-sm font-bold text-slate-800 dark:text-amber-400">FCI Weekly Verification Report</h4>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Auto-computed from Milling Register + Paddy Release + DC Deliveries</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Auto-computed · Save pe dabane par WhatsApp group auto-send</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button onClick={fetchVerification} size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900 h-7 text-[10px]" data-testid="vr-generate-btn">
-                    {vrLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />} Generate
-                  </Button>
-                  {vr && (
-                    <>
-                      <Button onClick={() => sendVerificationWA('number', 'pdf')} size="icon" title="WhatsApp → Default Number (silent)" className="bg-[#25D366] hover:bg-[#128C7E] text-white h-7 w-7" data-testid="vr-whatsapp-num-btn">
-                        <Phone className="w-3 h-3" />
-                      </Button>
-                      <Button onClick={() => sendVerificationWA('group', 'pdf')} size="icon" title="WhatsApp → Default Group (silent)" className="bg-[#128C7E] hover:bg-[#075E54] text-white h-7 w-7" data-testid="vr-whatsapp-grp-btn">
-                        <Users className="w-3 h-3" />
-                      </Button>
-                      <Button onClick={downloadVerificationExcel} size="sm" className="bg-green-600 hover:bg-green-700 text-white h-7 text-[10px]" data-testid="vr-excel-btn">
-                        <Download className="w-3 h-3 mr-1" /> Excel
-                      </Button>
-                      <Button onClick={downloadVerificationPdf} size="sm" className="bg-red-600 hover:bg-red-700 text-white h-7 text-[10px]" data-testid="vr-pdf-btn">
-                        <Download className="w-3 h-3 mr-1" /> PDF (Annexure-1)
-                      </Button>
-                      <Button onClick={() => window.print()} variant="outline" size="sm" className="h-7 text-[10px]" data-testid="vr-print-btn">
-                        <FileText className="w-3 h-3 mr-1" /> Print
-                      </Button>
-                    </>
-                  )}
+                  {/* Inner sub-tabs */}
+                  <div className="flex bg-white dark:bg-slate-900 rounded-md border border-slate-300 dark:border-slate-700 overflow-hidden h-7">
+                    <button onClick={() => setVrSubTab("report")}
+                      className={`px-3 text-[10px] font-medium transition-colors ${vrSubTab === "report" ? "bg-amber-500 text-slate-900" : "text-slate-500 hover:text-slate-800 dark:hover:text-white"}`}
+                      data-testid="vr-subtab-report">Report</button>
+                    <button onClick={() => { setVrSubTab("history"); refreshVrHistory(); }}
+                      className={`px-3 text-[10px] font-medium transition-colors inline-flex items-center gap-1 ${vrSubTab === "history" ? "bg-amber-500 text-slate-900" : "text-slate-500 hover:text-slate-800 dark:hover:text-white"}`}
+                      data-testid="vr-subtab-history"><History className="w-3 h-3" /> History</button>
+                  </div>
+                  {vrSubTab === "report" && (<>
+                    <Button onClick={fetchVerification} size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900 h-7 text-[10px]" data-testid="vr-generate-btn">
+                      {vrLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />} Generate
+                    </Button>
+                    {vr && (
+                      <>
+                        <Button onClick={downloadVerificationExcel} size="sm" className="bg-green-600 hover:bg-green-700 text-white h-7 text-[10px]" data-testid="vr-excel-btn">
+                          <Download className="w-3 h-3 mr-1" /> Excel
+                        </Button>
+                        <Button onClick={downloadVerificationPdf} size="sm" className="bg-red-600 hover:bg-red-700 text-white h-7 text-[10px]" data-testid="vr-pdf-btn">
+                          <Download className="w-3 h-3 mr-1" /> PDF (Annexure-1)
+                        </Button>
+                      </>
+                    )}
+                  </>)}
                 </div>
               </div>
 
+              {/* ======= SUB-TAB: REPORT ======= */}
+              {vrSubTab === "report" && (<>
               {/* Input Controls: Dates + Meter + Capacity */}
               <div className="grid grid-cols-2 md:grid-cols-6 gap-2 p-2 rounded bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700">
                 <div>
@@ -1518,7 +1576,57 @@ export function MillingRegister({ filters, user }) {
               )}
               {vrLoading && <div className="text-center py-6"><Loader2 className="w-6 h-6 mx-auto animate-spin text-amber-500" /></div>}
 
-              {vr && <AnnexureOneView vr={vr} onSaveMeter={saveVerificationMeter} />}
+              {vr && <AnnexureOneView vr={vr} onSaveMeter={saveVerificationMeter} WhatsAppIcon={WhatsAppIcon} />}
+              </>)}
+
+              {/* ======= SUB-TAB: HISTORY ======= */}
+              {vrSubTab === "history" && (
+                <VerificationHistoryView
+                  rows={vrHistory}
+                  loading={vrHistLoading}
+                  onRefresh={refreshVrHistory}
+                  onDelete={async (id) => {
+                    if (!await showConfirm("Is history entry ko delete karna hai?")) return;
+                    try {
+                      await axios.delete(`${API}/govt-registers/verification-history/${id}`);
+                      toast.success("Deleted");
+                      refreshVrHistory();
+                    } catch (e) { toast.error("Delete error"); }
+                  }}
+                  onResend={async (row) => {
+                    const tid = 'vr-resend';
+                    toast.loading("Resending to WhatsApp group...", { id: tid });
+                    try {
+                      const res = await axios.post(`${API}/govt-registers/verification-report/send-whatsapp`, {
+                        target: 'group', file_type: 'pdf',
+                        kms_year: row.kms_year || "", season: row.season || "",
+                        from_date: row.from_date, to_date: row.to_date,
+                        last_meter_reading: row.last_meter_reading || 0,
+                        units_per_qtl: row.units_per_qtl || 6,
+                        rice_recovery: row.rice_recovery || 0.67,
+                        variety: row.variety || "Boiled",
+                      });
+                      toast.dismiss(tid);
+                      if (res.data?.success) toast.success("Group pe resend ho gaya!");
+                      else toast.error(res.data?.error || "Resend fail");
+                    } catch (e) { toast.dismiss(tid); toast.error("Resend error"); }
+                  }}
+                  onLoad={(row) => {
+                    setVrForm(p => ({
+                      ...p,
+                      from_date: row.from_date || p.from_date,
+                      to_date: row.to_date || p.to_date,
+                      last_meter_reading: +row.last_meter_reading || 0,
+                      variety: row.variety || p.variety,
+                      units_per_qtl: +row.units_per_qtl || p.units_per_qtl,
+                      rice_recovery: +row.rice_recovery || p.rice_recovery,
+                    }));
+                    setVrSubTab("report");
+                    toast.success("Load ho gaya — ab Generate dabayein");
+                  }}
+                  WhatsAppIcon={WhatsAppIcon}
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -1887,7 +1995,7 @@ function TxtCell({ children, className = "", ...rest }) {
   return <td className={`border border-slate-400 dark:border-slate-600 px-2 py-1 text-[11px] ${className}`} {...rest}>{children}</td>;
 }
 
-function AnnexureOneView({ vr, onSaveMeter }) {
+function AnnexureOneView({ vr, onSaveMeter, WhatsAppIcon }) {
   const fmtD = d => { if (!d) return ''; const p = String(d).split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0].slice(2)}` : d; };
   const h = vr.header || {};
   const ag = vr.agencies || [];
@@ -2169,16 +2277,102 @@ function AnnexureOneView({ vr, onSaveMeter }) {
         </div>
       </div>
 
-      {/* Save as Default */}
+      {/* Save & Send to WhatsApp Group */}
       <div className="flex items-center justify-between p-2 mt-3 rounded bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 print:hidden">
         <div>
-          <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Next week ke liye save karein?</p>
-          <p className="text-[10px] text-slate-500">Present Reading ({h.meter?.present_reading}) aur Date ({fmtD(h.present_verification_date)}) ko default banaye</p>
+          <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Save karein + WhatsApp group pe bhejein</p>
+          <p className="text-[10px] text-slate-500">Present Reading ({h.meter?.present_reading}) aur Date ({fmtD(h.present_verification_date)}) next week ka default banega. PDF group pe silent send hoga.</p>
         </div>
-        <Button onClick={onSaveMeter} size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900 h-7 text-[10px]" data-testid="vr-save-meter-btn">
-          Save as Default
+        <Button onClick={onSaveMeter} size="sm" className="bg-[#25D366] hover:bg-[#128C7E] text-white h-8 text-[11px] font-semibold inline-flex items-center gap-1.5 px-3 shadow-sm" data-testid="vr-save-meter-btn">
+          {WhatsAppIcon ? <WhatsAppIcon className="w-4 h-4" /> : null}
+          Save & Send to Group
         </Button>
       </div>
+    </div>
+  );
+}
+
+// ======= Verification History View =======
+function VerificationHistoryView({ rows, loading, onRefresh, onDelete, onResend, onLoad, WhatsAppIcon }) {
+  const fmtD = d => { if (!d) return ''; const p = String(d).split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0].slice(2)}` : d; };
+  const fmtDT = iso => {
+    if (!iso) return '-';
+    try { const d = new Date(iso); return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
+    catch { return String(iso).slice(0, 16); }
+  };
+  return (
+    <div className="space-y-2" data-testid="vr-history-view">
+      <div className="flex items-center justify-between">
+        <div>
+          <h5 className="text-xs font-bold text-slate-700 dark:text-amber-400">Past Verification Reports</h5>
+          <p className="text-[10px] text-slate-500">Har Save-&-Send pe yahan ek entry create hoti hai. Re-send, Load ya Delete kar sakte ho.</p>
+        </div>
+        <Button onClick={onRefresh} size="sm" variant="outline" className="h-7 text-[10px]" data-testid="vr-history-refresh">
+          <RefreshCw className={`w-3 h-3 mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-8"><Loader2 className="w-6 h-6 mx-auto animate-spin text-amber-500" /></div>
+      ) : !rows || rows.length === 0 ? (
+        <div className="text-center py-10 text-[11px] text-slate-500 border border-dashed border-slate-300 dark:border-slate-700 rounded">
+          <History className="w-7 h-7 mx-auto mb-2 text-slate-400" />
+          Koi history entry nahi hai abhi. Report generate karke <span className="text-amber-600 font-semibold">Save & Send to Group</span> dabaye.
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded border border-slate-200 dark:border-slate-700">
+          <table className="w-full text-[11px]">
+            <thead className="bg-slate-100 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300">
+              <tr>
+                <th className="px-2 py-1.5 text-left font-semibold">Period (From → To)</th>
+                <th className="px-2 py-1.5 text-center font-semibold">Variety</th>
+                <th className="px-2 py-1.5 text-right font-semibold">Last Meter</th>
+                <th className="px-2 py-1.5 text-right font-semibold">Present</th>
+                <th className="px-2 py-1.5 text-right font-semibold">Units</th>
+                <th className="px-2 py-1.5 text-right font-semibold">Paddy (Wk)</th>
+                <th className="px-2 py-1.5 text-right font-semibold">Rice (Wk)</th>
+                <th className="px-2 py-1.5 text-center font-semibold">Saved At</th>
+                <th className="px-2 py-1.5 text-center font-semibold">WA</th>
+                <th className="px-2 py-1.5 text-center font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={r.id || i} className="border-t border-slate-200 dark:border-slate-700 hover:bg-amber-50/40 dark:hover:bg-amber-900/10">
+                  <td className="px-2 py-1.5 font-medium text-slate-800 dark:text-slate-200" data-testid={`vr-hist-row-${i}`}>
+                    {fmtD(r.from_date)} → <span className="text-amber-700 dark:text-amber-400">{fmtD(r.to_date)}</span>
+                  </td>
+                  <td className="px-2 py-1.5 text-center text-slate-600 dark:text-slate-400">{r.variety || '-'}</td>
+                  <td className="px-2 py-1.5 text-right">{Number(r.last_meter_reading || 0).toLocaleString()}</td>
+                  <td className="px-2 py-1.5 text-right font-semibold text-slate-800 dark:text-slate-200">{Number(r.present_meter_reading || 0).toLocaleString()}</td>
+                  <td className="px-2 py-1.5 text-right text-blue-700 dark:text-blue-400">{Number(r.units_consumed || 0).toLocaleString()}</td>
+                  <td className="px-2 py-1.5 text-right">{Number(r.paddy_week_total || 0).toFixed(2)}</td>
+                  <td className="px-2 py-1.5 text-right">{Number(r.rice_week_total || 0).toFixed(2)}</td>
+                  <td className="px-2 py-1.5 text-center text-slate-500">{fmtDT(r.saved_at)}</td>
+                  <td className="px-2 py-1.5 text-center">
+                    {r.wa_sent
+                      ? <span title="Sent to WhatsApp group" className="inline-flex items-center justify-center w-5 h-5 rounded-sm bg-[#25D366] text-white" data-testid={`vr-hist-wa-ok-${i}`}>{WhatsAppIcon ? <WhatsAppIcon className="w-3 h-3" /> : '✓'}</span>
+                      : <span className="text-slate-400" title="Not sent">—</span>}
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <div className="flex items-center justify-center gap-1">
+                      <Button size="icon" variant="outline" className="h-6 w-6" title="Load into Report tab" onClick={() => onLoad(r)} data-testid={`vr-hist-load-${i}`}>
+                        <RefreshCw className="w-3 h-3" />
+                      </Button>
+                      <Button size="icon" className="h-6 w-6 bg-[#25D366] hover:bg-[#128C7E] text-white" title="Re-send to WhatsApp group" onClick={() => onResend(r)} data-testid={`vr-hist-resend-${i}`}>
+                        {WhatsAppIcon ? <WhatsAppIcon className="w-3 h-3" /> : <Send className="w-3 h-3" />}
+                      </Button>
+                      <Button size="icon" variant="outline" className="h-6 w-6 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-300" title="Delete entry" onClick={() => onDelete(r.id)} data-testid={`vr-hist-del-${i}`}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

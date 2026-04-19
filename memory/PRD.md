@@ -91,11 +91,13 @@
 *(Quality Test Report Register and Monthly Return Auto-generation REMOVED from backlog per user request)*
 
 ## Recent Changes (Feb 2026)
-- **Verification Report Silent WhatsApp Send via 360Messenger** (DONE):
-  - Removed bulky "WhatsApp Number" + "Group Invite Link" text inputs from `GovtRegisters.jsx` (Verification tab)
-  - Removed old `wa.me` link button that opened WhatsApp Web
-  - Added 2 silent icon buttons — `Phone` (→ default_numbers from settings) and `Users` (→ default_group_id)
-  - New backend route `POST /api/govt-registers/verification-report/send-whatsapp` (Python + Desktop JS + Local Server JS all synced)
-  - Flow: generate PDF/Excel → tmpfiles.org (15s timeout, falls back to REACT_APP_BACKEND_URL direct) → 360Messenger sendMessage/sendGroup with attached URL
-  - Reads WA settings from Settings > Messaging (no per-report config needed)
-  - Tested via curl: both `target:'number'` and `target:'group'` return HTTP 200 + 360Messenger 201 Created
+- **Verification Report — Save-triggered WhatsApp + History Sub-tab** (DONE):
+  - Removed WA icons (Phone/Users) + Print button from VR header — too cluttered
+  - "Save as Default" button → renamed "Save & Send to Group" with official WhatsApp SVG icon (teal, sundar)
+  - Click = 3 actions atomically: (1) save meter/date advance for next week (2) silent 360Messenger send PDF to default GROUP (3) create history entry
+  - New "History" sub-tab under Verification Report (alongside "Report"):
+    - Table with Period, Variety, Meter Last/Present/Units, Paddy/Rice week totals, Saved At, WA status, Actions
+    - Actions: Load (into Report tab), Re-send (silent 360Messenger), Delete
+  - Backend: `GET/POST/DELETE /api/govt-registers/verification-history` — triple parity (Python + Desktop + Local)
+  - New MongoDB collection: `verification_history` | JS: `database.data.verification_history[]`
+  - Tested via curl: POST → GET → DELETE all return 200 OK with correct data

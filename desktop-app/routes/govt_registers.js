@@ -1574,5 +1574,53 @@ module.exports = function(database) {
     });
   }));
 
+  // ============ VERIFICATION HISTORY ============
+  router.get('/api/govt-registers/verification-history', safeSync(async (req, res) => {
+    if (!database.data.verification_history) database.data.verification_history = [];
+    let rows = [...database.data.verification_history];
+    if (req.query.kms_year) rows = rows.filter(r => r.kms_year === req.query.kms_year);
+    rows.sort((a, b) => String(b.saved_at || '').localeCompare(String(a.saved_at || '')));
+    const limit = parseInt(req.query.limit || '100', 10);
+    res.json(rows.slice(0, limit));
+  }));
+
+  router.post('/api/govt-registers/verification-history', safeSync(async (req, res) => {
+    if (!database.data.verification_history) database.data.verification_history = [];
+    const d = req.body || {};
+    const entry = {
+      id: uuidv4(),
+      from_date: String(d.from_date || '').trim(),
+      to_date: String(d.to_date || '').trim(),
+      kms_year: String(d.kms_year || '').trim(),
+      season: String(d.season || '').trim(),
+      variety: d.variety || 'Boiled',
+      last_meter_reading: Number(d.last_meter_reading || 0),
+      present_meter_reading: Number(d.present_meter_reading || 0),
+      units_consumed: Number(d.units_consumed || 0),
+      units_per_qtl: Number(d.units_per_qtl || 6.0),
+      rice_recovery: Number(d.rice_recovery || 0.67),
+      paddy_week_total: Number(d.paddy_week_total || 0),
+      rice_week_total: Number(d.rice_week_total || 0),
+      paddy_book_balance: Number(d.paddy_book_balance || 0),
+      rice_book_balance: Number(d.rice_book_balance || 0),
+      wa_sent: !!d.wa_sent,
+      wa_targets: Array.isArray(d.wa_targets) ? d.wa_targets : [],
+      wa_pdf_url: String(d.wa_pdf_url || '').trim(),
+      saved_at: new Date().toISOString(),
+    };
+    database.data.verification_history.push(entry);
+    if (database.saveImmediate) database.saveImmediate(); else database.save();
+    res.json({ success: true, id: entry.id });
+  }));
+
+  router.delete('/api/govt-registers/verification-history/:id', safeSync(async (req, res) => {
+    if (!database.data.verification_history) database.data.verification_history = [];
+    const before = database.data.verification_history.length;
+    database.data.verification_history = database.data.verification_history.filter(r => r.id !== req.params.id);
+    const deleted = before - database.data.verification_history.length;
+    if (deleted > 0) { if (database.saveImmediate) database.saveImmediate(); else database.save(); }
+    res.json({ success: deleted > 0 });
+  }));
+
   return router;
 };
