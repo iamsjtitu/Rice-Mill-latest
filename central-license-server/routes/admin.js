@@ -323,6 +323,22 @@ router.delete('/licenses/:id/tunnel', async (req, res) => {
   res.json({ success: true, cloudflare_result: r });
 });
 
+// POST /api/admin/licenses/:id/mark-external-tunnel — mark tunnel as externally configured
+// (for existing customers who already set up cloudflared manually). Does NOT touch Cloudflare.
+router.post('/licenses/:id/mark-external-tunnel', (req, res) => {
+  const data = db.getData();
+  const lic = data.licenses.find(l => l.id === req.params.id);
+  if (!lic) return res.status(404).json({ error: 'License not found' });
+  const { hostname, slug } = req.body || {};
+  if (!hostname) return res.status(400).json({ error: 'hostname required' });
+  lic.tunnel_hostname = String(hostname).trim();
+  lic.tunnel_slug = String(slug || hostname.split('.')[0]).trim();
+  lic.tunnel_externally_configured = true;
+  lic.tunnel_provisioned_at = lic.tunnel_provisioned_at || new Date().toISOString();
+  db.saveImmediate();
+  res.json({ success: true, license: lic });
+});
+
 // GET /api/admin/stats — dashboard overview
 router.get('/stats', (req, res) => {
   const data = db.getData();

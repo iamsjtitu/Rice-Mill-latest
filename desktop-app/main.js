@@ -2844,6 +2844,113 @@ ipcMain.handle('license:activated', async () => {
 });
 ipcMain.handle('license:status', () => licenseManager.getStatus());
 
+// ============ CLOUD ACCESS (Cloudflared tunnel management) ============
+const cloudflaredManager = require('./cloudflared-manager');
+
+ipcMain.handle('cloud-access:status', async () => {
+  try {
+    const [local, server] = await Promise.all([
+      cloudflaredManager.getFullStatus().catch(() => ({ binary_installed: false, service_installed: false, service_running: false })),
+      licenseManager.getCloudAccessStatus().catch(() => ({ provisioned: false, error: 'offline' })),
+    ]);
+    // Pre-existing cloudflared service detection (user manually set up before MillEntry knew)
+    const preExisting = local.service_installed && !server.provisioned;
+    return {
+      success: true,
+      hostname: server.hostname || null,
+      provisioned: !!server.provisioned,
+      binary_installed: local.binary_installed,
+      service_installed: local.service_installed,
+      service_running: local.service_running,
+      live: !!(server.provisioned && local.service_running),
+      pre_existing: preExisting,  // service installed but no record on central server — user-configured
+    };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+/**
+ * Full provision flow: provision on server → download binary → install service → start service.
+ * Emits progress events via sender webContents: 'cloud-access:progress' { step, pct, message }
+ */
+ipcMain.handle('cloud-access:enable', async (event, options) => {
+  const sender = event.sender;
+  const force = !!(options && options.force);
+  const emit = (step, pct, message) => {
+    try { sender.send('cloud-access:progress', { step, pct, message }); } catch {}
+  };
+  try {
+    // Safety check: if cloudflared service is already installed and we don't have a server-side
+    // tunnel record, the user configured it manually. DON'T overwrite unless force=true.
+    if (!force) {
+      const localStatus = await cloudflaredManager.getFullStatus();
+      const serverStatus = await licenseManager.getCloudAccessStatus().catch(() => ({ provisioned: false }));
+      if (localStatus.service_installed && !serverStatus.provisioned) {
+        return {
+          success: false,
+          requires_confirmation: true,
+          error: 'A cloudflared service is already running on this PC (configured manually). Enabling MillEntry Cloud Access will replace the existing tunnel. Use "force: true" to override.',
+        };
+      }
+    }
+
+    // Step 1: Provision tunnel on central server
+    emit('provisioning', 10, 'Requesting tunnel from 9x.design…');
+    const provision = await licenseManager.provisionCloudAccess();
+    const { hostname, tunnel_token } = provision;
+
+    // Step 2: Download binary if missing
+    if (!cloudflaredManager.isBinaryInstalled()) {
+      emit('downloading', 15, 'Downloading cloudflared.exe (~40 MB)…');
+      await cloudflaredManager.downloadBinary(({ pct }) => {
+        const overall = 15 + Math.round(pct * 0.60);
+        emit('downloading', overall, `Downloading cloudflared (${pct}%)…`);
+      });
+    } else {
+      emit('downloading', 75, 'cloudflared binary already present — skipping download');
+    }
+
+    // Step 3: Install service
+    emit('installing', 80, 'Installing Windows service (admin rights required)…');
+    await cloudflaredManager.installService(tunnel_token);
+
+    // Step 4: Start service
+    emit('starting', 90, 'Starting tunnel service…');
+    await cloudflaredManager.startService();
+
+    // Step 5: Verify
+    emit('verifying', 95, 'Verifying tunnel connection…');
+    await new Promise(r => setTimeout(r, 3000));
+    const status = await cloudflaredManager.getFullStatus();
+
+    emit('done', 100, 'Cloud Access is live');
+    return {
+      success: true,
+      hostname,
+      service_running: status.service_running,
+    };
+  } catch (e) {
+    emit('error', 0, e.message);
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('cloud-access:stop', async () => {
+  try { await cloudflaredManager.stopService(); return { success: true }; }
+  catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('cloud-access:start', async () => {
+  try { await cloudflaredManager.startService(); return { success: true }; }
+  catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('cloud-access:disable', async () => {
+  try { await cloudflaredManager.uninstallService(); return { success: true }; }
+  catch (e) { return { success: false, error: e.message }; }
+});
+
 app.whenReady().then(async () => {
   // 1. Check license first
   try {

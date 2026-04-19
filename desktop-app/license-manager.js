@@ -317,6 +317,40 @@ function getStatus() {
   };
 }
 
+/**
+ * Ask central server to provision (or return existing) Cloudflare tunnel for this license.
+ * Returns: { success, hostname, tunnel_token, slug, existed }
+ */
+async function provisionCloudAccess() {
+  const cache = loadCache();
+  if (!cache || !cache.key) throw new Error('License not activated');
+  const resp = await httpPost(LICENSE_SERVER_URL + '/api/license/provision-cloud-access', {
+    key: cache.key,
+    machine_fingerprint: getMachineFingerprint(),
+  }, 30000);
+  if (!resp || !resp.success) throw new Error((resp && resp.error) || 'Tunnel provisioning failed');
+  // Cache hostname locally for quick read
+  cache.tunnel_hostname = resp.hostname;
+  cache.tunnel_slug = resp.slug;
+  cache.cloud_enabled_at = cache.cloud_enabled_at || new Date().toISOString();
+  saveCache(cache);
+  return resp;
+}
+
+/** Read-only lookup of cloud-access status from central server. */
+async function getCloudAccessStatus() {
+  const cache = loadCache();
+  if (!cache || !cache.key) return { provisioned: false };
+  try {
+    const resp = await httpGet(LICENSE_SERVER_URL + '/api/license/cloud-access-status/' + encodeURIComponent(cache.key), 8000);
+    return resp;
+  } catch (e) {
+    // Offline fallback: return cached info if we have it
+    if (cache.tunnel_hostname) return { provisioned: true, hostname: cache.tunnel_hostname, slug: cache.tunnel_slug, offline: true };
+    throw e;
+  }
+}
+
 module.exports = {
   getMachineFingerprint,
   getPcInfo,
@@ -327,5 +361,7 @@ module.exports = {
   startBackgroundHeartbeat,
   getStatus,
   clearCache,
+  provisionCloudAccess,
+  getCloudAccessStatus,
   LICENSE_SERVER_URL,
 };

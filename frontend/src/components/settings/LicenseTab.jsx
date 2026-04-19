@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ShieldCheck, RefreshCw, Copy, Calendar, Monitor, CircleCheck, CircleAlert } from "lucide-react";
+import CloudAccessSection from "./CloudAccessSection";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -160,6 +161,10 @@ export default function LicenseTab() {
           </Button>
         </div>
       </CardContent>
+      {/* Cloud Access section (Desktop-app only) */}
+      <div className="px-5 pb-5">
+        <CloudAccessSection />
+      </div>
     </Card>
   );
 }

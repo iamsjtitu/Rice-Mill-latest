@@ -48,6 +48,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeApp: () => ipcRenderer.send('close-app'),
   // Govt Link - open in new window with auto-fill
   openGovtLink: (data) => ipcRenderer.send('open-govt-link', data),
+
+  // Cloud Access (Cloudflared tunnel management)
+  cloudAccessStatus: () => ipcRenderer.invoke('cloud-access:status'),
+  cloudAccessEnable: (options) => ipcRenderer.invoke('cloud-access:enable', options || {}),
+  cloudAccessStart: () => ipcRenderer.invoke('cloud-access:start'),
+  cloudAccessStop: () => ipcRenderer.invoke('cloud-access:stop'),
+  cloudAccessDisable: () => ipcRenderer.invoke('cloud-access:disable'),
+  onCloudAccessProgress: (callback) => ipcRenderer.on('cloud-access:progress', (_e, data) => callback(data)),
+  removeCloudAccessListeners: () => ipcRenderer.removeAllListeners('cloud-access:progress'),
 });
 
 // Fix typing issue: detect when keyboard stops working and force focus
