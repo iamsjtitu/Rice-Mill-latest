@@ -1,0 +1,31 @@
+{
+  "super_admins": [
+    {
+      "id": "01556961-fa8e-4cf6-b65d-9ef968514bcc",
+      "email": "t2@host9x.com",
+      "password_hash": "$2b$10$zjDYsxgHj9n9ZblR.3dFwObpYmtfM95fFwXfxarQ3lFYsckxuiE46",
+      "created_at": "2026-04-19T16:35:28.770Z"
+    }
+  ],
+  "licenses": [
+    {
+      "id": "f915d4cb-1fd4-4091-971b-5c24d08e97d3",
+      "key": "9X-NVKR-OWNR-MSTR-2099",
+      "customer_name": "Navkar Agro (Owner Master License)",
+      "mill_name": "Navkar Agro - Jolko, Kesinga",
+      "contact": "t2@host9x.com",
+      "plan": "lifetime",
+      "status": "active",
+      "issued_at": "2026-04-19T16:35:28.771Z",
+      "expires_at": null,
+      "notes": "Permanent master license for original owner. Never expires.",
+      "revoked_at": null,
+      "is_master": true
+    }
+  ],
+  "activations": [],
+  "meta": {
+    "version": 1,
+    "created_at": "2026-04-19T16:35:28.710Z"
+  }
+}

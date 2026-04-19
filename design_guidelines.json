@@ -1,0 +1,119 @@
+{
+  "theme": "Dark",
+  "archetype": "Archetype 4 (Swiss & High-Contrast) - Dark Mode",
+  "domain": "SaaS Admin Dashboard (B2B License Management)",
+  "rationale": "For an enterprise software managing ₹1 Lakh licenses, the tool must look extremely sophisticated, precise, and expensive. Linear/Vercel-inspired deep black/slate background with stark white text and highly specific neon/vibrant accents ensures readability and a premium 'command center' feel.",
+  "colors": {
+    "background": "#000000",
+    "surface": "#080808",
+    "surface_elevated": "#121212",
+    "surface_hover": "#1A1A1A",
+    "border": "#222222",
+    "border_light": "rgba(255,255,255,0.08)",
+    "text_primary": "#FFFFFF",
+    "text_secondary": "#888888",
+    "accent_primary": "#FFFFFF",
+    "accent_secondary": "#333333",
+    "status_active": "#32D74B",
+    "status_expired": "#FF9F0A",
+    "status_revoked": "#FF453A",
+    "status_master": "#0A84FF",
+    "pulse_glow": "rgba(50, 215, 75, 0.4)"
+  },
+  "typography": {
+    "fonts": {
+      "heading": "'Satoshi', sans-serif",
+      "body": "'Satoshi', sans-serif",
+      "mono": "'JetBrains Mono', monospace"
+    },
+    "cdns": [
+      "<link href=\"https://fonts.cdnfonts.com/css/satoshi\" rel=\"stylesheet\">",
+      "<link href=\"https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap\" rel=\"stylesheet\">"
+    ],
+    "scale": {
+      "h1": "2.25rem",
+      "h2": "1.5rem",
+      "h3": "1.25rem",
+      "body": "0.875rem",
+      "mono": "0.75rem",
+      "overline": "0.7rem"
+    },
+    "letter_spacing": {
+      "heading": "-0.03em",
+      "overline": "0.2em",
+      "mono": "0.05em"
+    }
+  },
+  "visual_enhancers": {
+    "shadows": {
+      "ambient": "0 10px 40px -10px rgba(0,0,0,0.8)",
+      "glow_active": "0 0 12px var(--pulse-glow)"
+    },
+    "textures": "Include a fixed fixed full-screen pseudo-element with a repeating radial-gradient noise or SVG noise pattern at 3% opacity. It removes the 'flat' digital look.",
+    "borders": "1px solid var(--border_light). Use on cards, headers, table rows.",
+    "glassmorphism": "background: rgba(12, 12, 12, 0.6); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);",
+    "custom_cursor": "Create a custom cursor in vanilla JS: A 4px white dot that instantly follows the mouse, and a 24px transparent circle with a 1px white border that follows with a slight 0.1s lag."
+  },
+  "layout_grids": {
+    "dashboard_overview": "CSS Grid: grid-template-columns: repeat(4, 1fr); gap: 1.5rem. Stat cards take 1fr each. The table spans all 4 columns.",
+    "container_padding": "Cards pad 1.5rem. Main wrapper pad 3rem."
+  },
+  "motion": {
+    "hover_states": "Buttons: transition: all 0.2s ease; On hover: transform: translateY(-1px);",
+    "entrance": "Staggered fade-up for table rows using @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }. Apply with incrementing animation-delay.",
+    "live_indicator": "@keyframes pulse { 0% { box-shadow: 0 0 0 0 var(--pulse-glow); } 70% { box-shadow: 0 0 0 6px rgba(50,215,75,0); } 100% { box-shadow: 0 0 0 0 rgba(50,215,75,0); } }"
+  },
+  "icons": {
+    "library": "Phosphor Icons",
+    "cdn": "<script src=\"https://unpkg.com/@phosphor-icons/web\"></script>",
+    "style": "Use regular or light weight. Size 16px to 20px max."
+  },
+  "components": {
+    "buttons": {
+      "primary": "Pill shape (border-radius: 99px), background: #FFFFFF, color: #000000, font-weight: 500.",
+      "secondary": "Pill shape, background: transparent, border: 1px solid #333, color: #FFF, hover background: rgba(255,255,255,0.1).",
+      "danger": "Pill shape, background: rgba(255, 69, 58, 0.1), color: #FF453A, border: 1px solid rgba(255, 69, 58, 0.3)."
+    },
+    "cards": {
+      "style": "background: var(--surface); border: 1px solid var(--border_light); border-radius: 12px; transition: border-color 0.2s ease;"
+    },
+    "table": {
+      "style": "width: 100%; border-collapse: collapse; text-align: left;",
+      "header": "color: var(--text_secondary); font-size: var(--overline); text-transform: uppercase; letter-spacing: 0.1em; padding-bottom: 1rem; border-bottom: 1px solid var(--border);",
+      "rows": "border-bottom: 1px solid var(--border_light); transition: background 0.2s ease;",
+      "row_hover": "background: rgba(255,255,255,0.02);",
+      "cells": "padding: 1rem 0; font-size: var(--body);",
+      "badges": "padding: 0.2rem 0.6rem; border-radius: 99px; font-family: var(--mono); font-size: 11px; font-weight: 500. Colors map to status variables."
+    },
+    "inputs": {
+      "style": "background: var(--surface_elevated); border: 1px solid var(--border); border-radius: 8px; color: #FFF; padding: 0.75rem 1rem; width: 100%; outline: none; transition: all 0.2s;",
+      "focus": "border-color: #FFF; box-shadow: 0 0 0 1px #FFF;"
+    }
+  },
+  "views_structure": {
+    "login": {
+      "layout": "Centered Glassmorphic Panel on a dark dramatic background. The panel should be max-width 400px, with intense padding and tight typography.",
+      "background_image": "https://images.pexels.com/photos/3612930/pexels-photo-3612930.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+    },
+    "dashboard": {
+      "header": "Fixed top bar. Contains Brand Logo (left) and Live Viewer Counter / Account Dropdown (right).",
+      "stats_row": "Total Licenses, Active, Expired, Revoked, Monthly Revenue.",
+      "table_section": "Title 'Customer Licenses'. Right-aligned 'Create License' primary button and search input. The table displays key, name, mill, plan, expiry, status, online indicator, actions.",
+      "modals": "Fixed fixed overlay (z-50) with glassmorphism backdrop. Modal box itself is var(--surface) with var(--border_light)."
+    }
+  },
+  "testing": {
+    "attributes": "ALL interactive elements (buttons, inputs, table rows) MUST include 'data-testid' attributes (e.g., data-testid='create-license-btn', data-testid='login-submit')."
+  },
+  "instructions_to_main_agent": [
+    "You are building this purely in HTML/CSS/JS without any frameworks or build tools (no React, no Tailwind).",
+    "Write all HTML into public/index.html. Include the Satoshi and JetBrains Mono CDNs in the <head>. Include the Phosphor icons script.",
+    "Write all CSS into public/styles.css. Use CSS variables (:root) heavily to enforce the exact color palette defined here.",
+    "Implement the custom cursor in public/app.js. Hide the default cursor with CSS (cursor: none) on the body.",
+    "Handle all UI interactions (modals, login toggle, table rendering) using vanilla JS DOM manipulation in public/app.js.",
+    "Implement the live online counter. Use a CSS animation for the green pulse dot. The number can be static or randomly fluctuating via JS.",
+    "When a new license is generated, show the 'License Key Success Modal' with the key huge in JetBrains Mono font, and a functioning 'Copy' button.",
+    "Design the login screen to look highly dramatic using the provided background_image URL, a dark overlay, and a glassmorphism form panel.",
+    "Do NOT use generic purple or blue gradients. Strictly stick to the 'Obsidian/Stark White' aesthetic with neon status indicators."
+  ]
+}

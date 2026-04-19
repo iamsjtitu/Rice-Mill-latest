@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MillEntry Central License Admin</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Login View -->
+    <div id="login-view" class="auth-screen">
+      <div class="auth-card">
+        <div class="logo-wrap">
+          <div class="logo-circle">9X</div>
+          <h1>MillEntry <span>Admin</span></h1>
+          <p>Central License Management</p>
+        </div>
+        <form id="login-form">
+          <label>Email</label>
+          <input type="email" id="email" required placeholder="you@example.com" autocomplete="email" />
+          <label>Password</label>
+          <input type="password" id="password" required placeholder="••••••••" autocomplete="current-password" />
+          <button type="submit" id="login-btn">Sign In</button>
+          <div id="login-error" class="error-msg"></div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Dashboard View -->
+    <div id="dashboard-view" style="display:none">
+      <header class="topbar">
+        <div class="brand"><span class="logo-small">9X</span> MillEntry Admin</div>
+        <div class="user-info">
+          <span id="user-email"></span>
+          <button id="logout-btn" class="btn-ghost">Logout</button>
+        </div>
+      </header>
+
+      <main class="main">
+        <!-- Stats -->
+        <section class="stats-grid" id="stats-grid">
+          <div class="stat-card"><div class="stat-label">Total Licenses</div><div class="stat-val" id="stat-total">—</div></div>
+          <div class="stat-card active"><div class="stat-label">Active</div><div class="stat-val" id="stat-active">—</div></div>
+          <div class="stat-card warn"><div class="stat-label">Expired</div><div class="stat-val" id="stat-expired">—</div></div>
+          <div class="stat-card danger"><div class="stat-label">Revoked</div><div class="stat-val" id="stat-revoked">—</div></div>
+          <div class="stat-card online"><div class="stat-label">Online Now</div><div class="stat-val" id="stat-online">—</div></div>
+        </section>
+
+        <!-- Toolbar -->
+        <section class="toolbar">
+          <div class="toolbar-left">
+            <input type="text" id="search" placeholder="Search customer / mill / key..." />
+            <select id="filter-status">
+              <option value="">All status</option>
+              <option value="active">Active</option>
+              <option value="revoked">Revoked</option>
+            </select>
+            <button id="refresh-btn" class="btn-ghost">↻ Refresh</button>
+          </div>
+          <button id="create-license-btn" class="btn-primary">+ New License</button>
+        </section>
+
+        <!-- License table -->
+        <section class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Key</th>
+                <th>Customer</th>
+                <th>Mill</th>
+                <th>Contact</th>
+                <th>Plan</th>
+                <th>Issued</th>
+                <th>Expires</th>
+                <th>Status</th>
+                <th>Current PC</th>
+                <th>Last Seen</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="license-tbody">
+              <tr><td colspan="11" class="empty">Loading...</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </main>
+    </div>
+
+    <!-- Create License Modal -->
+    <div id="create-modal" class="modal" style="display:none">
+      <div class="modal-content">
+        <div class="modal-head">
+          <h2>Create New License</h2>
+          <button class="modal-close" data-close-modal="create-modal">×</button>
+        </div>
+        <form id="create-form">
+          <div class="form-row">
+            <label>Customer Name <span class="req">*</span></label>
+            <input type="text" name="customer_name" required placeholder="Ram Kumar Sharma" />
+          </div>
+          <div class="form-row">
+            <label>Mill Name <span class="req">*</span></label>
+            <input type="text" name="mill_name" required placeholder="Shri Ram Agro, Kesinga" />
+          </div>
+          <div class="form-row">
+            <label>Contact (phone / email)</label>
+            <input type="text" name="contact" placeholder="+91 98765 43210 / email" />
+          </div>
+          <div class="form-row-split">
+            <div>
+              <label>Plan</label>
+              <select name="plan">
+                <option value="lifetime">Lifetime + Support</option>
+                <option value="yearly">Yearly Renewal</option>
+                <option value="trial">Trial (30 days)</option>
+              </select>
+            </div>
+            <div>
+              <label>Expires At (blank = never)</label>
+              <input type="date" name="expires_at" />
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Notes (optional)</label>
+            <textarea name="notes" rows="2" placeholder="Any internal note..."></textarea>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn-ghost" data-close-modal="create-modal">Cancel</button>
+            <button type="submit" class="btn-primary">Generate License</button>
+          </div>
+          <div id="create-error" class="error-msg"></div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Success Modal (shows new key) -->
+    <div id="success-modal" class="modal" style="display:none">
+      <div class="modal-content">
+        <div class="modal-head">
+          <h2>✓ License Generated</h2>
+          <button class="modal-close" data-close-modal="success-modal">×</button>
+        </div>
+        <div class="body-padded">
+          <p>Share this key with the customer:</p>
+          <div class="key-display" id="new-key-display">—</div>
+          <button class="btn-primary btn-full" id="copy-key-btn">Copy to Clipboard</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
