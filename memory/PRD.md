@@ -94,10 +94,10 @@
 - **Global KMS (Kharif Marketing Season) setting** (DONE):
   - **Root cause fixed**: `useFilters.js` had a hard-coded auto-reset that forced `kms_year` back to `CURRENT_FY` on every page load if the saved year was older — wiping out user's KMS selection
   - Removed auto-reset logic → user-selected KMS now **persists** across reloads (saved in `fy-settings` MongoDB collection)
-  - Renamed UI label **"FY" → "KMS"** across 13 components (AppHeader, Dashboard, CashBook, Ledgers, Payments, DailyReport, FilterPanel, MillEntryForm, EntryTable, StockTab, ExcelImport, MillingTracker, FYSummaryDashboard, GSTLedger)
-  - Added prominent **Active KMS banner** on Dashboard — amber gradient card showing "ACTIVE KMS · 2025-2026 · Kharif" with hint about changing via header dropdown
-  - Backend `/api/fy-settings` unchanged (field `active_fy` stays for backward compat, but now represents KMS)
-  - Tested via browser screenshot — header shows "KMS 2025-2026 | Rabi", big banner visible, Paddy Stock 1000 Qntl correctly scoped
+  - Renamed UI label **"FY" → "KMS"** across 13 components
+  - Added prominent **Active KMS banner** on Dashboard
+  - **Rich toast on KMS switch**: "Switched to KMS 2024-2025 · 📋 145 entries · 🌾 80 Qtl paddy · 🍚 52 Qtl rice" — parallel calls to `/api/entries`, `/api/paddy-stock`, `/api/rice-stock` (5s toast)
+  - Backend `/api/fy-settings` unchanged (field `active_fy` stays for backward compat)
 
 - **Verification Report — Save-triggered WhatsApp + History Sub-tab** (DONE):
   - Removed WA icons (Phone/Users) + Print button from VR header — too cluttered

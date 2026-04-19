@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
+import { toast } from "sonner";
 import { FY_YEARS, CURRENT_FY } from "../utils/constants";
 import logger from "../utils/logger";
 import { useCloseFiltersOnEsc } from "../utils/useCloseFiltersOnEsc";
@@ -78,6 +79,11 @@ export function useFilters() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mount-only
 
   const handleFyChange = useCallback(async (newFy, newSeason) => {
+    const prevKms = filters.kms_year;
+    const prevSeason = filters.season;
+    const effKms = newFy !== undefined ? newFy : prevKms;
+    const effSeason = newSeason !== undefined ? newSeason : prevSeason;
+
     if (newSeason !== undefined) localStorage.setItem("mill_season", newSeason);
     setFilters(prev => {
       const updated = { ...prev };
@@ -86,11 +92,39 @@ export function useFilters() {
       return updated;
     });
     try {
-      await axios.put(`${API}/fy-settings`, {
-        active_fy: newFy !== undefined ? newFy : filters.kms_year,
-        season: newSeason !== undefined ? newSeason : filters.season,
-      });
+      await axios.put(`${API}/fy-settings`, { active_fy: effKms, season: effSeason });
     } catch (e) { logger.error('FY change save error:', e); }
+
+    // Only fire the summary toast when the KMS year actually changed (not just season).
+    if (newFy !== undefined && newFy !== prevKms) {
+      const tid = 'kms-switch';
+      toast.loading(`Switching to KMS ${newFy}...`, { id: tid });
+      try {
+        const qp = new URLSearchParams();
+        qp.append('kms_year', newFy);
+        if (effSeason) qp.append('season', effSeason);
+        const countQp = new URLSearchParams(qp);
+        countQp.append('page_size', '1');
+        countQp.append('page', '1');
+        const [entriesRes, paddyRes, riceRes] = await Promise.allSettled([
+          axios.get(`${API}/entries?${countQp.toString()}`),
+          axios.get(`${API}/paddy-stock?${qp.toString()}`),
+          axios.get(`${API}/rice-stock?${qp.toString()}`),
+        ]);
+        const entries = entriesRes.status === 'fulfilled' ? (entriesRes.value.data?.total || 0) : 0;
+        const paddy = paddyRes.status === 'fulfilled' ? (+paddyRes.value.data?.available_paddy_qntl || 0) : 0;
+        const rice = riceRes.status === 'fulfilled' ? (+riceRes.value.data?.available_qntl || 0) : 0;
+        const fmtQ = v => (Math.round(v * 100) / 100).toLocaleString('en-IN');
+        toast.dismiss(tid);
+        toast.success(`Switched to KMS ${newFy}`, {
+          description: `📋 ${entries.toLocaleString('en-IN')} entries · 🌾 ${fmtQ(paddy)} Qtl paddy · 🍚 ${fmtQ(rice)} Qtl rice`,
+          duration: 5000,
+        });
+      } catch (e) {
+        toast.dismiss(tid);
+        toast.success(`Switched to KMS ${newFy}`);
+      }
+    }
   }, [filters.kms_year, filters.season]);
 
   const findMandiCutting = useCallback((mandiName) => {
