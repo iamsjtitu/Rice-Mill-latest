@@ -669,3 +669,34 @@ async def save_govt_links_post(request: Request):
     )
     return {"success": True, "count": len(links)}
 
+
+# ============ VERIFICATION METER SETTINGS (FCI Weekly Verification Report) ============
+@router.get("/settings/verification-meter")
+async def get_verification_meter_settings():
+    """Persisted Last Metre Reading + Last Verification Date for FCI Weekly Verification Report."""
+    doc = await db.app_settings.find_one({"setting_id": "verification_meter"}, {"_id": 0})
+    if not doc:
+        return {"last_meter_reading": 0, "last_verification_date": "", "units_per_qtl": 6.0, "rice_recovery": 0.67}
+    return {
+        "last_meter_reading": float(doc.get("last_meter_reading", 0) or 0),
+        "last_verification_date": doc.get("last_verification_date", "") or "",
+        "units_per_qtl": float(doc.get("units_per_qtl", 6.0) or 6.0),
+        "rice_recovery": float(doc.get("rice_recovery", 0.67) or 0.67),
+    }
+
+@router.put("/settings/verification-meter")
+async def update_verification_meter_settings(data: dict):
+    """Save Last Metre Reading + Last Verification Date (auto-roll for next week)."""
+    payload = {
+        "setting_id": "verification_meter",
+        "last_meter_reading": float(data.get("last_meter_reading", 0) or 0),
+        "last_verification_date": str(data.get("last_verification_date", "") or ""),
+        "units_per_qtl": float(data.get("units_per_qtl", 6.0) or 6.0),
+        "rice_recovery": float(data.get("rice_recovery", 0.67) or 0.67),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.app_settings.update_one(
+        {"setting_id": "verification_meter"}, {"$set": payload}, upsert=True
+    )
+    return {"success": True, **{k: v for k, v in payload.items() if k != "setting_id"}}
+

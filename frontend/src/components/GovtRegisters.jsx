@@ -18,6 +18,7 @@ import {
 import MandiCustodyRegister from "./MandiCustodyRegister";
 import { useConfirm } from "./ConfirmProvider";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import logger from "../utils/logger";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -1046,6 +1047,72 @@ export function MillingRegister({ filters, user }) {
   const [relForm, setRelForm] = useState({ date: new Date().toISOString().split("T")[0], qty_qtl: "", ro_number: "", kms_year: "", season: "" });
   const showConfirm = useConfirm();
 
+  // ======= Verification Report State =======
+  const [vrTab, setVrTab] = useState("register");
+  const [vr, setVr] = useState(null);
+  const [vrLoading, setVrLoading] = useState(false);
+  const [vrForm, setVrForm] = useState({
+    from_date: "",
+    to_date: new Date().toISOString().split("T")[0],
+    last_meter_reading: 0,
+    units_per_qtl: 6,
+    rice_recovery: 0.67,
+  });
+  const [vrSavedMeter, setVrSavedMeter] = useState(0);
+
+  // Load persisted verification meter settings on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await axios.get(`${API}/settings/verification-meter`);
+        const d = res.data || {};
+        setVrSavedMeter(+d.last_meter_reading || 0);
+        setVrForm(prev => ({
+          ...prev,
+          last_meter_reading: +(d.last_meter_reading || 0),
+          from_date: d.last_verification_date || prev.from_date,
+          units_per_qtl: +(d.units_per_qtl || 6),
+          rice_recovery: +(d.rice_recovery || 0.67),
+        }));
+      } catch (e) { logger.error(e); }
+    })();
+  }, []);
+
+  const fetchVerification = async () => {
+    if (!vrForm.from_date || !vrForm.to_date) { toast.error("From & To date chahiye"); return; }
+    if (vrForm.from_date >= vrForm.to_date) { toast.error("From date To se pehle honi chahiye"); return; }
+    setVrLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filters.kms_year) params.append("kms_year", filters.kms_year);
+      if (filters.season) params.append("season", filters.season);
+      params.append("from_date", vrForm.from_date);
+      params.append("to_date", vrForm.to_date);
+      params.append("last_meter_reading", String(vrForm.last_meter_reading || 0));
+      params.append("units_per_qtl", String(vrForm.units_per_qtl || 6));
+      params.append("rice_recovery", String(vrForm.rice_recovery || 0.67));
+      const res = await axios.get(`${API}/govt-registers/verification-report?${params}`);
+      setVr(res.data);
+    } catch (e) { logger.error(e); toast.error("Verification report error"); }
+    setVrLoading(false);
+  };
+
+  const saveVerificationMeter = async () => {
+    try {
+      // Save current "present meter reading" as next week's "last reading"
+      const nextMeter = vr ? vr.meter.present_reading : vrForm.last_meter_reading;
+      const nextDate = vrForm.to_date;
+      await axios.put(`${API}/settings/verification-meter`, {
+        last_meter_reading: nextMeter,
+        last_verification_date: nextDate,
+        units_per_qtl: vrForm.units_per_qtl,
+        rice_recovery: vrForm.rice_recovery,
+      });
+      setVrSavedMeter(+nextMeter);
+      toast.success(`Saved! Next week default: Meter ${nextMeter}, From ${nextDate}`);
+    } catch (e) { toast.error(e.response?.data?.detail || "Save error"); }
+  };
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -1119,7 +1186,7 @@ export function MillingRegister({ filters, user }) {
         </div>
       </div>
 
-      <Tabs defaultValue="register" className="w-full">
+      <Tabs value={vrTab} onValueChange={setVrTab} className="w-full">
         <TabsList className="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700">
           <TabsTrigger value="register" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900 text-xs" data-testid="mr-tab-register">Register</TabsTrigger>
           <TabsTrigger value="verification" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900 text-xs" data-testid="mr-tab-verification">Verification Report</TabsTrigger>
@@ -1261,6 +1328,162 @@ export function MillingRegister({ filters, user }) {
           </CardContent>
         </Card>
       )}
+        </TabsContent>
+
+        {/* ======= VERIFICATION REPORT TAB ======= */}
+        <TabsContent value="verification" className="space-y-3 mt-3" data-testid="mr-verification-tab">
+          <Card className="border bg-slate-50 dark:bg-slate-800/40">
+            <CardContent className="p-3 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800 dark:text-amber-400">FCI Weekly Verification Report</h4>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Auto-computed from Milling Register + Paddy Release + DC Deliveries</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button onClick={fetchVerification} size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900 h-7 text-[10px]" data-testid="vr-generate-btn">
+                    {vrLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />} Generate
+                  </Button>
+                  {vr && (
+                    <Button onClick={() => window.print()} variant="outline" size="sm" className="h-7 text-[10px]" data-testid="vr-print-btn">
+                      <FileText className="w-3 h-3 mr-1" /> Print
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Input Controls */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 p-2 rounded bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700">
+                <div>
+                  <Label className="text-[10px] text-slate-500">Previous Verification Date</Label>
+                  <Input type="date" value={vrForm.from_date} onChange={e => setVrForm(p => ({ ...p, from_date: e.target.value }))} className="h-7 text-xs" data-testid="vr-from-date" />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-slate-500">Current Verification Date</Label>
+                  <Input type="date" value={vrForm.to_date} onChange={e => setVrForm(p => ({ ...p, to_date: e.target.value }))} className="h-7 text-xs" data-testid="vr-to-date" />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-slate-500">4b. Last Metre Reading {vrSavedMeter > 0 && <span className="text-[9px] text-emerald-600 dark:text-emerald-400">(saved: {vrSavedMeter})</span>}</Label>
+                  <Input type="number" step="0.01" value={vrForm.last_meter_reading} onChange={e => setVrForm(p => ({ ...p, last_meter_reading: +e.target.value || 0 }))} className="h-7 text-xs" data-testid="vr-last-meter" />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-slate-500">Units / Quintal</Label>
+                  <Input type="number" step="0.1" value={vrForm.units_per_qtl} onChange={e => setVrForm(p => ({ ...p, units_per_qtl: +e.target.value || 0 }))} className="h-7 text-xs" data-testid="vr-units-per-qtl" />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-slate-500">Rice Recovery %</Label>
+                  <Input type="number" step="0.01" value={vrForm.rice_recovery} onChange={e => setVrForm(p => ({ ...p, rice_recovery: +e.target.value || 0 }))} className="h-7 text-xs" data-testid="vr-rice-recovery" />
+                </div>
+              </div>
+
+              {!vr && !vrLoading && (
+                <div className="text-center py-8 text-xs text-slate-500">
+                  Dates select karke <span className="text-amber-600 font-semibold">Generate</span> pe click karein
+                </div>
+              )}
+              {vrLoading && <div className="text-center py-6"><Loader2 className="w-6 h-6 mx-auto animate-spin text-amber-500" /></div>}
+
+              {vr && (
+                <div className="space-y-3">
+                  {/* Meter Section (4b, 4c, 4d) */}
+                  <Card className="border border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20">
+                    <CardContent className="p-3">
+                      <h5 className="text-xs font-bold text-blue-700 dark:text-blue-400 mb-2">4. Electricity Metre Reading</h5>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="p-2 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                          <p className="text-[10px] text-slate-500">4b. Last Reading</p>
+                          <p className="text-lg font-bold text-slate-700 dark:text-slate-200" data-testid="vr-4b-last">{vr.meter.last_reading.toLocaleString()}</p>
+                          <p className="text-[9px] text-slate-400">units</p>
+                        </div>
+                        <div className="p-2 rounded bg-white dark:bg-slate-800 border border-blue-300 dark:border-blue-700">
+                          <p className="text-[10px] text-slate-500">4c. Present Reading</p>
+                          <p className="text-lg font-bold text-blue-700 dark:text-blue-400" data-testid="vr-4c-present">{vr.meter.present_reading.toLocaleString()}</p>
+                          <p className="text-[9px] text-slate-400">= 4b + 4d</p>
+                        </div>
+                        <div className="p-2 rounded bg-white dark:bg-slate-800 border border-orange-300 dark:border-orange-700">
+                          <p className="text-[10px] text-slate-500">4d. Units Consumed</p>
+                          <p className="text-lg font-bold text-orange-600 dark:text-amber-400" data-testid="vr-4d-units">{vr.meter.units_consumed.toLocaleString()}</p>
+                          <p className="text-[9px] text-slate-400">Paddy Milled × {vr.meter.units_per_qtl}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Weekly vs Progressive Table */}
+                  <Card className="border">
+                    <CardContent className="p-0 overflow-x-auto">
+                      <table className="w-full text-xs" data-testid="vr-totals-table">
+                        <thead>
+                          <tr className="bg-slate-100 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700">
+                            <th className="text-left py-2 px-3 font-bold text-slate-700 dark:text-slate-200">Particulars</th>
+                            <th className="text-right py-2 px-3 font-bold text-slate-700 dark:text-slate-200">This Week (Qtl)</th>
+                            <th className="text-right py-2 px-3 font-bold text-slate-700 dark:text-slate-200">Progressive (Qtl)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b border-slate-200 dark:border-slate-700/50 hover:bg-blue-50/40 dark:hover:bg-slate-800/40">
+                            <td className="py-1.5 px-3 text-slate-700 dark:text-slate-300">1. Paddy Released (CM A/c)</td>
+                            <td className="py-1.5 px-3 text-right text-blue-700 dark:text-blue-400 font-semibold">{vr.weekly.paddy_received.toLocaleString()}</td>
+                            <td className="py-1.5 px-3 text-right text-blue-700 dark:text-blue-400 font-semibold">{vr.progressive.paddy_received.toLocaleString()}</td>
+                          </tr>
+                          <tr className="border-b border-slate-200 dark:border-slate-700/50 hover:bg-blue-50/40 dark:hover:bg-slate-800/40">
+                            <td className="py-1.5 px-3 text-slate-700 dark:text-slate-300">2. Paddy Milled</td>
+                            <td className="py-1.5 px-3 text-right text-orange-600 dark:text-amber-400 font-semibold">{vr.weekly.paddy_milled.toLocaleString()}</td>
+                            <td className="py-1.5 px-3 text-right text-orange-600 dark:text-amber-400 font-semibold">{vr.progressive.paddy_milled.toLocaleString()}</td>
+                          </tr>
+                          <tr className="border-b border-slate-200 dark:border-slate-700/50 hover:bg-blue-50/40 dark:hover:bg-slate-800/40">
+                            <td className="py-1.5 px-3 text-slate-700 dark:text-slate-300">3. Rice Produced (Actual)</td>
+                            <td className="py-1.5 px-3 text-right text-green-700 dark:text-emerald-400 font-semibold">{vr.weekly.rice_produced.toLocaleString()}</td>
+                            <td className="py-1.5 px-3 text-right text-green-700 dark:text-emerald-400 font-semibold">{vr.progressive.rice_produced.toLocaleString()}</td>
+                          </tr>
+                          <tr className="border-b border-slate-200 dark:border-slate-700/50 bg-emerald-50/40 dark:bg-emerald-950/10">
+                            <td className="py-1.5 px-3 text-slate-600 dark:text-slate-400 text-[11px] italic">   Expected Rice ({(vr.settings.rice_recovery * 100).toFixed(0)}% recovery)</td>
+                            <td className="py-1.5 px-3 text-right text-emerald-600 dark:text-emerald-400 text-[11px]">{vr.weekly.expected_rice.toLocaleString()}</td>
+                            <td className="py-1.5 px-3 text-right text-emerald-600 dark:text-emerald-400 text-[11px]">{vr.progressive.expected_rice.toLocaleString()}</td>
+                          </tr>
+                          <tr className="border-b border-slate-200 dark:border-slate-700/50 hover:bg-blue-50/40 dark:hover:bg-slate-800/40">
+                            <td className="py-1.5 px-3 text-slate-700 dark:text-slate-300">4. Rice Delivered (FCI/RRC)</td>
+                            <td className="py-1.5 px-3 text-right text-purple-700 dark:text-purple-400 font-semibold">{vr.weekly.rice_delivered.toLocaleString()}</td>
+                            <td className="py-1.5 px-3 text-right text-purple-700 dark:text-purple-400 font-semibold">{vr.progressive.rice_delivered.toLocaleString()}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </CardContent>
+                  </Card>
+
+                  {/* Book Balance */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <Card className="border border-orange-300 dark:border-orange-700/50 bg-orange-50/40 dark:bg-orange-950/20">
+                      <CardContent className="p-3 text-center">
+                        <p className="text-[10px] text-slate-500">5. Book Balance of Paddy</p>
+                        <p className="text-xl font-bold text-orange-700 dark:text-amber-400" data-testid="vr-bb-paddy">{vr.book_balance.paddy.toLocaleString()} <span className="text-xs text-slate-400">Qtl</span></p>
+                        <p className="text-[10px] text-slate-400">= Released − Milled (Progressive)</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="border border-teal-300 dark:border-teal-700/50 bg-teal-50/40 dark:bg-teal-950/20">
+                      <CardContent className="p-3 text-center">
+                        <p className="text-[10px] text-slate-500">6. Book Balance of Rice</p>
+                        <p className="text-xl font-bold text-teal-700 dark:text-cyan-400" data-testid="vr-bb-rice">{vr.book_balance.rice.toLocaleString()} <span className="text-xs text-slate-400">Qtl</span></p>
+                        <p className="text-[10px] text-slate-400">= Produced − Delivered (Progressive)</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Save as Default */}
+                  <div className="flex items-center justify-between p-2 rounded bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50">
+                    <div>
+                      <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Next week ke liye save karein?</p>
+                      <p className="text-[10px] text-slate-500">Present Reading ({vr.meter.present_reading}) aur Date ({vr.period.to_date}) ko default banaye</p>
+                    </div>
+                    <Button onClick={saveVerificationMeter} size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900 h-7 text-[10px]" data-testid="vr-save-meter-btn">
+                      Save as Default
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

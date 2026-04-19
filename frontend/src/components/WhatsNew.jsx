@@ -7,6 +7,20 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.18.0",
+    date: "Feb 2026",
+    title: "v104.18.0 - Milling Register: FCI Verification Report (Weekly)",
+    items: [
+      { type: "new", text: "Milling Register ke andar naya sub-tab: Verification Report (FCI Weekly format)" },
+      { type: "new", text: "Auto-compute: 4b Last Metre → 4c Present Metre → 4d Units Consumed (6 units/Qtl default)" },
+      { type: "new", text: "Weekly + Progressive totals: Paddy Released, Milled, Rice Produced, Delivered" },
+      { type: "new", text: "Expected Rice cross-check @ 67% recovery (FCI standard)" },
+      { type: "new", text: "Book Balance of Paddy & Rice (auto from progressive totals)" },
+      { type: "new", text: "Persistent Meter Settings: 'Save as Default' → next week ka Last Reading + Last Date auto-roll" },
+      { type: "new", text: "Teeno backends mein parity: /api/govt-registers/verification-report + /api/settings/verification-meter" },
+    ],
+  },
+  {
     version: "104.0.0",
     date: "Apr 2026",
     title: "v104.0.0 - DC Stacks + Lot Management",

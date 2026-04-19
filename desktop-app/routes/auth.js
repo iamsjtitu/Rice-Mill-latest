@@ -565,6 +565,37 @@ module.exports = function(database) {
     res.json({ success: true, count: links.length });
   }));
 
+  // ============ VERIFICATION METER SETTINGS (FCI Weekly Verification Report) ============
+  router.get('/api/settings/verification-meter', safeSync(async (req, res) => {
+    const settings = database.data.app_settings || [];
+    const s = settings.find(x => x.setting_id === 'verification_meter');
+    if (!s) return res.json({ last_meter_reading: 0, last_verification_date: '', units_per_qtl: 6.0, rice_recovery: 0.67 });
+    res.json({
+      last_meter_reading: +(s.last_meter_reading || 0),
+      last_verification_date: s.last_verification_date || '',
+      units_per_qtl: +(s.units_per_qtl || 6.0),
+      rice_recovery: +(s.rice_recovery || 0.67),
+    });
+  }));
+
+  router.put('/api/settings/verification-meter', safeSync(async (req, res) => {
+    const d = req.body || {};
+    if (!database.data.app_settings) database.data.app_settings = [];
+    const payload = {
+      setting_id: 'verification_meter',
+      last_meter_reading: +(d.last_meter_reading || 0),
+      last_verification_date: String(d.last_verification_date || ''),
+      units_per_qtl: +(d.units_per_qtl || 6.0),
+      rice_recovery: +(d.rice_recovery || 0.67),
+      updated_at: new Date().toISOString(),
+    };
+    const idx = database.data.app_settings.findIndex(x => x.setting_id === 'verification_meter');
+    if (idx >= 0) database.data.app_settings[idx] = payload;
+    else database.data.app_settings.push(payload);
+    if (database.saveImmediate) database.saveImmediate(); else database.save();
+    const { setting_id, ...rest } = payload;
+    res.json({ success: true, ...rest });
+  }));
 
 
 
