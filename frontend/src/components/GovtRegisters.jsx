@@ -1981,15 +1981,21 @@ function AnnexureOneView({ vr, onSaveMeter }) {
         </colgroup>
         <thead>
           <tr className="bg-slate-100 dark:bg-slate-800">
-            <TxtCell className="text-center font-bold"></TxtCell>
-            <TxtCell className="text-center font-bold">Sl No</TxtCell>
-            <TxtCell className="text-center font-bold"></TxtCell>
+            <TxtCell rowSpan={2} className="text-center font-bold"></TxtCell>
+            <TxtCell rowSpan={2} className="text-center font-bold">Sl No</TxtCell>
+            <TxtCell rowSpan={2} className="text-center font-bold"></TxtCell>
             <TxtCell colSpan={2} className="text-center font-bold">OSCSC(OWN)</TxtCell>
             <TxtCell colSpan={2} className="text-center font-bold">OSCSC(Koraput)</TxtCell>
-            <TxtCell className="text-center font-bold">NAFED</TxtCell>
-            <TxtCell className="text-center font-bold">TDCC</TxtCell>
-            <TxtCell className="text-center font-bold">Levy A/c</TxtCell>
-            <TxtCell className="text-center font-bold">TOTAL</TxtCell>
+            <TxtCell rowSpan={2} className="text-center font-bold">NAFED</TxtCell>
+            <TxtCell rowSpan={2} className="text-center font-bold">TDCC</TxtCell>
+            <TxtCell rowSpan={2} className="text-center font-bold">Levy A/c</TxtCell>
+            <TxtCell rowSpan={2} className="text-center font-bold">TOTAL</TxtCell>
+          </tr>
+          <tr className="bg-slate-100 dark:bg-slate-800">
+            <TxtCell className="text-center font-bold">RRC</TxtCell>
+            <TxtCell className="text-center font-bold">FCI</TxtCell>
+            <TxtCell className="text-center font-bold">RRC FRK</TxtCell>
+            <TxtCell className="text-center font-bold">FCI FRK</TxtCell>
           </tr>
         </thead>
         <tbody>
@@ -2029,7 +2035,7 @@ function AnnexureOneView({ vr, onSaveMeter }) {
 
           {/* ===== RICE SECTION (VII-XIV) ===== */}
           <tr>
-            <TxtCell rowSpan={9} className="text-center font-bold align-middle bg-slate-50 dark:bg-slate-800/60" style={{writingMode:'vertical-rl', transform:'rotate(180deg)'}}>Rice</TxtCell>
+            <TxtCell rowSpan={8} className="text-center font-bold align-middle bg-slate-50 dark:bg-slate-800/60" style={{writingMode:'vertical-rl', transform:'rotate(180deg)'}}>Rice</TxtCell>
             <TxtCell className="text-center font-bold">VII</TxtCell>
             <TxtCell>Rice received from the milling during the week</TxtCell>
             <NumCell colSpan={2} v={R.VII_week?.total} colored />
@@ -2048,20 +2054,6 @@ function AnnexureOneView({ vr, onSaveMeter }) {
             <NumCell v={0} />
             <NumCell v={0} />
             <NumCell v={R.VIII_prog?.total} bold colored />
-          </tr>
-
-          {/* Sub-header row: RRC | FCI | RRC FRK | FCI FRK */}
-          <tr className="bg-slate-100 dark:bg-slate-800">
-            <TxtCell className="text-center font-bold"></TxtCell>
-            <TxtCell></TxtCell>
-            <TxtCell className="text-center font-bold">RRC</TxtCell>
-            <TxtCell className="text-center font-bold">FCI</TxtCell>
-            <TxtCell className="text-center font-bold">RRC FRK</TxtCell>
-            <TxtCell className="text-center font-bold">FCI FRK</TxtCell>
-            <TxtCell></TxtCell>
-            <TxtCell></TxtCell>
-            <TxtCell></TxtCell>
-            <TxtCell></TxtCell>
           </tr>
 
           {/* IX-XI (4 rice sub-cols: RRC/FCI under OSCSC(OWN), RRC FRK/FCI FRK under OSCSC(Koraput)) */}

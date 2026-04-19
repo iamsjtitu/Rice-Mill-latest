@@ -7,6 +7,19 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.19.6",
+    date: "Feb 2026",
+    title: "v104.19.6 - VR Landscape PDF + Watermark Off + Permanent 2-row Header",
+    items: [
+      { type: "fix", text: "Verification Report PDF se NAVKAR AGRO watermark hata diya (clean FCI output)" },
+      { type: "fix", text: "PDF ab A4 LANDSCAPE orientation mein — 11 columns properly fit" },
+      { type: "fix", text: "UI + PDF + Excel sab mein permanent 2-row header: OSCSC(OWN)=[RRC,FCI], OSCSC(Koraput)=[RRC FRK,FCI FRK] — hierarchy ab clearly visible" },
+      { type: "fix", text: "Sl No + NAFED/TDCC/Levy/TOTAL columns rowSpan=2 (single merged cells spanning both header rows)" },
+      { type: "fix", text: "Excel rebuild: merged cells work properly with 2-row header structure" },
+      { type: "note", text: "Global SimpleDocTemplate watermark patch ab document-level skip support karta hai (doc._skip_watermark=True)" },
+    ],
+  },
+  {
     version: "104.19.5",
     date: "Feb 2026",
     title: "v104.19.5 - VR Excel Export + Tab-specific Buttons",

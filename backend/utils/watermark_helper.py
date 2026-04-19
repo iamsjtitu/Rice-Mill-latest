@@ -121,7 +121,9 @@ def patch_simpledoctemplate():
         if canvasmaker is not None:
             build_kwargs['canvasmaker'] = canvasmaker
 
-        if settings and settings.get("enabled"):
+        # Per-document opt-out: doc._skip_watermark = True disables watermark for this specific PDF
+        skip_watermark = getattr(self, "_skip_watermark", False)
+        if settings and settings.get("enabled") and not skip_watermark:
             orig_first = onFirstPage
             orig_later = onLaterPages
 

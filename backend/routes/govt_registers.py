@@ -1561,7 +1561,7 @@ async def export_verification_report_pdf(
     variety: str = "Boiled",
 ):
     from io import BytesIO
-    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import mm
@@ -1589,7 +1589,8 @@ async def export_verification_report_pdf(
         except: return "0.00"
 
     buf = BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
+    doc._skip_watermark = True  # No watermark on official FCI report — clean output for officer sign
     styles = getSampleStyleSheet()
     title_s = ParagraphStyle('t', parent=styles['Heading1'], fontSize=12, alignment=TA_CENTER, spaceAfter=6)
     foot_s = ParagraphStyle('f', parent=styles['Normal'], fontSize=8, alignment=TA_LEFT, spaceBefore=2)
@@ -1603,7 +1604,7 @@ async def export_verification_report_pdf(
         ["2a. KMS:", h["kms_year"], "2b. Variety:", h["variety"], "4c. Present Metre Reading", num(h["meter"]["present_reading"]), ""],
         ["3a. Last Verification Date:", fmt_d(h["last_verification_date"]), "3b. Present Verification Date:", fmt_d(h["present_verification_date"]), "4d. Total units Consumed", num(h["meter"]["units_consumed"]), ""],
     ]
-    ht = RLTable(header_tbl, colWidths=[32*mm, 28*mm, 30*mm, 26*mm, 42*mm, 18*mm, 14*mm])
+    ht = RLTable(header_tbl, colWidths=[40*mm, 42*mm, 40*mm, 42*mm, 55*mm, 28*mm, 30*mm])
     ht.setStyle(TableStyle([
         ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
         ('FONTSIZE', (0,0), (-1,-1), 7.5),
@@ -1619,10 +1620,10 @@ async def export_verification_report_pdf(
     story.append(ht); story.append(Spacer(1, 4))
 
     # Unified Paddy + Rice Table (Annexure-1 nested format)
-    # Columns: [Group] [Sl] [Particulars] [RRC] [FCI] [RRC FRK] [FCI FRK] [NAFED] [TDCC] [Levy] [TOTAL]
-    # OSCSC(OWN) = RRC+FCI (colSpan=2), OSCSC(Koraput) = RRC FRK+FCI FRK (colSpan=2)
+    # 2-row header: top = main agencies, bottom = sub-cols (only under OSCSC parents)
     main_header = ["", "Sl No", "", "OSCSC(OWN)", "", "OSCSC(Koraput)", "", "NAFED", "TDCC", "Levy A/c", "TOTAL"]
-    data = [main_header]
+    sub_header  = ["", "",      "", "RRC", "FCI", "RRC FRK", "FCI FRK", "", "", "", ""]
+    data = [main_header, sub_header]
 
     def paddy_row(sl, label, key):
         row = P.get(key, {"by_agency":{}, "total":0})
@@ -1647,7 +1648,7 @@ async def export_verification_report_pdf(
         data.append(paddy_row(sl, label, key))
         if colored: paddy_red_rows.append(len(data) - 1)
 
-    PADDY_START = 1
+    PADDY_START = 2  # data[0]=main header, data[1]=sub header, data[2]=first paddy row
     PADDY_END = len(data) - 1
     RICE_START = len(data)
 
@@ -1656,10 +1657,6 @@ async def export_verification_report_pdf(
         total = R[key]["total"]
         data.append(["", sl, label, num(total), "", num(0), "", num(0), num(0), num(0), num(total)])
         if colored: paddy_red_rows.append(len(data) - 1)
-
-    # Sub-header: RRC | FCI | RRC FRK | FCI FRK
-    data.append(["", "", "", "RRC", "FCI", "RRC FRK", "FCI FRK", "", "", "", ""])
-    SUBHEADER_ROW = len(data) - 1
 
     # IX-XII: rice delivery with RRC/FCI under OSCSC_OWN, RRC_FRK/FCI_FRK under OSCSC_KORAPUT
     rice2_def = [
@@ -1686,27 +1683,33 @@ async def export_verification_report_pdf(
         paddy_red_rows.append(len(data) - 1)
     RICE_END = len(data) - 1
 
-    # Column widths (A4 portrait ~190mm usable): total = 190mm
-    col_widths = [7*mm, 8*mm, 40*mm, 13*mm, 13*mm, 14*mm, 14*mm, 17*mm, 15*mm, 17*mm, 22*mm]
-    tbl = RLTable(data, colWidths=col_widths, repeatRows=1)
+    # Column widths (landscape A4 ~277mm usable): total should = 277
+    col_widths = [10*mm, 10*mm, 65*mm, 18*mm, 18*mm, 20*mm, 20*mm, 25*mm, 22*mm, 25*mm, 30*mm]
+    tbl = RLTable(data, colWidths=col_widths, repeatRows=2)
     t_style = [
         ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
         ('FONTSIZE', (0,0), (-1,-1), 7.5),
         ('GRID', (0,0), (-1,-1), 0.5, rlcolors.black),
-        ('BACKGROUND', (0,0), (-1,0), rlcolors.lightgrey),
-        ('BACKGROUND', (3, SUBHEADER_ROW), (6, SUBHEADER_ROW), rlcolors.lightgrey),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTNAME', (3, SUBHEADER_ROW), (6, SUBHEADER_ROW), 'Helvetica-Bold'),
-        # Header row: SPAN OSCSC(OWN) over cols 3-4, OSCSC(Koraput) over 5-6
+        # Header rows (0, 1): grey background, bold
+        ('BACKGROUND', (0,0), (-1,1), rlcolors.lightgrey),
+        ('FONTNAME', (0,0), (-1,1), 'Helvetica-Bold'),
+        ('ALIGN', (0,0), (-1,1), 'CENTER'),
+        # Row 0: OSCSC(OWN) colspan=2 (cols 3-4), OSCSC(Koraput) colspan=2 (cols 5-6)
         ('SPAN', (3, 0), (4, 0)),
         ('SPAN', (5, 0), (6, 0)),
-        ('ALIGN', (0,0), (-1,0), 'CENTER'),
-        ('ALIGN', (1,1), (1,-1), 'CENTER'),
-        ('ALIGN', (3,1), (-1,-1), 'RIGHT'),
-        ('ALIGN', (3, SUBHEADER_ROW), (6, SUBHEADER_ROW), 'CENTER'),
-        ('FONTNAME', (-1,1), (-1,-1), 'Helvetica-Bold'),
+        # Row 0: Sl No (col 1) vertical-merge with row 1
+        ('SPAN', (1, 0), (1, 1)),
+        # Row 0: NAFED/TDCC/Levy/TOTAL (cols 7,8,9,10) vertical-merge with row 1
+        ('SPAN', (7, 0), (7, 1)),
+        ('SPAN', (8, 0), (8, 1)),
+        ('SPAN', (9, 0), (9, 1)),
+        ('SPAN', (10, 0), (10, 1)),
+        # Data row styling
+        ('ALIGN', (1, 2), (1, -1), 'CENTER'),
+        ('ALIGN', (3, 2), (-1, -1), 'RIGHT'),
+        ('FONTNAME', (-1, 2), (-1, -1), 'Helvetica-Bold'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        # Row-group labels
+        # Row-group labels (col 0)
         ('SPAN', (0, PADDY_START), (0, PADDY_END)),
         ('SPAN', (0, RICE_START), (0, RICE_END)),
         ('BACKGROUND', (0, PADDY_START), (0, PADDY_END), rlcolors.HexColor('#f5f5f5')),
@@ -1723,7 +1726,7 @@ async def export_verification_report_pdf(
     t_style.append(('SPAN', (5, RICE_START), (6, RICE_START)))
     t_style.append(('SPAN', (3, RICE_START + 1), (4, RICE_START + 1)))
     t_style.append(('SPAN', (5, RICE_START + 1), (6, RICE_START + 1)))
-    # Rice rows XIII-XIV: merge cols 3-6 to show single value
+    # Rice rows XIII-XIV: merge cols 3-6 to show single value + cols 7-9 blank merged
     xiii_row = RICE_END - 1; xiv_row = RICE_END
     t_style.append(('SPAN', (3, xiii_row), (6, xiii_row)))
     t_style.append(('SPAN', (3, xiv_row), (6, xiv_row)))
@@ -1746,7 +1749,7 @@ async def export_verification_report_pdf(
         ["Name and Signature of Miller Agent/Authorised Representative", "Signature of Authorised Officer"],
         ["Copy Submitted to CSO cum District Manager, Kalahandi/Concerned Miller", "(With Name & Designation)"],
         ["*Milling Capacity per shift of 8 hrs", ""],
-    ], colWidths=[95*mm, 95*mm])
+    ], colWidths=[140*mm, 137*mm])
     sig_tbl.setStyle(TableStyle([
         ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
         ('FONTSIZE', (0,0), (-1,-1), 8),
@@ -1842,18 +1845,30 @@ async def export_verification_report_excel(
     # Blank row
     hdr_row = 7
 
-    # Main table header (row 7-8)
-    # Row 7: [blank] [Sl No] [blank] [OSCSC(OWN) colspan=2] [OSCSC(Koraput) colspan=2] [NAFED] [TDCC] [Levy A/c] [TOTAL]
-    ws[f'A{hdr_row}'] = ""; ws[f'B{hdr_row}'] = "Sl No"; ws[f'C{hdr_row}'] = ""
+    # Main table header (rows 7-8): 2-row header with OSCSC(OWN) spanning RRC+FCI
+    hdr_row = 7
+    sub_row = 8
+    # Row 7 (main header)
+    ws[f'A{hdr_row}'] = ""; ws[f'C{hdr_row}'] = ""
+    ws.merge_cells(f'B{hdr_row}:B{sub_row}'); ws[f'B{hdr_row}'] = "Sl No"
     ws.merge_cells(f'D{hdr_row}:E{hdr_row}'); ws[f'D{hdr_row}'] = "OSCSC(OWN)"
     ws.merge_cells(f'F{hdr_row}:G{hdr_row}'); ws[f'F{hdr_row}'] = "OSCSC(Koraput)"
-    ws[f'H{hdr_row}'] = "NAFED"; ws[f'I{hdr_row}'] = "TDCC"; ws[f'J{hdr_row}'] = "Levy A/c"; ws[f'K{hdr_row}'] = "TOTAL"
-    for col in "ABCDEFGHIJK":
-        cell = ws[f'{col}{hdr_row}']; cell.font = bold_font; cell.alignment = center; cell.fill = hdr_fill; cell.border = border
-    ws.row_dimensions[hdr_row].height = 20
+    ws.merge_cells(f'H{hdr_row}:H{sub_row}'); ws[f'H{hdr_row}'] = "NAFED"
+    ws.merge_cells(f'I{hdr_row}:I{sub_row}'); ws[f'I{hdr_row}'] = "TDCC"
+    ws.merge_cells(f'J{hdr_row}:J{sub_row}'); ws[f'J{hdr_row}'] = "Levy A/c"
+    ws.merge_cells(f'K{hdr_row}:K{sub_row}'); ws[f'K{hdr_row}'] = "TOTAL"
+    # Row 8 (sub header: RRC, FCI under OSCSC(OWN); RRC FRK, FCI FRK under OSCSC(Koraput))
+    ws[f'D{sub_row}'] = "RRC"; ws[f'E{sub_row}'] = "FCI"
+    ws[f'F{sub_row}'] = "RRC FRK"; ws[f'G{sub_row}'] = "FCI FRK"
 
-    # Data rows
-    cur = hdr_row + 1
+    for r in [hdr_row, sub_row]:
+        for col in "ABCDEFGHIJK":
+            cell = ws[f'{col}{r}']
+            cell.font = bold_font; cell.alignment = center; cell.fill = hdr_fill; cell.border = border
+        ws.row_dimensions[r].height = 20
+
+    # Data rows start at row 9
+    cur = sub_row + 1
 
     def put_paddy(sl, label, key, colored):
         nonlocal cur
@@ -1904,16 +1919,7 @@ async def export_verification_report_excel(
         ws.row_dimensions[cur].height = 22
         cur += 1
 
-    # Sub-header row: RRC | FCI | RRC FRK | FCI FRK
-    ws[f'B{cur}'] = ""; ws[f'C{cur}'] = ""
-    for col, lbl in [('D', 'RRC'), ('E', 'FCI'), ('F', 'RRC FRK'), ('G', 'FCI FRK')]:
-        ws[f'{col}{cur}'] = lbl; ws[f'{col}{cur}'].font = bold_font; ws[f'{col}{cur}'].alignment = center; ws[f'{col}{cur}'].fill = subhdr_fill; ws[f'{col}{cur}'].border = border
-    for col in ['A','B','C','H','I','J','K']:
-        ws[f'{col}{cur}'].border = border
-    ws.row_dimensions[cur].height = 20
-    cur += 1
-
-    # IX-XII: rice delivery
+    # IX-XII: rice delivery (no in-between sub-header needed since main header has sub-cols)
     rice2_def = [
         ("IX", "Rice delivered during the week against DC", "IX_week", False),
         ("X", "Progressive DC issued till verification", "X_prog_issued", False),
