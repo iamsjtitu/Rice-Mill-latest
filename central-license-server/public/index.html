@@ -3,149 +3,281 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MillEntry Central License Admin</title>
+  <title>9X License Command · MillEntry</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.cdnfonts.com/css/satoshi" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <div id="app">
-    <!-- Login View -->
-    <div id="login-view" class="auth-screen">
-      <div class="auth-card">
-        <div class="logo-wrap">
-          <div class="logo-circle">9X</div>
-          <h1>MillEntry <span>Admin</span></h1>
-          <p>Central License Management</p>
+  <div id="noise" aria-hidden="true"></div>
+  <div id="cursor-dot" aria-hidden="true"></div>
+  <div id="cursor-ring" aria-hidden="true"></div>
+
+  <!-- ============= LOGIN ============= -->
+  <div id="login-view" class="view login-view">
+    <div class="login-bg"></div>
+    <div class="login-content">
+      <div class="login-left">
+        <div class="brand-mark">
+          <div class="brand-glyph">9X</div>
+          <div class="brand-text">
+            <span class="brand-name">License Command</span>
+            <span class="brand-sub">MillEntry · Enterprise Edition</span>
+          </div>
         </div>
-        <form id="login-form">
-          <label>Email</label>
-          <input type="email" id="email" required placeholder="you@example.com" autocomplete="email" />
-          <label>Password</label>
-          <input type="password" id="password" required placeholder="••••••••" autocomplete="current-password" />
-          <button type="submit" id="login-btn">Sign In</button>
-          <div id="login-error" class="error-msg"></div>
-        </form>
+        <h1 class="login-headline">
+          Revenue.<br/>Operations.<br/><span class="accent">Control.</span>
+        </h1>
+        <p class="login-desc">
+          Centralized license management for the MillEntry ecosystem. Track every deployment, every heartbeat, every renewal — from a single command surface.
+        </p>
+        <div class="login-meta">
+          <div class="meta-item"><span class="meta-dot"></span>Secure session · 12h JWT</div>
+          <div class="meta-item"><span class="meta-dot"></span>Hosted on 9x.design infrastructure</div>
+        </div>
+      </div>
+      <div class="login-right">
+        <div class="login-card">
+          <div class="card-head">
+            <span class="card-overline">SIGN IN</span>
+            <h2>Welcome back.</h2>
+            <p>Use your super-admin credentials to continue.</p>
+          </div>
+          <form id="login-form" class="login-form">
+            <div class="input-group">
+              <label for="email">Email</label>
+              <input type="email" id="email" autocomplete="email" required spellcheck="false" placeholder="you@host9x.com" />
+            </div>
+            <div class="input-group">
+              <label for="password">Password</label>
+              <input type="password" id="password" autocomplete="current-password" required placeholder="••••••••••" />
+            </div>
+            <button type="submit" id="login-btn" class="btn btn-primary btn-full">
+              <span class="btn-label">Access Command Center</span>
+              <span class="btn-arrow">→</span>
+            </button>
+            <div id="login-error" class="error-inline"></div>
+          </form>
+          <div class="login-foot">
+            <span class="mono-tag">v1.0.0</span>
+            <span>Secure · Encrypted · JWT</span>
+          </div>
+        </div>
       </div>
     </div>
+  </div>
 
-    <!-- Dashboard View -->
-    <div id="dashboard-view" style="display:none">
+  <!-- ============= DASHBOARD ============= -->
+  <div id="dashboard-view" class="view" style="display:none">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-glyph small">9X</div>
+        <div class="brand-text">
+          <span class="brand-name">Command</span>
+          <span class="brand-sub">License Hub</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-item active" data-view="overview">
+          <span class="nav-dot"></span>Overview
+        </a>
+        <a class="nav-item" data-view="licenses">
+          <span class="nav-dot"></span>Licenses
+        </a>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="live-indicator">
+          <span class="pulse-dot"></span>
+          <div>
+            <div class="mono-tag" id="live-count">0 LIVE</div>
+            <div class="live-sub">customers online</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-wrap">
       <header class="topbar">
-        <div class="brand"><span class="logo-small">9X</span> MillEntry Admin</div>
-        <div class="user-info">
-          <span id="user-email"></span>
-          <button id="logout-btn" class="btn-ghost">Logout</button>
+        <div>
+          <span class="overline" id="page-overline">OVERVIEW</span>
+          <h1 class="page-title" id="page-title">Command Center</h1>
+        </div>
+        <div class="topbar-actions">
+          <div class="user-chip">
+            <div class="user-avatar" id="user-avatar">—</div>
+            <div class="user-text">
+              <span class="user-email" id="user-email">—</span>
+              <span class="user-role">Super Admin</span>
+            </div>
+            <button id="logout-btn" class="btn-icon" title="Sign out">⏻</button>
+          </div>
         </div>
       </header>
 
       <main class="main">
-        <!-- Stats -->
-        <section class="stats-grid" id="stats-grid">
-          <div class="stat-card"><div class="stat-label">Total Licenses</div><div class="stat-val" id="stat-total">—</div></div>
-          <div class="stat-card active"><div class="stat-label">Active</div><div class="stat-val" id="stat-active">—</div></div>
-          <div class="stat-card warn"><div class="stat-label">Expired</div><div class="stat-val" id="stat-expired">—</div></div>
-          <div class="stat-card danger"><div class="stat-label">Revoked</div><div class="stat-val" id="stat-revoked">—</div></div>
-          <div class="stat-card online"><div class="stat-label">Online Now</div><div class="stat-val" id="stat-online">—</div></div>
-        </section>
-
-        <!-- Toolbar -->
-        <section class="toolbar">
-          <div class="toolbar-left">
-            <input type="text" id="search" placeholder="Search customer / mill / key..." />
-            <select id="filter-status">
-              <option value="">All status</option>
-              <option value="active">Active</option>
-              <option value="revoked">Revoked</option>
-            </select>
-            <button id="refresh-btn" class="btn-ghost">↻ Refresh</button>
+        <!-- Overview -->
+        <section id="overview-section" class="section">
+          <div class="stats-bento">
+            <div class="stat-card stat-hero">
+              <div class="stat-overline">TOTAL LICENSES</div>
+              <div class="stat-value" id="stat-total">0</div>
+              <div class="stat-spark" id="spark-total"></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-overline">ACTIVE</div>
+              <div class="stat-value text-active" id="stat-active">0</div>
+              <div class="stat-helper">paying customers</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-overline">EXPIRED</div>
+              <div class="stat-value text-expired" id="stat-expired">0</div>
+              <div class="stat-helper">need renewal</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-overline">REVOKED</div>
+              <div class="stat-value text-revoked" id="stat-revoked">0</div>
+              <div class="stat-helper">blocked</div>
+            </div>
+            <div class="stat-card stat-glow">
+              <div class="stat-overline flex-between">
+                <span>ONLINE NOW</span>
+                <span class="pulse-dot"></span>
+              </div>
+              <div class="stat-value text-active" id="stat-online">0</div>
+              <div class="stat-helper">heartbeat within 10 min</div>
+            </div>
           </div>
-          <button id="create-license-btn" class="btn-primary">+ New License</button>
+
+          <div class="section-head">
+            <div>
+              <span class="overline">REAL-TIME ACTIVITY</span>
+              <h3 class="section-title">Recent Heartbeats</h3>
+            </div>
+            <button class="btn btn-ghost" id="refresh-activity"><span class="btn-label">↻ Refresh</span></button>
+          </div>
+          <div class="activity-feed" id="activity-feed">
+            <div class="activity-empty">No recent activity — new heartbeats will appear here.</div>
+          </div>
         </section>
 
-        <!-- License table -->
-        <section class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Key</th>
-                <th>Customer</th>
-                <th>Mill</th>
-                <th>Contact</th>
-                <th>Plan</th>
-                <th>Issued</th>
-                <th>Expires</th>
-                <th>Status</th>
-                <th>Current PC</th>
-                <th>Last Seen</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="license-tbody">
-              <tr><td colspan="11" class="empty">Loading...</td></tr>
-            </tbody>
-          </table>
+        <!-- Licenses -->
+        <section id="licenses-section" class="section" style="display:none">
+          <div class="toolbar">
+            <div class="toolbar-left">
+              <div class="search-wrap">
+                <span class="search-icon">⌕</span>
+                <input type="text" id="search" placeholder="Search by customer, mill, key, or contact..." />
+                <kbd>⌘K</kbd>
+              </div>
+              <select id="filter-status" class="filter-select">
+                <option value="">All statuses</option>
+                <option value="active">Active only</option>
+                <option value="revoked">Revoked only</option>
+              </select>
+              <button id="refresh-btn" class="btn btn-ghost">↻</button>
+            </div>
+            <button id="create-license-btn" class="btn btn-primary">
+              <span class="btn-label">+ Issue License</span>
+            </button>
+          </div>
+
+          <div class="table-wrap glass-panel">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>KEY</th>
+                  <th>CUSTOMER</th>
+                  <th>MILL</th>
+                  <th>PLAN</th>
+                  <th>ISSUED</th>
+                  <th>EXPIRES</th>
+                  <th>STATUS</th>
+                  <th>CURRENT PC</th>
+                  <th>LAST SEEN</th>
+                  <th style="text-align:right">ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody id="license-tbody">
+                <tr><td colspan="10" class="table-empty">Loading licenses…</td></tr>
+              </tbody>
+            </table>
+          </div>
         </section>
       </main>
     </div>
+  </div>
 
-    <!-- Create License Modal -->
-    <div id="create-modal" class="modal" style="display:none">
-      <div class="modal-content">
-        <div class="modal-head">
-          <h2>Create New License</h2>
-          <button class="modal-close" data-close-modal="create-modal">×</button>
+  <!-- ============= MODAL: Create License ============= -->
+  <div id="create-modal" class="modal" style="display:none">
+    <div class="modal-backdrop" data-close-modal="create-modal"></div>
+    <div class="modal-content glass-panel">
+      <div class="modal-head">
+        <div>
+          <span class="overline">NEW LICENSE</span>
+          <h2>Issue a License</h2>
         </div>
-        <form id="create-form">
-          <div class="form-row">
-            <label>Customer Name <span class="req">*</span></label>
-            <input type="text" name="customer_name" required placeholder="Ram Kumar Sharma" />
-          </div>
-          <div class="form-row">
-            <label>Mill Name <span class="req">*</span></label>
-            <input type="text" name="mill_name" required placeholder="Shri Ram Agro, Kesinga" />
-          </div>
-          <div class="form-row">
-            <label>Contact (phone / email)</label>
-            <input type="text" name="contact" placeholder="+91 98765 43210 / email" />
-          </div>
-          <div class="form-row-split">
-            <div>
-              <label>Plan</label>
-              <select name="plan">
-                <option value="lifetime">Lifetime + Support</option>
-                <option value="yearly">Yearly Renewal</option>
-                <option value="trial">Trial (30 days)</option>
-              </select>
-            </div>
-            <div>
-              <label>Expires At (blank = never)</label>
-              <input type="date" name="expires_at" />
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Notes (optional)</label>
-            <textarea name="notes" rows="2" placeholder="Any internal note..."></textarea>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn-ghost" data-close-modal="create-modal">Cancel</button>
-            <button type="submit" class="btn-primary">Generate License</button>
-          </div>
-          <div id="create-error" class="error-msg"></div>
-        </form>
+        <button class="btn-icon" data-close-modal="create-modal">×</button>
       </div>
+      <form id="create-form" class="modal-body">
+        <div class="input-group">
+          <label>Customer Name <span class="req">*</span></label>
+          <input type="text" name="customer_name" required placeholder="Ram Kumar Sharma" />
+        </div>
+        <div class="input-group">
+          <label>Mill Name <span class="req">*</span></label>
+          <input type="text" name="mill_name" required placeholder="Shri Ram Agro — Kesinga" />
+        </div>
+        <div class="input-group">
+          <label>Contact · Phone or Email</label>
+          <input type="text" name="contact" placeholder="+91 98765 43210" />
+        </div>
+        <div class="input-split">
+          <div class="input-group">
+            <label>Plan</label>
+            <select name="plan">
+              <option value="lifetime">Lifetime + Yearly Support</option>
+              <option value="yearly">Yearly Subscription</option>
+              <option value="trial">Trial (30 days)</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label>Expires · blank = never</label>
+            <input type="date" name="expires_at" />
+          </div>
+        </div>
+        <div class="input-group">
+          <label>Internal Notes</label>
+          <textarea name="notes" rows="2" placeholder="Payment method, reseller, etc."></textarea>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-ghost" data-close-modal="create-modal">Cancel</button>
+          <button type="submit" class="btn btn-primary"><span class="btn-label">Generate Key</span><span class="btn-arrow">→</span></button>
+        </div>
+        <div id="create-error" class="error-inline"></div>
+      </form>
     </div>
+  </div>
 
-    <!-- Success Modal (shows new key) -->
-    <div id="success-modal" class="modal" style="display:none">
-      <div class="modal-content">
-        <div class="modal-head">
-          <h2>✓ License Generated</h2>
-          <button class="modal-close" data-close-modal="success-modal">×</button>
+  <!-- ============= MODAL: Success ============= -->
+  <div id="success-modal" class="modal" style="display:none">
+    <div class="modal-backdrop" data-close-modal="success-modal"></div>
+    <div class="modal-content glass-panel success">
+      <div class="modal-head">
+        <div>
+          <span class="overline text-active">◎ LICENSE ISSUED</span>
+          <h2>Your key is ready.</h2>
         </div>
-        <div class="body-padded">
-          <p>Share this key with the customer:</p>
-          <div class="key-display" id="new-key-display">—</div>
-          <button class="btn-primary btn-full" id="copy-key-btn">Copy to Clipboard</button>
-        </div>
+        <button class="btn-icon" data-close-modal="success-modal">×</button>
+      </div>
+      <div class="modal-body center-body">
+        <p class="muted">Share this key with the customer. It activates on first use.</p>
+        <div class="key-display" id="new-key-display">—</div>
+        <button class="btn btn-primary btn-full" id="copy-key-btn">
+          <span class="btn-label">Copy to clipboard</span>
+          <span class="btn-arrow">⎘</span>
+        </button>
       </div>
     </div>
   </div>
