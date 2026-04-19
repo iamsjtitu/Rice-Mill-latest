@@ -175,6 +175,64 @@ router.post('/licenses/:id/reset-notifications', (req, res) => {
   res.json({ success: true });
 });
 
+// ============ SETTINGS (server-wide config) ============
+
+// GET /api/admin/settings — returns config with API key masked for security
+router.get('/settings', (req, res) => {
+  const s = db.getData().settings || {};
+  const key = s.whatsapp_api_key || '';
+  res.json({
+    whatsapp_api_key_masked: key ? (key.slice(0, 4) + '•'.repeat(Math.max(0, key.length - 8)) + key.slice(-4)) : '',
+    whatsapp_api_key_set: !!key,
+    whatsapp_cc: s.whatsapp_cc || '91',
+    whatsapp_enabled: s.whatsapp_enabled !== false,
+    updated_at: s.updated_at || null,
+    // Also expose env-var fallback status so user knows if .env is the source
+    env_key_available: !!process.env.NOTIFY_WA_API_KEY,
+  });
+});
+
+// PUT /api/admin/settings — update WhatsApp config
+router.put('/settings', (req, res) => {
+  const data = db.getData();
+  if (!data.settings) data.settings = {};
+  const { whatsapp_api_key, whatsapp_cc, whatsapp_enabled } = req.body || {};
+  // Only update api_key if a non-empty string is provided (prevents accidental wipe on partial save)
+  if (typeof whatsapp_api_key === 'string' && whatsapp_api_key.trim()) {
+    data.settings.whatsapp_api_key = whatsapp_api_key.trim();
+  }
+  if (typeof whatsapp_cc === 'string' && whatsapp_cc.trim()) {
+    data.settings.whatsapp_cc = whatsapp_cc.trim().replace(/[^0-9]/g, '') || '91';
+  }
+  if (typeof whatsapp_enabled === 'boolean') {
+    data.settings.whatsapp_enabled = whatsapp_enabled;
+  }
+  data.settings.updated_at = new Date().toISOString();
+  db.saveImmediate();
+  res.json({ success: true });
+});
+
+// DELETE /api/admin/settings/whatsapp-key — wipe the API key (separate endpoint for safety)
+router.delete('/settings/whatsapp-key', (req, res) => {
+  const data = db.getData();
+  if (!data.settings) data.settings = {};
+  data.settings.whatsapp_api_key = '';
+  data.settings.updated_at = new Date().toISOString();
+  db.saveImmediate();
+  res.json({ success: true });
+});
+
+// POST /api/admin/settings/test-whatsapp — send a ping message to a phone number to verify config
+router.post('/settings/test-whatsapp', async (req, res) => {
+  const phone = req.body && req.body.phone;
+  if (!phone) return res.status(400).json({ error: 'phone required' });
+  const cleaned = notifier.extractPhone(phone);
+  if (!cleaned) return res.status(400).json({ error: 'Invalid phone number' });
+  const text = '*MillEntry License Server*\n\n✓ WhatsApp configuration test successful.\n\nYour admin dashboard is correctly connected to 360Messenger. Customer notifications will now be delivered automatically.';
+  const r = await notifier.sendMessage(cleaned, text);
+  res.json({ success: !!(r && r.success), result: r, sent_to: cleaned });
+});
+
 // GET /api/admin/stats — dashboard overview
 router.get('/stats', (req, res) => {
   const data = db.getData();

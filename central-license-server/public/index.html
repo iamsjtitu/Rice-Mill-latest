@@ -86,6 +86,9 @@
         <a class="nav-item" data-view="licenses">
           <span class="nav-dot"></span>Licenses
         </a>
+        <a class="nav-item" data-view="settings">
+          <span class="nav-dot"></span>Settings
+        </a>
       </nav>
       <div class="sidebar-foot">
         <div class="live-indicator">
@@ -205,6 +208,107 @@
             </table>
           </div>
         </section>
+
+        <!-- Settings -->
+        <section id="settings-section" class="section" style="display:none">
+          <div class="settings-grid">
+            <div class="glass-panel settings-card">
+              <div class="settings-head">
+                <span class="overline">WHATSAPP NOTIFICATIONS</span>
+                <h3 class="section-title">360Messenger Integration</h3>
+                <p class="settings-desc">
+                  Automatic WhatsApp messages to customers on license events — create, revoke, expiring-soon (7 days), and expired.
+                  API key is stored server-side; no customer interaction required once configured.
+                </p>
+              </div>
+
+              <div class="settings-status" id="settings-status">
+                <div class="status-dot"></div>
+                <div class="status-text">Loading configuration…</div>
+              </div>
+
+              <form id="settings-form" class="settings-form">
+                <div class="input-group">
+                  <label>
+                    360Messenger API Key
+                    <span class="label-hint" id="key-hint"></span>
+                  </label>
+                  <input type="password" id="setting-wa-key" autocomplete="off" spellcheck="false" placeholder="Paste new key to update · leave blank to keep existing" />
+                  <div class="input-help">Get your key from <a href="https://app.360messenger.com/user/api" target="_blank" rel="noopener">360messenger.com → API</a>. Stored encrypted in database.json.</div>
+                </div>
+
+                <div class="input-split">
+                  <div class="input-group">
+                    <label>Default Country Code</label>
+                    <input type="text" id="setting-wa-cc" maxlength="4" placeholder="91" />
+                    <div class="input-help">Automatically prefixed to 10-digit numbers.</div>
+                  </div>
+                  <div class="input-group toggle-group">
+                    <label>Notifications Active</label>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="setting-wa-enabled" />
+                      <span class="toggle-slider"></span>
+                      <span class="toggle-label" id="toggle-label">Enabled</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="settings-actions">
+                  <button type="button" id="setting-remove-key" class="btn btn-ghost">Remove saved key</button>
+                  <button type="submit" id="setting-save" class="btn btn-primary">
+                    <span class="btn-label">Save Configuration</span>
+                    <span class="btn-arrow">→</span>
+                  </button>
+                </div>
+                <div id="settings-error" class="error-inline"></div>
+                <div id="settings-success" class="success-inline"></div>
+              </form>
+            </div>
+
+            <div class="glass-panel settings-card">
+              <div class="settings-head">
+                <span class="overline">VERIFY</span>
+                <h3 class="section-title">Send Test Message</h3>
+                <p class="settings-desc">
+                  Confirm your configuration by sending a test WhatsApp message to your own number. The message should arrive within a few seconds.
+                </p>
+              </div>
+
+              <form id="test-wa-form" class="settings-form">
+                <div class="input-group">
+                  <label>Test Phone Number</label>
+                  <input type="text" id="test-wa-phone" placeholder="+91 98765 43210" />
+                  <div class="input-help">Include country code, or leave 10-digits only to auto-prefix.</div>
+                </div>
+                <div class="settings-actions">
+                  <button type="submit" class="btn btn-primary">
+                    <span class="btn-label">Send Test Message</span>
+                    <span class="btn-arrow">↗</span>
+                  </button>
+                </div>
+                <div id="test-wa-result" class="test-result"></div>
+              </form>
+            </div>
+
+            <div class="glass-panel settings-card wide">
+              <div class="settings-head">
+                <span class="overline">EXPIRY SCHEDULER</span>
+                <h3 class="section-title">Automatic Expiry Notifications</h3>
+                <p class="settings-desc">
+                  Runs automatically every 6 hours. Sends a 7-day warning and an expiry-day message to each customer's WhatsApp contact. Use the button below to run an out-of-cycle scan right now.
+                </p>
+              </div>
+              <div class="settings-actions">
+                <button type="button" id="run-expiry-scan" class="btn btn-primary">
+                  <span class="btn-label">Run Scan Now</span>
+                  <span class="btn-arrow">⟳</span>
+                </button>
+              </div>
+              <div id="expiry-scan-result" class="test-result"></div>
+            </div>
+          </div>
+        </section>
+
       </main>
     </div>
   </div>

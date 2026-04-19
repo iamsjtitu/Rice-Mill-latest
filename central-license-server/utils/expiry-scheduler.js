@@ -34,7 +34,7 @@ function shouldPersistFlag(r) {
   // backlog notifications fire) or on transient errors (network/timeout/5xx).
   if (!r) return false;
   if (r.success) return true;
-  if (r.skipped && r.reason === 'NOTIFY_WA_API_KEY not set') return false;
+  if (r.skipped && /API key not configured|notifications disabled/i.test(String(r.reason || ''))) return false;
   if (r.skipped) return true; // no_phone or other permanent skip
   if (r.error === 'timeout') return false;
   if (r.statusCode && r.statusCode >= 500) return false;

@@ -8,10 +8,21 @@
  */
 const https = require('https');
 const { URLSearchParams } = require('url');
+const db = require('../database');
 
-const CC = process.env.NOTIFY_WA_CC || '91';
+// Resolve config: DB settings take priority, fall back to .env
+function getWaConfig() {
+  let dbSettings = {};
+  try { dbSettings = (db.getData().settings) || {}; } catch { /* DB not yet loaded */ }
+  const apiKey = (dbSettings.whatsapp_api_key || process.env.NOTIFY_WA_API_KEY || '').trim();
+  const cc = String(dbSettings.whatsapp_cc || process.env.NOTIFY_WA_CC || '91').trim();
+  // Master switch: if DB has explicit whatsapp_enabled=false → disabled even if key present
+  const enabled = dbSettings.whatsapp_enabled !== false && !!apiKey;
+  return { apiKey, cc, enabled };
+}
 
 function cleanPhone(phone) {
+  const CC = getWaConfig().cc;
   let p = String(phone || '').trim().replace(/[\s\-+]/g, '');
   if (!p) return '';
   if (p.startsWith('0')) p = p.substring(1);
@@ -29,14 +40,15 @@ function extractPhone(contact) {
 
 function sendMessage(phonenumber, text) {
   return new Promise((resolve) => {
-    const key = process.env.NOTIFY_WA_API_KEY;
-    if (!key) { resolve({ success: false, skipped: true, reason: 'NOTIFY_WA_API_KEY not set' }); return; }
+    const { apiKey, enabled } = getWaConfig();
+    if (!apiKey) { resolve({ success: false, skipped: true, reason: 'WhatsApp API key not configured' }); return; }
+    if (!enabled) { resolve({ success: false, skipped: true, reason: 'WhatsApp notifications disabled in settings' }); return; }
     if (!phonenumber) { resolve({ success: false, reason: 'no phone number' }); return; }
     const form = new URLSearchParams({ phonenumber, text });
     const postData = form.toString();
     const opts = {
       hostname: 'api.360messenger.com', path: '/v2/sendMessage', method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(postData) },
+      headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(postData) },
     };
     const req = https.request(opts, (res) => {
       let body = '';

@@ -53,12 +53,18 @@ function showDashboard() {
 function switchSection(view) {
   state.view = view;
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === view));
-  const overTitle = { overview: ['OVERVIEW', 'Command Center'], licenses: ['LICENSES', 'All Customers'] };
+  const overTitle = {
+    overview: ['OVERVIEW', 'Command Center'],
+    licenses: ['LICENSES', 'All Customers'],
+    settings: ['SETTINGS', 'Server Configuration']
+  };
   const [over, title] = overTitle[view] || overTitle.overview;
   document.getElementById('page-overline').textContent = over;
   document.getElementById('page-title').textContent = title;
   document.getElementById('overview-section').style.display = view === 'overview' ? 'block' : 'none';
   document.getElementById('licenses-section').style.display = view === 'licenses' ? 'block' : 'none';
+  document.getElementById('settings-section').style.display = view === 'settings' ? 'block' : 'none';
+  if (view === 'settings') loadSettings();
 }
 
 async function loadDashboard() {
@@ -306,6 +312,115 @@ document.getElementById('license-tbody').addEventListener('click', async (e) => 
     document.documentElement.classList.toggle('cursor-hover', !!interactive);
   });
 })();
+
+// ========== Settings View ==========
+async function loadSettings() {
+  const statusEl = document.getElementById('settings-status');
+  const hintEl = document.getElementById('key-hint');
+  const toggleLabel = document.getElementById('toggle-label');
+  try {
+    const s = await apiCall('GET', '/admin/settings');
+    document.getElementById('setting-wa-key').value = '';
+    document.getElementById('setting-wa-key').placeholder = s.whatsapp_api_key_set
+      ? 'Current: ' + s.whatsapp_api_key_masked + '  ·  paste new key to replace'
+      : (s.env_key_available ? 'Using .env fallback · paste here to override' : 'Paste your 360Messenger API key');
+    document.getElementById('setting-wa-cc').value = s.whatsapp_cc || '91';
+    document.getElementById('setting-wa-enabled').checked = !!s.whatsapp_enabled;
+    toggleLabel.textContent = s.whatsapp_enabled ? 'Enabled' : 'Disabled';
+
+    if (s.whatsapp_api_key_set && s.whatsapp_enabled) {
+      statusEl.className = 'settings-status ok';
+      statusEl.querySelector('.status-text').innerHTML = '<strong>Live</strong> · WhatsApp notifications are active. Key set via admin panel.';
+    } else if (s.env_key_available && s.whatsapp_enabled) {
+      statusEl.className = 'settings-status ok';
+      statusEl.querySelector('.status-text').innerHTML = '<strong>Live</strong> · Using fallback key from <code>.env</code>. Override it here if needed.';
+    } else if (s.whatsapp_api_key_set && !s.whatsapp_enabled) {
+      statusEl.className = 'settings-status warn';
+      statusEl.querySelector('.status-text').innerHTML = '<strong>Key saved, but disabled.</strong> Toggle on to enable notifications.';
+    } else {
+      statusEl.className = 'settings-status off';
+      statusEl.querySelector('.status-text').innerHTML = '<strong>Not configured.</strong> Paste a 360Messenger API key and save to activate customer notifications.';
+    }
+    hintEl.textContent = s.whatsapp_api_key_set ? '(stored)' : '';
+  } catch (e) {
+    if (/401|403|Unauthorized/i.test(e.message)) { logout(); return; }
+    statusEl.className = 'settings-status off';
+    statusEl.querySelector('.status-text').textContent = 'Error loading settings: ' + e.message;
+  }
+}
+
+document.getElementById('settings-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = document.getElementById('settings-error'); err.textContent = '';
+  const ok = document.getElementById('settings-success'); ok.textContent = '';
+  const body = {
+    whatsapp_api_key: document.getElementById('setting-wa-key').value.trim() || undefined,
+    whatsapp_cc: document.getElementById('setting-wa-cc').value.trim() || undefined,
+    whatsapp_enabled: document.getElementById('setting-wa-enabled').checked,
+  };
+  // Drop undefined keys so server does not wipe stored key on blank save
+  Object.keys(body).forEach(k => body[k] === undefined && delete body[k]);
+  const btn = document.getElementById('setting-save');
+  btn.disabled = true; btn.querySelector('.btn-label').textContent = 'Saving…';
+  try {
+    await apiCall('PUT', '/admin/settings', body);
+    ok.textContent = '✓ Configuration saved.';
+    await loadSettings();
+    setTimeout(() => { ok.textContent = ''; }, 3000);
+  } catch (e2) {
+    err.textContent = e2.message || 'Save failed';
+  } finally {
+    btn.disabled = false; btn.querySelector('.btn-label').textContent = 'Save Configuration';
+  }
+});
+
+document.getElementById('setting-wa-enabled').addEventListener('change', (e) => {
+  document.getElementById('toggle-label').textContent = e.target.checked ? 'Enabled' : 'Disabled';
+});
+
+document.getElementById('setting-remove-key').addEventListener('click', async () => {
+  if (!confirm('Remove the saved WhatsApp API key? Notifications will stop until a new key is saved (or .env fallback is available).')) return;
+  try {
+    await apiCall('DELETE', '/admin/settings/whatsapp-key');
+    await loadSettings();
+  } catch (e) { alert('Remove failed: ' + e.message); }
+});
+
+document.getElementById('test-wa-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const phone = document.getElementById('test-wa-phone').value.trim();
+  const resEl = document.getElementById('test-wa-result');
+  resEl.className = 'test-result loading';
+  resEl.textContent = 'Sending test message…';
+  try {
+    const r = await apiCall('POST', '/admin/settings/test-whatsapp', { phone });
+    if (r.success) {
+      resEl.className = 'test-result ok';
+      resEl.innerHTML = `<strong>✓ Sent.</strong> Check WhatsApp on ${escapeHtml(r.sent_to)} — message should arrive in a few seconds.`;
+    } else {
+      const reason = (r.result && (r.result.reason || r.result.error || (r.result.response && r.result.response.message))) || 'Unknown error';
+      resEl.className = 'test-result fail';
+      resEl.innerHTML = `<strong>× Failed.</strong> ${escapeHtml(reason)}`;
+    }
+  } catch (e2) {
+    resEl.className = 'test-result fail';
+    resEl.textContent = 'Error: ' + e2.message;
+  }
+});
+
+document.getElementById('run-expiry-scan').addEventListener('click', async () => {
+  const resEl = document.getElementById('expiry-scan-result');
+  resEl.className = 'test-result loading';
+  resEl.textContent = 'Scanning licenses…';
+  try {
+    const r = await apiCall('POST', '/admin/expiry-scan');
+    resEl.className = 'test-result ok';
+    resEl.innerHTML = `<strong>✓ Scan complete.</strong> Scanned ${r.scanned} · 7-day warnings: ${r.warnings} · expired notices: ${r.expired} · skipped: ${r.skipped}`;
+  } catch (e) {
+    resEl.className = 'test-result fail';
+    resEl.textContent = 'Error: ' + e.message;
+  }
+});
 
 // ========== Init ==========
 restoreSession();
