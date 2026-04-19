@@ -1837,10 +1837,10 @@ function AnnexureOneView({ vr, onSaveMeter }) {
   const P = vr.paddy || {};
   const R = vr.rice || {};
 
-  const renderPaddyRow = (sl, label, key, colored = false) => {
+  const paddyRow = (sl, label, key, colored = false) => {
     const row = P[key] || { by_agency: {}, total: 0 };
     return (
-      <tr>
+      <tr key={sl}>
         <TxtCell className="text-center font-bold">{sl}</TxtCell>
         <TxtCell>{label}</TxtCell>
         {ag.map(a => <NumCell key={a} v={row.by_agency?.[a]} colored={colored} />)}
@@ -1848,14 +1848,43 @@ function AnnexureOneView({ vr, onSaveMeter }) {
       </tr>
     );
   };
-  const renderRiceRow = (sl, label, key, colored = false) => {
+  // Rice rows VII/VIII: agency columns but only OSCSC(OWN) = total
+  const riceAgencyRow = (sl, label, key, colored = false) => {
+    const total = R[key]?.total || 0;
+    return (
+      <tr key={sl}>
+        <TxtCell className="text-center font-bold">{sl}</TxtCell>
+        <TxtCell>{label}</TxtCell>
+        <NumCell v={total} colored={colored} />
+        {ag.slice(1).map(a => <NumCell key={a} v={0} colored={colored} />)}
+        <NumCell v={total} bold colored={colored} />
+      </tr>
+    );
+  };
+  // Rice rows IX-XII: rice cols (RRC/FCI/RRC FRK/FCI FRK) + blank Levy
+  const riceColRow = (sl, label, key, colored = false) => {
     const row = R[key] || { by_col: {}, total: 0 };
     return (
-      <tr>
+      <tr key={sl}>
         <TxtCell className="text-center font-bold">{sl}</TxtCell>
         <TxtCell>{label}</TxtCell>
         {rc.map(c => <NumCell key={c} v={row.by_col?.[c]} colored={colored} />)}
+        <TxtCell></TxtCell>{/* Levy col blank for rice section */}
         <NumCell v={row.total} bold colored={colored} />
+      </tr>
+    );
+  };
+  // Rice XIII/XIV: total only, shown in first rice col (RRC position) and TOTAL
+  const riceTotalRow = (sl, label, key, colored = true) => {
+    const total = R[key]?.total || 0;
+    return (
+      <tr key={sl}>
+        <TxtCell className="text-center font-bold">{sl}</TxtCell>
+        <TxtCell>{label}</TxtCell>
+        <NumCell v={total} colored={colored} />
+        {rc.slice(1).map(c => <NumCell key={c} v={0} colored={colored} />)}
+        <TxtCell></TxtCell>
+        <NumCell v={total} bold colored={colored} />
       </tr>
     );
   };
@@ -1886,7 +1915,7 @@ function AnnexureOneView({ vr, onSaveMeter }) {
           <tr>
             <TxtCell><span className="font-semibold">1c. Miller Code:</span></TxtCell>
             <TxtCell>{h.miller_code || '-'}</TxtCell>
-            <TxtCell><span className="font-semibold">1d. Milling Capacity:</span></TxtCell>
+            <TxtCell><span className="font-semibold">1d. Milling Capacity*:</span></TxtCell>
             <TxtCell>{h.milling_capacity_mt || 0} MT</TxtCell>
             <TxtCell><span className="font-semibold">4b. Metre Reading at last verification</span></TxtCell>
             <TxtCell colSpan={2} className="text-right">{(h.meter?.last_reading || 0).toLocaleString()}</TxtCell>
@@ -1910,78 +1939,114 @@ function AnnexureOneView({ vr, onSaveMeter }) {
         </tbody>
       </table>
 
-      {/* Main Paddy/Rice Table */}
-      <table className="w-full border-collapse text-[11px] mt-2">
+      {/* Single Unified Paddy + Rice Table (Exact Annexure-1 layout) */}
+      <table className="w-full border-collapse text-[11px] mt-2" data-testid="vr-annexure-table">
         <thead>
           <tr className="bg-slate-100 dark:bg-slate-800">
-            <TxtCell className="text-center font-bold w-[6%]">Sl No</TxtCell>
-            <TxtCell className="w-[30%] font-bold">Particulars</TxtCell>
+            <TxtCell className="text-center font-bold w-[5%]"></TxtCell>
+            <TxtCell className="text-center font-bold">Sl No</TxtCell>
+            <TxtCell className="text-center font-bold w-[32%]"></TxtCell>
             {ag.map(a => <TxtCell key={a} className="text-center font-bold">{AGENCY_LABELS[a] || a}</TxtCell>)}
             <TxtCell className="text-center font-bold">TOTAL</TxtCell>
           </tr>
         </thead>
         <tbody>
-          {/* Paddy Section */}
-          {renderPaddyRow('I', 'Paddy Procured/Received during the week', 'I_week')}
-          {renderPaddyRow('II', 'Prog Paddy Procured/Received till verification date', 'II_prog', true)}
-          {renderPaddyRow('III', 'Paddy Milled during the week', 'III_week')}
-          {renderPaddyRow('IV', 'Progressive paddy milled till verification date', 'IV_prog', true)}
-          {renderPaddyRow('V', 'Book Balance of Paddy Stock (Sl No II-IV)', 'V_book', true)}
-          {renderPaddyRow('VI', 'Verified balance of paddy', 'VI_verified', true)}
-        </tbody>
-      </table>
-
-      {/* Rice Table with different column headers */}
-      <table className="w-full border-collapse text-[11px]">
-        <thead>
-          <tr className="bg-slate-100 dark:bg-slate-800">
-            <TxtCell className="text-center font-bold w-[6%]">Sl No</TxtCell>
-            <TxtCell className="w-[30%] font-bold">Particulars</TxtCell>
-            {ag.map(a => <TxtCell key={a} className="text-center font-bold">{AGENCY_LABELS[a] || a}</TxtCell>)}
-            <TxtCell className="text-center font-bold">TOTAL</TxtCell>
-          </tr>
-        </thead>
-        <tbody>
+          {/* ===== PADDY SECTION (I-VI) with row-group label ===== */}
           <tr>
+            <TxtCell rowSpan={6} className="text-center font-bold align-middle bg-slate-50 dark:bg-slate-800/60" style={{writingMode:'vertical-rl', transform:'rotate(180deg)'}}>Paddy</TxtCell>
+            <TxtCell className="text-center font-bold">I</TxtCell>
+            <TxtCell>Paddy Procured/Received during the week</TxtCell>
+            {ag.map(a => <NumCell key={a} v={P.I_week?.by_agency?.[a]} />)}
+            <NumCell v={P.I_week?.total} bold />
+          </tr>
+          {['II','III','IV','V','VI'].map((sl, idx) => {
+            const defs = [
+              ['II', 'Prog Paddy Procured/Recived till verification date', 'II_prog', true],
+              ['III', 'Paddy Milled during the week', 'III_week', false],
+              ['IV', 'Progressive paddy milled till verification date', 'IV_prog', true],
+              ['V', 'Book Balance of Paddy Stock(sl No II-IV)', 'V_book', true],
+              ['VI', 'Verified balance of paddy', 'VI_verified', true],
+            ];
+            const [s, label, key, colored] = defs[idx];
+            const row = P[key] || { by_agency: {}, total: 0 };
+            return (
+              <tr key={s}>
+                <TxtCell className="text-center font-bold">{s}</TxtCell>
+                <TxtCell>{label}</TxtCell>
+                {ag.map(a => <NumCell key={a} v={row.by_agency?.[a]} colored={colored} />)}
+                <NumCell v={row.total} bold colored={colored} />
+              </tr>
+            );
+          })}
+
+          {/* ===== RICE SECTION (VII-XIV) with row-group label ===== */}
+          <tr>
+            <TxtCell rowSpan={8} className="text-center font-bold align-middle bg-slate-50 dark:bg-slate-800/60" style={{writingMode:'vertical-rl', transform:'rotate(180deg)'}}>Rice</TxtCell>
             <TxtCell className="text-center font-bold">VII</TxtCell>
             <TxtCell>Rice received from the milling during the week</TxtCell>
-            {ag.map(a => <NumCell key={a} v={0} />)}
-            <NumCell v={R.VII_week?.total} bold />
+            <NumCell v={R.VII_week?.total} colored />
+            {ag.slice(1).map(a => <NumCell key={a} v={0} />)}
+            <NumCell v={R.VII_week?.total} bold colored />
           </tr>
           <tr>
             <TxtCell className="text-center font-bold">VIII</TxtCell>
             <TxtCell>Progressive rice received from milling till date</TxtCell>
-            {ag.map(a => <NumCell key={a} v={0} />)}
+            <NumCell v={R.VIII_prog?.total} colored />
+            {ag.slice(1).map(a => <NumCell key={a} v={0} />)}
             <NumCell v={R.VIII_prog?.total} bold colored />
           </tr>
-        </tbody>
-      </table>
 
-      {/* Rice delivery sub-header with RRC/FCI/RRC FRK/FCI FRK columns */}
-      <table className="w-full border-collapse text-[11px]">
-        <thead>
+          {/* Sub-header: RRC | FCI | RRC FRK | FCI FRK (for rows IX onwards) */}
           <tr className="bg-slate-100 dark:bg-slate-800">
-            <TxtCell className="text-center font-bold w-[6%]">Sl No</TxtCell>
-            <TxtCell className="w-[36%] font-bold">Particulars</TxtCell>
+            <TxtCell className="text-center font-bold"></TxtCell>
+            <TxtCell></TxtCell>
             {rc.map(c => <TxtCell key={c} className="text-center font-bold">{RICE_LABELS[c] || c}</TxtCell>)}
-            <TxtCell className="text-center font-bold">TOTAL</TxtCell>
+            <TxtCell></TxtCell>
+            <TxtCell></TxtCell>
           </tr>
-        </thead>
-        <tbody>
-          {renderRiceRow('IX', 'Rice delivered during the week against DC', 'IX_week')}
-          {renderRiceRow('X', 'Progressive DC issued till verification', 'X_prog_issued')}
-          {renderRiceRow('XI', 'Prog. Rice delivered against total DC issued', 'XI_prog_delivered', true)}
-          {renderRiceRow('XII', 'Balance of rice remain undelivered against DC (Sl no X-XI)', 'XII_undelivered', true)}
+
+          {/* IX-XII (rice cols) */}
+          <tr>
+            <TxtCell className="text-center font-bold">IX</TxtCell>
+            <TxtCell>Rice delivered during the week against DC</TxtCell>
+            {rc.map(c => <NumCell key={c} v={R.IX_week?.by_col?.[c]} />)}
+            <TxtCell></TxtCell>
+            <NumCell v={R.IX_week?.total} bold />
+          </tr>
+          <tr>
+            <TxtCell className="text-center font-bold">X</TxtCell>
+            <TxtCell>Progressive DC issued till verification</TxtCell>
+            {rc.map(c => <NumCell key={c} v={R.X_prog_issued?.by_col?.[c]} />)}
+            <TxtCell></TxtCell>
+            <NumCell v={R.X_prog_issued?.total} bold />
+          </tr>
+          <tr>
+            <TxtCell className="text-center font-bold">XI</TxtCell>
+            <TxtCell>Prog. Rice delivered against total DC issued</TxtCell>
+            {rc.map(c => <NumCell key={c} v={R.XI_prog_delivered?.by_col?.[c]} colored />)}
+            <TxtCell></TxtCell>
+            <NumCell v={R.XI_prog_delivered?.total} bold colored />
+          </tr>
+          <tr>
+            <TxtCell className="text-center font-bold">XII</TxtCell>
+            <TxtCell>Balance of rice remain undelivered against DC<br/>(Sl no x-xi)</TxtCell>
+            {rc.map(c => <NumCell key={c} v={R.XII_undelivered?.by_col?.[c]} colored />)}
+            <TxtCell></TxtCell>
+            <NumCell v={R.XII_undelivered?.total} bold colored />
+          </tr>
+          {/* XIII, XIV — total only, shown in first agency position + TOTAL */}
           <tr>
             <TxtCell className="text-center font-bold">XIII</TxtCell>
-            <TxtCell>Book balance of rice (Sl no VIII-XI)</TxtCell>
-            <NumCell v={0} /><NumCell v={0} /><NumCell v={0} /><NumCell v={0} />
+            <TxtCell>Book balannce of rice (Sl no viii-ix)</TxtCell>
+            <NumCell v={R.XIII_book?.total} colored />
+            <TxtCell></TxtCell><TxtCell></TxtCell><TxtCell></TxtCell><TxtCell></TxtCell>
             <NumCell v={R.XIII_book?.total} bold colored />
           </tr>
           <tr>
             <TxtCell className="text-center font-bold">XIV</TxtCell>
             <TxtCell>Verified balance of rice</TxtCell>
-            <NumCell v={0} /><NumCell v={0} /><NumCell v={0} /><NumCell v={0} />
+            <NumCell v={R.XIV_verified?.total} colored />
+            <TxtCell></TxtCell><TxtCell></TxtCell><TxtCell></TxtCell><TxtCell></TxtCell>
             <NumCell v={R.XIV_verified?.total} bold colored />
           </tr>
         </tbody>
@@ -1990,7 +2055,7 @@ function AnnexureOneView({ vr, onSaveMeter }) {
       {/* Footer */}
       <div className="mt-3 space-y-1 text-[10px] text-slate-600 dark:text-slate-400">
         <p>Total qty of CMB delivered as per M-reporting by the miller &nbsp; qtls</p>
-        <p>It is certified that there is no missappropriation/diversion by the miller and paddy/rice available has been stored safely</p>
+        <p>It is certified that there is no missappropriation /diversion by the miller and paddy/rice available has been stored safely</p>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-4 text-[10px] text-slate-700 dark:text-slate-300">
         <div>
@@ -2000,7 +2065,7 @@ function AnnexureOneView({ vr, onSaveMeter }) {
         </div>
         <div className="text-right">
           <p className="font-semibold">Signature of Authorised Officer</p>
-          <p className="mt-1">(With Name &amp; Designation)</p>
+          <p className="mt-1">(With Name &amp; Desgination)</p>
         </div>
       </div>
 

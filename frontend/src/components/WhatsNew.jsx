@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.19.1",
+    date: "Feb 2026",
+    title: "v104.19.1 - Annexure-1 Layout Fix (Single Unified Table)",
+    items: [
+      { type: "fix", text: "Verification Report ab exact Excel ki tarah EK HI unified table hai (Paddy + Rice sab ek table mein)" },
+      { type: "fix", text: "Bayein taraf 'Paddy' aur 'Rice' vertical row-group labels (I-VI = Paddy, VII-XIV = Rice)" },
+      { type: "fix", text: "Sub-header row 'RRC | FCI | RRC FRK | FCI FRK' ab VIII aur IX ke beech mein correctly dikhta hai" },
+      { type: "fix", text: "XIII & XIV rows ab match karte hain Excel ke layout ko (value first col mein + TOTAL)" },
+      { type: "fix", text: "PDF export bhi same unified layout mein generate hota hai" },
+    ],
+  },
+  {
     version: "104.19.0",
     date: "Feb 2026",
     title: "v104.19.0 - Annexure-1 Verification Report (FCI Official Format)",

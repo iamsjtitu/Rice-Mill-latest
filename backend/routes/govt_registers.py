@@ -1618,79 +1618,103 @@ async def export_verification_report_pdf(
     ]))
     story.append(ht); story.append(Spacer(1, 4))
 
-    # Paddy + Rice VII/VIII Table (agency columns)
-    p_header = ["Sl No", "Particulars"] + [AGENCY_LABEL[a] for a in AGENCIES] + ["TOTAL"]
+    # Unified Paddy + Rice Table (Annexure-1 single table layout)
+    # Header: [Group] [Sl No] [Particulars] [OSCSC_OWN] [OSCSC_Koraput] [NAFED] [TDCC] [Levy] [TOTAL]
+    p_header = ["", "Sl No", "", AGENCY_LABEL["OSCSC_OWN"], AGENCY_LABEL["OSCSC_KORAPUT"], AGENCY_LABEL["NAFED"], AGENCY_LABEL["TDCC"], AGENCY_LABEL["LEVY"], "TOTAL"]
+
+    def paddy_row(sl, label, key):
+        row = P.get(key, {"by_agency":{}, "total":0})
+        return ["", sl, label] + [num(row["by_agency"].get(a, 0)) for a in AGENCIES] + [num(row["total"])]
+    def rice_agency_row(sl, label, key):
+        total = R[key]["total"]
+        return ["", sl, label, num(total)] + [num(0)] * (len(AGENCIES) - 1) + [num(total)]
+    def rice_col_row(sl, label, key):
+        row = R.get(key, {"by_col":{}, "total":0})
+        # rice cols fill 4 positions, Levy blank, then TOTAL
+        return ["", sl, label] + [num(row["by_col"].get(c, 0)) for c in RICE_COLS] + ["", num(row["total"])]
+    def rice_total_row(sl, label, key):
+        t = R[key]["total"]
+        return ["", sl, label, num(t), "", "", "", "", num(t)]
+
+    data = [p_header]
+    paddy_red_rows = []
     paddy_def = [
         ("I", "Paddy Procured/Received during the week", "I_week", False),
-        ("II", "Prog Paddy Procured/Received till verification date", "II_prog", True),
+        ("II", "Prog Paddy Procured/Recived till verification date", "II_prog", True),
         ("III", "Paddy Milled during the week", "III_week", False),
         ("IV", "Progressive paddy milled till verification date", "IV_prog", True),
-        ("V", "Book Balance of Paddy Stock (Sl No II-IV)", "V_book", True),
+        ("V", "Book Balance of Paddy Stock(sl No II-IV)", "V_book", True),
         ("VI", "Verified balance of paddy", "VI_verified", True),
     ]
-    pt_data = [p_header]; pt_red = []
-    for i, (sl, label, key, colored) in enumerate(paddy_def, start=1):
-        row = P.get(key, {"by_agency":{}, "total":0})
-        pt_data.append([sl, label] + [num(row["by_agency"].get(a, 0)) for a in AGENCIES] + [num(row["total"])])
-        if colored: pt_red.append(i)
-    for (sl, label, key, colored) in [("VII", "Rice received from the milling during the week", "VII_week", False), ("VIII", "Progressive rice received from milling till date", "VIII_prog", True)]:
-        total = R[key]["total"]
-        pt_data.append([sl, label] + [num(0)]*len(AGENCIES) + [num(total)])
-        if colored: pt_red.append(len(pt_data) - 1)
+    for (sl, label, key, colored) in paddy_def:
+        data.append(paddy_row(sl, label, key))
+        if colored: paddy_red_rows.append(len(data) - 1)
 
-    col_widths = [10*mm, 58*mm] + [18*mm]*len(AGENCIES) + [22*mm]
-    pt = RLTable(pt_data, colWidths=col_widths, repeatRows=1)
-    pt_style = [
-        ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
-        ('FONTSIZE', (0,0), (-1,-1), 7.5),
-        ('GRID', (0,0), (-1,-1), 0.5, rlcolors.black),
-        ('BACKGROUND', (0,0), (-1,0), rlcolors.lightgrey),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('ALIGN', (0,0), (-1,0), 'CENTER'),
-        ('ALIGN', (0,1), (0,-1), 'CENTER'),
-        ('ALIGN', (2,1), (-1,-1), 'RIGHT'),
-        ('FONTNAME', (-1,1), (-1,-1), 'Helvetica-Bold'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-    ]
-    for rnum in pt_red: pt_style.append(('TEXTCOLOR', (2, rnum), (-1, rnum), rlcolors.red))
-    pt.setStyle(TableStyle(pt_style))
-    story.append(pt); story.append(Spacer(1, 4))
+    # Rice section header in left column
+    PADDY_START = 1
+    PADDY_END = len(data) - 1  # inclusive, paddy rowspan
+    RICE_START = len(data)
 
-    # Rice Part 2 (IX-XIV, rice columns)
-    r_header = ["Sl No", "Particulars"] + [RICE_LABEL[c] for c in RICE_COLS] + ["TOTAL"]
+    # VII, VIII (rice under agency cols)
+    data.append(rice_agency_row("VII", "Rice received from the milling during the week", "VII_week"))
+    paddy_red_rows.append(len(data) - 1)  # colored red
+    data.append(rice_agency_row("VIII", "Progressive rice received from milling till date", "VIII_prog"))
+    paddy_red_rows.append(len(data) - 1)
+
+    # Sub-header row: RRC | FCI | RRC FRK | FCI FRK
+    data.append(["", "", "", RICE_LABEL["RRC"], RICE_LABEL["FCI"], RICE_LABEL["RRC_FRK"], RICE_LABEL["FCI_FRK"], "", ""])
+    SUBHEADER_ROW = len(data) - 1
+
+    # IX-XII (rice cols)
     rice2_def = [
         ("IX", "Rice delivered during the week against DC", "IX_week", False),
         ("X", "Progressive DC issued till verification", "X_prog_issued", False),
         ("XI", "Prog. Rice delivered against total DC issued", "XI_prog_delivered", True),
-        ("XII", "Balance of rice remain undelivered against DC (Sl no X-XI)", "XII_undelivered", True),
+        ("XII", "Balance of rice remain undelivered against DC (Sl no x-xi)", "XII_undelivered", True),
     ]
-    r_data = [r_header]; r_red = []
-    for i, (sl, label, key, colored) in enumerate(rice2_def, start=1):
-        row = R.get(key, {"by_col":{}, "total":0})
-        r_data.append([sl, label] + [num(row["by_col"].get(c, 0)) for c in RICE_COLS] + [num(row["total"])])
-        if colored: r_red.append(i)
-    r_data.append(["XIII", "Book balance of rice (Sl no VIII-XI)"] + [num(0)]*len(RICE_COLS) + [num(R["XIII_book"]["total"])])
-    r_red.append(len(r_data) - 1)
-    r_data.append(["XIV", "Verified balance of rice"] + [num(0)]*len(RICE_COLS) + [num(R["XIV_verified"]["total"])])
-    r_red.append(len(r_data) - 1)
+    for (sl, label, key, colored) in rice2_def:
+        data.append(rice_col_row(sl, label, key))
+        if colored: paddy_red_rows.append(len(data) - 1)
 
-    col_widths2 = [10*mm, 66*mm, 18*mm, 18*mm, 20*mm, 20*mm, 22*mm]
-    rt = RLTable(r_data, colWidths=col_widths2, repeatRows=1)
-    rt_style = [
+    # XIII, XIV (total only)
+    data.append(rice_total_row("XIII", "Book balannce of rice (Sl no viii-ix)", "XIII_book"))
+    paddy_red_rows.append(len(data) - 1)
+    data.append(rice_total_row("XIV", "Verified balance of rice", "XIV_verified"))
+    paddy_red_rows.append(len(data) - 1)
+    RICE_END = len(data) - 1
+
+    col_widths = [7*mm, 10*mm, 55*mm] + [18*mm]*5 + [22*mm]
+    tbl = RLTable(data, colWidths=col_widths, repeatRows=1)
+    t_style = [
         ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
         ('FONTSIZE', (0,0), (-1,-1), 7.5),
         ('GRID', (0,0), (-1,-1), 0.5, rlcolors.black),
         ('BACKGROUND', (0,0), (-1,0), rlcolors.lightgrey),
+        ('BACKGROUND', (3, SUBHEADER_ROW), (6, SUBHEADER_ROW), rlcolors.lightgrey),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTNAME', (3, SUBHEADER_ROW), (6, SUBHEADER_ROW), 'Helvetica-Bold'),
         ('ALIGN', (0,0), (-1,0), 'CENTER'),
-        ('ALIGN', (0,1), (0,-1), 'CENTER'),
-        ('ALIGN', (2,1), (-1,-1), 'RIGHT'),
+        ('ALIGN', (1,1), (1,-1), 'CENTER'),
+        ('ALIGN', (3,1), (-1,-1), 'RIGHT'),
+        ('ALIGN', (3, SUBHEADER_ROW), (6, SUBHEADER_ROW), 'CENTER'),
         ('FONTNAME', (-1,1), (-1,-1), 'Helvetica-Bold'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        # Row-group labels (column 0): spans
+        ('SPAN', (0, PADDY_START), (0, PADDY_END)),
+        ('SPAN', (0, RICE_START), (0, RICE_END)),
+        ('BACKGROUND', (0, PADDY_START), (0, PADDY_END), rlcolors.HexColor('#f5f5f5')),
+        ('BACKGROUND', (0, RICE_START), (0, RICE_END), rlcolors.HexColor('#f5f5f5')),
+        ('FONTNAME', (0, PADDY_START), (0, RICE_END), 'Helvetica-Bold'),
+        ('ALIGN', (0, 0), (0, -1), 'CENTER'),
     ]
-    for rnum in r_red: rt_style.append(('TEXTCOLOR', (2, rnum), (-1, rnum), rlcolors.red))
-    rt.setStyle(TableStyle(rt_style))
-    story.append(rt); story.append(Spacer(1, 6))
+    for rnum in paddy_red_rows:
+        t_style.append(('TEXTCOLOR', (3, rnum), (-1, rnum), rlcolors.red))
+    tbl.setStyle(TableStyle(t_style))
+    # Set the rowspan cell values for Paddy / Rice
+    data[PADDY_START][0] = "Paddy"
+    data[RICE_START][0] = "Rice"
+
+    story.append(tbl); story.append(Spacer(1, 6))
 
     story.append(Paragraph("Total qty of CMB delivered as per M-reporting by the miller &nbsp;&nbsp; qtls", foot_s))
     story.append(Paragraph("It is certified that there is no missappropriation/diversion by the miller and paddy/rice available has been stored safely", foot_s))
