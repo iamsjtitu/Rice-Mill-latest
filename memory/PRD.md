@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.25.1
+## Current Version: v104.25.2
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind
@@ -35,6 +35,7 @@
 - Voucher No field added to all By-Product sale entries
 
 ## Recent Changes (Apr 2026)
+- **v104.25.2 (Feb 2026)**: Central Admin Dashboard mein naya **"Settings"** tab add. WhatsApp (360Messenger) API key ab admin panel se manage hoti hai — `PUT /api/admin/settings` endpoint DB ke andar encrypted-at-rest store karta hai (mask with first-4 + last-4 chars in GET). Notifier.js DB-first lookup karta hai (fallback to .env var for legacy). UI mein: masked key display, country-code input, enabled toggle, "Remove saved key" button, "Send Test Message" form (verifies real 360Messenger POST), aur "Run Expiry Scan Now" button (on-demand trigger). Blank-save protection (accidental key wipe prevent karta hai). database.js automatic migration: older DBs mein `settings` object auto-back-fill hoti hai server boot pe. Deploy to admin.9x.design VPS (PM2) COMPLETE.
 - **v104.25.1 (Feb 2026)**: License lifecycle WhatsApp notifications + License Info panel. Central License Server ab revoke / re-activate / create events pe 360Messenger API se customer ko automatic WhatsApp bhejta hai (silent-skip jab API key absent — no errors). Naya `utils/expiry-scheduler.js` har 6 ghante + daily 09:00 pe scan karta hai: 7 din pehle warning + expiry day pe "expired" message, idempotent flags (`notified_7day`, `notified_expired`) ke saath. Naye admin endpoints: `POST /api/admin/licenses/:id/test-notify`, `POST /api/admin/expiry-scan`, `POST /api/admin/licenses/:id/reset-notifications`. License renew karne pe (expires_at future mein push) notified flags auto-reset. **Settings → License tab** Desktop (real data) + Web/LAN (stub "WEB/LAN-DEPLOYMENT") teeno backends mein live — customer license key, mill name, plan, expiry, machine fingerprint, last-verified time dikhta hai, Copy + Verify with server buttons ke saath. Tested 19/19 backend + full frontend PASSED.
 
 - **v104.19.0 (Feb 2026)**: FCI Annexure-1 Verification Report (exact Govt format). New full Annexure-1 UI + `/api/govt-registers/verification-report/full` endpoint + PDF export `/api/govt-registers/verification-report/pdf` (A4). Agency breakdown: OSCSC OWN/Koraput/NAFED/TDCC/Levy (mapped via mill_entries.agent_name + paddy_release.agency ratio). Rice split: RRC/FCI/RRC FRK/FCI FRK. Paddy Release form: new Agency dropdown. Settings extended: electricity_kw, electricity_kv, milling_capacity_mt, variety. Teeno backends parity. Tested 15/15 backend + full frontend PASSED via testing agent.
