@@ -153,7 +153,7 @@ export default function LicenseTab() {
         {/* License Key */}
         <div>
           <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1.5">License Key</div>
-          <div className="flex items-center gap-2 p-3 bg-slate-900/60 border border-dashed border-amber-500/40 rounded-lg">
+          <div className="flex items-center gap-2 p-3 rounded-lg border border-dashed border-amber-500/40 bg-slate-900/60">
             <span className="font-mono font-bold text-amber-400 text-lg tracking-wider flex-1" data-testid="lic-key">{info.key}</span>
             <Button size="sm" variant="outline" onClick={copyKey} className="h-7 text-[10px] border-slate-600" data-testid="lic-copy-btn">
               <Copy className="w-3 h-3 mr-1" /> Copy
@@ -161,47 +161,57 @@ export default function LicenseTab() {
           </div>
         </div>
 
-        {/* Customer + Mill */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="p-3 rounded-lg bg-slate-900/40 border border-slate-700">
-            <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Customer</div>
-            <div className="text-slate-200 font-medium mt-1 text-sm" data-testid="lic-customer">{info.customer_name || '—'}</div>
-          </div>
-          <div className="p-3 rounded-lg bg-slate-900/40 border border-slate-700">
-            <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Mill / Facility</div>
-            <div className="text-slate-200 font-medium mt-1 text-sm" data-testid="lic-mill">{info.mill_name || '—'}</div>
-          </div>
+        {/* Details Table (professional layout — works in both themes via CSS overrides) */}
+        <div className="rounded-lg border border-slate-700 overflow-hidden license-table">
+          <table className="w-full text-sm">
+            <tbody>
+              <tr className="bg-slate-900/40 border-b border-slate-700">
+                <td className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-slate-500 font-semibold w-36 align-middle">Customer</td>
+                <td className="px-4 py-2.5 text-slate-200 font-medium" data-testid="lic-customer">{info.customer_name || '—'}</td>
+              </tr>
+              <tr className="border-b border-slate-700">
+                <td className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-slate-500 font-semibold w-36 align-middle">Mill / Facility</td>
+                <td className="px-4 py-2.5 text-slate-200 font-medium" data-testid="lic-mill">{info.mill_name || '—'}</td>
+              </tr>
+              <tr className="bg-slate-900/40 border-b border-slate-700">
+                <td className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-slate-500 font-semibold w-36 align-middle">
+                  <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" />Plan</div>
+                </td>
+                <td className="px-4 py-2.5 text-slate-200 font-medium" data-testid="lic-plan">{planLabel}</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-slate-500 font-semibold w-36 align-middle">
+                  <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" />Expires</div>
+                </td>
+                <td className={`px-4 py-2.5 font-medium ${isExpired ? 'text-red-400' : 'text-slate-200'}`} data-testid="lic-expiry">{fmtDate(info.expires_at)}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
-        {/* Plan + Expiry */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="p-3 rounded-lg bg-slate-900/40 border border-slate-700 flex items-start gap-2">
-            <Calendar className="w-4 h-4 text-slate-500 mt-0.5" />
-            <div className="flex-1">
-              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Plan</div>
-              <div className="text-slate-200 font-medium mt-1 text-sm" data-testid="lic-plan">{planLabel}</div>
+        {/* Machine Info — compact grid below the table */}
+        <div className="rounded-lg border border-slate-700 p-3 bg-slate-900/40">
+          <div className="flex items-center gap-2 mb-2.5">
+            <Monitor className="w-4 h-4 text-slate-400" />
+            <div className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">This Device</div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            <div>
+              <div className="text-slate-500 text-[10px] uppercase tracking-wider">Hostname</div>
+              <div className="text-slate-300 font-mono mt-0.5 truncate" data-testid="lic-hostname" title={info.pc_info?.hostname}>{info.pc_info?.hostname || '—'}</div>
             </div>
-          </div>
-          <div className="p-3 rounded-lg bg-slate-900/40 border border-slate-700 flex items-start gap-2">
-            <Calendar className="w-4 h-4 text-slate-500 mt-0.5" />
-            <div className="flex-1">
-              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Expires</div>
-              <div className={`font-medium mt-1 text-sm ${isExpired ? 'text-red-400' : 'text-slate-200'}`} data-testid="lic-expiry">{fmtDate(info.expires_at)}</div>
+            <div>
+              <div className="text-slate-500 text-[10px] uppercase tracking-wider">Platform</div>
+              <div className="text-slate-300 font-mono mt-0.5">{info.pc_info?.platform || '—'}</div>
             </div>
-          </div>
-        </div>
-
-        {/* Machine Info */}
-        <div className="p-3 rounded-lg bg-slate-900/40 border border-slate-700">
-          <div className="flex items-center gap-2 mb-2">
-            <Monitor className="w-4 h-4 text-slate-500" />
-            <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">This Device</div>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-            <div><div className="text-slate-500 text-[10px]">Hostname</div><div className="text-slate-300 font-mono" data-testid="lic-hostname">{info.pc_info?.hostname || '—'}</div></div>
-            <div><div className="text-slate-500 text-[10px]">Platform</div><div className="text-slate-300 font-mono">{info.pc_info?.platform || '—'}</div></div>
-            <div><div className="text-slate-500 text-[10px]">App Version</div><div className="text-slate-300 font-mono">v{info.pc_info?.app_version || '—'}</div></div>
-            <div><div className="text-slate-500 text-[10px]">Fingerprint</div><div className="text-slate-300 font-mono" title={info.machine_fingerprint}>{info.machine_fingerprint?.slice(0, 12)}…</div></div>
+            <div>
+              <div className="text-slate-500 text-[10px] uppercase tracking-wider">App Version</div>
+              <div className="text-slate-300 font-mono mt-0.5">v{info.pc_info?.app_version || '—'}</div>
+            </div>
+            <div>
+              <div className="text-slate-500 text-[10px] uppercase tracking-wider">Fingerprint</div>
+              <div className="text-slate-300 font-mono mt-0.5 truncate" title={info.machine_fingerprint}>{info.machine_fingerprint?.slice(0, 10)}…</div>
+            </div>
           </div>
         </div>
 
