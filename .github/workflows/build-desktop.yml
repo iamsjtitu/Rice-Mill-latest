@@ -57,7 +57,10 @@ jobs:
         if: steps.check_release.outputs.EXISTS == 'false'
         working-directory: frontend
         env:
-          REACT_APP_BACKEND_URL: http://127.0.0.1:9876
+          # Empty = use relative URLs (/api/...). Works for BOTH Electron direct access
+          # AND remote access via Cloudflare tunnel (mill.9x.design). Absolute 127.0.0.1
+          # breaks remote browser access because 127.0.0.1 = client's own device.
+          REACT_APP_BACKEND_URL: ''
           CI: false
         run: npx craco build
 

@@ -76,7 +76,29 @@ export default function LicenseTab() {
               placeholder="9X-XXXX-XXXX-XXXX-XXXX"
               className="w-full px-3 py-2 rounded-md bg-slate-900/60 border border-slate-700 text-slate-200 text-sm font-mono text-center tracking-wider focus:outline-none focus:border-purple-500"
               value={info.repair_key || ''}
-              onChange={(e) => setInfo({ ...info, repair_key: e.target.value.toUpperCase() })}
+              onFocus={(e) => { if (!info.repair_key) { setInfo({ ...info, repair_key: '9X-' }); setTimeout(() => e.target.setSelectionRange(3, 3), 0); } }}
+              onChange={(e) => {
+                // Auto-format: strip non-alphanumeric, force uppercase, re-insert dashes every 4 chars after 9X
+                let clean = String(e.target.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+                if (!clean.startsWith('9X')) clean = '9X' + clean;
+                clean = clean.slice(0, 18);
+                const body = clean.slice(2);
+                const groups = [];
+                for (let i = 0; i < body.length; i += 4) groups.push(body.slice(i, i + 4));
+                const formatted = ['9X', ...groups].filter(Boolean).join('-');
+                setInfo({ ...info, repair_key: formatted });
+              }}
+              onPaste={(e) => {
+                e.preventDefault();
+                const text = (e.clipboardData || window.clipboardData).getData('text');
+                let clean = String(text || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+                if (!clean.startsWith('9X')) clean = '9X' + clean;
+                clean = clean.slice(0, 18);
+                const body = clean.slice(2);
+                const groups = [];
+                for (let i = 0; i < body.length; i += 4) groups.push(body.slice(i, i + 4));
+                setInfo({ ...info, repair_key: ['9X', ...groups].filter(Boolean).join('-') });
+              }}
               data-testid="license-repair-input"
             />
             <Button
