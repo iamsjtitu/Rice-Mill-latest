@@ -161,9 +161,41 @@
 
     const KEY_PATTERN = /^9X-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
 
+    // Auto-format helper: normalize user input into the canonical 9X-XXXX-XXXX-XXXX-XXXX shape.
+    // Strips everything non-alphanumeric, forces uppercase, prepends 9X if missing, and
+    // re-inserts dashes so the user only has to type 16 real characters.
+    function formatLicenseKey(raw) {
+      let clean = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      // If user hasn't typed 9X yet, prepend it automatically
+      if (!clean.startsWith('9X')) clean = '9X' + clean;
+      // Keep only 18 chars total: 9X + 16 data chars
+      clean = clean.slice(0, 18);
+      const prefix = '9X';
+      const body = clean.slice(2); // up to 16 chars
+      // Group body into chunks of 4
+      const groups = [];
+      for (let i = 0; i < body.length; i += 4) groups.push(body.slice(i, i + 4));
+      return [prefix, ...groups].filter(Boolean).join('-');
+    }
+
+    // Pre-fill the "9X-" prefix so users don't have to type it
+    if (!input.value) input.value = '9X-';
+
+    input.addEventListener('focus', () => {
+      // If field is empty when focused, seed with prefix
+      if (!input.value || input.value.length < 3) input.value = '9X-';
+      // Place caret at end
+      setTimeout(() => input.setSelectionRange(input.value.length, input.value.length), 0);
+    });
+
     input.addEventListener('input', (e) => {
-      let val = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
-      e.target.value = val;
+      const formatted = formatLicenseKey(e.target.value);
+      if (e.target.value !== formatted) {
+        e.target.value = formatted;
+        // Keep caret at end after auto-format (simple + reliable UX)
+        setTimeout(() => e.target.setSelectionRange(formatted.length, formatted.length), 0);
+      }
+      const val = formatted;
       // Reset preview when user edits
       preview.style.display = 'none';
       statusMsg.textContent = '';
@@ -190,6 +222,14 @@
           } catch (e2) { /* silent — user will see error on Activate */ }
         }, 500);
       }
+    });
+
+    // Support paste of the whole key (with or without dashes)
+    input.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      input.value = formatLicenseKey(text);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
     input.focus();
