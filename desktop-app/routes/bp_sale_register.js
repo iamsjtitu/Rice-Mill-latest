@@ -91,6 +91,59 @@ module.exports = function(database) {
     res.json(sales);
   });
 
+  /**
+   * Calculate amount/tax/total based on billing mode.
+   *
+   * REGULAR (data.split_billing !== true):
+   *   amount = net_weight × rate (full weight taxed)
+   *   tax = amount × gst%
+   *   total = amount + tax
+   *
+   * SPLIT BILLING (data.split_billing === true):
+   *   User provides: billed_weight_kg (pakka, GST applies) + kaccha_weight_kg (no GST)
+   *   net_weight_kg = billed + kaccha (physical dispatch total)
+   *   billed_amount = billed_weight × rate   ← only this is GST-taxable
+   *   kaccha_amount = kaccha_weight × rate   ← non-taxable, cash slip
+   *   tax = billed_amount × gst%
+   *   total = billed_amount + tax + kaccha_amount  (full receivable)
+   *   amount field stores billed_amount for GST register compatibility
+   */
+  function computeAmountsAndTax(data) {
+    const rate = parseFloat(data.rate_per_qtl || 0);
+    const isSplit = !!data.split_billing;
+
+    if (isSplit) {
+      const billedKg = parseFloat(data.billed_weight_kg || 0);
+      const kacchaKg = parseFloat(data.kaccha_weight_kg || 0);
+      const billedQtl = +(billedKg / 100).toFixed(4);
+      const kacchaQtl = +(kacchaKg / 100).toFixed(4);
+      const billedAmt = +(billedQtl * rate).toFixed(2);
+      const kacchaAmt = +(kacchaQtl * rate).toFixed(2);
+      data.net_weight_kg = +(billedKg + kacchaKg).toFixed(3); // sum for physical dispatch
+      data.net_weight_qtl = +(billedQtl + kacchaQtl).toFixed(4);
+      data.billed_weight_qtl = billedQtl;
+      data.kaccha_weight_qtl = kacchaQtl;
+      data.billed_amount = billedAmt;
+      data.kaccha_amount = kacchaAmt;
+      data.amount = billedAmt; // GST-taxable portion (field kept same name for register compatibility)
+      const taxAmt = data.gst_percent ? +(billedAmt * parseFloat(data.gst_percent || 0) / 100).toFixed(2) : 0;
+      data.tax_amount = taxAmt;
+      data.total = +(billedAmt + taxAmt + kacchaAmt).toFixed(2);
+    } else {
+      const nw = parseFloat(data.net_weight_kg || 0);
+      const nwQtl = +(nw / 100).toFixed(4);
+      const amount = +(nwQtl * rate).toFixed(2);
+      data.net_weight_qtl = nwQtl;
+      data.amount = amount;
+      // Clear split fields if toggled off
+      data.billed_weight_kg = 0; data.billed_weight_qtl = 0; data.billed_amount = 0;
+      data.kaccha_weight_kg = 0; data.kaccha_weight_qtl = 0; data.kaccha_amount = 0;
+      const taxAmt = data.gst_percent ? +(amount * parseFloat(data.gst_percent || 0) / 100).toFixed(2) : 0;
+      data.tax_amount = taxAmt;
+      data.total = +(amount + taxAmt).toFixed(2);
+    }
+  }
+
   router.post('/api/bp-sale-register', (req, res) => {
     ensure();
     const data = { ...req.body };
@@ -99,17 +152,7 @@ module.exports = function(database) {
     data.updated_at = data.created_at;
     data.created_by = req.query.username || '';
 
-    const nw = parseFloat(data.net_weight_kg || 0);
-    const rate = parseFloat(data.rate_per_qtl || 0);
-    const nwQtl = +(nw / 100).toFixed(4);
-    const amount = +(nwQtl * rate).toFixed(2);
-    data.net_weight_qtl = nwQtl;
-    data.amount = amount;
-
-    let taxAmt = 0;
-    if (data.gst_percent) { taxAmt = +(amount * parseFloat(data.gst_percent || 0) / 100).toFixed(2); }
-    data.tax_amount = taxAmt;
-    data.total = +(amount + taxAmt).toFixed(2);
+    computeAmountsAndTax(data);
 
     const cash = parseFloat(data.cash_paid || 0);
     const diesel = parseFloat(data.diesel_paid || 0);
@@ -135,17 +178,7 @@ module.exports = function(database) {
     data.updated_at = new Date().toISOString();
     data.updated_by = req.query.username || '';
 
-    const nw = parseFloat(data.net_weight_kg || 0);
-    const rate = parseFloat(data.rate_per_qtl || 0);
-    const nwQtl = +(nw / 100).toFixed(4);
-    const amount = +(nwQtl * rate).toFixed(2);
-    data.net_weight_qtl = nwQtl;
-    data.amount = amount;
-
-    let taxAmt = 0;
-    if (data.gst_percent) { taxAmt = +(amount * parseFloat(data.gst_percent || 0) / 100).toFixed(2); }
-    data.tax_amount = taxAmt;
-    data.total = +(amount + taxAmt).toFixed(2);
+    computeAmountsAndTax(data);
 
     const cash = parseFloat(data.cash_paid || 0);
     const diesel = parseFloat(data.diesel_paid || 0);

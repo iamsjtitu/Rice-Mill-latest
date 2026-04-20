@@ -39,6 +39,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
     bill_from: "", party_name: "", destination: "",
     net_weight_kg: "", bags: "", rate_per_qtl: "",
     gst_type: "none", gst_percent: "",
+    // Split billing (Pakka + Kaccha single dispatch)
+    split_billing: false, billed_weight_kg: "", kaccha_weight_kg: "",
     cash_paid: "", diesel_paid: "", advance: "", remark: "",
     product, kms_year: filters.kms_year || "", season: filters.season || "",
   };
@@ -111,14 +113,23 @@ export default function ByProductSaleRegister({ filters, user, product }) {
     } finally { setRstLoading(false); }
   };
 
-  // Calculations
-  const nwKg = parseFloat(form.net_weight_kg) || 0;
-  const nwQtl = nwKg / 100;
+  // Calculations (branches on split_billing)
   const rate = parseFloat(form.rate_per_qtl) || 0;
-  const amount = Math.round(nwQtl * rate * 100) / 100;
+  const isSplit = !!form.split_billing;
+  const billedKg = parseFloat(form.billed_weight_kg) || 0;
+  const kacchaKg = parseFloat(form.kaccha_weight_kg) || 0;
+  const nwKg = isSplit ? (billedKg + kacchaKg) : (parseFloat(form.net_weight_kg) || 0);
+  const nwQtl = nwKg / 100;
+  const billedQtl = billedKg / 100;
+  const kacchaQtl = kacchaKg / 100;
+  const billedAmount = Math.round(billedQtl * rate * 100) / 100;
+  const kacchaAmount = Math.round(kacchaQtl * rate * 100) / 100;
+  const amount = isSplit ? billedAmount : Math.round(nwQtl * rate * 100) / 100; // GST-taxable portion
   const gstPct = form.gst_type !== "none" ? (parseFloat(form.gst_percent) || 0) : 0;
   const taxAmt = Math.round(amount * gstPct / 100 * 100) / 100;
-  const total = Math.round((amount + taxAmt) * 100) / 100;
+  const total = isSplit
+    ? Math.round((billedAmount + taxAmt + kacchaAmount) * 100) / 100
+    : Math.round((amount + taxAmt) * 100) / 100;
   const cash = parseFloat(form.cash_paid) || 0;
   const diesel = parseFloat(form.diesel_paid) || 0;
   const advance = parseFloat(form.advance) || 0;
@@ -144,6 +155,9 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       net_weight_kg: s.net_weight_kg ? String(s.net_weight_kg) : "",
       bags: s.bags ? String(s.bags) : "", rate_per_qtl: s.rate_per_qtl ? String(s.rate_per_qtl) : "",
       gst_type: s.gst_type || "none", gst_percent: s.gst_percent ? String(s.gst_percent) : "",
+      split_billing: !!s.split_billing,
+      billed_weight_kg: s.billed_weight_kg ? String(s.billed_weight_kg) : "",
+      kaccha_weight_kg: s.kaccha_weight_kg ? String(s.kaccha_weight_kg) : "",
       cash_paid: s.cash_paid ? String(s.cash_paid) : "", diesel_paid: s.diesel_paid ? String(s.diesel_paid) : "",
       advance: s.advance ? String(s.advance) : "", remark: s.remark || "",
       product: s.product || product, kms_year: s.kms_year || "", season: s.season || "",
@@ -154,8 +168,21 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.party_name?.trim()) { toast.error("Party Name daalen"); return; }
+    if (form.split_billing) {
+      if (billedKg <= 0 && kacchaKg <= 0) { toast.error("Pakka ya Kaccha weight daalen"); return; }
+    } else {
+      if (nwKg <= 0) { toast.error("Net weight daalen"); return; }
+    }
     try {
-      const payload = { ...form, net_weight_kg: nwKg, rate_per_qtl: rate, bags: parseInt(form.bags) || 0 };
+      const payload = {
+        ...form,
+        net_weight_kg: nwKg,
+        rate_per_qtl: rate,
+        bags: parseInt(form.bags) || 0,
+        split_billing: !!form.split_billing,
+        billed_weight_kg: form.split_billing ? billedKg : 0,
+        kaccha_weight_kg: form.split_billing ? kacchaKg : 0,
+      };
       if (editingId) {
         await axios.put(`${API}/bp-sale-register/${editingId}?username=${user.username}&role=${user.role}`, payload);
         toast.success("Updated!");
@@ -372,7 +399,10 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     <TableCell className="text-amber-400 text-[10px] px-2 font-medium">{s.rst_no}</TableCell>
                     <TableCell className="text-slate-300 text-[10px] px-2 whitespace-nowrap">{s.vehicle_no}</TableCell>
                     <TableCell className="text-slate-400 text-[10px] px-2 whitespace-nowrap truncate max-w-[90px]">{s.bill_from}</TableCell>
-                    <TableCell className="text-white text-[10px] px-2 font-medium whitespace-nowrap">{s.party_name}</TableCell>
+                    <TableCell className="text-white text-[10px] px-2 font-medium whitespace-nowrap">
+                      {s.party_name}
+                      {s.split_billing && <span className="ml-1 text-[9px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold" title={`Pakka: ${(s.billed_weight_kg||0)}kg · Kaccha: ${(s.kaccha_weight_kg||0)}kg`}>SPLIT</span>}
+                    </TableCell>
                     <TableCell className="text-slate-300 text-[10px] px-2 whitespace-nowrap">{s.destination}</TableCell>
                     <TableCell className="text-blue-300 text-[10px] px-2 text-right">{s.net_weight_kg}</TableCell>
                     <TableCell className="text-slate-300 text-[10px] px-2 text-right">{s.bags}</TableCell>
@@ -432,8 +462,18 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                 {viewSale.rate_per_qtl > 0 && <div><span className="text-slate-400 text-xs">Rate/Q:</span> <span className="text-white">{viewSale.rate_per_qtl}</span></div>}
               </div>
               <div className="border-t border-slate-600 pt-2 space-y-1">
-                {viewSale.amount > 0 && <div className="flex justify-between"><span className="text-slate-400">Amount</span><span className="text-emerald-400">{(viewSale.amount || 0).toLocaleString()}</span></div>}
-                {viewSale.tax_amount > 0 && <div className="flex justify-between"><span className="text-slate-400">Tax ({viewSale.gst_percent || 0}%)</span><span className="text-orange-400">{(viewSale.tax_amount || 0).toLocaleString()}</span></div>}
+                {viewSale.split_billing ? (
+                  <>
+                    <div className="flex justify-between"><span className="text-emerald-400 text-xs">Pakka ({((viewSale.billed_weight_kg || 0)/100).toFixed(2)} Q × {viewSale.rate_per_qtl})</span><span className="text-emerald-400 font-bold">₹{(viewSale.billed_amount || 0).toLocaleString('en-IN')}</span></div>
+                    {viewSale.tax_amount > 0 && <div className="flex justify-between"><span className="text-slate-400 text-xs">GST ({viewSale.gst_percent || 0}% on Pakka)</span><span className="text-orange-400">₹{(viewSale.tax_amount || 0).toLocaleString('en-IN')}</span></div>}
+                    <div className="flex justify-between"><span className="text-amber-400 text-xs">Kaccha ({((viewSale.kaccha_weight_kg || 0)/100).toFixed(2)} Q × {viewSale.rate_per_qtl})</span><span className="text-amber-400 font-bold">₹{(viewSale.kaccha_amount || 0).toLocaleString('en-IN')}</span></div>
+                  </>
+                ) : (
+                  <>
+                    {viewSale.amount > 0 && <div className="flex justify-between"><span className="text-slate-400">Amount</span><span className="text-emerald-400">{(viewSale.amount || 0).toLocaleString()}</span></div>}
+                    {viewSale.tax_amount > 0 && <div className="flex justify-between"><span className="text-slate-400">Tax ({viewSale.gst_percent || 0}%)</span><span className="text-orange-400">{(viewSale.tax_amount || 0).toLocaleString()}</span></div>}
+                  </>
+                )}
                 <div className="flex justify-between font-bold"><span className="text-white">Total</span><span className="text-emerald-400 text-base">{(viewSale.total || 0).toLocaleString()}</span></div>
               </div>
               <div className="border-t border-slate-600 pt-2 grid grid-cols-2 gap-x-4 gap-y-1">
@@ -530,34 +570,121 @@ export default function ByProductSaleRegister({ filters, user, product }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <Label className="text-[10px] text-slate-400">N/W (Kg) {stockInfo && <span className={`font-bold ${(effectiveAvailQtl - nwQtl) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((effectiveAvailQtl - nwQtl) * 100) / 100} Qtl)</span>}</Label>
-                <Input type="number" step="0.01" value={form.net_weight_kg}
-                  onChange={e => setForm(p => ({ ...p, net_weight_kg: e.target.value }))}
-                  className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-nw" />
-                {nwKg > 0 && <p className="text-[9px] text-slate-500 mt-0.5">= {nwQtl.toFixed(2)} Qtl</p>}
-                {stockInfo && nwQtl > effectiveAvailQtl && <p className="text-red-400 text-[9px] mt-0.5">Stock se zyada!</p>}
-              </div>
-              <div>
-                <Label className="text-[10px] text-slate-400">Bags</Label>
-                <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
-                  className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-bags" />
-              </div>
-              <div>
-                <Label className="text-[10px] text-slate-400">Rate (per Qtl)</Label>
-                <Input type="number" step="0.01" value={form.rate_per_qtl}
-                  onChange={e => setForm(p => ({ ...p, rate_per_qtl: e.target.value }))}
-                  className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-rate" />
+            {/* Split billing toggle */}
+            <div className="flex items-center justify-between p-2 rounded border border-slate-600 bg-slate-700/40">
+              <div className="flex-1">
+                <Label className="text-[11px] text-slate-200 font-medium flex items-center gap-2">
+                  <input type="checkbox" checked={!!form.split_billing}
+                    onChange={e => setForm(p => ({ ...p, split_billing: e.target.checked }))}
+                    className="w-4 h-4 accent-amber-500" data-testid="bp-split-toggle" />
+                  Split Billing (Pakka + Kaccha)
+                </Label>
+                <p className="text-[10px] text-slate-500 ml-6">Ek dispatch mein kuch maal bill pe, kuch slip pe — GST sirf billed portion pe lagega</p>
               </div>
             </div>
 
+            {!isSplit && (
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-[10px] text-slate-400">N/W (Kg) {stockInfo && <span className={`font-bold ${(effectiveAvailQtl - nwQtl) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((effectiveAvailQtl - nwQtl) * 100) / 100} Qtl)</span>}</Label>
+                  <Input type="number" step="0.01" value={form.net_weight_kg}
+                    onChange={e => setForm(p => ({ ...p, net_weight_kg: e.target.value }))}
+                    className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-nw" />
+                  {nwKg > 0 && <p className="text-[9px] text-slate-500 mt-0.5">= {nwQtl.toFixed(2)} Qtl</p>}
+                  {stockInfo && nwQtl > effectiveAvailQtl && <p className="text-red-400 text-[9px] mt-0.5">Stock se zyada!</p>}
+                </div>
+                <div>
+                  <Label className="text-[10px] text-slate-400">Bags</Label>
+                  <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
+                    className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-bags" />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-slate-400">Rate (per Qtl)</Label>
+                  <Input type="number" step="0.01" value={form.rate_per_qtl}
+                    onChange={e => setForm(p => ({ ...p, rate_per_qtl: e.target.value }))}
+                    className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-rate" />
+                </div>
+              </div>
+            )}
+
+            {isSplit && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-3 gap-3 p-2 rounded bg-emerald-900/20 border border-emerald-500/30">
+                  <div className="col-span-3">
+                    <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Pakka (GST Bill)</p>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-slate-400">Billed Weight (Kg)</Label>
+                    <Input type="number" step="0.01" value={form.billed_weight_kg}
+                      onChange={e => setForm(p => ({ ...p, billed_weight_kg: e.target.value }))}
+                      className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-billed-kg" />
+                    {billedKg > 0 && <p className="text-[9px] text-slate-500 mt-0.5">= {billedQtl.toFixed(2)} Qtl</p>}
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-slate-400">Rate (per Qtl)</Label>
+                    <Input type="number" step="0.01" value={form.rate_per_qtl}
+                      onChange={e => setForm(p => ({ ...p, rate_per_qtl: e.target.value }))}
+                      className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-rate" />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-slate-400">Billed Amount</Label>
+                    <div className="h-8 px-2 rounded bg-slate-900/60 border border-slate-700 flex items-center text-xs text-emerald-300 font-mono" data-testid="bp-billed-amount">
+                      ₹{billedAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 p-2 rounded bg-amber-900/20 border border-amber-500/30">
+                  <div className="col-span-3">
+                    <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Kaccha (Slip — No GST)</p>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-slate-400">Kaccha Weight (Kg)</Label>
+                    <Input type="number" step="0.01" value={form.kaccha_weight_kg}
+                      onChange={e => setForm(p => ({ ...p, kaccha_weight_kg: e.target.value }))}
+                      className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-kaccha-kg" />
+                    {kacchaKg > 0 && <p className="text-[9px] text-slate-500 mt-0.5">= {kacchaQtl.toFixed(2)} Qtl</p>}
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-slate-400">Bags (total)</Label>
+                    <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
+                      className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-bags" />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-slate-400">Kaccha Amount</Label>
+                    <div className="h-8 px-2 rounded bg-slate-900/60 border border-slate-700 flex items-center text-xs text-amber-300 font-mono" data-testid="bp-kaccha-amount">
+                      ₹{kacchaAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between px-2 py-1.5 rounded bg-slate-700/50 text-[11px]">
+                  <span className="text-slate-400">Total Physical Dispatch:</span>
+                  <span className={`font-bold ${stockInfo && nwQtl > effectiveAvailQtl ? 'text-red-400' : 'text-blue-300'}`}>
+                    {nwKg.toFixed(2)} Kg = {nwQtl.toFixed(2)} Qtl
+                    {stockInfo && <span className="text-slate-500 ml-2">(Stock: {Math.round((effectiveAvailQtl - nwQtl) * 100) / 100} Qtl remaining)</span>}
+                  </span>
+                </div>
+                {stockInfo && nwQtl > effectiveAvailQtl && <p className="text-red-400 text-[10px] text-right">⚠ Physical dispatch stock se zyada hai</p>}
+              </div>
+            )}
+
             {/* Amount preview */}
-            {amount > 0 && (
+            {total > 0 && (
               <div className="bg-slate-700/50 rounded p-2 text-xs space-y-1">
-                <div className="flex justify-between"><span className="text-slate-400">Amount ({nwQtl.toFixed(2)} Q x {rate})</span><span className="text-emerald-400 font-bold">{amount.toLocaleString()}</span></div>
-                {taxAmt > 0 && <div className="flex justify-between"><span className="text-slate-400">Tax ({gstPct}%)</span><span className="text-orange-400">{taxAmt.toLocaleString()}</span></div>}
-                <div className="flex justify-between border-t border-slate-600 pt-1"><span className="text-white font-bold">Total</span><span className="text-emerald-400 font-bold text-sm">{total.toLocaleString()}</span></div>
+                {isSplit ? (
+                  <>
+                    <div className="flex justify-between"><span className="text-slate-400">Pakka Amount ({billedQtl.toFixed(2)} Q × {rate})</span><span className="text-emerald-400 font-bold">₹{billedAmount.toLocaleString('en-IN')}</span></div>
+                    {taxAmt > 0 && <div className="flex justify-between"><span className="text-slate-400">GST ({gstPct}% on Pakka)</span><span className="text-orange-400">₹{taxAmt.toLocaleString('en-IN')}</span></div>}
+                    <div className="flex justify-between"><span className="text-slate-400">Kaccha Amount ({kacchaQtl.toFixed(2)} Q × {rate})</span><span className="text-amber-400 font-bold">₹{kacchaAmount.toLocaleString('en-IN')}</span></div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between"><span className="text-slate-400">Amount ({nwQtl.toFixed(2)} Q × {rate})</span><span className="text-emerald-400 font-bold">₹{amount.toLocaleString('en-IN')}</span></div>
+                    {taxAmt > 0 && <div className="flex justify-between"><span className="text-slate-400">Tax ({gstPct}%)</span><span className="text-orange-400">₹{taxAmt.toLocaleString('en-IN')}</span></div>}
+                  </>
+                )}
+                <div className="flex justify-between border-t border-slate-600 pt-1"><span className="text-white font-bold">Total Receivable</span><span className="text-emerald-400 font-bold text-sm">₹{total.toLocaleString('en-IN')}</span></div>
               </div>
             )}
 

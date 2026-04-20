@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.27.0",
+    date: "Feb 2026",
+    title: "v104.27.0 - Split Billing (Pakka + Kaccha)",
+    items: [
+      { type: "new", text: "🧾 By-Product Sale Register mein naya 'Split Billing' toggle — ek dispatch mein kuch maal GST bill pe (Pakka) aur kuch slip pe (Kaccha) handle karo single entry se" },
+      { type: "new", text: "💰 Tax automatic calculation — GST sirf Pakka portion pe lagegi, Kaccha pe nahi. Total receivable = Pakka + Tax + Kaccha" },
+      { type: "new", text: "📦 Stock, GST return, Cashbook, Party ledger sab balance automatic match — ek hi physical dispatch count hota hai" },
+      { type: "new", text: "🏷️ Sale Register row pe 'SPLIT' badge dikhega when enabled" },
+      { type: "note", text: "Regular (non-split) entries ka behavior 100% same — kuch bhi nahi badla existing dispatches ke liye" },
+    ],
+  },
+  {
     version: "104.26.4",
     date: "Feb 2026",
     title: "v104.26.4 - Rebuild (includes all v104.26.x fixes)",
