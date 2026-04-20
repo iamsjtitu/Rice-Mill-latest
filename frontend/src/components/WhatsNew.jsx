@@ -7,6 +7,20 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.26.4",
+    date: "Feb 2026",
+    title: "v104.26.4 - Rebuild (includes all v104.26.x fixes)",
+    items: [
+      { type: "new", text: "🌐 Cloud Access section in Settings → License tab (one-click cloudflared tunnel setup)" },
+      { type: "new", text: "⚡ Activation screen 9X- prefix + auto-dash insertion" },
+      { type: "new", text: "📋 Paste smart-format (any format → 9X-XXXX-XXXX-XXXX-XXXX)" },
+      { type: "fix", text: "🎨 Settings tabs overflow fix (13 tabs wrap cleanly)" },
+      { type: "fix", text: "🎨 License tab light-theme compatibility" },
+      { type: "fix", text: "🔥 electron-builder files[] mein license-manager.js + cloudflared-manager.js + activation-ui/** included" },
+      { type: "fix", text: "🔢 APP_VERSION constant ab package.json se sync" },
+    ],
+  },
+  {
     version: "104.26.3",
     date: "Feb 2026",
     title: "v104.26.3 - Cloud Access + Light Theme Polish",
