@@ -202,7 +202,13 @@ export default function LicenseTab() {
             </div>
             <div>
               <div className="text-slate-500 text-[10px] uppercase tracking-wider">Platform</div>
-              <div className="text-slate-300 font-mono mt-0.5">{info.pc_info?.platform || '—'}</div>
+              <div className="text-slate-300 font-mono mt-0.5">{(() => {
+                const p = (info.pc_info?.platform || '').toLowerCase();
+                if (p === 'win32' || p === 'win64' || p.startsWith('win')) return 'Windows';
+                if (p === 'darwin') return 'macOS';
+                if (p === 'linux') return 'Linux';
+                return info.pc_info?.platform || '—';
+              })()}</div>
             </div>
             <div>
               <div className="text-slate-500 text-[10px] uppercase tracking-wider">App Version</div>
