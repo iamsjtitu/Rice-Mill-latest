@@ -69,7 +69,41 @@ export default function LicenseTab() {
         <CardContent className="p-6 text-center">
           <CircleAlert className="w-10 h-10 mx-auto text-amber-500 mb-3" />
           <p className="text-slate-300 font-semibold text-sm">License not activated on this device</p>
-          <p className="text-slate-500 text-xs mt-1">Restart the app to see the activation screen.</p>
+          <p className="text-slate-500 text-xs mt-1 mb-4">Cache not found. If you previously activated, click Repair to re-sync with the license server.</p>
+          <div className="max-w-sm mx-auto">
+            <input
+              type="text"
+              placeholder="9X-XXXX-XXXX-XXXX-XXXX"
+              className="w-full px-3 py-2 rounded-md bg-slate-900/60 border border-slate-700 text-slate-200 text-sm font-mono text-center tracking-wider focus:outline-none focus:border-purple-500"
+              value={info.repair_key || ''}
+              onChange={(e) => setInfo({ ...info, repair_key: e.target.value.toUpperCase() })}
+              data-testid="license-repair-input"
+            />
+            <Button
+              onClick={async () => {
+                if (!info.repair_key) { toast.error("Enter license key first"); return; }
+                setRefreshing(true);
+                try {
+                  const res = await axios.post(`${API}/license/repair`, { key: info.repair_key });
+                  if (res.data?.success) { toast.success("License repaired. Reloading..."); setTimeout(() => window.location.reload(), 1000); }
+                  else toast.error(res.data?.error || "Repair failed");
+                } catch (e) { toast.error(e.response?.data?.error || e.message); }
+                setRefreshing(false);
+              }}
+              disabled={refreshing}
+              className="mt-2 bg-purple-600 hover:bg-purple-700 h-8 text-xs w-full"
+              data-testid="license-repair-btn"
+            >
+              {refreshing ? <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> : null}
+              Repair / Re-activate License
+            </Button>
+          </div>
+          {info.debug && (
+            <details className="mt-4 text-left max-w-md mx-auto">
+              <summary className="text-[10px] text-slate-600 cursor-pointer hover:text-slate-400">Debug info</summary>
+              <pre className="text-[10px] text-slate-600 mt-2 overflow-x-auto">{JSON.stringify(info.debug, null, 2)}</pre>
+            </details>
+          )}
         </CardContent>
       </Card>
     );
