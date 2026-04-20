@@ -123,15 +123,9 @@ export const DCEntries = ({ filters, user }) => {
     const rst = parseInt((rstStr || '').toString().trim());
     if (!rst || isNaN(rst) || rst <= 0) return;
     try {
-      const res = await axios.get(`${API}/vehicle-weight/by-rst/${rst}`, { params: { kms_year: filters.kms_year || CURRENT_KMS } });
+      const res = await axios.get(`${API}/vehicle-weight/by-rst/${rst}`, { params: { kms_year: filters.kms_year || CURRENT_KMS, expected_context: 'sale' } });
       const vw = res?.data?.entry;
       if (!vw) return;
-      // Only Sale/Dispatch entries auto-fill
-      const tType = (vw.trans_type || '').toLowerCase();
-      if (!tType.includes('dispatch') && !tType.includes('sale')) {
-        toast.warning(`RST #${rst} is "${vw.trans_type || 'Unknown'}" — sale/dispatch type nahi hai`);
-        return;
-      }
       const netQtl = (parseFloat(vw.net_wt) || 0) / 100;  // kg → Qtl
       setDelForm(prev => {
         const newTrucks = prev.trucks.map((t, i) => i === truckIdx ? {
@@ -155,6 +149,7 @@ export const DCEntries = ({ filters, user }) => {
       toast.success(`RST #${rst} auto-filled`);
     } catch (e) {
       if (e.response?.status === 404) toast.error(`RST #${rst} not found in Vehicle Weight`);
+      else if (e.response?.status === 409) toast.error(e.response.data?.detail || `RST #${rst} Purchase ka hai — Sale me use nahi hoga`, { duration: 5000 });
       else toast.error('RST lookup failed');
     }
   };

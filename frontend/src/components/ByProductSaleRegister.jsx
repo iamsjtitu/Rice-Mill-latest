@@ -89,12 +89,13 @@ export default function ByProductSaleRegister({ filters, user, product }) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // RST auto-fetch from Vehicle Weight
+  // RST auto-fetch from Vehicle Weight — Sale context only
+  // Backend validates trans_type and returns 409 if RST belongs to Purchase
   const fetchRst = async (rstNo) => {
     if (!rstNo) return;
     setRstLoading(true);
     try {
-      const res = await axios.get(`${API}/vehicle-weight/by-rst/${rstNo}?kms_year=${filters.kms_year || ""}`);
+      const res = await axios.get(`${API}/vehicle-weight/by-rst/${rstNo}?kms_year=${filters.kms_year || ""}&expected_context=sale`);
       if (res.data?.entry) {
         const e = res.data.entry;
         setForm(p => ({
@@ -108,8 +109,14 @@ export default function ByProductSaleRegister({ filters, user, product }) {
         toast.success("RST data fetch ho gaya!");
       }
     } catch (e) {
-      if (e.response?.status === 404) toast.error("RST not found");
-      else logger.error(e);
+      if (e.response?.status === 409) {
+        // RST belongs to Purchase (or wrong context) — show clear warning, do NOT fill form
+        toast.error(e.response.data?.detail || "Ye RST Number Purchase ka hai", { duration: 5000 });
+      } else if (e.response?.status === 404) {
+        toast.error("RST not found");
+      } else {
+        logger.error(e);
+      }
     } finally { setRstLoading(false); }
   };
 

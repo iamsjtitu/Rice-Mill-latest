@@ -755,15 +755,36 @@ module.exports = function(database) {
   }));
 
   // GET /api/vehicle-weight/by-rst/:rst_no - Lookup by RST (used by Entries form auto-fill)
+  // Query params:
+  //   kms_year — optional financial year filter
+  //   expected_context — "sale" | "purchase" (optional). If provided and trans_type
+  //   does not match, returns 409 conflict so caller can warn the user instead of
+  //   silently pulling the wrong RST data.
   router.get('/api/vehicle-weight/by-rst/:rst_no', safeAsync(async (req, res) => {
     const rstNo = parseInt(req.params.rst_no);
     const kmsYear = req.query.kms_year || '';
+    const expected = (req.query.expected_context || '').toLowerCase();
     const weights = col('vehicle_weights');
-    let entry = kmsYear
+    const entry = kmsYear
       ? weights.find(w => w.rst_no === rstNo && w.kms_year === kmsYear)
       : weights.find(w => w.rst_no === rstNo);
     if (!entry) return res.status(404).json({ detail: 'RST not found in Vehicle Weight' });
-    res.json({ success: true, entry });
+
+    const tt = String(entry.trans_type || '').toLowerCase();
+    const isPurchase = tt.includes('receive') || tt.includes('purchase');
+    const isSale = tt.includes('issue') || tt.includes('sale');
+    const context = isPurchase ? 'purchase' : (isSale ? 'sale' : 'unknown');
+
+    if (expected && context !== 'unknown' && expected !== context) {
+      return res.status(409).json({
+        detail: `Ye RST Number ${context === 'purchase' ? 'Purchase' : 'Sale'} ka hai`,
+        actual_context: context,
+        expected_context: expected,
+        trans_type: entry.trans_type || '',
+        rst_no: rstNo,
+      });
+    }
+    res.json({ success: true, entry, context });
   }));
 
   router.get('/api/vehicle-weight/linked-rst', safeAsync(async (req, res) => {
