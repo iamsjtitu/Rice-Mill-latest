@@ -1,6 +1,6 @@
 {
   "name": "mill-entry-system",
-  "version": "104.26.0",
+  "version": "104.26.1",
   "description": "Mill Entry Management System - Desktop Application",
   "main": "main.js",
   "scripts": {
@@ -48,11 +48,14 @@
       "preload.js",
       "serial-handler.js",
       "sqlite-database.js",
+      "license-manager.js",
+      "cloudflared-manager.js",
       "routes/**/*",
       "utils/**/*",
       "shared/**/*",
       "fonts/**/*",
       "frontend-build/**/*",
+      "activation-ui/**/*",
       "package.json",
       "node_modules/**/*"
     ],
