@@ -7,6 +7,21 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.26.3",
+    date: "Feb 2026",
+    title: "v104.26.3 - Cloud Access + Light Theme Polish",
+    items: [
+      { type: "new", text: "🌐 Settings → License tab mein 'Cloud Access' section add — ek click mein tunnel auto-setup (cloudflared download + Windows service install + Cloudflare tunnel connect). URL format: your-mill.9x.design" },
+      { type: "new", text: "⚡ Activation screen pe 9X- prefix auto-fill + auto-dash insertion — customer ko sirf 16 characters type karne padte hain (pehle full 20 including hyphens)" },
+      { type: "new", text: "📋 License key paste smart-format — paste karo kisi bhi format mein, auto 9X-XXXX-XXXX-XXXX-XXXX ban jaayega" },
+      { type: "new", text: "🛡️ Pre-existing cloudflared detection — agar manually setup tha toh UI 'Pre-Configured' dikhata hai, accidentally overwrite nahi karta" },
+      { type: "fix", text: "🎨 Settings tabs overflow fix — 13 tabs ab wrap hote hain 2 lines mein, squish aur distortion khatam" },
+      { type: "fix", text: "🎨 License tab light-theme compatibility — cards ab white theme mein proper contrast aur shadow ke saath dikhte hain" },
+      { type: "fix", text: "🔥 electron-builder files[] mein license-manager.js, cloudflared-manager.js, activation-ui/** add — pichli v104.26.0/26.1 mein 'Cannot find module' crash fix" },
+      { type: "note", text: "Admin Dashboard (admin.9x.design) mein naya Cloudflare Tunnels section — API token paste karke auto-discover + enable" },
+    ],
+  },
+  {
     version: "104.25.0",
     date: "Feb 2026",
     title: "v104.25.0 - License Activation System (Desktop-app Enforcement)",
