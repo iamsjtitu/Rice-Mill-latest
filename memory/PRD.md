@@ -133,3 +133,20 @@
   - Extended `PUT/GET /api/admin/settings` with `suspend_on_expiry` + `suspend_after_heartbeat_days`
   - New notifier helpers: `notifySuspended(lic, reason)`, `notifyUnsuspended(lic)`
   - Deploy tarball: `https://paste.rs/1pFmE` (66 KB, MD5 `11135be596c8d0e1c2737b3964b9793e`)
+
+- **Central License Server — Delete License + Notification Log** (DONE, Feb 2026):
+  - **DELETE /api/admin/licenses/:id** — permanently remove license + cascade delete activations. Master license protected (403). Requires body `{confirm_key}` matching license key (400 otherwise). Audit trail (notifications) preserved after delete.
+  - **Delete UI**: dark red "Delete" button visible on every non-master license; modal with warning banner, key display (user-select:all for easy copy), input, confirm button disabled until typed key matches exactly.
+  - **Notification Log infrastructure**:
+    - New `data.notifications[]` table with FIFO cap 5000 + 90-day retention
+    - Every `sendMessage()` call auto-logs: `{license_id, license_key, event, phone, status, message_preview, response, error, sent_at}`
+    - All 6 notifyXxx helpers + test-whatsapp pass context for logging
+  - **New "Notifications" nav tab** (between Licenses and Settings):
+    - 4 stat cards: Total / Delivered / Failed / Skipped (color-coded)
+    - Filters: search (key/phone/text/error), event dropdown, status dropdown
+    - Table with colored event badges (activated/revoked/suspended/unsuspended/expiring/expired/test)
+    - Status chips: delivered (green) / failed (red) / skipped (amber)
+    - **Retry** button on failed/skipped rows → resend via same notifyXxx
+    - **Clear older than 30d** bulk-delete button
+  - New APIs: `GET /api/admin/notifications` (filters + totals) · `POST /api/admin/notifications/:id/retry` · `DELETE /api/admin/notifications?older_than_days=N`
+  - Deploy tarball: `https://paste.rs/vyUeV` (71 KB, MD5 `9b8236ba444f6ed897a50db98701f71d`)

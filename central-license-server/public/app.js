@@ -56,15 +56,18 @@ function switchSection(view) {
   const overTitle = {
     overview: ['OVERVIEW', 'Command Center'],
     licenses: ['LICENSES', 'All Customers'],
+    notifications: ['NOTIFICATIONS', 'WhatsApp Delivery Log'],
     settings: ['SETTINGS', 'Server Configuration']
   };
   const [over, title] = overTitle[view] || overTitle.overview;
   document.getElementById('page-overline').textContent = over;
   document.getElementById('page-title').textContent = title;
-  document.getElementById('overview-section').style.display = view === 'overview' ? 'block' : 'none';
-  document.getElementById('licenses-section').style.display = view === 'licenses' ? 'block' : 'none';
-  document.getElementById('settings-section').style.display = view === 'settings' ? 'block' : 'none';
+  document.getElementById('overview-section').style.display      = view === 'overview' ? 'block' : 'none';
+  document.getElementById('licenses-section').style.display      = view === 'licenses' ? 'block' : 'none';
+  document.getElementById('notifications-section').style.display = view === 'notifications' ? 'block' : 'none';
+  document.getElementById('settings-section').style.display      = view === 'settings' ? 'block' : 'none';
   if (view === 'settings') loadSettings();
+  if (view === 'notifications') loadNotifications();
 }
 
 // ========== Settings tabs ==========
@@ -221,6 +224,7 @@ function renderLicenses(rows) {
           ${r.status === 'active' && !r.is_master ? `<button class="btn btn-warn btn-sm" data-action="suspend" data-id="${r.id}" data-key="${escapeHtml(r.key)}" data-mill="${escapeHtml(r.mill_name)}">Suspend</button>` : ''}
           ${r.status === 'suspended' && !r.is_master ? `<button class="btn btn-success btn-sm" data-action="unsuspend" data-id="${r.id}">Restore</button>` : ''}
           ${r.status !== 'revoked' && !r.is_master ? `<button class="btn btn-danger btn-sm" data-action="revoke" data-id="${r.id}">Revoke</button>` : ''}
+          ${!r.is_master ? `<button class="btn btn-hard-danger btn-sm" data-action="delete" data-id="${r.id}" data-key="${escapeHtml(r.key)}" data-mill="${escapeHtml(r.mill_name)}" title="Permanently delete">Delete</button>` : ''}
         </div></td>
       </tr>`;
   }).join('');
@@ -323,6 +327,56 @@ document.getElementById('license-tbody').addEventListener('click', async (e) => 
     if (!confirm('Restore this license? Customer software will resume at next heartbeat and WhatsApp restoration message will be sent.')) return;
     try { await apiCall('POST', `/admin/licenses/${id}/unsuspend`); loadDashboard(); }
     catch (e2) { alert('Restore failed: ' + e2.message); }
+  } else if (action === 'delete') {
+    openDeleteModal(id, btn.dataset.key || '', btn.dataset.mill || '');
+  }
+});
+
+// ========== Delete modal ==========
+function openDeleteModal(licenseId, key, mill) {
+  const modal = document.getElementById('delete-modal');
+  const form = document.getElementById('delete-form');
+  const title = document.getElementById('delete-modal-title');
+  const keyDisplay = document.getElementById('delete-key-display');
+  const input = document.getElementById('delete-confirm-input');
+  const submitBtn = document.getElementById('delete-submit-btn');
+  const err = document.getElementById('delete-error');
+  form.dataset.licenseId = licenseId;
+  form.dataset.licenseKey = key;
+  title.textContent = mill ? `Delete ${mill}?` : `Delete ${key}?`;
+  keyDisplay.textContent = key;
+  input.value = '';
+  err.textContent = '';
+  submitBtn.disabled = true;
+  modal.style.display = 'flex';
+  setTimeout(() => input.focus(), 120);
+}
+
+document.getElementById('delete-confirm-input').addEventListener('input', (e) => {
+  const expected = document.getElementById('delete-form').dataset.licenseKey || '';
+  document.getElementById('delete-submit-btn').disabled = (e.target.value.trim().toUpperCase() !== expected.toUpperCase());
+});
+
+document.getElementById('delete-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const licenseId = form.dataset.licenseId;
+  const expectedKey = form.dataset.licenseKey;
+  const typed = document.getElementById('delete-confirm-input').value.trim().toUpperCase();
+  const err = document.getElementById('delete-error');
+  err.textContent = '';
+  if (typed !== expectedKey.toUpperCase()) { err.textContent = 'Key does not match.'; return; }
+  const btn = document.getElementById('delete-submit-btn');
+  const lab = btn.querySelector('.btn-label'); const orig = lab.textContent;
+  btn.disabled = true; lab.textContent = 'Deleting…';
+  try {
+    await apiCall('DELETE', `/admin/licenses/${licenseId}`, { confirm_key: expectedKey });
+    document.getElementById('delete-modal').style.display = 'none';
+    loadDashboard();
+  } catch (e2) {
+    err.textContent = e2.message || 'Delete failed';
+  } finally {
+    btn.disabled = false; lab.textContent = orig;
   }
 });
 
@@ -901,3 +955,114 @@ function showVersionToast(oldV, newV) {
     if (elapsed >= 60000) clearInterval(timer);
   }, 1000);
 }
+
+
+// ========== Notifications Log ==========
+const NOTIF_EVENT_LABELS = {
+  activated:   'Activated',
+  revoked:     'Revoked',
+  suspended:   'Suspended',
+  unsuspended: 'Restored',
+  expiring:    'Expiring',
+  expired:     'Expired',
+  test:        'Test',
+  custom:      'Custom',
+};
+
+async function loadNotifications() {
+  const tbody = document.getElementById('notif-tbody');
+  if (!tbody) return;
+  const q = document.getElementById('notif-search').value.trim();
+  const event = document.getElementById('notif-event-filter').value;
+  const status = document.getElementById('notif-status-filter').value;
+  const qp = new URLSearchParams();
+  if (q) qp.append('q', q);
+  if (event) qp.append('event', event);
+  if (status) qp.append('status', status);
+  qp.append('limit', '250');
+  try {
+    const r = await apiCall('GET', '/admin/notifications' + (qp.toString() ? '?' + qp.toString() : ''));
+    // Stats
+    const t = r.totals || {};
+    document.getElementById('notif-total').textContent     = t.total || 0;
+    document.getElementById('notif-delivered').textContent = t.delivered || 0;
+    document.getElementById('notif-failed').textContent    = t.failed || 0;
+    document.getElementById('notif-skipped').textContent   = t.skipped || 0;
+    // Rows
+    if (!r.rows.length) {
+      tbody.innerHTML = `<tr><td colspan="7" class="table-empty">${q || event || status ? 'No notifications match your filters.' : 'No notifications sent yet. Logs appear here when WhatsApp messages are dispatched.'}</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = r.rows.map(row => {
+      const t = fmtDT(row.sent_at);
+      const eventLab = NOTIF_EVENT_LABELS[row.event] || row.event;
+      const eventCls = `notif-event-${row.event}`;
+      const keyCell = row.license_key
+        ? `<div class="notif-key">${escapeHtml(row.license_key)}</div>`
+        : `<div class="notif-key" style="color:var(--text-3)">—</div>`;
+      const phoneCell = row.phone ? `+${escapeHtml(row.phone)}` : '<span style="color:var(--text-3)">—</span>';
+      const msgCell = row.status === 'failed' || row.status === 'skipped'
+        ? `<div class="notif-msg err" title="${escapeHtml(row.error || row.message_preview || '')}">${escapeHtml(row.error || row.message_preview || '—')}</div>`
+        : `<div class="notif-msg" title="${escapeHtml(row.message_preview || '')}">${escapeHtml(row.message_preview || '—')}</div>`;
+      const retryBtn = (row.status === 'failed' || row.status === 'skipped') && row.license_id && row.event !== 'test' && row.event !== 'custom'
+        ? `<button class="btn btn-ghost btn-sm" data-notif-action="retry" data-notif-id="${row.id}">↻ Retry</button>`
+        : '';
+      return `
+        <tr>
+          <td class="notif-time">${escapeHtml(t)}</td>
+          <td><span class="notif-event-badge ${eventCls}">${escapeHtml(eventLab)}</span></td>
+          <td>${keyCell}</td>
+          <td class="mono-cell" style="font-size:11px">${phoneCell}</td>
+          <td><span class="notif-status ${row.status}">${escapeHtml(row.status)}</span></td>
+          <td>${msgCell}</td>
+          <td style="text-align:right">${retryBtn}</td>
+        </tr>`;
+    }).join('');
+  } catch (e) {
+    if (/401|403|Unauthorized/i.test(e.message)) { logout(); return; }
+    tbody.innerHTML = `<tr><td colspan="7" class="table-empty">Error: ${escapeHtml(e.message)}</td></tr>`;
+  }
+}
+
+(function wireNotifications() {
+  const search = document.getElementById('notif-search');
+  const eventFilter = document.getElementById('notif-event-filter');
+  const statusFilter = document.getElementById('notif-status-filter');
+  const refreshBtn = document.getElementById('notif-refresh-btn');
+  const clearBtn = document.getElementById('notif-clear-btn');
+  const tbody = document.getElementById('notif-tbody');
+  if (!tbody) return;
+  let _t;
+  search.addEventListener('input', () => { clearTimeout(_t); _t = setTimeout(loadNotifications, 300); });
+  eventFilter.addEventListener('change', loadNotifications);
+  statusFilter.addEventListener('change', loadNotifications);
+  refreshBtn.addEventListener('click', loadNotifications);
+  clearBtn.addEventListener('click', async () => {
+    if (!confirm('Delete notification log entries older than 30 days? Recent logs will be kept.')) return;
+    try {
+      const r = await apiCall('DELETE', '/admin/notifications?older_than_days=30');
+      alert(`Deleted ${r.deleted} old log entries.`);
+      loadNotifications();
+    } catch (e) { alert('Clear failed: ' + e.message); }
+  });
+  tbody.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-notif-action]');
+    if (!btn) return;
+    const id = btn.dataset.notifId;
+    const action = btn.dataset.notifAction;
+    if (action === 'retry') {
+      const lab = btn.querySelector('.btn-label'); const orig = lab.textContent;
+      btn.disabled = true; lab.textContent = 'Retrying…';
+      try {
+        const r = await apiCall('POST', `/admin/notifications/${id}/retry`);
+        if (r.success) { alert('✓ Resent successfully'); }
+        else { alert('Retry failed: ' + ((r.result && (r.result.error || r.result.reason)) || 'unknown')); }
+        loadNotifications();
+      } catch (e2) {
+        alert('Retry failed: ' + e2.message);
+      } finally {
+        btn.disabled = false; lab.textContent = orig;
+      }
+    }
+  });
+})();

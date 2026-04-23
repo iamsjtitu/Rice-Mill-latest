@@ -62,5 +62,44 @@
     "update_branch": "main",
     "suspend_on_expiry": true,
     "suspend_after_heartbeat_days": 0
-  }
+  },
+  "notifications": [
+    {
+      "id": "a93c29ca-b1fe-477b-981f-bca4dcc56c6e",
+      "sent_at": "2026-04-23T10:56:45.920Z",
+      "license_id": "25795f1a-77cb-4676-8758-7e8627db20ca",
+      "license_key": "9X-PMFA-KC5Q-H4YG-47NQ",
+      "event": "activated",
+      "phone": "",
+      "status": "skipped",
+      "error": "no_phone",
+      "message_preview": ""
+    },
+    {
+      "id": "91ae51f0-83c0-4aee-b7aa-5a821d697640",
+      "sent_at": "2026-04-23T10:56:28.648Z",
+      "license_id": "9340bb21-1b21-4e00-b737-4793a6c8c8f0",
+      "license_key": "9X-9U4J-7XGB-BU8T-FV83",
+      "event": "unsuspended",
+      "phone": "919999999999",
+      "status": "skipped",
+      "message_preview": "*MillEntry License Restored* ✓\n\nAapka license wapas chalu kar diya gaya hai. Software agle heartbeat pe normal kaam karega.\n\nMill: TEST_Mill_Facility\nKey: 9X-9U4J-7XGB-BU8T-FV83\n\nDhanyavaad! — t2@host",
+      "response": null,
+      "error": "WhatsApp API key not configured",
+      "status_code": null
+    },
+    {
+      "id": "a6128c9a-edca-4858-8797-77da64e1e381",
+      "sent_at": "2026-04-23T10:56:27.614Z",
+      "license_id": "9340bb21-1b21-4e00-b737-4793a6c8c8f0",
+      "license_key": "9X-9U4J-7XGB-BU8T-FV83",
+      "event": "suspended",
+      "phone": "919999999999",
+      "status": "skipped",
+      "message_preview": "*MillEntry License Suspended* ⚠\n\nAapka license temporarily suspend kar diya gaya hai. Software next heartbeat pe kaam band kar dega.\n\nMill: TEST_Mill_Facility\nKey: 9X-9U4J-7XGB-BU8T-FV83\nReason: Test ",
+      "response": null,
+      "error": "WhatsApp API key not configured",
+      "status_code": null
+    }
+  ]
 }

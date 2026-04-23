@@ -177,6 +177,30 @@ router.post('/licenses/:id/unsuspend', (req, res) => {
   res.json({ success: true, license: lic });
 });
 
+// DELETE /api/admin/licenses/:id — permanently remove a license + its activations + notifications
+router.delete('/licenses/:id', (req, res) => {
+  const data = db.getData();
+  const idx = data.licenses.findIndex(l => l.id === req.params.id);
+  if (idx < 0) return res.status(404).json({ error: 'License not found' });
+  const lic = data.licenses[idx];
+  if (lic.is_master) return res.status(403).json({ error: 'Master license cannot be deleted' });
+
+  // Optional: require the license key in request body as a sanity check (prevents accidental deletes)
+  const confirmKey = String((req.body && req.body.confirm_key) || '').trim().toUpperCase();
+  if (!confirmKey || confirmKey !== lic.key) {
+    return res.status(400).json({ error: 'confirm_key must match the license key to delete' });
+  }
+
+  data.licenses.splice(idx, 1);
+  // Cascade: remove related activations
+  if (Array.isArray(data.activations)) {
+    data.activations = data.activations.filter(a => a.license_id !== lic.id);
+  }
+  // Do NOT wipe notification logs — they're audit trail and survive deletion (historical record).
+  db.saveImmediate();
+  res.json({ success: true, deleted: { id: lic.id, key: lic.key, mill_name: lic.mill_name } });
+});
+
 // POST /api/admin/licenses/:id/reset-machine — kick current active PC so customer can re-activate on new machine
 router.post('/licenses/:id/reset-machine', (req, res) => {
   const data = db.getData();
@@ -217,6 +241,84 @@ router.post('/licenses/:id/reset-notifications', (req, res) => {
   lic.notified_expired = null;
   db.saveImmediate();
   res.json({ success: true });
+});
+
+// ============ NOTIFICATIONS LOG ============
+
+// GET /api/admin/notifications?event=&status=&license=&limit=200
+router.get('/notifications', (req, res) => {
+  const data = db.getData();
+  const rows = Array.isArray(data.notifications) ? data.notifications : [];
+  const { event, status, license, q } = req.query;
+  const limit = Math.min(1000, Math.max(10, parseInt(req.query.limit, 10) || 200));
+  let filtered = rows;
+  if (event)   filtered = filtered.filter(r => r.event === event);
+  if (status)  filtered = filtered.filter(r => r.status === status);
+  if (license) {
+    const s = String(license).toUpperCase();
+    filtered = filtered.filter(r => (r.license_key || '').toUpperCase().includes(s) || r.license_id === license);
+  }
+  if (q) {
+    const s = String(q).toLowerCase();
+    filtered = filtered.filter(r =>
+      (r.license_key || '').toLowerCase().includes(s) ||
+      (r.phone || '').toLowerCase().includes(s) ||
+      (r.message_preview || '').toLowerCase().includes(s) ||
+      (r.error || '').toLowerCase().includes(s)
+    );
+  }
+  // Aggregate counts (total set, not just filtered page)
+  const totals = rows.reduce((acc, r) => {
+    acc.total++;
+    acc[r.status] = (acc[r.status] || 0) + 1;
+    return acc;
+  }, { total: 0 });
+  res.json({
+    rows: filtered.slice(0, limit),
+    count_returned: Math.min(filtered.length, limit),
+    count_matched: filtered.length,
+    totals,
+  });
+});
+
+// POST /api/admin/notifications/:id/retry — resend a failed/skipped notification using the same event + license
+router.post('/notifications/:id/retry', async (req, res) => {
+  const data = db.getData();
+  const row = (data.notifications || []).find(n => n.id === req.params.id);
+  if (!row) return res.status(404).json({ error: 'Notification not found' });
+  const lic = row.license_id ? data.licenses.find(l => l.id === row.license_id) : null;
+  if (!lic) return res.status(404).json({ error: 'License no longer exists — cannot retry' });
+  let r;
+  switch (row.event) {
+    case 'revoked':     r = await notifier.notifyRevoked(lic); break;
+    case 'expiring':    r = await notifier.notifyExpiringSoon(lic, 7); break;
+    case 'expired':     r = await notifier.notifyExpired(lic); break;
+    case 'activated':   r = await notifier.notifyActivated(lic); break;
+    case 'suspended':   r = await notifier.notifySuspended(lic, lic.suspension_reason || 'Retry'); break;
+    case 'unsuspended': r = await notifier.notifyUnsuspended(lic); break;
+    default:
+      return res.status(400).json({ error: `Event ${row.event} cannot be retried` });
+  }
+  res.json({ success: !!(r && r.success), result: r });
+});
+
+// DELETE /api/admin/notifications — clear entire log (with optional ?older_than_days=30)
+router.delete('/notifications', (req, res) => {
+  const data = db.getData();
+  if (!Array.isArray(data.notifications)) data.notifications = [];
+  const olderDays = parseInt(req.query.older_than_days, 10);
+  if (isFinite(olderDays) && olderDays > 0) {
+    const cutoff = Date.now() - olderDays * 24 * 60 * 60 * 1000;
+    const before = data.notifications.length;
+    data.notifications = data.notifications.filter(n => new Date(n.sent_at).getTime() >= cutoff);
+    db.saveImmediate();
+    return res.json({ success: true, deleted: before - data.notifications.length });
+  }
+  // Otherwise wipe everything
+  const before = data.notifications.length;
+  data.notifications = [];
+  db.saveImmediate();
+  res.json({ success: true, deleted: before });
 });
 
 // ============ SETTINGS (server-wide config) ============
@@ -322,7 +424,7 @@ router.post('/settings/test-whatsapp', async (req, res) => {
   const cleaned = notifier.extractPhone(phone);
   if (!cleaned) return res.status(400).json({ error: 'Invalid phone number' });
   const text = '*MillEntry License Server*\n\n✓ WhatsApp configuration test successful.\n\nYour admin dashboard is correctly connected to 360Messenger. Customer notifications will now be delivered automatically.';
-  const r = await notifier.sendMessage(cleaned, text);
+  const r = await notifier.sendMessage(cleaned, text, { event: 'test' });
   res.json({ success: !!(r && r.success), result: r, sent_to: cleaned });
 });
 

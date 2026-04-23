@@ -86,6 +86,9 @@
         <a class="nav-item" data-view="licenses">
           <span class="nav-dot"></span>Licenses
         </a>
+        <a class="nav-item" data-view="notifications">
+          <span class="nav-dot"></span>Notifications
+        </a>
         <a class="nav-item" data-view="settings">
           <span class="nav-dot"></span>Settings
         </a>
@@ -209,6 +212,57 @@
               </thead>
               <tbody id="license-tbody">
                 <tr><td colspan="10" class="table-empty">Loading licenses…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Notifications Log -->
+        <section id="notifications-section" class="section" style="display:none">
+          <div class="notif-stats">
+            <div class="notif-stat-card"><div class="notif-stat-value" id="notif-total">0</div><div class="notif-stat-label">Total Sent</div></div>
+            <div class="notif-stat-card ok"><div class="notif-stat-value" id="notif-delivered">0</div><div class="notif-stat-label">Delivered</div></div>
+            <div class="notif-stat-card fail"><div class="notif-stat-value" id="notif-failed">0</div><div class="notif-stat-label">Failed</div></div>
+            <div class="notif-stat-card warn"><div class="notif-stat-value" id="notif-skipped">0</div><div class="notif-stat-label">Skipped</div></div>
+          </div>
+          <div class="licenses-toolbar">
+            <div class="search-wrap">
+              <input type="text" id="notif-search" placeholder="Search by license key, phone, text, or error…" />
+            </div>
+            <select id="notif-event-filter" class="filter-select">
+              <option value="">All events</option>
+              <option value="activated">Activated</option>
+              <option value="revoked">Revoked</option>
+              <option value="suspended">Suspended</option>
+              <option value="unsuspended">Unsuspended (Restored)</option>
+              <option value="expiring">Expiring soon</option>
+              <option value="expired">Expired</option>
+              <option value="test">Test</option>
+            </select>
+            <select id="notif-status-filter" class="filter-select">
+              <option value="">All statuses</option>
+              <option value="delivered">Delivered</option>
+              <option value="failed">Failed</option>
+              <option value="skipped">Skipped</option>
+            </select>
+            <button class="btn btn-ghost" id="notif-refresh-btn"><span class="btn-label">↻ Refresh</span></button>
+            <button class="btn btn-hard-danger btn-sm" id="notif-clear-btn"><span class="btn-label">Clear older than 30d</span></button>
+          </div>
+          <div class="table-wrap glass-panel">
+            <table class="data-table notif-table">
+              <thead>
+                <tr>
+                  <th>TIME</th>
+                  <th>EVENT</th>
+                  <th>LICENSE</th>
+                  <th>PHONE</th>
+                  <th>STATUS</th>
+                  <th>MESSAGE / ERROR</th>
+                  <th style="text-align:right">ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody id="notif-tbody">
+                <tr><td colspan="7" class="table-empty">Loading notifications…</td></tr>
               </tbody>
             </table>
           </div>
@@ -658,6 +712,40 @@
           </button>
         </div>
         <div id="suspend-error" class="error-inline"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============= MODAL: Delete License ============= -->
+  <div id="delete-modal" class="modal" style="display:none">
+    <div class="modal-backdrop" data-close-modal="delete-modal"></div>
+    <div class="modal-content glass-panel">
+      <div class="modal-head">
+        <div>
+          <span class="overline text-revoked">⚠ PERMANENT DELETE</span>
+          <h2 id="delete-modal-title">Delete this license?</h2>
+        </div>
+        <button class="btn-icon" data-close-modal="delete-modal">×</button>
+      </div>
+      <form id="delete-form" class="modal-body">
+        <div class="delete-warn">
+          <strong>Ye action undo nahi ho sakta.</strong>
+          <span>License + saari activations permanently delete ho jayengi. Notification log history safe rahega (audit trail).</span>
+        </div>
+        <div class="input-group">
+          <label>Type the license key to confirm <span class="req">*</span></label>
+          <div class="delete-key-display" id="delete-key-display">—</div>
+          <input type="text" name="confirm_key" id="delete-confirm-input" autocomplete="off" spellcheck="false" placeholder="Paste or type the key exactly" required />
+          <div class="input-help">Safety check — key exact match hona chahiye.</div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-ghost" data-close-modal="delete-modal">Cancel</button>
+          <button type="submit" class="btn btn-hard-danger" id="delete-submit-btn" disabled>
+            <span class="btn-label">Delete Permanently</span>
+            <span class="btn-arrow">🗑</span>
+          </button>
+        </div>
+        <div id="delete-error" class="error-inline"></div>
       </form>
     </div>
   </div>

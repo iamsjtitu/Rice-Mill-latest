@@ -11,6 +11,7 @@ const defaultData = {
   super_admins: [],     // {id, email, password_hash, created_at}
   licenses: [],         // {id, key, customer_name, mill_name, contact, plan, status, issued_at, expires_at, notes, revoked_at, suspended_at, suspension_reason, auto_suspended}
   activations: [],      // {id, license_id, machine_fingerprint, pc_info, activated_at, last_seen_at, active}
+  notifications: [],    // {id, license_id, license_key, event, phone, status, message_preview, response, sent_at, error}
   settings: {           // Server-wide config (editable from admin dashboard)
     whatsapp_api_key: '',     // 360Messenger API key
     whatsapp_cc: '91',        // default country code
