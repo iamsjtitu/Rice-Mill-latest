@@ -280,6 +280,9 @@
             <button type="button" class="settings-tab" data-settings-tab="updates" role="tab" aria-selected="false">
               <span class="tab-dot"></span><span class="tab-label">Server Updates</span>
             </button>
+            <button type="button" class="settings-tab" data-settings-tab="website" role="tab" aria-selected="false">
+              <span class="tab-dot"></span><span class="tab-label">Website</span>
+            </button>
             <button type="button" class="settings-tab" data-settings-tab="account" role="tab" aria-selected="false">
               <span class="tab-dot"></span><span class="tab-label">Account</span>
             </button>
@@ -560,6 +563,62 @@
             </div>
           </div>
           </div><!-- /settings-panel updates -->
+
+          <div class="settings-panel" data-settings-panel="website" role="tabpanel" hidden>
+          <div class="settings-grid">
+            <div class="glass-panel settings-card wide">
+              <div class="settings-head">
+                <span class="overline">WEBSITE UPDATES</span>
+                <h3 class="section-title">9x.design — Auto Deploy</h3>
+                <p class="settings-desc">
+                  Deploy latest <code>9x.design</code> website code (React frontend + FastAPI backend) from GitHub in one click. Server restart happens automatically.
+                </p>
+              </div>
+
+              <div class="settings-status" id="website-status">
+                <div class="status-dot"></div>
+                <div class="status-text">Click "Check for Updates" to see what's new…</div>
+              </div>
+
+              <div class="update-meta" id="website-meta" style="display:none">
+                <div class="cf-id-row"><span class="cf-id-key">Endpoint</span><span class="cf-id-val">https://9x.design/api/deploy</span></div>
+                <div class="cf-id-row"><span class="cf-id-key">Current SHA</span><span class="cf-id-val" id="website-current-sha">—</span></div>
+                <div class="cf-id-row"><span class="cf-id-key">Remote SHA</span><span class="cf-id-val" id="website-remote-sha">—</span></div>
+                <div class="cf-id-row"><span class="cf-id-key">Last Commit</span><span class="cf-id-val" id="website-last-commit">—</span></div>
+              </div>
+
+              <details class="update-advanced">
+                <summary>Deploy token (required once — stored in browser)</summary>
+                <form id="website-token-form" class="settings-form" style="margin-top:14px">
+                  <div class="input-group">
+                    <label>Deploy Secret <span class="label-hint">from 9x.design backend .env DEPLOY_SECRET</span></label>
+                    <input type="password" id="website-deploy-token" placeholder="Paste DEPLOY_SECRET — blank = keep saved" autocomplete="off" />
+                    <div class="input-help">Token stored only in this browser's localStorage. Sent only to https://9x.design/api/deploy</div>
+                  </div>
+                  <div class="settings-actions">
+                    <button type="button" id="website-token-clear" class="btn btn-ghost">Clear saved token</button>
+                    <button type="submit" class="btn btn-ghost">Save Token</button>
+                  </div>
+                </form>
+              </details>
+
+              <div class="settings-actions" style="margin-top:12px">
+                <button type="button" id="website-check-btn" class="btn btn-ghost">
+                  <span class="btn-label">Check for Updates</span>
+                  <span class="btn-arrow">⟳</span>
+                </button>
+                <button type="button" id="website-apply-btn" class="btn btn-primary" disabled>
+                  <span class="btn-label">Install Update</span>
+                  <span class="btn-arrow">↓</span>
+                </button>
+              </div>
+
+              <div id="website-error" class="error-inline"></div>
+              <div id="website-success" class="success-inline"></div>
+              <pre id="website-progress" class="test-result" style="display:none;max-height:300px;overflow:auto;white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:12px"></pre>
+            </div>
+          </div>
+          </div><!-- /settings-panel website -->
 
           <div class="settings-panel" data-settings-panel="account" role="tabpanel" hidden>
           <div class="settings-grid">

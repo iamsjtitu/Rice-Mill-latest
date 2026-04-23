@@ -73,7 +73,7 @@ function switchSection(view) {
 // ========== Settings tabs ==========
 const SETTINGS_TAB_KEY = 'mls_settings_tab';
 function switchSettingsTab(tab) {
-  const valid = ['whatsapp', 'tunnels', 'updates', 'account'];
+  const valid = ['whatsapp', 'tunnels', 'updates', 'website', 'account'];
   if (!valid.includes(tab)) tab = 'whatsapp';
   try { localStorage.setItem(SETTINGS_TAB_KEY, tab); } catch {}
   document.querySelectorAll('.settings-tab').forEach(b => {
@@ -1171,4 +1171,122 @@ function downloadBlob(content, filename) {
   document.body.appendChild(a); a.click();
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
 }
+
+
+// ============= WEBSITE UPDATES (9x.design auto-deploy) =============
+(function initWebsiteDeploy() {
+  const API_BASE = 'https://9x.design/api/deploy';
+  const TOKEN_KEY = '9x_website_deploy_token';
+
+  const $ = (id) => document.getElementById(id);
+  const getToken = () => localStorage.getItem(TOKEN_KEY) || '';
+
+  function setStatus(text, state) {
+    const box = $('website-status');
+    if (!box) return;
+    box.className = 'settings-status' + (state ? ' ' + state : '');
+    const t = box.querySelector('.status-text');
+    if (t) t.textContent = text;
+  }
+  function showError(msg) {
+    const e = $('website-error'); if (!e) return;
+    e.textContent = msg; e.style.display = msg ? 'block' : 'none';
+    const s = $('website-success'); if (s) s.style.display = 'none';
+  }
+  function showSuccess(msg) {
+    const e = $('website-success'); if (!e) return;
+    e.textContent = msg; e.style.display = msg ? 'block' : 'none';
+    const x = $('website-error'); if (x) x.style.display = 'none';
+  }
+
+  async function deployApi(path, opts) {
+    opts = opts || {};
+    const token = getToken();
+    if (!token) throw new Error('Deploy token not set. Open "Deploy token" below and save your secret.');
+    const res = await fetch(API_BASE + path, Object.assign({}, opts, {
+      headers: Object.assign({ 'X-Deploy-Token': token }, opts.headers || {}),
+    }));
+    if (res.status === 401) throw new Error('Invalid deploy token');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || ('HTTP ' + res.status));
+    return data;
+  }
+
+  async function checkStatus() {
+    showError(''); showSuccess('');
+    setStatus('Checking…');
+    const applyBtn = $('website-apply-btn');
+    if (applyBtn) applyBtn.disabled = true;
+    try {
+      const s = await deployApi('/status');
+      $('website-current-sha').textContent = s.current_sha || '—';
+      $('website-remote-sha').textContent = s.remote_sha || '—';
+      $('website-last-commit').textContent = s.latest_commit || '—';
+      $('website-meta').style.display = 'block';
+      if (s.has_update) {
+        setStatus('Update available. Click "Install Update" to deploy.', 'warn');
+        if (applyBtn) applyBtn.disabled = false;
+      } else {
+        setStatus('Website is up to date.', 'ok');
+      }
+    } catch (e) {
+      setStatus('Error: ' + e.message, 'err');
+      showError(e.message);
+    }
+  }
+
+  async function installUpdate() {
+    if (!confirm('Pull latest from GitHub, rebuild frontend, and restart 9x.design?\n\nWebsite will be briefly unavailable (~20s).')) return;
+    showError('');
+    const btn = $('website-apply-btn');
+    btn.disabled = true;
+    const lbl = btn.querySelector('.btn-label');
+    const origLbl = lbl.textContent;
+    lbl.textContent = 'Deploying…';
+    setStatus('Deploy running…', 'warn');
+    try {
+      const r = await deployApi('/run', { method: 'POST' });
+      showSuccess(r.message || 'Deploy started');
+      $('website-progress').style.display = 'block';
+      $('website-progress').textContent = 'Starting…\n';
+      let ticks = 0;
+      const iv = setInterval(async () => {
+        try {
+          const l = await deployApi('/logs?tail=250');
+          $('website-progress').textContent = l.logs || '';
+          $('website-progress').scrollTop = $('website-progress').scrollHeight;
+        } catch (_) {}
+        if (++ticks > 30) clearInterval(iv);
+      }, 3000);
+      setTimeout(() => {
+        lbl.textContent = origLbl;
+        btn.disabled = false;
+        checkStatus();
+      }, 90000);
+    } catch (e) {
+      showError(e.message);
+      setStatus('Deploy failed', 'err');
+      lbl.textContent = origLbl;
+      btn.disabled = false;
+    }
+  }
+
+  const cb = $('website-check-btn'); if (cb) cb.addEventListener('click', checkStatus);
+  const ab = $('website-apply-btn'); if (ab) ab.addEventListener('click', installUpdate);
+  const tf = $('website-token-form');
+  if (tf) tf.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const v = $('website-deploy-token').value.trim();
+    if (v) {
+      localStorage.setItem(TOKEN_KEY, v);
+      $('website-deploy-token').value = '';
+      showSuccess('Token saved. Click "Check for Updates" to verify.');
+    }
+  });
+  const tc = $('website-token-clear');
+  if (tc) tc.addEventListener('click', () => {
+    localStorage.removeItem(TOKEN_KEY);
+    showSuccess('Token cleared.');
+  });
+})();
 
