@@ -1173,13 +1173,12 @@ function downloadBlob(content, filename) {
 }
 
 
-// ============= WEBSITE UPDATES (9x.design auto-deploy) =============
+// ============= WEBSITE UPDATES (9x.design auto-deploy — proxied via admin server) =============
 (function initWebsiteDeploy() {
-  const API_BASE = 'https://9x.design/api/deploy';
-  const TOKEN_KEY = '9x_website_deploy_token';
+  // All calls go through our own admin API → no CORS, token lives on server side.
+  const PROXY = '/admin/website-deploy';
 
   const $ = (id) => document.getElementById(id);
-  const getToken = () => localStorage.getItem(TOKEN_KEY) || '';
 
   function setStatus(text, state) {
     const box = $('website-status');
@@ -1199,17 +1198,17 @@ function downloadBlob(content, filename) {
     const x = $('website-error'); if (x) x.style.display = 'none';
   }
 
-  async function deployApi(path, opts) {
-    opts = opts || {};
-    const token = getToken();
-    if (!token) throw new Error('Deploy token not set. Open "Deploy token" below and save your secret.');
-    const res = await fetch(API_BASE + path, Object.assign({}, opts, {
-      headers: Object.assign({ 'X-Deploy-Token': token }, opts.headers || {}),
-    }));
-    if (res.status === 401) throw new Error('Invalid deploy token');
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.detail || ('HTTP ' + res.status));
-    return data;
+  async function loadConfigBadge() {
+    try {
+      const c = await apiCall('GET', PROXY + '/config');
+      const inp = $('website-deploy-token');
+      if (inp) inp.placeholder = c.token_set ? 'Token saved on server — paste new to replace' : 'Paste DEPLOY_SECRET';
+      if (!c.token_set) setStatus('Deploy token not saved yet. Open "Deploy token" below to save it.', 'warn');
+      return c;
+    } catch (e) {
+      setStatus('Cannot read deploy config: ' + e.message, 'err');
+      return { token_set: false };
+    }
   }
 
   async function checkStatus() {
@@ -1218,7 +1217,7 @@ function downloadBlob(content, filename) {
     const applyBtn = $('website-apply-btn');
     if (applyBtn) applyBtn.disabled = true;
     try {
-      const s = await deployApi('/status');
+      const s = await apiCall('GET', PROXY + '/status');
       $('website-current-sha').textContent = s.current_sha || '—';
       $('website-remote-sha').textContent = s.remote_sha || '—';
       $('website-last-commit').textContent = s.latest_commit || '—';
@@ -1245,14 +1244,14 @@ function downloadBlob(content, filename) {
     lbl.textContent = 'Deploying…';
     setStatus('Deploy running…', 'warn');
     try {
-      const r = await deployApi('/run', { method: 'POST' });
+      const r = await apiCall('POST', PROXY + '/run');
       showSuccess(r.message || 'Deploy started');
       $('website-progress').style.display = 'block';
       $('website-progress').textContent = 'Starting…\n';
       let ticks = 0;
       const iv = setInterval(async () => {
         try {
-          const l = await deployApi('/logs?tail=250');
+          const l = await apiCall('GET', PROXY + '/logs?tail=250');
           $('website-progress').textContent = l.logs || '';
           $('website-progress').scrollTop = $('website-progress').scrollHeight;
         } catch (_) {}
@@ -1271,22 +1270,32 @@ function downloadBlob(content, filename) {
     }
   }
 
+  // Load current token status when the Website tab becomes visible (via tab switch)
+  const websiteTab = document.querySelector('.settings-tab[data-settings-tab="website"]');
+  if (websiteTab) websiteTab.addEventListener('click', () => { loadConfigBadge(); });
+
   const cb = $('website-check-btn'); if (cb) cb.addEventListener('click', checkStatus);
   const ab = $('website-apply-btn'); if (ab) ab.addEventListener('click', installUpdate);
   const tf = $('website-token-form');
-  if (tf) tf.addEventListener('submit', (e) => {
+  if (tf) tf.addEventListener('submit', async (e) => {
     e.preventDefault();
     const v = $('website-deploy-token').value.trim();
-    if (v) {
-      localStorage.setItem(TOKEN_KEY, v);
+    if (!v) { showError('Enter a token to save.'); return; }
+    try {
+      await apiCall('PUT', PROXY + '/config', { token: v });
       $('website-deploy-token').value = '';
-      showSuccess('Token saved. Click "Check for Updates" to verify.');
-    }
+      showSuccess('Token saved on server. Click "Check for Updates" to verify.');
+      loadConfigBadge();
+    } catch (err) { showError(err.message); }
   });
   const tc = $('website-token-clear');
-  if (tc) tc.addEventListener('click', () => {
-    localStorage.removeItem(TOKEN_KEY);
-    showSuccess('Token cleared.');
+  if (tc) tc.addEventListener('click', async () => {
+    if (!confirm('Forget the saved deploy token? You will need to re-enter it before next deploy.')) return;
+    try {
+      await apiCall('DELETE', PROXY + '/config');
+      showSuccess('Token cleared from server.');
+      loadConfigBadge();
+    } catch (err) { showError(err.message); }
   });
 })();
 

@@ -66,7 +66,7 @@
     "whatsapp_api_key": "",
     "whatsapp_cc": "91",
     "whatsapp_enabled": true,
-    "updated_at": "2026-04-23T10:28:59.331Z",
+    "updated_at": "2026-04-23T15:20:27.781Z",
     "cloudflare_api_token": "",
     "cloudflare_account_id": "",
     "cloudflare_zone_id": "",
@@ -78,7 +78,9 @@
     "suspend_after_heartbeat_days": 0,
     "mlic_public_key": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAxYQ8Ai8cxK/ACVWxefkFxwGsso2zgtwxB+DutI+CVcQ=\n-----END PUBLIC KEY-----\n",
     "mlic_private_key": "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEII5kMh6x7m/JGyHRyT+SJUor0nfgYqezZV1WN4opepd0\n-----END PRIVATE KEY-----\n",
-    "mlic_keys_generated_at": "2026-04-23T11:07:36.495Z"
+    "mlic_keys_generated_at": "2026-04-23T11:07:36.495Z",
+    "website_deploy_token": "pUK1ZuATB4Pq5Hxi34fFlihhTLS9kYRD",
+    "website_deploy_base": "https://9x.design/api/deploy"
   },
   "notifications": [
     {

@@ -467,6 +467,62 @@ router.delete('/notifications', (req, res) => {
   res.json({ success: true, deleted: before });
 });
 
+// ============ WEBSITE DEPLOY PROXY (9x.design) ============
+const websiteProxy = require('../utils/website-deploy-proxy');
+
+// GET /api/admin/website-deploy/config — check if token + base URL are configured (no secrets leaked)
+router.get('/website-deploy/config', (req, res) => {
+  const s = db.getData().settings || {};
+  res.json({
+    token_set: !!(s.website_deploy_token && s.website_deploy_token.trim()),
+    base: s.website_deploy_base || 'https://9x.design/api/deploy',
+  });
+});
+
+// PUT /api/admin/website-deploy/config — save/update token + optional base override
+router.put('/website-deploy/config', (req, res) => {
+  const data = db.getData();
+  const b = req.body || {};
+  if (typeof b.token === 'string' && b.token.trim()) {
+    data.settings.website_deploy_token = b.token.trim();
+  }
+  if (typeof b.base === 'string' && b.base.trim()) {
+    data.settings.website_deploy_base = b.base.trim().replace(/\/+$/, '');
+  }
+  data.settings.updated_at = new Date().toISOString();
+  db.saveImmediate();
+  res.json({ success: true, token_set: !!data.settings.website_deploy_token, base: data.settings.website_deploy_base });
+});
+
+// DELETE /api/admin/website-deploy/config — forget the saved token
+router.delete('/website-deploy/config', (req, res) => {
+  const data = db.getData();
+  data.settings.website_deploy_token = '';
+  data.settings.updated_at = new Date().toISOString();
+  db.saveImmediate();
+  res.json({ success: true });
+});
+
+// GET  /api/admin/website-deploy/status  → proxies to 9x.design /status
+router.get('/website-deploy/status', async (req, res) => {
+  const r = await websiteProxy.forward('GET', '/status');
+  res.status(r.status).json(r.body);
+});
+
+// POST /api/admin/website-deploy/run  → proxies to 9x.design /run (kicks off deploy)
+router.post('/website-deploy/run', async (req, res) => {
+  const r = await websiteProxy.forward('POST', '/run', { timeout: 15000 });
+  res.status(r.status).json(r.body);
+});
+
+// GET  /api/admin/website-deploy/logs?tail=250 → proxies to 9x.design /logs
+router.get('/website-deploy/logs', async (req, res) => {
+  const tail = parseInt(req.query.tail, 10);
+  const suffix = isFinite(tail) && tail > 0 ? '?tail=' + tail : '';
+  const r = await websiteProxy.forward('GET', '/logs' + suffix, { timeout: 10000 });
+  res.status(r.status).json(r.body);
+});
+
 // ============ SETTINGS (server-wide config) ============
 
 // GET /api/admin/settings — returns config with API key masked for security

@@ -26,6 +26,8 @@ const defaultData = {
     mlic_public_key: '',      // Ed25519 public key (PEM, SPKI) — auto-generated on first mlic op
     mlic_private_key: '',     // Ed25519 private key (PEM, PKCS8) — NEVER exposed via API
     mlic_keys_generated_at: null,
+    website_deploy_token: '', // DEPLOY_SECRET for https://9x.design/api/deploy (proxied, never exposed to browser)
+    website_deploy_base: 'https://9x.design/api/deploy',
     updated_at: null,
   },
   meta: { version: 1, created_at: new Date().toISOString() },

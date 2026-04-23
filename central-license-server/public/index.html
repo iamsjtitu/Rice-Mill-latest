@@ -588,12 +588,12 @@
               </div>
 
               <details class="update-advanced">
-                <summary>Deploy token (required once — stored in browser)</summary>
+                <summary>Deploy token (required once — saved securely on server)</summary>
                 <form id="website-token-form" class="settings-form" style="margin-top:14px">
                   <div class="input-group">
                     <label>Deploy Secret <span class="label-hint">from 9x.design backend .env DEPLOY_SECRET</span></label>
-                    <input type="password" id="website-deploy-token" placeholder="Paste DEPLOY_SECRET — blank = keep saved" autocomplete="off" />
-                    <div class="input-help">Token stored only in this browser's localStorage. Sent only to https://9x.design/api/deploy</div>
+                    <input type="password" id="website-deploy-token" placeholder="Paste DEPLOY_SECRET" autocomplete="off" />
+                    <div class="input-help">Token stored in admin server settings — never exposed to browsers. Forwarded securely to https://9x.design/api/deploy only for requests from this dashboard.</div>
                   </div>
                   <div class="settings-actions">
                     <button type="button" id="website-token-clear" class="btn btn-ghost">Clear saved token</button>
