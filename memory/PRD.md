@@ -115,3 +115,21 @@
   - Backend: `GET/POST/DELETE /api/govt-registers/verification-history` — triple parity (Python + Desktop + Local)
   - New MongoDB collection: `verification_history` | JS: `database.data.verification_history[]`
   - Tested via curl: POST → GET → DELETE all return 200 OK with correct data
+
+- **Central License Server — Settings Tabs + Auto-Suspension + Cache-Busting** (DONE, Feb 2026):
+  - **Settings page → 4 tabs**: WhatsApp, Cloud Tunnels, Server Updates, Account (localStorage persists last tab)
+  - **License Suspension** — new status `suspended` alongside active/revoked:
+    - Manual: admin clicks "Suspend" → modal with reason textarea + 4 preset chips (Payment pending, Renewal due, Misuse, Terms violation) → WhatsApp sent with reason
+    - Auto: settings-configurable — `suspend_on_expiry` (default ON) + `suspend_after_heartbeat_days` (0=off) inside expiry-scheduler scan
+    - Restore button (green) for suspended licenses → clears reason + unsuspend WhatsApp
+    - New stat card "SUSPENDED" on overview (purple #a855f7)
+    - License row shows inline `⚠ reason` tooltip
+  - **Auto Cache-Busting** — server.js generates `BUILD_VERSION` on boot (pkg.version + timestamp):
+    - Middleware injects `?v=BUILD_VERSION` into app.js/styles.css asset refs
+    - HTML served with `Cache-Control: no-cache, no-store, must-revalidate`
+    - `/api/version` endpoint for client-side polling
+    - Client polls every 30s → if version differs, shows toast "New version available · Reload" → auto-reloads after 8s (skips if modal open or input focused, caps at 60s)
+  - New APIs: `POST /api/admin/licenses/:id/suspend`, `POST /api/admin/licenses/:id/unsuspend`, `GET /api/version`
+  - Extended `PUT/GET /api/admin/settings` with `suspend_on_expiry` + `suspend_after_heartbeat_days`
+  - New notifier helpers: `notifySuspended(lic, reason)`, `notifyUnsuspended(lic)`
+  - Deploy tarball: `https://paste.rs/1pFmE` (66 KB, MD5 `11135be596c8d0e1c2737b3964b9793e`)

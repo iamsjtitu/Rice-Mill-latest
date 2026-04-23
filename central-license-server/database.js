@@ -9,7 +9,7 @@ const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'database.json');
 
 const defaultData = {
   super_admins: [],     // {id, email, password_hash, created_at}
-  licenses: [],         // {id, key, customer_name, mill_name, contact, plan, status, issued_at, expires_at, notes, revoked_at}
+  licenses: [],         // {id, key, customer_name, mill_name, contact, plan, status, issued_at, expires_at, notes, revoked_at, suspended_at, suspension_reason, auto_suspended}
   activations: [],      // {id, license_id, machine_fingerprint, pc_info, activated_at, last_seen_at, active}
   settings: {           // Server-wide config (editable from admin dashboard)
     whatsapp_api_key: '',     // 360Messenger API key
@@ -20,6 +20,8 @@ const defaultData = {
     cloudflare_zone_id: '',   // auto-discovered on first token save
     cloudflare_tunnel_domain: '9x.design',
     cloudflare_enabled: false,// master switch for tunnel auto-provisioning
+    suspend_on_expiry: true,  // auto-suspend when expires_at crossed
+    suspend_after_heartbeat_days: 0, // 0=off, N=suspend if last_seen_at older than N days
     updated_at: null,
   },
   meta: { version: 1, created_at: new Date().toISOString() },

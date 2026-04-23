@@ -106,4 +106,27 @@ async function notifyActivated(license) {
   return sendMessage(phone, text);
 }
 
-module.exports = { notifyRevoked, notifyExpiringSoon, notifyExpired, notifyActivated, sendMessage, extractPhone };
+async function notifySuspended(license, reason) {
+  const phone = extractPhone(license.contact);
+  if (!phone) return { skipped: true, reason: 'no_phone' };
+  const reasonLine = reason && String(reason).trim()
+    ? String(reason).trim()
+    : 'Admin ki taraf se suspend kiya gaya hai.';
+  const text = `*MillEntry License Suspended* ⚠\n\n` +
+               `Aapka license temporarily suspend kar diya gaya hai. Software next heartbeat pe kaam band kar dega.\n\n` +
+               `Mill: ${license.mill_name}\nKey: ${license.key}\n` +
+               `Reason: ${reasonLine}\n\n` +
+               `License wapas chalu karwane ke liye contact karein: t2@host9x.com`;
+  return sendMessage(phone, text);
+}
+
+async function notifyUnsuspended(license) {
+  const phone = extractPhone(license.contact);
+  if (!phone) return { skipped: true, reason: 'no_phone' };
+  const text = `*MillEntry License Restored* ✓\n\nAapka license wapas chalu kar diya gaya hai. Software agle heartbeat pe normal kaam karega.\n\n` +
+               `Mill: ${license.mill_name}\nKey: ${license.key}\n\n` +
+               `Dhanyavaad! — t2@host9x.com`;
+  return sendMessage(phone, text);
+}
+
+module.exports = { notifyRevoked, notifyExpiringSoon, notifyExpired, notifyActivated, notifySuspended, notifyUnsuspended, sendMessage, extractPhone };

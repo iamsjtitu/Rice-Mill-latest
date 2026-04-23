@@ -115,6 +115,13 @@ router.put('/licenses/:id', (req, res) => {
       lic.revoked_at = null;
       fireNotify(notifier.notifyActivated(lic), `reactivated:${lic.key}`);
     }
+    if (status === 'active' && prevStatus === 'suspended') {
+      // Re-activation after suspend → clear suspension fields & notify customer
+      lic.suspended_at = null;
+      lic.suspension_reason = null;
+      lic.auto_suspended = null;
+      fireNotify(notifier.notifyUnsuspended(lic), `unsuspended:${lic.key}`);
+    }
   }
   db.saveImmediate();
   res.json({ success: true, license: lic });
@@ -132,6 +139,41 @@ router.post('/licenses/:id/revoke', (req, res) => {
   (data.activations || []).forEach(a => { if (a.license_id === lic.id) a.active = false; });
   db.saveImmediate();
   if (!wasRevoked) fireNotify(notifier.notifyRevoked(lic), `revoked:${lic.key}`);
+  res.json({ success: true, license: lic });
+});
+
+// POST /api/admin/licenses/:id/suspend — manually suspend with reason
+router.post('/licenses/:id/suspend', (req, res) => {
+  const data = db.getData();
+  const lic = data.licenses.find(l => l.id === req.params.id);
+  if (!lic) return res.status(404).json({ error: 'License not found' });
+  if (lic.status === 'revoked') return res.status(400).json({ error: 'Cannot suspend a revoked license' });
+  const reason = String(req.body?.reason || '').trim();
+  if (!reason) return res.status(400).json({ error: 'reason is required for suspension' });
+  const wasSuspended = lic.status === 'suspended';
+  lic.status = 'suspended';
+  lic.suspended_at = new Date().toISOString();
+  lic.suspension_reason = reason;
+  lic.auto_suspended = false;
+  // Deactivate all activations so next heartbeat from desktop halts the app
+  (data.activations || []).forEach(a => { if (a.license_id === lic.id) a.active = false; });
+  db.saveImmediate();
+  if (!wasSuspended) fireNotify(notifier.notifySuspended(lic, reason), `suspended:${lic.key}`);
+  res.json({ success: true, license: lic });
+});
+
+// POST /api/admin/licenses/:id/unsuspend — restore a suspended license
+router.post('/licenses/:id/unsuspend', (req, res) => {
+  const data = db.getData();
+  const lic = data.licenses.find(l => l.id === req.params.id);
+  if (!lic) return res.status(404).json({ error: 'License not found' });
+  if (lic.status !== 'suspended') return res.status(400).json({ error: `License is not suspended (currently: ${lic.status})` });
+  lic.status = 'active';
+  lic.suspended_at = null;
+  lic.suspension_reason = null;
+  lic.auto_suspended = null;
+  db.saveImmediate();
+  fireNotify(notifier.notifyUnsuspended(lic), `unsuspended:${lic.key}`);
   res.json({ success: true, license: lic });
 });
 
@@ -200,6 +242,9 @@ router.get('/settings', (req, res) => {
     cloudflare_tunnel_domain: s.cloudflare_tunnel_domain || '9x.design',
     cloudflare_enabled: s.cloudflare_enabled !== false && !!cfKey,
     cloudflare_ready: !!(cfKey && s.cloudflare_account_id && s.cloudflare_zone_id),
+    // Suspension
+    suspend_on_expiry: s.suspend_on_expiry !== false,
+    suspend_after_heartbeat_days: Number(s.suspend_after_heartbeat_days) || 0,
     updated_at: s.updated_at || null,
   });
 });
@@ -217,6 +262,12 @@ router.put('/settings', (req, res) => {
   if (typeof b.cloudflare_api_token === 'string' && b.cloudflare_api_token.trim()) data.settings.cloudflare_api_token = b.cloudflare_api_token.trim();
   if (typeof b.cloudflare_tunnel_domain === 'string' && b.cloudflare_tunnel_domain.trim()) data.settings.cloudflare_tunnel_domain = b.cloudflare_tunnel_domain.trim();
   if (typeof b.cloudflare_enabled === 'boolean') data.settings.cloudflare_enabled = b.cloudflare_enabled;
+  // Suspension
+  if (typeof b.suspend_on_expiry === 'boolean') data.settings.suspend_on_expiry = b.suspend_on_expiry;
+  if (b.suspend_after_heartbeat_days !== undefined) {
+    const n = parseInt(b.suspend_after_heartbeat_days, 10);
+    data.settings.suspend_after_heartbeat_days = isFinite(n) && n >= 0 ? n : 0;
+  }
   data.settings.updated_at = new Date().toISOString();
   db.saveImmediate();
   res.json({ success: true });
@@ -408,6 +459,7 @@ router.get('/stats', (req, res) => {
   const activeLicenses = licenses.filter(l => l.status === 'active');
   const expired = activeLicenses.filter(l => l.expires_at && new Date(l.expires_at) < now).length;
   const revoked = licenses.filter(l => l.status === 'revoked').length;
+  const suspended = licenses.filter(l => l.status === 'suspended').length;
   const liveNow = activations.filter(a => {
     if (!a.active) return false;
     if (!a.last_seen_at) return false;
@@ -418,6 +470,7 @@ router.get('/stats', (req, res) => {
     active_licenses: activeLicenses.length,
     expired_licenses: expired,
     revoked_licenses: revoked,
+    suspended_licenses: suspended,
     currently_online: liveNow,
   });
 });

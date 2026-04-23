@@ -48,9 +48,37 @@ async function runScan() {
   try {
     const data = db.getData();
     const licenses = data.licenses || [];
-    let warnings = 0, expired = 0, skipped = 0;
+    const activations = data.activations || [];
+    const settings = data.settings || {};
+    const suspendOnExpiry = settings.suspend_on_expiry !== false;
+    const suspendAfterHbDays = Number(settings.suspend_after_heartbeat_days) || 0;
+    let warnings = 0, expired = 0, suspended = 0, skipped = 0;
 
     for (const lic of licenses) {
+      if (lic.status === 'revoked') continue;
+      // Heartbeat-based auto-suspend (applies to active licenses regardless of expiry)
+      if (lic.status === 'active' && suspendAfterHbDays > 0) {
+        // Find latest activation heartbeat for this license
+        const acts = activations.filter(a => a.license_id === lic.id && a.last_seen_at);
+        const latest = acts.reduce((m, a) => Math.max(m, new Date(a.last_seen_at).getTime()), 0);
+        // Only consider licenses that have ever reported a heartbeat
+        if (latest > 0) {
+          const hbAgeDays = (Date.now() - latest) / (1000 * 60 * 60 * 24);
+          if (hbAgeDays >= suspendAfterHbDays) {
+            const reason = `Software ${Math.floor(hbAgeDays)} din se offline hai — automatic suspension.`;
+            lic.status = 'suspended';
+            lic.suspended_at = new Date().toISOString();
+            lic.suspension_reason = reason;
+            lic.auto_suspended = true;
+            activations.forEach(a => { if (a.license_id === lic.id) a.active = false; });
+            db.saveImmediate();
+            const r = await notifier.notifySuspended(lic, reason);
+            if (r && r.success) suspended++; else skipped++;
+            continue;
+          }
+        }
+      }
+
       if (lic.status !== 'active') continue;
       if (!lic.expires_at) continue; // lifetime license - nothing to do
       const left = daysUntil(lic.expires_at);
@@ -58,6 +86,7 @@ async function runScan() {
 
       // CASE 1: Expired (today or past)
       if (left <= 0) {
+        // Fire "expired" WhatsApp once
         if (!lic.notified_expired) {
           const r = await notifier.notifyExpired(lic);
           if (shouldPersistFlag(r)) {
@@ -66,6 +95,18 @@ async function runScan() {
           }
           if (r && r.success) expired++;
           else skipped++;
+        }
+        // Auto-suspend on expiry (if enabled)
+        if (suspendOnExpiry) {
+          const reason = `License ${new Date(lic.expires_at).toISOString().slice(0, 10)} ko expire ho gaya hai.`;
+          lic.status = 'suspended';
+          lic.suspended_at = new Date().toISOString();
+          lic.suspension_reason = reason;
+          lic.auto_suspended = true;
+          activations.forEach(a => { if (a.license_id === lic.id) a.active = false; });
+          db.saveImmediate();
+          const r = await notifier.notifySuspended(lic, reason);
+          if (r && r.success) suspended++; else skipped++;
         }
         continue;
       }
@@ -84,10 +125,10 @@ async function runScan() {
       }
     }
 
-    if (warnings || expired || skipped) {
-      console.log(`[expiry-scheduler] scan done — 7day-warnings:${warnings} expired:${expired} skipped:${skipped}`);
+    if (warnings || expired || suspended || skipped) {
+      console.log(`[expiry-scheduler] scan done — 7day:${warnings} expired:${expired} suspended:${suspended} skipped:${skipped}`);
     }
-    return { warnings, expired, skipped, scanned: licenses.length };
+    return { warnings, expired, suspended, skipped, scanned: licenses.length };
   } catch (e) {
     console.error('[expiry-scheduler] scan error:', e.message);
     return { error: e.message };

@@ -143,6 +143,11 @@
               <div class="stat-value text-revoked" id="stat-revoked">0</div>
               <div class="stat-helper">blocked</div>
             </div>
+            <div class="stat-card">
+              <div class="stat-overline">SUSPENDED</div>
+              <div class="stat-value text-suspended" id="stat-suspended">0</div>
+              <div class="stat-helper">on hold</div>
+            </div>
             <div class="stat-card stat-glow">
               <div class="stat-overline flex-between">
                 <span>ONLINE NOW</span>
@@ -321,6 +326,42 @@
                 </button>
               </div>
               <div id="expiry-scan-result" class="test-result"></div>
+            </div>
+
+            <div class="glass-panel settings-card wide">
+              <div class="settings-head">
+                <span class="overline">AUTO-SUSPENSION</span>
+                <h3 class="section-title">Automatic License Suspension</h3>
+                <p class="settings-desc">
+                  Auto-suspend licenses when they expire or stop sending heartbeats. A WhatsApp message with the reason is sent to the customer automatically.
+                </p>
+              </div>
+              <form id="suspend-settings-form" class="settings-form">
+                <div class="input-split">
+                  <div class="input-group toggle-group">
+                    <label>Suspend on Expiry <span class="label-hint">recommended</span></label>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="setting-suspend-expiry" />
+                      <span class="toggle-slider"></span>
+                      <span class="toggle-label" id="suspend-expiry-label">Enabled</span>
+                    </label>
+                    <div class="input-help">Jaise hi license expire hoga, status suspended kar diya jayega + WhatsApp jayega.</div>
+                  </div>
+                  <div class="input-group">
+                    <label>Suspend After No Heartbeat <span class="label-hint">days · 0 = off</span></label>
+                    <input type="number" id="setting-suspend-hb-days" min="0" max="365" step="1" placeholder="0" />
+                    <div class="input-help">Agar software <code>N</code> din se offline hai to auto-suspend karo.</div>
+                  </div>
+                </div>
+                <div class="settings-actions">
+                  <button type="submit" class="btn btn-primary">
+                    <span class="btn-label">Save Auto-Suspend Rules</span>
+                    <span class="btn-arrow">→</span>
+                  </button>
+                </div>
+                <div id="suspend-settings-error" class="error-inline"></div>
+                <div id="suspend-settings-success" class="success-inline"></div>
+              </form>
             </div>
           </div>
           </div><!-- /settings-panel whatsapp -->
@@ -581,6 +622,43 @@
           <span class="btn-arrow">⎘</span>
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- ============= MODAL: Suspend License ============= -->
+  <div id="suspend-modal" class="modal" style="display:none">
+    <div class="modal-backdrop" data-close-modal="suspend-modal"></div>
+    <div class="modal-content glass-panel">
+      <div class="modal-head">
+        <div>
+          <span class="overline">SUSPEND LICENSE</span>
+          <h2 id="suspend-modal-title">Suspend this license?</h2>
+        </div>
+        <button class="btn-icon" data-close-modal="suspend-modal">×</button>
+      </div>
+      <form id="suspend-form" class="modal-body">
+        <p class="muted" id="suspend-modal-sub">Customer ka software next heartbeat pe kaam band kar dega. Reason WhatsApp par automatically jayega.</p>
+        <div class="input-group">
+          <label>Reason <span class="req">*</span></label>
+          <textarea name="reason" id="suspend-reason" rows="3" required placeholder="e.g. Payment pending / Contract breach / Software misuse"></textarea>
+          <div class="input-help">Ye message customer ko WhatsApp par as-is bhej diya jayega.</div>
+        </div>
+        <div class="suspend-presets">
+          <span class="preset-label">Quick reasons:</span>
+          <button type="button" class="preset-chip" data-preset="Payment pending hai. Kripya balance clear karein.">Payment pending</button>
+          <button type="button" class="preset-chip" data-preset="License renewal pending hai. Renew karwane ke liye contact karein.">Renewal due</button>
+          <button type="button" class="preset-chip" data-preset="Software ka misuse detect hua hai. Investigation ke baad restore kiya jayega.">Misuse detected</button>
+          <button type="button" class="preset-chip" data-preset="Service ke terms ka violation hua hai.">Terms violation</button>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-ghost" data-close-modal="suspend-modal">Cancel</button>
+          <button type="submit" class="btn btn-danger">
+            <span class="btn-label">Suspend License</span>
+            <span class="btn-arrow">⚠</span>
+          </button>
+        </div>
+        <div id="suspend-error" class="error-inline"></div>
+      </form>
     </div>
   </div>
 

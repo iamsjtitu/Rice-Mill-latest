@@ -98,6 +98,7 @@ async function loadStats() {
     animateCounter('stat-active', s.active_licenses);
     animateCounter('stat-expired', s.expired_licenses);
     animateCounter('stat-revoked', s.revoked_licenses);
+    animateCounter('stat-suspended', s.suspended_licenses || 0);
     animateCounter('stat-online', s.currently_online);
     document.getElementById('live-count').textContent = `${s.currently_online} LIVE`;
   } catch (e) {
@@ -190,9 +191,10 @@ function renderLicenses(rows) {
     const now = new Date();
     const isExpired = r.expires_at && new Date(r.expires_at) < now;
     let statusBadge = '';
-    if (r.status === 'revoked') statusBadge = '<span class="badge badge-revoked">Revoked</span>';
-    else if (isExpired) statusBadge = '<span class="badge badge-expired">Expired</span>';
-    else statusBadge = '<span class="badge badge-active">Active</span>';
+    if (r.status === 'revoked')        statusBadge = '<span class="badge badge-revoked">Revoked</span>';
+    else if (r.status === 'suspended') statusBadge = `<span class="badge badge-suspended" title="${escapeHtml(r.suspension_reason || 'Suspended')}">Suspended${r.auto_suspended ? ' · Auto' : ''}</span>`;
+    else if (isExpired)                statusBadge = '<span class="badge badge-expired">Expired</span>';
+    else                               statusBadge = '<span class="badge badge-active">Active</span>';
     if (r.is_master) statusBadge += ' <span class="badge badge-master">Master</span>';
     const online = r.last_seen_at && (Date.now() - new Date(r.last_seen_at).getTime()) < 10 * 60 * 1000;
     const pcText = r.current_pc && (r.current_pc.hostname || r.current_pc.platform)
@@ -200,11 +202,14 @@ function renderLicenses(rows) {
       : (r.current_machine ? r.current_machine.slice(0, 10) + '…' : '—');
     const seenText = online ? '<span class="badge badge-live">Live</span>' : fmtDT(r.last_seen_at);
     const planLabel = r.plan === 'lifetime' ? 'Lifetime' : r.plan === 'yearly' ? 'Yearly' : r.plan === 'trial' ? 'Trial' : r.plan;
+    const reasonLine = r.status === 'suspended' && r.suspension_reason
+      ? `<div class="suspend-reason-inline" title="${escapeHtml(r.suspension_reason)}">${escapeHtml(r.suspension_reason)}</div>`
+      : '';
     return `
       <tr>
         <td class="mono-cell">${r.key}</td>
         <td><div class="cell-main">${escapeHtml(r.customer_name)}</div><div class="cell-sub">${escapeHtml(r.contact || '—')}</div></td>
-        <td><div class="cell-main">${escapeHtml(r.mill_name)}</div></td>
+        <td><div class="cell-main">${escapeHtml(r.mill_name)}</div>${reasonLine}</td>
         <td class="mono-cell">${planLabel}</td>
         <td class="mono-cell">${fmtD(r.issued_at)}</td>
         <td class="mono-cell">${r.expires_at ? fmtD(r.expires_at) : '<span style="color:var(--text-3)">Never</span>'}</td>
@@ -213,6 +218,8 @@ function renderLicenses(rows) {
         <td>${seenText}</td>
         <td><div class="action-group">
           ${r.status === 'active' ? `<button class="btn btn-ghost btn-sm" data-action="reset" data-id="${r.id}" title="Reset machine binding">Reset PC</button>` : ''}
+          ${r.status === 'active' && !r.is_master ? `<button class="btn btn-warn btn-sm" data-action="suspend" data-id="${r.id}" data-key="${escapeHtml(r.key)}" data-mill="${escapeHtml(r.mill_name)}">Suspend</button>` : ''}
+          ${r.status === 'suspended' && !r.is_master ? `<button class="btn btn-success btn-sm" data-action="unsuspend" data-id="${r.id}">Restore</button>` : ''}
           ${r.status !== 'revoked' && !r.is_master ? `<button class="btn btn-danger btn-sm" data-action="revoke" data-id="${r.id}">Revoke</button>` : ''}
         </div></td>
       </tr>`;
@@ -310,6 +317,57 @@ document.getElementById('license-tbody').addEventListener('click', async (e) => 
     if (!confirm('Reset machine binding? Current PC will be kicked off so customer can activate on a new one.')) return;
     try { await apiCall('POST', `/admin/licenses/${id}/reset-machine`); loadDashboard(); }
     catch (e2) { alert('Reset failed: ' + e2.message); }
+  } else if (action === 'suspend') {
+    openSuspendModal(id, btn.dataset.key || '', btn.dataset.mill || '');
+  } else if (action === 'unsuspend') {
+    if (!confirm('Restore this license? Customer software will resume at next heartbeat and WhatsApp restoration message will be sent.')) return;
+    try { await apiCall('POST', `/admin/licenses/${id}/unsuspend`); loadDashboard(); }
+    catch (e2) { alert('Restore failed: ' + e2.message); }
+  }
+});
+
+// ========== Suspend modal ==========
+function openSuspendModal(licenseId, key, mill) {
+  const modal = document.getElementById('suspend-modal');
+  const form = document.getElementById('suspend-form');
+  const title = document.getElementById('suspend-modal-title');
+  const reasonEl = document.getElementById('suspend-reason');
+  const errorEl = document.getElementById('suspend-error');
+  form.dataset.licenseId = licenseId;
+  title.textContent = mill ? `Suspend ${mill}?` : `Suspend ${key}?`;
+  reasonEl.value = '';
+  errorEl.textContent = '';
+  modal.style.display = 'flex';
+  setTimeout(() => reasonEl.focus(), 120);
+}
+
+// Preset chips populate the reason textarea
+document.querySelectorAll('#suspend-modal .preset-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.getElementById('suspend-reason').value = chip.dataset.preset || '';
+  });
+});
+
+document.getElementById('suspend-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const licenseId = form.dataset.licenseId;
+  const reason = document.getElementById('suspend-reason').value.trim();
+  const errorEl = document.getElementById('suspend-error');
+  errorEl.textContent = '';
+  if (!reason) { errorEl.textContent = 'Reason is required.'; return; }
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const lab = submitBtn.querySelector('.btn-label');
+  const original = lab.textContent;
+  submitBtn.disabled = true; lab.textContent = 'Suspending…';
+  try {
+    await apiCall('POST', `/admin/licenses/${licenseId}/suspend`, { reason });
+    document.getElementById('suspend-modal').style.display = 'none';
+    loadDashboard();
+  } catch (e2) {
+    errorEl.textContent = e2.message || 'Failed to suspend';
+  } finally {
+    submitBtn.disabled = false; lab.textContent = original;
   }
 });
 
@@ -507,6 +565,7 @@ loadSettings = async function() {
     }
     document.getElementById('key-hint').textContent = s.whatsapp_api_key_set ? '(stored)' : '';
     paintCfStatus(s);
+    paintSuspendSettings(s);
   } catch (e) {
     if (/401|403|Unauthorized/i.test(e.message)) { logout(); return; }
     document.getElementById('settings-status').className = 'settings-status off';
@@ -748,3 +807,97 @@ setInterval(() => {
     loadStats();
   }
 }, 30000);
+
+
+// ========== Auto-Suspension settings ==========
+function paintSuspendSettings(s) {
+  const hbEl = document.getElementById('setting-suspend-hb-days');
+  const expEl = document.getElementById('setting-suspend-expiry');
+  const labEl = document.getElementById('suspend-expiry-label');
+  if (!hbEl || !expEl) return;
+  expEl.checked = s.suspend_on_expiry !== false;
+  labEl.textContent = expEl.checked ? 'Enabled' : 'Disabled';
+  hbEl.value = Number(s.suspend_after_heartbeat_days) || 0;
+}
+
+(function wireSuspendSettings() {
+  const form = document.getElementById('suspend-settings-form');
+  if (!form) return;
+  const expEl = document.getElementById('setting-suspend-expiry');
+  const labEl = document.getElementById('suspend-expiry-label');
+  expEl.addEventListener('change', (e) => { labEl.textContent = e.target.checked ? 'Enabled' : 'Disabled'; });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = document.getElementById('suspend-settings-error'); err.textContent = '';
+    const ok = document.getElementById('suspend-settings-success'); ok.textContent = '';
+    const body = {
+      suspend_on_expiry: expEl.checked,
+      suspend_after_heartbeat_days: parseInt(document.getElementById('setting-suspend-hb-days').value, 10) || 0,
+    };
+    try {
+      await apiCall('PUT', '/admin/settings', body);
+      ok.textContent = '✓ Auto-suspension rules saved.';
+      setTimeout(() => { ok.textContent = ''; }, 3500);
+    } catch (e2) { err.textContent = e2.message; }
+  });
+})();
+
+// ========== Auto Cache-Busting: poll /api/version ==========
+(function versionPoller() {
+  const meta = document.querySelector('meta[name="build-version"]');
+  const initialVersion = meta ? meta.content : null;
+  if (!initialVersion) return; // dev mode / version injection not active
+  let warned = false;
+  async function check() {
+    try {
+      const r = await fetch('/api/version', { cache: 'no-store' });
+      if (!r.ok) return;
+      const j = await r.json();
+      if (j.version && j.version !== initialVersion && !warned) {
+        warned = true;
+        showVersionToast(initialVersion, j.version);
+      }
+    } catch { /* silent: offline or transient */ }
+  }
+  // First check 10s after boot (give server time to stabilize), then every 30s
+  setTimeout(() => { check(); setInterval(check, 30000); }, 10000);
+})();
+
+function showVersionToast(oldV, newV) {
+  // Don't interrupt the admin mid-action — show a small toast with a Reload CTA.
+  if (document.getElementById('version-toast')) return;
+  const toast = document.createElement('div');
+  toast.id = 'version-toast';
+  toast.className = 'version-toast';
+  toast.innerHTML = `
+    <div class="v-dot"></div>
+    <div class="v-text">
+      <strong>New version available</strong>
+      <span>${escapeHtml(oldV)} → ${escapeHtml(newV)}</span>
+    </div>
+    <button type="button" class="v-btn" id="version-reload-btn">Reload</button>
+  `;
+  document.body.appendChild(toast);
+  document.getElementById('version-reload-btn').addEventListener('click', () => {
+    // Force reload from server (ignore cache)
+    try { window.location.reload(true); } catch { window.location.reload(); }
+  });
+  // Auto-reload ONLY if admin is not busy — no open modal, no focused input/textarea.
+  function isBusy() {
+    const modalOpen = Array.from(document.querySelectorAll('.modal'))
+      .some(m => m.style.display && m.style.display !== 'none');
+    const ae = document.activeElement;
+    const editing = ae && /^(input|textarea|select)$/i.test(ae.tagName);
+    return modalOpen || editing;
+  }
+  let elapsed = 0;
+  const timer = setInterval(() => {
+    elapsed += 1000;
+    if (elapsed >= 8000 && !isBusy()) {
+      clearInterval(timer);
+      try { window.location.reload(true); } catch { window.location.reload(); }
+    }
+    // Cap wait at 60s — if admin is still busy, they'll click reload themselves.
+    if (elapsed >= 60000) clearInterval(timer);
+  }, 1000);
+}

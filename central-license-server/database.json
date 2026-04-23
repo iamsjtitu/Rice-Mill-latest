@@ -37,7 +37,10 @@
       "revoked_at": null,
       "is_master": false,
       "notified_7day": null,
-      "notified_expired": null
+      "notified_expired": null,
+      "suspended_at": null,
+      "suspension_reason": null,
+      "auto_suspended": null
     }
   ],
   "activations": [],
@@ -49,13 +52,15 @@
     "whatsapp_api_key": "",
     "whatsapp_cc": "91",
     "whatsapp_enabled": true,
-    "updated_at": "2026-04-23T09:42:49.063Z",
+    "updated_at": "2026-04-23T10:28:59.331Z",
     "cloudflare_api_token": "",
     "cloudflare_account_id": "",
     "cloudflare_zone_id": "",
     "cloudflare_tunnel_domain": "9x.design",
     "cloudflare_enabled": true,
     "update_repo": "iamsjtitu/Rice-Mill-latest",
-    "update_branch": "main"
+    "update_branch": "main",
+    "suspend_on_expiry": true,
+    "suspend_after_heartbeat_days": 0
   }
 }

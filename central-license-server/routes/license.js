@@ -15,7 +15,11 @@ router.get('/lookup/:key', (req, res) => {
   const data = db.getData();
   const lic = data.licenses.find(l => l.key === upperKey);
   if (!lic) return res.status(404).json({ error: 'License key not found' });
-  if (lic.status !== 'active') return res.status(403).json({ error: `License is ${lic.status}` });
+  if (lic.status !== 'active') {
+    const body = { error: `License is ${lic.status}`, status: lic.status };
+    if (lic.status === 'suspended' && lic.suspension_reason) body.suspension_reason = lic.suspension_reason;
+    return res.status(403).json(body);
+  }
   if (lic.expires_at && new Date(lic.expires_at) < new Date()) return res.status(403).json({ error: 'License expired' });
   res.json({
     customer_name: lic.customer_name,
@@ -39,7 +43,11 @@ router.post('/activate', (req, res) => {
   const data = db.getData();
   const lic = data.licenses.find(l => l.key === upperKey);
   if (!lic) return res.status(404).json({ error: 'License key not found' });
-  if (lic.status !== 'active') return res.status(403).json({ error: `License is ${lic.status}` });
+  if (lic.status !== 'active') {
+    const body = { error: `License is ${lic.status}`, status: lic.status };
+    if (lic.status === 'suspended' && lic.suspension_reason) body.suspension_reason = lic.suspension_reason;
+    return res.status(403).json(body);
+  }
   if (lic.expires_at && new Date(lic.expires_at) < new Date()) return res.status(403).json({ error: 'License expired' });
 
   // Loose binding: Kick existing active activations, create new one for this machine
@@ -89,7 +97,11 @@ router.post('/heartbeat', (req, res) => {
   const data = db.getData();
   const lic = data.licenses.find(l => l.key === String(key).trim().toUpperCase());
   if (!lic) return res.status(404).json({ active: false, error: 'License not found' });
-  if (lic.status !== 'active') return res.status(403).json({ active: false, error: `License ${lic.status}` });
+  if (lic.status !== 'active') {
+    const body = { active: false, error: `License ${lic.status}`, status: lic.status };
+    if (lic.status === 'suspended' && lic.suspension_reason) body.suspension_reason = lic.suspension_reason;
+    return res.status(403).json(body);
+  }
   if (lic.expires_at && new Date(lic.expires_at) < new Date()) return res.status(403).json({ active: false, error: 'License expired' });
 
   const act = data.activations.find(a => a.license_id === lic.id && a.machine_fingerprint === machine_fingerprint);
