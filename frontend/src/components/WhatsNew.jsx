@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.27.2",
+    date: "Feb 2026",
+    title: "v104.27.2 — Offline Activation File (.mlic)",
+    items: [
+      { type: "new", text: "📄 Naya 'Import Offline File (.mlic)' button activation screen pe — internet ke bina bhi license activate kar sakte ho" },
+      { type: "new", text: "🔐 Ed25519 signature verification — .mlic file tamper-proof hai, koi modify kare to app reject kar degi" },
+      { type: "new", text: "📲 Admin dashboard se .mlic file directly WhatsApp pe customer ko bhej sakte ho (360Messenger attachment)" },
+      { type: "new", text: "🏷️ Bind-on-first-use — .mlic jis PC pe import hogi, wohi bind ho jayegi (automatic machine lock)" },
+      { type: "note", text: "Admin dashboard pe License row ke saamne naya orange '.mlic' button — Generate & Download ya Send via WhatsApp" },
+    ],
+  },
+  {
     version: "104.27.0",
     date: "Feb 2026",
     title: "v104.27.0 - Split Billing (Pakka + Kaccha)",
