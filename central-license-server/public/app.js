@@ -67,6 +67,24 @@ function switchSection(view) {
   if (view === 'settings') loadSettings();
 }
 
+// ========== Settings tabs ==========
+const SETTINGS_TAB_KEY = 'mls_settings_tab';
+function switchSettingsTab(tab) {
+  const valid = ['whatsapp', 'tunnels', 'updates', 'account'];
+  if (!valid.includes(tab)) tab = 'whatsapp';
+  try { localStorage.setItem(SETTINGS_TAB_KEY, tab); } catch {}
+  document.querySelectorAll('.settings-tab').forEach(b => {
+    const on = b.dataset.settingsTab === tab;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  document.querySelectorAll('.settings-panel').forEach(p => {
+    const on = p.dataset.settingsPanel === tab;
+    if (on) { p.hidden = false; p.classList.add('active'); }
+    else    { p.hidden = true;  p.classList.remove('active'); }
+  });
+}
+
 async function loadDashboard() {
   await Promise.all([loadStats(), loadLicenses()]);
   renderActivity();
@@ -225,6 +243,12 @@ document.getElementById('refresh-activity').addEventListener('click', loadDashbo
 document.getElementById('search').addEventListener('input', debounce(loadLicenses, 280));
 document.getElementById('filter-status').addEventListener('change', loadLicenses);
 document.querySelectorAll('.nav-item').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); switchSection(a.dataset.view); }));
+document.querySelectorAll('.settings-tab').forEach(b => b.addEventListener('click', () => switchSettingsTab(b.dataset.settingsTab)));
+// Restore last-selected settings tab on page load
+try {
+  const saved = localStorage.getItem(SETTINGS_TAB_KEY);
+  if (saved) switchSettingsTab(saved);
+} catch {}
 
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 

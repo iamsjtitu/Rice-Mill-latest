@@ -211,6 +211,22 @@
 
         <!-- Settings -->
         <section id="settings-section" class="section" style="display:none">
+          <div class="settings-tabs" role="tablist" aria-label="Settings sections">
+            <button type="button" class="settings-tab active" data-settings-tab="whatsapp" role="tab" aria-selected="true">
+              <span class="tab-dot"></span><span class="tab-label">WhatsApp</span>
+            </button>
+            <button type="button" class="settings-tab" data-settings-tab="tunnels" role="tab" aria-selected="false">
+              <span class="tab-dot"></span><span class="tab-label">Cloud Tunnels</span>
+            </button>
+            <button type="button" class="settings-tab" data-settings-tab="updates" role="tab" aria-selected="false">
+              <span class="tab-dot"></span><span class="tab-label">Server Updates</span>
+            </button>
+            <button type="button" class="settings-tab" data-settings-tab="account" role="tab" aria-selected="false">
+              <span class="tab-dot"></span><span class="tab-label">Account</span>
+            </button>
+          </div>
+
+          <div class="settings-panel active" data-settings-panel="whatsapp" role="tabpanel">
           <div class="settings-grid">
             <div class="glass-panel settings-card">
               <div class="settings-head">
@@ -306,6 +322,11 @@
               </div>
               <div id="expiry-scan-result" class="test-result"></div>
             </div>
+          </div>
+          </div><!-- /settings-panel whatsapp -->
+
+          <div class="settings-panel" data-settings-panel="tunnels" role="tabpanel" hidden>
+          <div class="settings-grid">
             <div class="glass-panel settings-card wide">
               <div class="settings-head">
                 <span class="overline">CLOUDFLARE TUNNELS</span>
@@ -358,7 +379,11 @@
                 <div id="cf-success" class="success-inline"></div>
               </form>
             </div>
+          </div>
+          </div><!-- /settings-panel tunnels -->
 
+          <div class="settings-panel" data-settings-panel="updates" role="tabpanel" hidden>
+          <div class="settings-grid">
             <div class="glass-panel settings-card wide">
               <div class="settings-head">
                 <span class="overline">SERVER UPDATES</span>
@@ -438,7 +463,11 @@
               <div id="update-success" class="success-inline"></div>
               <div id="update-progress" class="test-result" style="display:none"></div>
             </div>
+          </div>
+          </div><!-- /settings-panel updates -->
 
+          <div class="settings-panel" data-settings-panel="account" role="tabpanel" hidden>
+          <div class="settings-grid">
             <div class="glass-panel settings-card wide">
               <div class="settings-head">
                 <span class="overline">ACCOUNT</span>
@@ -475,6 +504,7 @@
             </div>
 
           </div>
+          </div><!-- /settings-panel account -->
         </section>
 
       </main>
