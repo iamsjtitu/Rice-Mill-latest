@@ -540,6 +540,40 @@ document.getElementById('setting-cf-enabled').addEventListener('change', (e) => 
   document.getElementById('cf-toggle-label').textContent = e.target.checked ? 'Enabled' : 'Disabled';
 });
 
+// ========== Change Credentials ==========
+document.getElementById('credentials-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = document.getElementById('cred-error'); err.textContent = '';
+  const ok = document.getElementById('cred-success'); ok.textContent = '';
+  const current_password = document.getElementById('cred-current').value;
+  const new_email = document.getElementById('cred-new-email').value.trim();
+  const new_password = document.getElementById('cred-new-password').value;
+
+  if (!current_password) { err.textContent = 'Current password required'; return; }
+  if (!new_email && !new_password) { err.textContent = 'Enter a new email or new password'; return; }
+  if (new_password && new_password.length < 6) { err.textContent = 'New password must be at least 6 characters'; return; }
+
+  try {
+    const body = { current_password };
+    if (new_email) body.new_email = new_email;
+    if (new_password) body.new_password = new_password;
+    const r = await apiCall('PUT', '/auth/change-credentials', body);
+    // Backend returns fresh token if email changed — refresh storage so session continues
+    if (r.token) { state.token = r.token; localStorage.setItem('admin_token', r.token); localStorage.setItem('admin_email', r.email); }
+    ok.textContent = '✓ Credentials updated successfully';
+    // Clear form fields
+    document.getElementById('cred-current').value = '';
+    document.getElementById('cred-new-email').value = '';
+    document.getElementById('cred-new-password').value = '';
+    // Update top bar display if present
+    const emailEl = document.querySelector('[data-admin-email]');
+    if (emailEl) emailEl.textContent = r.email;
+    setTimeout(() => { ok.textContent = ''; }, 4000);
+  } catch (e2) {
+    err.textContent = e2.message || 'Update failed';
+  }
+});
+
 // ========== Init ==========
 restoreSession();
 if (getToken()) {

@@ -359,6 +359,41 @@
               </form>
             </div>
 
+            <div class="glass-panel settings-card wide">
+              <div class="settings-head">
+                <span class="overline">ACCOUNT</span>
+                <h3 class="section-title">Change Credentials</h3>
+                <p class="settings-desc">
+                  Update your super-admin email and/or password. Current password is required for verification.
+                </p>
+              </div>
+
+              <form id="credentials-form" class="settings-form">
+                <div class="input-group">
+                  <label>Current Password <span class="label-hint">required</span></label>
+                  <input type="password" id="cred-current" autocomplete="current-password" required placeholder="Enter your current password" />
+                </div>
+                <div class="input-split">
+                  <div class="input-group">
+                    <label>New Email <span class="label-hint">optional</span></label>
+                    <input type="email" id="cred-new-email" autocomplete="off" placeholder="leave blank to keep current" />
+                  </div>
+                  <div class="input-group">
+                    <label>New Password <span class="label-hint">optional · min 6 chars</span></label>
+                    <input type="password" id="cred-new-password" autocomplete="new-password" placeholder="leave blank to keep current" />
+                  </div>
+                </div>
+                <div class="settings-actions">
+                  <button type="submit" class="btn btn-primary">
+                    <span class="btn-label">Update Credentials</span>
+                    <span class="btn-arrow">→</span>
+                  </button>
+                </div>
+                <div id="cred-error" class="error-inline"></div>
+                <div id="cred-success" class="success-inline"></div>
+              </form>
+            </div>
+
           </div>
         </section>
 
