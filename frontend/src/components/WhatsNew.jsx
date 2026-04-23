@@ -7,9 +7,9 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
-    version: "104.27.2",
+    version: "104.28.0",
     date: "Feb 2026",
-    title: "v104.27.2 — Offline Activation File (.mlic)",
+    title: "v104.28.0 — Offline Activation File (.mlic)",
     items: [
       { type: "new", text: "📄 Naya 'Import Offline File (.mlic)' button activation screen pe — internet ke bina bhi license activate kar sakte ho" },
       { type: "new", text: "🔐 Ed25519 signature verification — .mlic file tamper-proof hai, koi modify kare to app reject kar degi" },
