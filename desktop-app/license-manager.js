@@ -185,6 +185,54 @@ function httpGet(urlStr, timeoutMs = 10000) {
   });
 }
 
+/**
+ * Import a signed .mlic file and activate locally. Uses the embedded/cached
+ * public key for offline verification. If machine has internet, ALSO notifies
+ * central server via /api/license/activate-mlic so admin dashboard tracks the binding.
+ *
+ * @param {string} filePath - absolute path to the .mlic file
+ * @returns {Promise<Object>} the activated cache record
+ */
+async function importMlic(filePath) {
+  const mlicImport = require('./mlic-import');
+  const payload = await mlicImport.readAndVerifyMlicFile(filePath, LICENSE_SERVER_URL);
+
+  // Payload verified — build a local cache with bind-on-first-use.
+  const cache = {
+    key: payload.license.key,
+    customer_name: payload.license.customer_name,
+    mill_name: payload.license.mill_name,
+    plan: payload.license.plan,
+    expires_at: payload.license.expires_at,
+    is_master: !!payload.license.is_master,
+    activation_id: 'mlic-' + (payload.mlic_id || Date.now()),
+    activated_at: new Date().toISOString(),
+    last_validated_at: new Date().toISOString(),
+    via_mlic: true,
+    mlic_id: payload.mlic_id,
+    machine_fingerprint: getMachineFingerprint(),
+  };
+
+  // Best-effort: notify central server (doesn't fail the import if offline)
+  try {
+    const resp = await httpPost(LICENSE_SERVER_URL + '/api/license/activate-mlic', {
+      mlic: payload,
+      machine_fingerprint: getMachineFingerprint(),
+      pc_info: getPcInfo(),
+    }, 10000);
+    if (resp && resp.success) {
+      cache.activation_id = resp.activation_id || cache.activation_id;
+      cache.server_registered = true;
+    }
+  } catch (e) {
+    console.warn('[License] mlic activation offline — local cache saved, will sync next online:', e.message);
+    cache.server_registered = false;
+  }
+
+  saveCache(cache);
+  return cache;
+}
+
 // ====== Public API ======
 
 /**
@@ -357,6 +405,7 @@ module.exports = {
   checkLicenseOnStartup,
   lookupLicense,
   activateLicense,
+  importMlic,
   sendHeartbeat,
   startBackgroundHeartbeat,
   getStatus,

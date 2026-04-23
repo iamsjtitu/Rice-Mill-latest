@@ -135,6 +135,14 @@ jobs:
           }
         shell: powershell
 
+      - name: Fetch & embed .mlic public key (best-effort, non-blocking)
+        if: steps.check_release.outputs.EXISTS == 'false'
+        working-directory: desktop-app
+        env:
+          LICENSE_SERVER_URL: https://admin.9x.design
+        run: node scripts/fetch-public-key.js
+        continue-on-error: true
+
       - name: Build Windows App (no publish)
         if: steps.check_release.outputs.EXISTS == 'false'
         working-directory: desktop-app

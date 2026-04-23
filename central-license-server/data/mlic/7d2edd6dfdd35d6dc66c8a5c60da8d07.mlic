@@ -1,0 +1,19 @@
+{
+  "license": {
+    "key": "9X-9U4J-7XGB-BU8T-FV83",
+    "customer_name": "TEST_License_Customer",
+    "mill_name": "TEST_Mill_Facility",
+    "contact": "9999999999",
+    "plan": "yearly",
+    "issued_at": "2026-04-19T18:14:40.281Z",
+    "expires_at": "2026-05-19T18:14:40.312500",
+    "is_master": false
+  },
+  "mlic_version": 1,
+  "signed_at": "2026-04-23T11:19:01.376Z",
+  "mlic_id": "bb433c96-32ba-4585-b67f-803b823f3708",
+  "binding_mode": "first_use",
+  "note": null,
+  "signature": "bqg+UPfLRYQXU1Ax6kTbRnyZvh9d9PFF6LYBwGQd0eVm1iMPmqxSKgssZJJRgkOgAuuRSNqH34bavwxQRE3LCA==",
+  "signature_alg": "ed25519"
+}

@@ -221,6 +221,7 @@ function renderLicenses(rows) {
         <td>${seenText}</td>
         <td><div class="action-group">
           ${r.status === 'active' ? `<button class="btn btn-ghost btn-sm" data-action="reset" data-id="${r.id}" title="Reset machine binding">Reset PC</button>` : ''}
+          ${r.status === 'active' && !r.is_master ? `<button class="btn btn-accent btn-sm" data-action="mlic" data-id="${r.id}" data-key="${escapeHtml(r.key)}" data-mill="${escapeHtml(r.mill_name)}" data-contact="${escapeHtml(r.contact || '')}" title="Generate Offline Activation File">.mlic</button>` : ''}
           ${r.status === 'active' && !r.is_master ? `<button class="btn btn-warn btn-sm" data-action="suspend" data-id="${r.id}" data-key="${escapeHtml(r.key)}" data-mill="${escapeHtml(r.mill_name)}">Suspend</button>` : ''}
           ${r.status === 'suspended' && !r.is_master ? `<button class="btn btn-success btn-sm" data-action="unsuspend" data-id="${r.id}">Restore</button>` : ''}
           ${r.status !== 'revoked' && !r.is_master ? `<button class="btn btn-danger btn-sm" data-action="revoke" data-id="${r.id}">Revoke</button>` : ''}
@@ -329,6 +330,8 @@ document.getElementById('license-tbody').addEventListener('click', async (e) => 
     catch (e2) { alert('Restore failed: ' + e2.message); }
   } else if (action === 'delete') {
     openDeleteModal(id, btn.dataset.key || '', btn.dataset.mill || '');
+  } else if (action === 'mlic') {
+    openMlicModal(id, btn.dataset.key || '', btn.dataset.mill || '', btn.dataset.contact || '');
   }
 });
 
@@ -1066,3 +1069,106 @@ async function loadNotifications() {
     }
   });
 })();
+
+// ========== Offline .mlic Modal ==========
+function openMlicModal(licenseId, key, mill, contact) {
+  const modal = document.getElementById('mlic-modal');
+  const title = document.getElementById('mlic-modal-title');
+  const noteEl = document.getElementById('mlic-note');
+  const errorEl = document.getElementById('mlic-error');
+  const resultEl = document.getElementById('mlic-result');
+  modal.dataset.licenseId = licenseId;
+  modal.dataset.licenseKey = key;
+  modal.dataset.licenseContact = contact || '';
+  title.textContent = mill ? `Offline File for ${mill}` : `Offline File for ${key}`;
+  noteEl.value = '';
+  errorEl.textContent = '';
+  resultEl.style.display = 'none';
+  modal.style.display = 'flex';
+}
+
+document.getElementById('mlic-generate-btn').addEventListener('click', async () => {
+  const modal = document.getElementById('mlic-modal');
+  const licenseId = modal.dataset.licenseId;
+  const note = document.getElementById('mlic-note').value.trim();
+  const errorEl = document.getElementById('mlic-error');
+  errorEl.textContent = '';
+  const btn = document.getElementById('mlic-generate-btn');
+  const lab = btn.querySelector('.btn-label'); const orig = lab.textContent;
+  btn.disabled = true; lab.textContent = 'Generating…';
+  try {
+    const r = await apiCall('POST', `/admin/licenses/${licenseId}/generate-mlic`, note ? { note } : {});
+    showMlicResult(r);
+    // Auto-trigger browser download
+    downloadBlob(JSON.stringify(r.payload, null, 2), r.filename || `${modal.dataset.licenseKey}.mlic`);
+  } catch (e) {
+    errorEl.textContent = e.message || 'Generation failed';
+  } finally {
+    btn.disabled = false; lab.textContent = orig;
+  }
+});
+
+document.getElementById('mlic-send-whatsapp-btn').addEventListener('click', async () => {
+  const modal = document.getElementById('mlic-modal');
+  const licenseId = modal.dataset.licenseId;
+  const contact = modal.dataset.licenseContact;
+  const note = document.getElementById('mlic-note').value.trim();
+  const errorEl = document.getElementById('mlic-error');
+  errorEl.textContent = '';
+  if (!contact) {
+    if (!confirm('No phone number on this license. Send anyway? Admin will need to enter phone.')) return;
+  }
+  const btn = document.getElementById('mlic-send-whatsapp-btn');
+  const lab = btn.querySelector('.btn-label'); const orig = lab.textContent;
+  btn.disabled = true; lab.textContent = 'Sending…';
+  try {
+    const r = await apiCall('POST', `/admin/licenses/${licenseId}/send-mlic-whatsapp`,
+      note ? { note } : {});
+    if (r.success) {
+      showMlicResult({
+        filename: `${modal.dataset.licenseKey}.mlic`,
+        download_url: r.download_url,
+        mlic_id: r.mlic_id,
+      });
+      lab.textContent = '✓ Sent';
+      setTimeout(() => { lab.textContent = orig; }, 2500);
+    } else {
+      const reason = (r.result && (r.result.error || r.result.reason)) || 'unknown error';
+      errorEl.textContent = 'WhatsApp send failed: ' + reason;
+      lab.textContent = orig;
+    }
+  } catch (e) {
+    errorEl.textContent = e.message || 'Send failed';
+    lab.textContent = orig;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+function showMlicResult(r) {
+  const resultEl = document.getElementById('mlic-result');
+  document.getElementById('mlic-filename').textContent = r.filename || '—';
+  document.getElementById('mlic-download-url').textContent = r.download_url || '—';
+  document.getElementById('mlic-download-link').href = r.download_url || '#';
+  resultEl.style.display = 'block';
+}
+
+document.getElementById('mlic-copy-url-btn').addEventListener('click', async () => {
+  const url = document.getElementById('mlic-download-url').textContent;
+  try {
+    await navigator.clipboard.writeText(url);
+    const b = document.getElementById('mlic-copy-url-btn');
+    const t = b.textContent; b.textContent = '✓ Copied';
+    setTimeout(() => { b.textContent = t; }, 1500);
+  } catch {}
+});
+
+function downloadBlob(content, filename) {
+  const blob = new Blob([content], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+}
+

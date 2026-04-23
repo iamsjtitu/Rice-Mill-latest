@@ -61,6 +61,25 @@
     .btn-arrow { transition: transform .25s; font-family: 'JetBrains Mono', monospace; }
     .btn:hover .btn-arrow { transform: translateX(4px); }
 
+    .btn-ghost {
+      width: 100%; padding: 14px 18px; font-size: 13.5px;
+      background: transparent; color: var(--text-2);
+      border: 1px dashed var(--border); margin-top: 12px;
+    }
+    .btn-ghost:hover {
+      color: var(--accent); border-color: var(--accent); border-style: solid;
+      background: rgba(232,119,10,0.04);
+    }
+
+    .divider {
+      display: flex; align-items: center; gap: 12px;
+      margin: 22px 0 6px; color: var(--text-3);
+      font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.3em;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
     .error { color: var(--revoked); font-size: 13px; margin-top: 14px; text-align: center; min-height: 18px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.02em; }
     .success { color: var(--active); font-size: 13px; margin-top: 14px; text-align: center; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.02em; }
 
@@ -116,6 +135,13 @@
         <button type="submit" class="btn btn-primary" id="activate-btn">
           <span class="btn-label">Activate License</span>
           <span class="btn-arrow">→</span>
+        </button>
+
+        <div class="divider"><span>OR</span></div>
+
+        <button type="button" class="btn btn-ghost" id="import-mlic-btn">
+          <span class="btn-label">Import Offline File (.mlic)</span>
+          <span class="btn-arrow">↓</span>
         </button>
 
         <div id="lookup-preview" class="lookup-preview" style="display:none">
@@ -263,6 +289,38 @@
         btn.querySelector('.btn-label').textContent = 'Activate License';
         btn.querySelector('.btn-arrow').style.display = '';
       }
+    });
+
+    // ====== Import Offline File (.mlic) ======
+    document.getElementById('import-mlic-btn').addEventListener('click', async () => {
+      const importBtn = document.getElementById('import-mlic-btn');
+      statusMsg.className = 'error';
+      statusMsg.textContent = '';
+      importBtn.disabled = true;
+      const originalLabel = importBtn.querySelector('.btn-label').textContent;
+      importBtn.querySelector('.btn-label').innerHTML = '<span class="loader" style="border-top-color:var(--accent);border-color:rgba(232,119,10,.25)"></span> Verifying…';
+      importBtn.querySelector('.btn-arrow').style.display = 'none';
+      try {
+        const result = await ipcRenderer.invoke('license:import-mlic');
+        if (result.cancelled) {
+          // user cancelled native dialog; nothing to say
+        } else if (result.ok) {
+          statusMsg.className = 'success';
+          statusMsg.textContent = `✓ Offline activation successful: ${result.cache.mill_name}. Launching…`;
+          setTimeout(() => ipcRenderer.invoke('license:activated'), 1200);
+          return; // don't reset button
+        } else {
+          throw new Error(result.error || 'Import failed');
+        }
+      } catch (err) {
+        statusMsg.className = 'error';
+        statusMsg.textContent = err.message || 'Import failed';
+        document.querySelector('.card').classList.add('shake');
+        setTimeout(() => document.querySelector('.card').classList.remove('shake'), 300);
+      }
+      importBtn.disabled = false;
+      importBtn.querySelector('.btn-label').textContent = originalLabel;
+      importBtn.querySelector('.btn-arrow').style.display = '';
     });
 
     // Optional: Pre-fill previous reason if license was revoked

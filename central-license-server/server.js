@@ -78,6 +78,25 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/license', require('./routes/license'));
 
+// Public .mlic download (unauth, token-guarded, 48h TTL) — so 360Messenger can attach via URL
+const mlicStore = require('./utils/mlic-store');
+mlicStore.ensureDir();
+app.get('/mlic/:filename', (req, res) => {
+  // Accept both "/mlic/<token>" and "/mlic/<token>.mlic"
+  const filename = req.params.filename;
+  const token = filename.replace(/\.mlic$/i, '');
+  const result = mlicStore.read(token);
+  if (!result) return res.status(404).send('Not found or expired');
+  // Hint filename for download. WhatsApp will show this in chat.
+  const suggested = (result.meta && result.meta.license_key)
+    ? `${result.meta.license_key}.mlic.txt`
+    : `activation-${token.slice(0, 8)}.mlic.txt`;
+  res.set('Content-Disposition', `attachment; filename="${suggested}"`);
+  res.set('Content-Type', 'text/plain; charset=utf-8');
+  res.set('Cache-Control', 'public, max-age=300');
+  res.send(result.body);
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime(), version: '1.0.0', build: BUILD_VERSION });
 });

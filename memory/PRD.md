@@ -150,3 +150,23 @@
     - **Clear older than 30d** bulk-delete button
   - New APIs: `GET /api/admin/notifications` (filters + totals) · `POST /api/admin/notifications/:id/retry` · `DELETE /api/admin/notifications?older_than_days=N`
   - Deploy tarball: `https://paste.rs/vyUeV` (71 KB, MD5 `9b8236ba444f6ed897a50db98701f71d`)
+
+- **Offline `.mlic` Activation** (DONE, Feb 2026, requires desktop app rebuild):
+  - **Cryptography**: Ed25519 keypair auto-generated on central server first boot, stored in `data.settings.mlic_public_key/private_key`. Private key NEVER exposed via API. Deterministic recursive JSON canonicalization for signing.
+  - **Central Server**:
+    - `GET /api/license/public-key` (unauth) — desktop apps fetch once for offline verify
+    - `POST /api/admin/licenses/:id/generate-mlic` — returns signed JSON blob + 48h public download URL
+    - `POST /api/admin/licenses/:id/send-mlic-whatsapp` — 360Messenger sends with file URL attached
+    - `POST /api/license/activate-mlic` — when customer is online, notifies server of the binding
+    - `GET /mlic/:token.mlic` (unauth, 48h TTL, FIFO disk cleanup) — serves the file
+    - `POST /api/admin/mlic-keys/rotate` — destructive key rotation
+  - **Admin UI**: new orange `.mlic` button on every active license → modal with note input, "Generate & Download" button (auto-downloads JSON file), "Send via WhatsApp" button. Result panel shows filename, public URL (48h), copy+download buttons.
+  - **Desktop App (requires rebuild)**:
+    - New `mlic-import.js` module with Ed25519 verify + public key resolver (embedded > cached > fetch)
+    - `license:import-mlic` IPC handler using `dialog.showOpenDialog`
+    - Activation UI: "OR → Import Offline File (.mlic)" button below "Activate License"
+    - `license-manager.importMlic(filePath)` — reads, verifies, binds to machine, best-effort pings server
+    - `scripts/fetch-public-key.js` embeds public key at build time via GitHub Actions (continue-on-error)
+    - Added `mlic-import.js` to electron-builder files whitelist
+  - Deploy tarball (central-server only): `https://paste.rs/QshNR` (78 KB, MD5 `2e4d4499005764af9f51ba0bdf8bebcf`)
+  - Desktop app changes ship via next "Save to GitHub" → GitHub Actions → Windows installer v104.27.2+

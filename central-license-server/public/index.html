@@ -750,6 +750,67 @@
     </div>
   </div>
 
+  <!-- ============= MODAL: Generate .mlic ============= -->
+  <div id="mlic-modal" class="modal" style="display:none">
+    <div class="modal-backdrop" data-close-modal="mlic-modal"></div>
+    <div class="modal-content glass-panel wide">
+      <div class="modal-head">
+        <div>
+          <span class="overline text-accent">OFFLINE ACTIVATION FILE</span>
+          <h2 id="mlic-modal-title">Generate .mlic</h2>
+        </div>
+        <button class="btn-icon" data-close-modal="mlic-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="mlic-intro">
+          <p>Signed <code>.mlic</code> file generate hoti hai jise customer apne desktop app me <strong>"Import Offline File"</strong> button se activate kar sakte hain — internet ki zaroorat nahi.</p>
+          <ul class="mlic-points">
+            <li>File 48 ghante tak valid hai (download URL expires)</li>
+            <li>First PC pe activate hoga jahan import kiya jayega (bind-on-first-use)</li>
+            <li>Tamper proof — Ed25519 signature verified at import</li>
+          </ul>
+        </div>
+
+        <div class="input-group">
+          <label>Internal Note <span class="label-hint">optional — audit only, not sent to customer</span></label>
+          <input type="text" id="mlic-note" placeholder="e.g. Customer asked for offline activation on 23 Apr" />
+        </div>
+
+        <div class="mlic-actions-row">
+          <button type="button" class="btn btn-ghost" id="mlic-generate-btn">
+            <span class="btn-label">Generate & Download</span>
+            <span class="btn-arrow">↓</span>
+          </button>
+          <button type="button" class="btn btn-primary" id="mlic-send-whatsapp-btn">
+            <span class="btn-label">Send via WhatsApp</span>
+            <span class="btn-arrow">↗</span>
+          </button>
+        </div>
+
+        <div class="mlic-result" id="mlic-result" style="display:none">
+          <div class="mlic-result-head">
+            <span class="overline text-active">✓ GENERATED</span>
+            <span class="mono-tag" id="mlic-expires-hint">expires in 48h</span>
+          </div>
+          <div class="mlic-field">
+            <span class="mlic-field-key">File</span>
+            <span class="mlic-field-val" id="mlic-filename">—</span>
+          </div>
+          <div class="mlic-field">
+            <span class="mlic-field-key">Download URL</span>
+            <span class="mlic-field-val mono-cell" id="mlic-download-url">—</span>
+          </div>
+          <div class="mlic-result-actions">
+            <button type="button" class="btn btn-ghost btn-sm" id="mlic-copy-url-btn">Copy URL</button>
+            <a class="btn btn-ghost btn-sm" id="mlic-download-link" href="#" target="_blank" download>Download File</a>
+          </div>
+        </div>
+
+        <div id="mlic-error" class="error-inline"></div>
+      </div>
+    </div>
+  </div>
+
   <script src="/app.js"></script>
 </body>
 </html>

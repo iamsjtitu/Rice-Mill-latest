@@ -177,4 +177,83 @@ router.get('/cloud-access-status/:key', (req, res) => {
   });
 });
 
+// ============ OFFLINE ACTIVATION (.mlic) ============
+
+// GET /api/license/public-key — returns the Ed25519 public key (PEM) used to verify .mlic files.
+// This endpoint is INTENTIONALLY unauthenticated — desktop apps need to fetch it on first run
+// if their embedded copy is missing/outdated.
+router.get('/public-key', (req, res) => {
+  const mlicSigner = require('../utils/mlic-signer');
+  res.set('Cache-Control', 'public, max-age=3600');
+  res.json({
+    public_key: mlicSigner.getPublicKey(),
+    algorithm: 'ed25519',
+    format: 'spki-pem',
+  });
+});
+
+// POST /api/license/activate-mlic — bind a signed .mlic payload to a specific machine.
+// Body: { mlic, machine_fingerprint, pc_info }
+// The server authoritatively marks the license as "activated on this machine" in its DB,
+// same as /activate but skips the key-entry step. Used when customer imports .mlic online.
+router.post('/activate-mlic', (req, res) => {
+  const { mlic, machine_fingerprint, pc_info } = req.body || {};
+  if (!mlic || !machine_fingerprint) return res.status(400).json({ error: 'mlic payload and machine_fingerprint required' });
+  const mlicSigner = require('../utils/mlic-signer');
+  const verify = mlicSigner.verifyMlic(mlic);
+  if (!verify.valid) return res.status(400).json({ error: 'Invalid .mlic signature: ' + verify.reason });
+  const key = (mlic.license && mlic.license.key || '').trim().toUpperCase();
+  if (!key) return res.status(400).json({ error: 'Malformed .mlic — no license key' });
+  const data = db.getData();
+  const lic = data.licenses.find(l => l.key === key);
+  if (!lic) return res.status(404).json({ error: 'License no longer exists on central server' });
+  if (lic.status !== 'active') {
+    const body = { error: `License is ${lic.status}`, status: lic.status };
+    if (lic.status === 'suspended' && lic.suspension_reason) body.suspension_reason = lic.suspension_reason;
+    return res.status(403).json(body);
+  }
+  if (lic.expires_at && new Date(lic.expires_at) < new Date()) return res.status(403).json({ error: 'License expired' });
+
+  // Deactivate other machines (loose binding — .mlic gets priority, same as activate)
+  (data.activations || []).forEach(a => {
+    if (a.license_id === lic.id && a.machine_fingerprint !== machine_fingerprint) a.active = false;
+  });
+  let act = data.activations.find(a => a.license_id === lic.id && a.machine_fingerprint === machine_fingerprint);
+  if (!act) {
+    act = {
+      id: require('uuid').v4(),
+      license_id: lic.id,
+      machine_fingerprint,
+      pc_info: pc_info || {},
+      activated_at: new Date().toISOString(),
+      last_seen_at: new Date().toISOString(),
+      active: true,
+      via_mlic: true,
+      mlic_id: mlic.mlic_id || null,
+    };
+    data.activations.push(act);
+  } else {
+    act.active = true;
+    act.pc_info = pc_info || act.pc_info;
+    act.last_seen_at = new Date().toISOString();
+    act.via_mlic = true;
+    act.mlic_id = mlic.mlic_id || act.mlic_id;
+  }
+  db.saveImmediate();
+
+  res.json({
+    success: true,
+    license: {
+      key: lic.key,
+      customer_name: lic.customer_name,
+      mill_name: lic.mill_name,
+      plan: lic.plan,
+      expires_at: lic.expires_at,
+      is_master: !!lic.is_master,
+    },
+    activation_id: act.id,
+    offline_grace_days: 30,
+  });
+});
+
 module.exports = router;

@@ -201,6 +201,152 @@ router.delete('/licenses/:id', (req, res) => {
   res.json({ success: true, deleted: { id: lic.id, key: lic.key, mill_name: lic.mill_name } });
 });
 
+// ============ OFFLINE .mlic GENERATION ============
+
+// POST /api/admin/licenses/:id/generate-mlic — build & return signed .mlic payload
+// Body: { note?, override_expires_at? }  (both optional)
+router.post('/licenses/:id/generate-mlic', (req, res) => {
+  const data = db.getData();
+  const lic = data.licenses.find(l => l.id === req.params.id);
+  if (!lic) return res.status(404).json({ error: 'License not found' });
+  if (lic.status !== 'active') return res.status(400).json({ error: `Cannot generate .mlic for a ${lic.status} license. Restore it first.` });
+  const mlicSigner = require('../utils/mlic-signer');
+  const payload = mlicSigner.signMlic(lic, {
+    override_expires_at: req.body && req.body.override_expires_at,
+    note: req.body && req.body.note,
+  });
+
+  // Persist to disk so it can be served publicly via token (for WhatsApp attachment URL).
+  const mlicStore = require('../utils/mlic-store');
+  const { token, download_url } = mlicStore.save(payload, { license_key: lic.key, mill_name: lic.mill_name });
+
+  res.json({
+    success: true,
+    payload,
+    mlic_id: payload.mlic_id,
+    download_token: token,
+    download_url,
+    filename: `${lic.key}.mlic`,
+    expires_in_hours: 48,
+  });
+});
+
+// POST /api/admin/licenses/:id/send-mlic-whatsapp — generate (if not already), then push via 360Messenger.
+// Body: { phone?, note? }  phone defaults to license.contact
+router.post('/licenses/:id/send-mlic-whatsapp', async (req, res) => {
+  const data = db.getData();
+  const lic = data.licenses.find(l => l.id === req.params.id);
+  if (!lic) return res.status(404).json({ error: 'License not found' });
+  if (lic.status !== 'active') return res.status(400).json({ error: `Cannot send .mlic for a ${lic.status} license.` });
+  const phoneRaw = (req.body && req.body.phone) || lic.contact;
+  const phone = notifier.extractPhone(phoneRaw);
+  if (!phone) return res.status(400).json({ error: 'No valid phone number on license or in request' });
+
+  const mlicSigner = require('../utils/mlic-signer');
+  const mlicStore = require('../utils/mlic-store');
+  const payload = mlicSigner.signMlic(lic, { note: req.body && req.body.note });
+  const { token, download_url } = mlicStore.save(payload, { license_key: lic.key, mill_name: lic.mill_name });
+
+  const text = `*MillEntry Offline Activation File*\n\n` +
+               `Mill: ${lic.mill_name}\nKey: ${lic.key}\n\n` +
+               `Ye file attach hai — open karke apne MillEntry software me "Import Offline File" button ke through activate karo. Internet ki zaroorat nahi.\n\n` +
+               `File 48 ghante tak valid hai.\n— t2@host9x.com`;
+
+  const result = await notifier.sendMessage(phone, text, {
+    license_id: lic.id,
+    license_key: lic.key,
+    event: 'mlic_sent',
+    url: download_url, // forms part of the 360messenger payload when caller forwards it
+  });
+  // The sendMessage signature above accepts logCtx but not "url" directly — wire it through a custom call.
+  // For file attachments we do a direct 360Messenger POST here (bypassing plain sendMessage):
+  const waResult = await sendWhatsappWithAttachment(phone, text, download_url, {
+    license_id: lic.id, license_key: lic.key, event: 'mlic_sent',
+  });
+
+  res.json({
+    success: !!(waResult && waResult.success),
+    sent_to: phone,
+    download_url,
+    mlic_id: payload.mlic_id,
+    result: waResult,
+  });
+});
+
+// Helper: send WhatsApp with an attachment URL via 360Messenger
+// (plain notifier.sendMessage doesn't currently pass `url` field — we do it here once.)
+function sendWhatsappWithAttachment(phone, text, attachmentUrl, logCtx) {
+  const https = require('https');
+  const { URLSearchParams } = require('url');
+  return new Promise(resolve => {
+    const s = db.getData().settings || {};
+    const apiKey = (s.whatsapp_api_key || process.env.NOTIFY_WA_API_KEY || '').trim();
+    const enabled = s.whatsapp_enabled !== false && !!apiKey;
+    const finish = (result) => {
+      if (logCtx) {
+        notifier.logNotification({
+          license_id: logCtx.license_id || null,
+          license_key: logCtx.license_key || null,
+          event: logCtx.event || 'mlic_sent',
+          phone,
+          status: result.success ? 'delivered' : (result.skipped ? 'skipped' : 'failed'),
+          message_preview: (text || '').slice(0, 200),
+          response: result.response ? JSON.stringify(result.response).slice(0, 300) : null,
+          error: result.error || result.reason || null,
+          status_code: result.statusCode || null,
+        });
+      }
+      resolve(result);
+    };
+    if (!apiKey)  return finish({ success: false, skipped: true, reason: 'WhatsApp API key not configured' });
+    if (!enabled) return finish({ success: false, skipped: true, reason: 'WhatsApp notifications disabled' });
+    const form = new URLSearchParams({ phonenumber: phone, text, url: attachmentUrl });
+    const body = form.toString();
+    const req = https.request({
+      hostname: 'api.360messenger.com', path: '/v2/sendMessage', method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) },
+    }, (r) => {
+      let chunks = '';
+      r.on('data', c => chunks += c);
+      r.on('end', () => {
+        try {
+          const j = JSON.parse(chunks);
+          finish({ success: !!(j.success || r.statusCode === 201), statusCode: r.statusCode, response: j });
+        } catch { finish({ success: false, error: chunks.slice(0, 200) }); }
+      });
+    });
+    req.on('error', e => finish({ success: false, error: e.message }));
+    req.setTimeout(12000, () => { req.destroy(); finish({ success: false, error: 'timeout' }); });
+    req.write(body);
+    req.end();
+  });
+}
+
+// GET /api/admin/mlic-keys/status — returns whether keypair exists (for settings UI)
+router.get('/mlic-keys/status', (req, res) => {
+  const s = db.getData().settings || {};
+  const mlicSigner = require('../utils/mlic-signer');
+  // Ensure a key exists so first-request is idempotent
+  mlicSigner.ensureKeypair();
+  const s2 = db.getData().settings || {};
+  res.json({
+    ready: !!s2.mlic_public_key,
+    generated_at: s2.mlic_keys_generated_at || null,
+    public_key_preview: (s2.mlic_public_key || '').split('\n').slice(1, 2)[0]?.slice(0, 40) + '…',
+  });
+});
+
+// POST /api/admin/mlic-keys/rotate — generate new keypair (invalidates all existing .mlic files)
+router.post('/mlic-keys/rotate', (req, res) => {
+  const mlicSigner = require('../utils/mlic-signer');
+  const kp = mlicSigner.rotateKeypair();
+  res.json({
+    success: true,
+    warning: 'All previously-issued .mlic files are now INVALID. Desktop apps must fetch new public key.',
+    generated_at: new Date().toISOString(),
+  });
+});
+
 // POST /api/admin/licenses/:id/reset-machine — kick current active PC so customer can re-activate on new machine
 router.post('/licenses/:id/reset-machine', (req, res) => {
   const data = db.getData();

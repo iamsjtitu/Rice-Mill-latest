@@ -23,6 +23,9 @@ const defaultData = {
     cloudflare_enabled: false,// master switch for tunnel auto-provisioning
     suspend_on_expiry: true,  // auto-suspend when expires_at crossed
     suspend_after_heartbeat_days: 0, // 0=off, N=suspend if last_seen_at older than N days
+    mlic_public_key: '',      // Ed25519 public key (PEM, SPKI) — auto-generated on first mlic op
+    mlic_private_key: '',     // Ed25519 private key (PEM, PKCS8) — NEVER exposed via API
+    mlic_keys_generated_at: null,
     updated_at: null,
   },
   meta: { version: 1, created_at: new Date().toISOString() },

@@ -2832,6 +2832,28 @@ ipcMain.handle('license:activate', async (event, key) => {
     return { ok: false, error: e.message };
   }
 });
+ipcMain.handle('license:import-mlic', async () => {
+  try {
+    if (!activationWindow || activationWindow.isDestroyed()) {
+      return { ok: false, error: 'No activation window' };
+    }
+    const result = await dialog.showOpenDialog(activationWindow, {
+      title: 'Select Offline Activation File',
+      properties: ['openFile'],
+      filters: [
+        { name: 'MillEntry License File', extensions: ['mlic', 'txt', 'json'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+    });
+    if (result.canceled || !result.filePaths || !result.filePaths[0]) {
+      return { ok: false, error: 'No file selected', cancelled: true };
+    }
+    const cache = await licenseManager.importMlic(result.filePaths[0]);
+    return { ok: true, cache };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
 ipcMain.handle('license:activated', async () => {
   // Called after successful activation — close activation window & start app
   if (activationWindow && !activationWindow.isDestroyed()) {
