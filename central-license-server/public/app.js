@@ -540,6 +540,112 @@ document.getElementById('setting-cf-enabled').addEventListener('change', (e) => 
   document.getElementById('cf-toggle-label').textContent = e.target.checked ? 'Enabled' : 'Disabled';
 });
 
+// ========== Server Updates ==========
+let _latestSha = null;
+
+function paintUpdateStatus(info) {
+  const statusEl = document.getElementById('update-status');
+  const metaEl = document.getElementById('update-meta');
+  const applyBtn = document.getElementById('update-apply-btn');
+  if (!info) {
+    statusEl.className = 'settings-status';
+    statusEl.querySelector('.status-text').textContent = 'Click "Check for Updates" to see what\'s new…';
+    metaEl.style.display = 'none';
+    applyBtn.disabled = true;
+    return;
+  }
+  metaEl.style.display = 'grid';
+  document.getElementById('update-repo-val').textContent = info.repo;
+  document.getElementById('update-branch-val').textContent = info.branch;
+  document.getElementById('update-current-sha').textContent = info.current_sha ? info.current_sha.slice(0, 10) : '(first deploy)';
+  document.getElementById('update-latest-sha').textContent = info.latest_sha.slice(0, 10);
+  document.getElementById('update-last-commit').textContent = `${info.latest_commit_message || '(no message)'} — ${info.latest_commit_author || 'unknown'}`;
+  if (info.update_available) {
+    statusEl.className = 'settings-status warn';
+    statusEl.querySelector('.status-text').innerHTML = '<strong>Update available.</strong> Click "Install Update" to deploy the latest commit.';
+    applyBtn.disabled = false;
+    _latestSha = info.latest_sha;
+  } else {
+    statusEl.className = 'settings-status ok';
+    statusEl.querySelector('.status-text').innerHTML = '<strong>Up to date.</strong> Running the latest commit.';
+    applyBtn.disabled = true;
+    _latestSha = null;
+  }
+}
+
+document.getElementById('update-check-btn').addEventListener('click', async () => {
+  const err = document.getElementById('update-error'); err.textContent = '';
+  const ok = document.getElementById('update-success'); ok.textContent = '';
+  document.getElementById('update-progress').style.display = 'none';
+  const btn = document.getElementById('update-check-btn');
+  btn.disabled = true; btn.querySelector('.btn-label').textContent = 'Checking…';
+  try {
+    const info = await apiCall('GET', '/admin/server-update/check');
+    paintUpdateStatus(info);
+  } catch (e) { err.textContent = e.message; }
+  finally {
+    btn.disabled = false; btn.querySelector('.btn-label').textContent = 'Check for Updates';
+  }
+});
+
+document.getElementById('update-apply-btn').addEventListener('click', async () => {
+  if (!confirm('Install latest update?\n\nThe server will restart immediately after applying. All active sessions will stay logged in, but any in-flight HTTP request during the ~3 second restart will fail (safe to retry).')) return;
+  const err = document.getElementById('update-error'); err.textContent = '';
+  const ok = document.getElementById('update-success'); ok.textContent = '';
+  const progressEl = document.getElementById('update-progress');
+  progressEl.style.display = 'block';
+  progressEl.className = 'test-result loading';
+  progressEl.textContent = 'Starting update…';
+  const btn = document.getElementById('update-apply-btn');
+  btn.disabled = true; btn.querySelector('.btn-label').textContent = 'Installing…';
+  try {
+    const r = await apiCall('POST', '/admin/server-update/apply');
+    if (r.success) {
+      progressEl.className = 'test-result ok';
+      progressEl.innerHTML = `<strong>✓ Update applied</strong> — ${r.applied_sha.slice(0, 10)}. Server restarting in 1-2 seconds…`;
+      ok.textContent = 'Page will auto-refresh in 8 seconds…';
+      // Wait for PM2 to restart, then reload
+      setTimeout(() => {
+        const url = window.location.pathname + '?t=' + Date.now();
+        window.location.replace(url);
+      }, 8000);
+    } else {
+      progressEl.className = 'test-result fail';
+      progressEl.textContent = r.error || 'Update failed';
+      btn.disabled = false; btn.querySelector('.btn-label').textContent = 'Install Update';
+    }
+  } catch (e) {
+    // Server restart mid-response is expected — if we got here with a network error AFTER a small delay, the update likely applied
+    progressEl.className = 'test-result ok';
+    progressEl.innerHTML = '<strong>✓ Server restarting</strong> — page will auto-refresh shortly…';
+    setTimeout(() => { window.location.replace(window.location.pathname + '?t=' + Date.now()); }, 8000);
+  }
+});
+
+document.getElementById('update-settings-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = document.getElementById('update-error'); err.textContent = '';
+  const ok = document.getElementById('update-success'); ok.textContent = '';
+  const body = {
+    repo: document.getElementById('update-repo').value.trim() || undefined,
+    branch: document.getElementById('update-branch').value.trim() || undefined,
+    github_pat: document.getElementById('update-pat').value.trim() || undefined,
+  };
+  Object.keys(body).forEach(k => body[k] === undefined && delete body[k]);
+  try {
+    await apiCall('PUT', '/admin/server-update/settings', body);
+    ok.textContent = '✓ Configuration saved.';
+    document.getElementById('update-pat').value = '';
+    setTimeout(() => { ok.textContent = ''; }, 3000);
+  } catch (e2) { err.textContent = e2.message; }
+});
+
+document.getElementById('update-pat-remove').addEventListener('click', async () => {
+  if (!confirm('Remove the saved GitHub PAT? Updates will work for public repos only.')) return;
+  try { await apiCall('DELETE', '/admin/server-update/pat'); document.getElementById('update-pat').value = ''; alert('PAT removed.'); }
+  catch (e) { alert('Remove failed: ' + e.message); }
+});
+
 // ========== Change Credentials ==========
 document.getElementById('credentials-form').addEventListener('submit', async (e) => {
   e.preventDefault();

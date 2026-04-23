@@ -49,11 +49,13 @@
     "whatsapp_api_key": "",
     "whatsapp_cc": "91",
     "whatsapp_enabled": true,
-    "updated_at": "2026-04-19T19:21:34.022Z",
+    "updated_at": "2026-04-23T09:42:49.063Z",
     "cloudflare_api_token": "",
     "cloudflare_account_id": "",
     "cloudflare_zone_id": "",
     "cloudflare_tunnel_domain": "9x.design",
-    "cloudflare_enabled": true
+    "cloudflare_enabled": true,
+    "update_repo": "iamsjtitu/Rice-Mill-latest",
+    "update_branch": "main"
   }
 }

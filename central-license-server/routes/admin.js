@@ -5,6 +5,7 @@ const { generateLicenseKey } = require('../utils/licenseGen');
 const { requireSuperAdmin } = require('../middleware/auth');
 const notifier = require('../utils/notifier');
 const cloudflare = require('../utils/cloudflare');
+const selfUpdater = require('../utils/self-updater');
 
 const router = express.Router();
 
@@ -337,6 +338,52 @@ router.post('/licenses/:id/mark-external-tunnel', (req, res) => {
   lic.tunnel_provisioned_at = lic.tunnel_provisioned_at || new Date().toISOString();
   db.saveImmediate();
   res.json({ success: true, license: lic });
+});
+
+// ============ SELF-UPDATER ============
+
+// GET /api/admin/server-update/check — returns current & latest SHA
+router.get('/server-update/check', async (req, res) => {
+  try {
+    const info = await selfUpdater.checkForUpdate();
+    res.json({ success: true, ...info });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+// POST /api/admin/server-update/apply — downloads & applies latest, then restarts PM2
+router.post('/server-update/apply', async (req, res) => {
+  try {
+    const result = await selfUpdater.applyUpdate();
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// PUT /api/admin/server-update/settings — configure repo/branch/PAT
+router.put('/server-update/settings', (req, res) => {
+  const data = db.getData();
+  const s = data.settings || (data.settings = {});
+  const { repo, branch, github_pat, pm_name } = req.body || {};
+  if (typeof repo === 'string' && repo.trim()) s.update_repo = repo.trim();
+  if (typeof branch === 'string' && branch.trim()) s.update_branch = branch.trim();
+  if (typeof github_pat === 'string' && github_pat.trim()) s.github_pat = github_pat.trim();
+  if (typeof pm_name === 'string' && pm_name.trim()) s.update_pm_name = pm_name.trim();
+  s.updated_at = new Date().toISOString();
+  db.saveImmediate();
+  res.json({ success: true });
+});
+
+// DELETE /api/admin/server-update/pat — wipe GitHub PAT
+router.delete('/server-update/pat', (req, res) => {
+  const data = db.getData();
+  const s = data.settings || (data.settings = {});
+  s.github_pat = '';
+  s.updated_at = new Date().toISOString();
+  db.saveImmediate();
+  res.json({ success: true });
 });
 
 // GET /api/admin/stats — dashboard overview

@@ -361,6 +361,68 @@
 
             <div class="glass-panel settings-card wide">
               <div class="settings-head">
+                <span class="overline">SERVER UPDATES</span>
+                <h3 class="section-title">Pull Latest from GitHub</h3>
+                <p class="settings-desc">
+                  Deploy latest server code (routes, UI, schedulers) from your GitHub repo in one click. No SSH, no tar files. Runs <code>pm2 restart</code> automatically after applying.
+                </p>
+              </div>
+
+              <div class="settings-status" id="update-status">
+                <div class="status-dot"></div>
+                <div class="status-text">Click "Check for Updates" to see what's new…</div>
+              </div>
+
+              <div class="update-meta" id="update-meta" style="display:none">
+                <div class="cf-id-row"><span class="cf-id-key">Repo</span><span class="cf-id-val" id="update-repo-val">—</span></div>
+                <div class="cf-id-row"><span class="cf-id-key">Branch</span><span class="cf-id-val" id="update-branch-val">—</span></div>
+                <div class="cf-id-row"><span class="cf-id-key">Current SHA</span><span class="cf-id-val" id="update-current-sha">—</span></div>
+                <div class="cf-id-row"><span class="cf-id-key">Latest SHA</span><span class="cf-id-val" id="update-latest-sha">—</span></div>
+                <div class="cf-id-row"><span class="cf-id-key">Last Commit</span><span class="cf-id-val" id="update-last-commit">—</span></div>
+              </div>
+
+              <details class="update-advanced">
+                <summary>Advanced: repo / branch / PAT for private repos</summary>
+                <form id="update-settings-form" class="settings-form" style="margin-top:14px">
+                  <div class="input-split">
+                    <div class="input-group">
+                      <label>Repository (<code>owner/name</code>)</label>
+                      <input type="text" id="update-repo" placeholder="iamsjtitu/Rice-Mill-latest" />
+                    </div>
+                    <div class="input-group">
+                      <label>Branch</label>
+                      <input type="text" id="update-branch" placeholder="main" />
+                    </div>
+                  </div>
+                  <div class="input-group">
+                    <label>GitHub PAT <span class="label-hint">required for private repos only</span></label>
+                    <input type="password" id="update-pat" placeholder="Paste token · blank = keep existing" autocomplete="off" />
+                    <div class="input-help">Create at <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">github.com/settings/tokens</a>. Needs: <code>contents:read</code>.</div>
+                  </div>
+                  <div class="settings-actions">
+                    <button type="button" id="update-pat-remove" class="btn btn-ghost">Remove PAT</button>
+                    <button type="submit" class="btn btn-ghost">Save Config</button>
+                  </div>
+                </form>
+              </details>
+
+              <div class="settings-actions" style="margin-top:12px">
+                <button type="button" id="update-check-btn" class="btn btn-ghost">
+                  <span class="btn-label">Check for Updates</span>
+                  <span class="btn-arrow">⟳</span>
+                </button>
+                <button type="button" id="update-apply-btn" class="btn btn-primary" disabled>
+                  <span class="btn-label">Install Update</span>
+                  <span class="btn-arrow">↓</span>
+                </button>
+              </div>
+              <div id="update-error" class="error-inline"></div>
+              <div id="update-success" class="success-inline"></div>
+              <div id="update-progress" class="test-result" style="display:none"></div>
+            </div>
+
+            <div class="glass-panel settings-card wide">
+              <div class="settings-head">
                 <span class="overline">ACCOUNT</span>
                 <h3 class="section-title">Change Credentials</h3>
                 <p class="settings-desc">
