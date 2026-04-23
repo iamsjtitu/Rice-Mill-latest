@@ -416,6 +416,24 @@
                   <span class="btn-arrow">↓</span>
                 </button>
               </div>
+
+              <details class="update-advanced" style="border-top-style: dashed">
+                <summary>Hotfix: install from direct URL (paste.rs / any tarball link)</summary>
+                <form id="update-url-form" class="settings-form" style="margin-top:14px">
+                  <div class="input-group">
+                    <label>Tarball URL <span class="label-hint">base64 or raw .tar.gz</span></label>
+                    <input type="text" id="update-url-input" placeholder="https://paste.rs/xxxxx" autocomplete="off" spellcheck="false" />
+                    <div class="input-help">Skip GitHub entirely — useful for instant hotfixes. Server will download, decode (if base64), extract, and restart.</div>
+                  </div>
+                  <div class="settings-actions">
+                    <button type="submit" class="btn btn-primary">
+                      <span class="btn-label">Install From URL</span>
+                      <span class="btn-arrow">↓</span>
+                    </button>
+                  </div>
+                </form>
+              </details>
+
               <div id="update-error" class="error-inline"></div>
               <div id="update-success" class="success-inline"></div>
               <div id="update-progress" class="test-result" style="display:none"></div>

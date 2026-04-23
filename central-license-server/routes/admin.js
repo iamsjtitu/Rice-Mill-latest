@@ -362,6 +362,19 @@ router.post('/server-update/apply', async (req, res) => {
   }
 });
 
+// POST /api/admin/server-update/apply-url — apply an update from an arbitrary tarball URL
+// Body: { url: "https://paste.rs/xxxxx" }
+router.post('/server-update/apply-url', async (req, res) => {
+  const { url } = req.body || {};
+  if (!url) return res.status(400).json({ error: 'url required' });
+  try {
+    const result = await selfUpdater.applyUpdateFromUrl(url);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // PUT /api/admin/server-update/settings — configure repo/branch/PAT
 router.put('/server-update/settings', (req, res) => {
   const data = db.getData();

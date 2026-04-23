@@ -199,4 +199,120 @@ function copyDirSafe(srcDir, destDir, relPrefix = '') {
   }
 }
 
-module.exports = { checkForUpdate, applyUpdate, getConfig };
+/**
+ * Apply update from an arbitrary tarball URL (paste.rs, file host, etc.).
+ * Use case: quick hotfixes without waiting for GitHub Actions.
+ *
+ * Behaviour:
+ *   - Fetches raw URL content
+ *   - If content looks like base64 (ASCII only, decodes to gzip header),
+ *     automatically decodes it. Otherwise treats as raw tar.gz.
+ *   - Extracts, validates, and applies like applyUpdate().
+ *   - Does NOT modify update_current_sha (manual URL updates are out-of-band).
+ */
+async function applyUpdateFromUrl(tarballUrl, onProgress = () => {}) {
+  if (!tarballUrl || !/^https:\/\//.test(tarballUrl)) throw new Error('Valid HTTPS URL required');
+  const cfg = getConfig();
+
+  onProgress({ step: 'download', pct: 10, message: `Fetching tarball from ${new URL(tarballUrl).hostname}…` });
+  // Raw fetch without GitHub headers (might interfere with paste.rs responses)
+  const raw = await new Promise((resolve, reject) => {
+    const follow = (url, redirectsLeft) => {
+      if (redirectsLeft < 0) return reject(new Error('Too many redirects'));
+      const u = new URL(url);
+      https.get({ hostname: u.hostname, path: u.pathname + u.search, headers: { 'User-Agent': 'MillEntry-License-Server/1.0' }, timeout: 30000 }, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          res.resume();
+          return follow(res.headers.location, redirectsLeft - 1);
+        }
+        if (res.statusCode !== 200) { res.resume(); return reject(new Error(`HTTP ${res.statusCode}`)); }
+        const chunks = [];
+        res.on('data', c => chunks.push(c));
+        res.on('end', () => resolve(Buffer.concat(chunks)));
+      }).on('error', reject).on('timeout', () => reject(new Error('Download timeout')));
+    };
+    follow(tarballUrl, 5);
+  });
+
+  // Detect base64: if buffer is all printable ASCII and doesn't start with gzip magic (0x1f 0x8b),
+  // try decoding as base64.
+  let tarball = raw;
+  const isGzip = raw.length >= 2 && raw[0] === 0x1f && raw[1] === 0x8b;
+  if (!isGzip) {
+    const asText = raw.toString('utf8').trim();
+    // base64 charset check
+    if (/^[A-Za-z0-9+/=\r\n]+$/.test(asText)) {
+      try {
+        const decoded = Buffer.from(asText, 'base64');
+        if (decoded.length >= 2 && decoded[0] === 0x1f && decoded[1] === 0x8b) {
+          tarball = decoded;
+          onProgress({ step: 'download', pct: 30, message: 'Decoded base64 payload' });
+        }
+      } catch { /* fall through */ }
+    }
+    if (!(tarball.length >= 2 && tarball[0] === 0x1f && tarball[1] === 0x8b)) {
+      throw new Error('Downloaded content is not a valid tar.gz archive (magic bytes check failed)');
+    }
+  }
+
+  // Write to temp + extract
+  const tarballPath = path.join('/tmp', `mls-url-update-${Date.now()}.tar.gz`);
+  fs.writeFileSync(tarballPath, tarball);
+  onProgress({ step: 'download', pct: 45, message: `Fetched ${(tarball.length / 1024).toFixed(0)} KB` });
+
+  const extractDir = path.join('/tmp', `mls-url-update-extract-${Date.now()}`);
+  fs.mkdirSync(extractDir, { recursive: true });
+  onProgress({ step: 'extract', pct: 55, message: 'Extracting tarball…' });
+  await new Promise((resolve, reject) => {
+    const p = spawn('tar', ['-xzf', tarballPath, '-C', extractDir], { windowsHide: true });
+    let err = '';
+    p.stderr.on('data', c => { err += c.toString(); });
+    p.on('error', reject);
+    p.on('close', code => code === 0 ? resolve() : reject(new Error('tar extract failed: ' + err)));
+  });
+
+  // Find source dir: either the archive has central-license-server/ at root, OR the files are at root directly.
+  let srcDir;
+  if (fs.existsSync(path.join(extractDir, SUBDIR_IN_REPO, 'server.js'))) {
+    srcDir = path.join(extractDir, SUBDIR_IN_REPO);
+  } else if (fs.existsSync(path.join(extractDir, 'server.js'))) {
+    srcDir = extractDir;
+  } else {
+    // Also try single nested dir (like GitHub tarballs)
+    const dirs = fs.readdirSync(extractDir).filter(f => fs.statSync(path.join(extractDir, f)).isDirectory());
+    for (const d of dirs) {
+      if (fs.existsSync(path.join(extractDir, d, SUBDIR_IN_REPO, 'server.js'))) {
+        srcDir = path.join(extractDir, d, SUBDIR_IN_REPO); break;
+      }
+      if (fs.existsSync(path.join(extractDir, d, 'server.js'))) {
+        srcDir = path.join(extractDir, d); break;
+      }
+    }
+  }
+  if (!srcDir) throw new Error('Could not locate server.js in tarball — invalid structure');
+
+  onProgress({ step: 'copy', pct: 75, message: 'Applying files…' });
+  copyDirSafe(srcDir, INSTALL_ROOT);
+
+  saveState({ update_last_url: tarballUrl, update_last_applied_at: new Date().toISOString() });
+
+  try { fs.unlinkSync(tarballPath); } catch {}
+  try { fs.rmSync(extractDir, { recursive: true, force: true }); } catch {}
+
+  onProgress({ step: 'restart', pct: 95, message: 'Scheduling restart…' });
+  setTimeout(() => {
+    try {
+      const p = spawn('pm2', ['restart', cfg.pmName, '--update-env'], {
+        detached: true, stdio: 'ignore', windowsHide: true,
+      });
+      p.unref();
+    } catch (e) {
+      console.error('[self-updater] pm2 restart failed:', e.message);
+    }
+  }, 1500);
+
+  onProgress({ step: 'done', pct: 100, message: 'Update applied. Server restarting…' });
+  return { success: true, source: 'url', url: tarballUrl, restart_scheduled: true };
+}
+
+module.exports = { checkForUpdate, applyUpdate, applyUpdateFromUrl, getConfig };

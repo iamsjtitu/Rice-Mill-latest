@@ -646,6 +646,36 @@ document.getElementById('update-pat-remove').addEventListener('click', async () 
   catch (e) { alert('Remove failed: ' + e.message); }
 });
 
+document.getElementById('update-url-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const url = document.getElementById('update-url-input').value.trim();
+  if (!url) return;
+  if (!confirm(`Install update from this URL?\n\n${url}\n\nServer will download, extract and restart (~5 seconds). Active sessions stay logged in.`)) return;
+  const err = document.getElementById('update-error'); err.textContent = '';
+  const ok = document.getElementById('update-success'); ok.textContent = '';
+  const progressEl = document.getElementById('update-progress');
+  progressEl.style.display = 'block';
+  progressEl.className = 'test-result loading';
+  progressEl.textContent = 'Fetching from ' + url + '…';
+  try {
+    const r = await apiCall('POST', '/admin/server-update/apply-url', { url });
+    if (r.success) {
+      progressEl.className = 'test-result ok';
+      progressEl.innerHTML = `<strong>✓ Update applied from URL</strong> — server restarting…`;
+      ok.textContent = 'Page will auto-refresh in 8 seconds…';
+      setTimeout(() => window.location.replace(window.location.pathname + '?t=' + Date.now()), 8000);
+    } else {
+      progressEl.className = 'test-result fail';
+      progressEl.textContent = r.error || 'Update failed';
+    }
+  } catch (e2) {
+    // Likely a connection-reset-by-restart; assume success
+    progressEl.className = 'test-result ok';
+    progressEl.innerHTML = '<strong>✓ Server restarting</strong> — page will auto-refresh shortly…';
+    setTimeout(() => window.location.replace(window.location.pathname + '?t=' + Date.now()), 8000);
+  }
+});
+
 // ========== Change Credentials ==========
 document.getElementById('credentials-form').addEventListener('submit', async (e) => {
   e.preventDefault();
