@@ -1185,6 +1185,17 @@ function createApiServer(database) {
   apiApp.use(cors());
   apiApp.use(express.json({ limit: '50mb' }));
 
+  // ===== NO-CACHE FOR ALL /api RESPONSES =====
+  // Prevents Cloudflare tunnel (mill.9x.design) and browser from caching API data,
+  // which was causing stale lists to appear after CREATE/UPDATE operations
+  // (e.g. new Hemali payment entry not showing until browser reload).
+  apiApp.use('/api', (req, res, next) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    next();
+  });
+
   // ===== LAN + BROWSER CLIENT TRACKING =====
   const lanClients = new Map();
   let browserSession = { active: false, lastSeen: 0 };

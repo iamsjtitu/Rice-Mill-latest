@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.1",
+    date: "Feb 2026",
+    title: "v104.28.1 — Cache Fix (Stale data / slow tabs)",
+    items: [
+      { type: "fix", text: "🐛 Fixed: New entries (Hemali payment, Jama/Udhar, etc.) ab turant dikh jaate hain bina browser reload ke — Cloudflare tunnel cache issue resolve" },
+      { type: "fix", text: "⚡ Tab switching thoda faster — API responses fresh aate hain har baar" },
+      { type: "note", text: "Backend: /api/* routes ab Cache-Control: no-store header bhejte hain (desktop + local-server dono)" },
+      { type: "note", text: "Frontend: Axios GET requests me auto timestamp param + no-cache header — belt-and-braces protection" },
+    ],
+  },
+  {
     version: "104.28.0",
     date: "Feb 2026",
     title: "v104.28.0 — Offline Activation File (.mlic)",

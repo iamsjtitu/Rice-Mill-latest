@@ -80,6 +80,18 @@ axios.interceptors.response.use(
   }
 );
 
+// Belt-and-braces: ensure browser + Cloudflare tunnel never serve a cached GET.
+// Servers already set Cache-Control: no-store, but intermediate caches sometimes
+// ignore that. Appending a per-request timestamp guarantees a fresh response.
+axios.interceptors.request.use((config) => {
+  const method = (config.method || 'get').toLowerCase();
+  if (method === 'get' && !config.__skipCacheBust) {
+    config.params = { ...(config.params || {}), _t: Date.now() };
+    config.headers = { ...(config.headers || {}), 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' };
+  }
+  return config;
+});
+
 import { safePrintHTML } from './utils/print';
 import { FY_YEARS, CURRENT_FY, SEASONS, initialFormState } from './utils/constants';
 
