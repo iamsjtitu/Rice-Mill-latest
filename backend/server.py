@@ -423,3 +423,49 @@ async def hemali_integrity_check():
             logger.info(f"Hemali integrity: removed {len(orphaned_cash)} orphaned cash_transactions")
     except Exception as e:
         logger.error(f"Hemali integrity check error: {e}")
+
+
+@app.on_event("startup")
+async def hemali_receipt_no_backfill():
+    """One-time backfill: assign receipt_no (HEM-YYYY-NNNN) to payments missing it."""
+    try:
+        from database import db
+        missing = await db.hemali_payments.find(
+            {"$or": [{"receipt_no": {"$exists": False}}, {"receipt_no": ""}, {"receipt_no": None}]},
+            {"_id": 0, "id": 1, "date": 1, "created_at": 1}
+        ).to_list(10000)
+        if not missing:
+            return
+        # Group by calendar year
+        by_year = {}
+        for p in missing:
+            y = str(p.get("date") or p.get("created_at") or "")[:4] or datetime.now(timezone.utc).isoformat()[:4]
+            by_year.setdefault(y, []).append(p)
+        assigned = 0
+        for year, group in by_year.items():
+            prefix = f"HEM-{year}-"
+            # Find current max seq for this year
+            existing = await db.hemali_payments.find(
+                {"receipt_no": {"$regex": f"^{prefix}"}},
+                {"_id": 0, "receipt_no": 1}
+            ).to_list(10000)
+            max_seq = 0
+            for e in existing:
+                try:
+                    n = int(str(e.get("receipt_no", "")).split("-")[-1])
+                    if n > max_seq:
+                        max_seq = n
+                except (ValueError, IndexError):
+                    pass
+            # Stable order: sort by date + created_at
+            group.sort(key=lambda p: (str(p.get("date") or ""), str(p.get("created_at") or "")))
+            for idx, p in enumerate(group):
+                new_rn = f"{prefix}{max_seq + idx + 1:04d}"
+                await db.hemali_payments.update_one(
+                    {"id": p["id"]}, {"$set": {"receipt_no": new_rn}}
+                )
+                assigned += 1
+        if assigned > 0:
+            logger.info(f"Hemali receipt_no backfill: assigned {assigned} receipts")
+    except Exception as e:
+        logger.error(f"Hemali receipt_no backfill error: {e}")

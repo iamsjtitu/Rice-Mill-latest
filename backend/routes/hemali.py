@@ -150,10 +150,29 @@ async def create_hemali_payment(request: Request):
     payment_id = str(uuid.uuid4())
     created_by = d.get("created_by", "")
 
+    # Generate receipt_no: HEM-YYYY-NNNN (sequence per calendar year)
+    payment_date = d.get("date", now.split("T")[0])
+    receipt_year = str(payment_date)[:4]
+    receipt_prefix = f"HEM-{receipt_year}-"
+    existing = await db.hemali_payments.find(
+        {"receipt_no": {"$regex": f"^{receipt_prefix}"}},
+        {"_id": 0, "receipt_no": 1}
+    ).to_list(10000)
+    max_seq = 0
+    for e in existing:
+        try:
+            n = int(str(e.get("receipt_no", "")).split("-")[-1])
+            if n > max_seq:
+                max_seq = n
+        except (ValueError, IndexError):
+            pass
+    receipt_no = f"{receipt_prefix}{max_seq + 1:04d}"
+
     payment = {
         "id": payment_id,
+        "receipt_no": receipt_no,
         "sardar_name": sardar_name,
-        "date": d.get("date", now.split("T")[0]),
+        "date": payment_date,
         "items": [
             {
                 "item_name": i.get("item_name", ""),
@@ -604,7 +623,11 @@ async def print_hemali_receipt(payment_id: str):
     elements.extend(await get_pdf_company_header_from_db())
 
     # Title
-    elements.append(Paragraph("HEMALI PAYMENT RECEIPT", ParagraphStyle("title", parent=styles["Heading2"], fontSize=13, textColor=dark, alignment=1, spaceAfter=10)))
+    elements.append(Paragraph("HEMALI PAYMENT RECEIPT", ParagraphStyle("title", parent=styles["Heading2"], fontSize=13, textColor=dark, alignment=1, spaceAfter=4)))
+
+    # Receipt No. (prominent, centered, amber)
+    if p.get("receipt_no"):
+        elements.append(Paragraph(str(p["receipt_no"]), ParagraphStyle("rcpt_no", parent=styles["Normal"], fontSize=10, textColor=colors.HexColor("#d97706"), alignment=1, fontName="Helvetica-Bold", spaceAfter=8)))
 
     # Info fields (2-column)
     label_s = ParagraphStyle("lbl", parent=styles["Normal"], fontSize=7, textColor=grey_c)

@@ -16,6 +16,18 @@ module.exports = (database) => {
     return getAdvanceBalance(payments, sardarName);
   }
 
+  // Generate next Receipt No. in format HEM-YYYY-NNNN (sequence per calendar year)
+  function _nextReceiptNo(dateStr) {
+    const year = String(dateStr || new Date().toISOString().split('T')[0]).slice(0, 4);
+    const prefix = `HEM-${year}-`;
+    const existing = col('hemali_payments')
+      .map(p => String(p.receipt_no || ''))
+      .filter(r => r.startsWith(prefix))
+      .map(r => parseInt(r.slice(prefix.length), 10) || 0);
+    const next = (existing.length ? Math.max(...existing) : 0) + 1;
+    return `${prefix}${String(next).padStart(4, '0')}`;
+  }
+
   // ============ HEMALI ITEMS (Rate Config) ============
   router.get('/api/hemali/items', safeHandler(async (req, res) => {
     res.json(col('hemali_items').filter(i => i.is_active !== false));
@@ -80,8 +92,9 @@ module.exports = (database) => {
 
     const now = new Date().toISOString();
     const paymentId = uuidv4();
+    const receiptNo = _nextReceiptNo(d.date);
     const payment = {
-      id: paymentId, sardar_name: sardarName, date: d.date || now.split('T')[0],
+      id: paymentId, receipt_no: receiptNo, sardar_name: sardarName, date: d.date || now.split('T')[0],
       items: items.map(i => ({ item_name: i.item_name, rate: parseFloat(i.rate) || 0, quantity: parseFloat(i.quantity) || 0, amount: roundAmount((parseFloat(i.quantity) || 0) * (parseFloat(i.rate) || 0)) })),
       total, advance_before: prevAdvance, advance_deducted: advanceDeducted,
       amount_payable: amountPayable, amount_paid: amountPaid, new_advance: newAdvance,
@@ -241,6 +254,13 @@ module.exports = (database) => {
     doc.moveDown(0.5);
 
     doc.fontSize(13).fillColor('#1a365d').text('HEMALI PAYMENT RECEIPT', { align: 'center' });
+    doc.moveDown(0.3);
+
+    // Receipt No. (prominent, centered, amber)
+    if (p.receipt_no) {
+      doc.fontSize(10).fillColor('#d97706').font(F('bold')).text(String(p.receipt_no), { align: 'center' });
+      doc.font(F('normal'));
+    }
     doc.moveDown(0.5);
 
     // Info

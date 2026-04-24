@@ -897,8 +897,9 @@ export function TransitPassRegister({ filters }) {
       const params = new URLSearchParams();
       if (filters.kms_year) params.append("kms_year", filters.kms_year);
       if (filters.season) params.append("season", filters.season);
-      if (filters.date_from) params.append("date_from", filters.date_from);
-      if (filters.date_to) params.append("date_to", filters.date_to);
+      // Note: date_from/date_to intentionally NOT forwarded — TP Register has no
+      // date picker UI; user selects KMS year (scope) + optional Mandi/Agent.
+      // Forwarding global "today-only" default would hide all historical TP entries.
       if (tpFilters.mandi_name) params.append("mandi_name", tpFilters.mandi_name);
       if (tpFilters.agent_name) params.append("agent_name", tpFilters.agent_name);
       const res = await axios.get(`${API}/govt-registers/transit-pass?${params}`);
@@ -913,8 +914,6 @@ export function TransitPassRegister({ filters }) {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append("kms_year", filters.kms_year);
     if (filters.season) params.append("season", filters.season);
-    if (filters.date_from) params.append("date_from", filters.date_from);
-    if (filters.date_to) params.append("date_to", filters.date_to);
     if (tpFilters.mandi_name) params.append("mandi_name", tpFilters.mandi_name);
     if (tpFilters.agent_name) params.append("agent_name", tpFilters.agent_name);
     return params;

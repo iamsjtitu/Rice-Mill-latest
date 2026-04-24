@@ -573,6 +573,7 @@ export default function HemaliPayment({ filters, user }) {
                   <table className="w-full text-sm" data-testid="hemali-payments-table">
                     <thead><tr className="border-b border-slate-700 text-slate-400 text-xs">
                       <th className="text-left py-2 px-3">#</th>
+                      <th className="text-left py-2 px-3">Receipt No.</th>
                       <th className="text-left py-2 px-3">Date</th>
                       <th className="text-left py-2 px-3">Sardar</th>
                       <th className="text-left py-2 px-3">Items</th>
@@ -587,6 +588,7 @@ export default function HemaliPayment({ filters, user }) {
                     <tbody>{payments.map((p, idx) => (
                       <tr key={p.id} className={`border-b border-slate-700/50 hover:bg-slate-800/50 ${p.status === "undone" ? "opacity-50" : ""}`} data-testid={`hemali-payment-row-${idx}`}>
                         <td className="py-2 px-3 text-slate-500">{idx + 1}</td>
+                        <td className="py-2 px-3 text-amber-400 font-mono text-xs" data-testid={`hemali-receipt-no-${idx}`}>{p.receipt_no || "-"}</td>
                         <td className="py-2 px-3 text-white">{fmtDate(p.date)}</td>
                         <td className="py-2 px-3 text-white font-medium">{p.sardar_name}</td>
                         <td className="py-2 px-3 text-slate-300 text-xs max-w-[200px] truncate">

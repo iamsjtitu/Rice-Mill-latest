@@ -1,19 +1,27 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.1
+## Current Version: v104.28.2
 
-## Recent Fix (Feb 2026)
+## Recent Fixes (Feb 2026)
+
+### TP (Transit Pass) Register showing empty despite entries having TP No — FIXED
+- **File:** `/app/frontend/src/components/GovtRegisters.jsx` (`TransitPassRegister` + `buildExportParams`)
+- **Root cause:** Global app filter defaults to `date_from = date_to = today` (see `/app/frontend/src/hooks/useFilters.js` line 17). TP Register was blindly forwarding this to backend → backend filtered entries to today only → zero results. Purchase Register didn't suffer this because `/api/entries` skips date filter when any search field (mandi/agent/etc.) is active.
+- **Fix:** Removed `date_from`/`date_to` params from TP Register fetch + export calls. TP Register now scopes by KMS year + optional Mandi/Agent (matching its actual UI — no date picker).
+
+### Hemali Receipt No. (HEM-YYYY-NNNN) — NEW
+- Sequential receipt number generated on every Hemali payment creation, resets per calendar year (`HEM-2026-0001`, `HEM-2026-0002`, …).
+- One-time backfill on startup assigns numbers to existing payments in chronological order.
+- Shown prominently (amber, centered, bold) on the printed PDF receipt below the "HEMALI PAYMENT RECEIPT" title.
+- Displayed as a column in the Hemali payments table (frontend).
+- **Triple-backend parity:** Implemented in `/app/backend/routes/hemali.py` + `/app/backend/server.py` (startup backfill), `/app/desktop-app/routes/hemali.js` + `/app/desktop-app/main.js` (startup backfill), and `/app/local-server/routes/hemali.js`.
+- Verified end-to-end: Python + desktop-app both issue sequential receipt_no and render it in the PDF.
+
 ### Hemali Print/PDF 500 error — FIXED
 - **File:** `/app/desktop-app/routes/hemali.js` line 7 (+ `/app/local-server/routes/hemali.js` parity)
 - **Root cause:** `F` helper (font-weight resolver) was used throughout print receipt + monthly-summary PDF code but never imported from `./pdf_helpers` → `ReferenceError: F is not defined` → 500 caught by `safeHandler`
 - **Fix:** Added `F` to destructured import
-- **Verified end-to-end:** All 5 endpoints returning valid PDF/XLSX:
-  - `GET /api/hemali/payments/:id/print` → valid PDF
-  - `GET /api/hemali/monthly-summary/pdf` → valid PDF
-  - `GET /api/hemali/monthly-summary/excel` → valid XLSX
-  - `GET /api/hemali/export/pdf` → valid PDF
-  - `GET /api/hemali/export/excel` → valid XLSX
-- **Visual validation:** PDF content rendered correctly (header, items table, totals, PAID badge, signatures)
+- **Verified end-to-end:** All 5 endpoints returning valid PDF/XLSX.
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind

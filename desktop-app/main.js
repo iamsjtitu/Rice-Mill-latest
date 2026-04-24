@@ -2791,6 +2791,41 @@ async function startApplication(folderPath) {
         console.log(`[Migration] Normalized ${migrated} tp_no/tp_weight fields to string`);
       }
     }
+
+    // Data migration: backfill Hemali receipt_no (format HEM-YYYY-NNNN, sequence per calendar year)
+    if (db && db.data && Array.isArray(db.data.hemali_payments)) {
+      const payments = db.data.hemali_payments;
+      const needsBackfill = payments.filter(p => !p.receipt_no);
+      if (needsBackfill.length > 0) {
+        const byYear = {};
+        needsBackfill.forEach(p => {
+          const y = String(p.date || p.created_at || new Date().toISOString()).slice(0, 4);
+          (byYear[y] = byYear[y] || []).push(p);
+        });
+        let assigned = 0;
+        Object.keys(byYear).forEach(year => {
+          const prefix = `HEM-${year}-`;
+          const existingMax = payments
+            .map(p => String(p.receipt_no || ''))
+            .filter(r => r.startsWith(prefix))
+            .map(r => parseInt(r.slice(prefix.length), 10) || 0)
+            .reduce((a, b) => Math.max(a, b), 0);
+          byYear[year].sort((a, b) => {
+            const ka = String(a.date || '') + String(a.created_at || '');
+            const kb = String(b.date || '') + String(b.created_at || '');
+            return ka.localeCompare(kb);
+          });
+          byYear[year].forEach((p, idx) => {
+            p.receipt_no = `${prefix}${String(existingMax + idx + 1).padStart(4, '0')}`;
+            assigned++;
+          });
+        });
+        if (assigned > 0) {
+          db.save();
+          console.log(`[Migration] Assigned ${assigned} Hemali receipt_no`);
+        }
+      }
+    }
   }, 3000);
 
   // Daily backup check
