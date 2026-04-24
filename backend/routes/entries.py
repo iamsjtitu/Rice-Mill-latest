@@ -828,13 +828,21 @@ async def get_truck_suggestions(q: str = ""):
 
 
 @router.get("/suggestions/agents")
-async def get_agent_suggestions(q: str = ""):
-    if len(q) < 1:
-        agents = await db.mill_entries.distinct("agent_name")
-        vw_parties = await db.vehicle_weights.distinct("party_name")
-    else:
-        agents = await db.mill_entries.distinct("agent_name", {"agent_name": {"$regex": q, "$options": "i"}})
-        vw_parties = await db.vehicle_weights.distinct("party_name", {"party_name": {"$regex": q, "$options": "i"}})
+async def get_agent_suggestions(q: str = "", mandi_name: str = ""):
+    # Mill entries
+    m_query = {}
+    if q:
+        m_query["agent_name"] = {"$regex": q, "$options": "i"}
+    if mandi_name:
+        m_query["mandi_name"] = mandi_name
+    agents = await db.mill_entries.distinct("agent_name", m_query if m_query else None)
+    # Vehicle weights
+    vw_query = {}
+    if q:
+        vw_query["party_name"] = {"$regex": q, "$options": "i"}
+    if mandi_name:
+        vw_query["farmer_name"] = mandi_name
+    vw_parties = await db.vehicle_weights.distinct("party_name", vw_query if vw_query else None)
     combined = list(set([a for a in (agents + vw_parties) if a]))
     combined.sort()
     return {"suggestions": combined}

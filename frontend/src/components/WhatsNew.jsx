@@ -11,6 +11,8 @@ const CHANGELOG = [
     date: "Feb 2026",
     title: "v104.28.8 — Hemali: Professional Receipt + Cash Book Sync + Fixes",
     items: [
+      { type: "new", text: "🔎 Vehicle Weight entry form mein smarter suggestions — Truck / Agent / Mandi mein kahin ka bhi koi word type karo, auto-suggestion turant aayega. Word-start matches top pe, uske baad substring matches" },
+      { type: "new", text: "🔗 Agent select karte hi uski related Mandi auto-fill ho jaati hai (agar ek hi related mandi ho). Mandi select karne pe reverse — agent bhi auto-fill (agar unique agent ho)" },
       { type: "new", text: "🔗 T.P Register mein Mandi aur Agent dropdowns linked — Agent select karne par uske related Mandi automatic filter ho jaati hai (ek hi ho to auto-select bhi), aur vice versa. Cross-filter seedhi tarah se working data dikha deta hai" },
       { type: "new", text: "🎨 Hemali Print Receipt ka naya professional design — Title banner, Receipt No. + Status badge (PAID/UNPAID coloured), 2×2 Info Grid (Date / Sardar / Items Count / Qty), items table with dark header, aur 6 colour-coded summary tiles (Gross / Adv. Deducted / Net Payable / Paid / New Advance / Balance)" },
       { type: "new", text: "💰 Hemali payment create karte hi Cash Book > Ledger mein auto 'Jama' entry ban jaati hai (liability dikhti hai turant). Startup pe ek baar ka backfill — purani Hemali payments ke liye bhi missing ledger entries ban jayengi" },

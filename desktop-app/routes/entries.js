@@ -140,9 +140,19 @@ module.exports = function(database) {
 
   router.get('/api/suggestions/agents', safeSync(async (req, res) => {
     // Combine agent_name from mill entries + party_name from vehicle_weights
+    // Supports reverse-filter: if mandi_name given, only return agents linked to that mandi
+    const mandi_name = req.query.mandi_name || '';
     const partySet = new Set();
-    (database.data.entries || []).forEach(e => { if (e.agent_name) partySet.add(e.agent_name); });
-    (database.data.vehicle_weights || []).forEach(e => { if (e.party_name) partySet.add(e.party_name); });
+    (database.data.entries || []).forEach(e => {
+      if (!e.agent_name) return;
+      if (mandi_name && e.mandi_name !== mandi_name) return;
+      partySet.add(e.agent_name);
+    });
+    (database.data.vehicle_weights || []).forEach(e => {
+      if (!e.party_name) return;
+      if (mandi_name && e.farmer_name !== mandi_name) return;
+      partySet.add(e.party_name);
+    });
     let suggestions = Array.from(partySet).sort();
     const q = req.query.q || '';
     if (q) suggestions = suggestions.filter(s => s.toLowerCase().includes(q.toLowerCase()));

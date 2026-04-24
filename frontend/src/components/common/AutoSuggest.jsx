@@ -15,10 +15,20 @@ const AutoSuggest = ({ value, onChange, suggestions, placeholder, onSelect, onBl
 
   useEffect(() => {
     if (value && suggestions.length > 0) {
-      const filtered = suggestions.filter(s => 
-        s.toLowerCase().includes(value.toLowerCase())
-      );
-      setFilteredSuggestions(filtered);
+      const q = value.toLowerCase().trim();
+      // Smart matching: prioritize (1) prefix match on full string, (2) prefix match on any word token,
+      // (3) substring match. Handles "08" → "OD 08 R 7074" and "7074" → same, ranked naturally.
+      const scored = suggestions.map(s => {
+        const lower = String(s).toLowerCase();
+        if (lower.startsWith(q)) return { s, rank: 0 };
+        // word-token prefix (split on space, dash, slash, underscore)
+        const tokens = lower.split(/[\s\-_/]+/).filter(Boolean);
+        if (tokens.some(t => t.startsWith(q))) return { s, rank: 1 };
+        if (lower.includes(q)) return { s, rank: 2 };
+        return null;
+      }).filter(Boolean);
+      scored.sort((a, b) => a.rank - b.rank);
+      setFilteredSuggestions(scored.map(x => x.s));
     } else {
       setFilteredSuggestions(suggestions);
     }

@@ -584,8 +584,18 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
   const fetchMandisForParty = async (agent) => {
     try {
       const r = await axios.get(`${API}/suggestions/mandis?agent_name=${encodeURIComponent(agent)}`);
-      setMandiSuggestions(r.data.suggestions || []);
-    } catch (e) { logger.error(e); }
+      const mandis = r.data.suggestions || [];
+      setMandiSuggestions(mandis);
+      return mandis;
+    } catch (e) { logger.error(e); return []; }
+  };
+
+  // Reverse lookup: mandi → agents
+  const fetchAgentsForMandi = async (mandi) => {
+    try {
+      const r = await axios.get(`${API}/suggestions/agents?mandi_name=${encodeURIComponent(mandi)}`);
+      return r.data.suggestions || [];
+    } catch (e) { logger.error(e); return []; }
   };
 
   const abortRef = useRef(null);
@@ -1063,7 +1073,15 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       onChange={e => setForm(p => ({ ...p, party_name: e.target.value }))}
                       suggestions={partySuggestions}
                       placeholder="Party name"
-                      onSelect={(val) => { setForm(p => ({ ...p, party_name: val })); fetchMandisForParty(val); }}
+                      onSelect={async (val) => {
+                        const mandis = await fetchMandisForParty(val);
+                        // Auto-fill mandi if exactly one related mandi exists
+                        setForm(p => ({
+                          ...p,
+                          party_name: val,
+                          farmer_name: mandis.length === 1 ? mandis[0] : p.farmer_name,
+                        }));
+                      }}
                       label="Party Name *"
                       testId="vw-party"
                       labelClassName="text-slate-400 text-[10px] mb-0.5 block"
@@ -1083,7 +1101,16 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       onChange={e => setForm(p => ({ ...p, farmer_name: e.target.value }))}
                       suggestions={mandiSuggestions}
                       placeholder={form.trans_type === "Dispatch(Sale)" ? "Destination" : "Source"}
-                      onSelect={(val) => setForm(p => ({ ...p, farmer_name: val }))}
+                      onSelect={async (val) => {
+                        setForm(p => ({ ...p, farmer_name: val }));
+                        // Reverse auto-fill: if party empty & mandi has single linked agent, set it
+                        if (!form.party_name) {
+                          const agents = await fetchAgentsForMandi(val);
+                          if (agents.length === 1) {
+                            setForm(p => ({ ...p, farmer_name: val, party_name: agents[0] }));
+                          }
+                        }
+                      }}
                       label={form.trans_type === "Dispatch(Sale)" ? "Destination *" : "Source *"}
                       testId="vw-farmer"
                       labelClassName="text-slate-400 text-[10px] mb-0.5 block"
@@ -1564,7 +1591,14 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                   onChange={e => setEditForm(p => ({ ...p, party_name: e.target.value }))}
                   suggestions={partySuggestions}
                   placeholder="Party Name"
-                  onSelect={(val) => setEditForm(p => ({ ...p, party_name: val }))}
+                  onSelect={async (val) => {
+                    const mandis = await fetchMandisForParty(val);
+                    setEditForm(p => ({
+                      ...p,
+                      party_name: val,
+                      farmer_name: mandis.length === 1 ? mandis[0] : p.farmer_name,
+                    }));
+                  }}
                   label="Party Name"
                   testId="edit-party"
                   labelClassName="text-slate-400 text-xs mb-1 block"
@@ -1577,7 +1611,15 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                   onChange={e => setEditForm(p => ({ ...p, farmer_name: e.target.value }))}
                   suggestions={mandiSuggestions}
                   placeholder="Source"
-                  onSelect={(val) => setEditForm(p => ({ ...p, farmer_name: val }))}
+                  onSelect={async (val) => {
+                    setEditForm(p => ({ ...p, farmer_name: val }));
+                    if (!editForm.party_name) {
+                      const agents = await fetchAgentsForMandi(val);
+                      if (agents.length === 1) {
+                        setEditForm(p => ({ ...p, farmer_name: val, party_name: agents[0] }));
+                      }
+                    }
+                  }}
                   label="Source"
                   testId="edit-farmer"
                   labelClassName="text-slate-400 text-xs mb-1 block"
