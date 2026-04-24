@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.6",
+    date: "Feb 2026",
+    title: "v104.28.6 — Diagnostics Panel + CashBook Delete Visible",
+    items: [
+      { type: "new", text: "🔧 Naya 'Diagnostics' menu item Admin dropdown me — one-click me data folder path, record counts of all collections dikhata hai (Hemali Items, Sardars, Entries sab). Items nahi dikh rahe? Yahan check karo count 0 hai kya" },
+      { type: "fix", text: "🎯 CashBook: Actions column (Edit/History/Delete) ab sticky right hai — table scroll karo ya nahi, delete button hamesha dikhega" },
+      { type: "fix", text: "🎨 CashBook table layout optimized: narrower Reference column, wider Actions column (90px), min-width 1200px for stability" },
+    ],
+  },
+  {
     version: "104.28.5",
     date: "Feb 2026",
     title: "v104.28.5 — Diagnostic + Silent Error Fix",

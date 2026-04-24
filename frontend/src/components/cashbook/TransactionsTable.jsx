@@ -38,20 +38,20 @@ const TransactionsTable = ({
         </div>
       </CardHeader>
       <CardContent className="p-0"><div className="overflow-x-auto">
-        <table className="w-full" style={{ tableLayout: 'fixed' }}>
+        <table className="w-full" style={{ tableLayout: 'fixed', minWidth: '1200px' }}>
         <colgroup>
           {user.role === 'admin' && <col style={{ width: '32px' }} />}
-          <col style={{ width: '95px' }} />
+          <col style={{ width: '85px' }} />
           <col style={{ width: '58px' }} />
-          <col style={{ width: '60px' }} />
-          <col style={{ width: '11%' }} />
-          <col style={{ width: '8%' }} />
+          <col style={{ width: '70px' }} />
+          <col style={{ width: '13%' }} />
+          <col style={{ width: '7%' }} />
           <col style={{ width: 'auto' }} />
-          <col style={{ width: '10%' }} />
-          <col style={{ width: '10%' }} />
-          <col style={{ width: '10%' }} />
           <col style={{ width: '9%' }} />
-          <col style={{ width: '55px' }} />
+          <col style={{ width: '9%' }} />
+          <col style={{ width: '9%' }} />
+          <col style={{ width: '8%' }} />
+          <col style={{ width: '90px' }} />
         </colgroup>
         <thead><tr className="border-b border-slate-200">
           {user.role === 'admin' && (
@@ -61,12 +61,15 @@ const TransactionsTable = ({
             </th>
           )}
           {[
-            { label: 'Date', align: 'left' }, { label: 'Account', align: 'left' }, { label: 'Type', align: 'left' },
-            { label: 'Party / पार्टी', align: 'left' }, { label: 'Party Type', align: 'left' }, { label: 'Description', align: 'left' },
-            { label: 'Jama (Cr)', align: 'right' }, { label: 'Nikasi (Dr)', align: 'right' }, { label: 'Balance (₹)', align: 'right' },
-            { label: 'Reference', align: 'left' }, { label: '', align: 'left' }
+            { label: 'Date', align: 'left', sticky: false }, { label: 'Account', align: 'left', sticky: false }, { label: 'Type', align: 'left', sticky: false },
+            { label: 'Party / पार्टी', align: 'left', sticky: false }, { label: 'Party Type', align: 'left', sticky: false }, { label: 'Description', align: 'left', sticky: false },
+            { label: 'Jama (Cr)', align: 'right', sticky: false }, { label: 'Nikasi (Dr)', align: 'right', sticky: false }, { label: 'Balance (₹)', align: 'right', sticky: false },
+            { label: 'Reference', align: 'left', sticky: false }, { label: 'Actions', align: 'center', sticky: true }
           ].map(h =>
-            <th key={h.label} className={`px-3 py-2.5 text-${h.align} text-slate-600 text-xs font-semibold`}>{h.label}</th>)}
+            <th
+              key={h.label}
+              className={`px-3 py-2.5 text-${h.align} text-slate-600 text-xs font-semibold ${h.sticky ? 'sticky right-0 bg-slate-50 border-l border-slate-200 z-10' : ''}`}
+            >{h.label}</th>)}
         </tr></thead>
         <tbody>
           {loading ? <tr><td colSpan={12} className="text-center text-slate-500 py-8">Loading...</td></tr>
@@ -112,9 +115,9 @@ const TransactionsTable = ({
                 ₹{(balMap[t.id] || 0).toLocaleString('en-IN')}
               </td>
               <td className="px-3 py-2.5 text-slate-500 text-xs truncate">{t.reference}</td>
-              <td className="px-3 py-2.5">
+              <td className={`px-3 py-2.5 sticky right-0 border-l border-slate-200 ${t.txn_type === 'jama' ? 'bg-green-50/90' : 'bg-red-50/90'} ${selectedIds.includes(t.id) ? 'ring-1 ring-amber-400' : ''}`}>
                 {user.role === 'admin' && (
-                  <div className="flex gap-0.5 items-center">
+                  <div className="flex gap-0.5 items-center justify-center">
                     <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-500 hover:text-blue-700" onClick={() => handleEdit(t)} data-testid={`txn-edit-${t.id}`}>
                       <Pencil className="w-3 h-3" />
                     </Button>
@@ -136,7 +139,8 @@ const TransactionsTable = ({
               <td className="px-3 py-2.5 text-right text-xs font-bold text-green-700" data-testid="cashbook-total-jama">₹{totalJama.toLocaleString('en-IN')}</td>
               <td className="px-3 py-2.5 text-right text-xs font-bold text-red-600" data-testid="cashbook-total-nikasi">₹{totalNikasi.toLocaleString('en-IN')}</td>
               <td className={`px-3 py-2.5 text-right text-xs font-bold ${restBalance >= 0 ? 'text-amber-700' : 'text-red-700'}`} data-testid="cashbook-rest-balance">₹{restBalance.toLocaleString('en-IN')}</td>
-              <td colSpan={2}></td>
+              <td></td>
+              <td className="sticky right-0 bg-slate-50 border-l border-slate-200"></td>
             </tr>
           </tfoot>
         )}

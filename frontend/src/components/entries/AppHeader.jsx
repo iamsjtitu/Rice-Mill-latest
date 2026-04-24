@@ -7,13 +7,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   RefreshCw, Filter, FileSpreadsheet, FileText, LogOut, User, Key,
-  Calendar, Users, Keyboard, Info, Sun, Moon, Send, Search, ChevronDown, ExternalLink, Copy,
+  Calendar, Users, Keyboard, Info, Sun, Moon, Send, Search, ChevronDown, ExternalLink, Copy, Database,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import SessionIndicator from "@/components/SessionIndicator";
 import { ShortcutsDialog, BackupReminderDialog, PasswordChangeDialog } from "@/components/entries/HeaderDialogs";
+import DiagnosticsPanel from "@/components/DiagnosticsPanel";
 import QuickSearch from "@/components/QuickSearch";
 import SearchDetailDialog from "@/components/SearchDetailDialog";
 import { TabNavigation } from "@/components/entries/TabNavigation";
@@ -55,6 +56,7 @@ export const AppHeader = ({
   wa, tg,
 }) => {
   const [govtLinks, setGovtLinks] = useState([]);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   useEffect(() => {
     axios.get(`${API}/govt-links`).then(r => setGovtLinks(r.data || [])).catch(() => {});
   }, []);
@@ -211,6 +213,10 @@ export const AppHeader = ({
                   className="text-slate-200 hover:bg-slate-700 cursor-pointer gap-2" data-testid="change-password-btn">
                   <Key className="w-4 h-4 text-amber-400" /> Password Change
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowDiagnostics(true)}
+                  className="text-slate-200 hover:bg-slate-700 cursor-pointer gap-2" data-testid="open-diagnostics-btn">
+                  <Database className="w-4 h-4 text-emerald-400" /> Diagnostics
+                </DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-slate-600" />
                 <DropdownMenuItem onClick={onLogout}
                   className="text-red-400 hover:bg-red-900/30 cursor-pointer gap-2" data-testid="logout-btn">
@@ -224,6 +230,7 @@ export const AppHeader = ({
         <ShortcutsDialog open={showShortcuts} onOpenChange={setShowShortcuts} />
         <BackupReminderDialog open={showBackupReminder} onOpenChange={setShowBackupReminder} onBackup={handleCreateBackup} loading={backupLoading} />
         <PasswordChangeDialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen} passwordData={passwordData} setPasswordData={setPasswordData} onSubmit={handlePasswordChange} />
+        <DiagnosticsPanel open={showDiagnostics} onOpenChange={setShowDiagnostics} />
 
         <QuickSearch
           open={quickSearchOpen} onOpenChange={setQuickSearchOpen}
