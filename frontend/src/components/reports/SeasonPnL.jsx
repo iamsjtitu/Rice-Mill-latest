@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RefreshCw, Download, FileText, TrendingUp, TrendingDown } from "lucide-react";
 import { API } from "./constants";
-import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 
 const SeasonPnL = ({ filters }) => {
   const [data, setData] = useState(null);
@@ -19,7 +18,6 @@ const SeasonPnL = ({ filters }) => {
     finally { setLoading(false); }
   }, [filters.kms_year, filters.season]);
   useEffect(() => { fetchData(); }, [fetchData]);
-  useAutoRefresh(fetchData);
   const exportData = async (format) => {
     try {
       const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);

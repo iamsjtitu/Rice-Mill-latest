@@ -10,7 +10,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RefreshCw, Wallet } from "lucide-react";
 import logger from "../utils/logger";
-import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
@@ -34,7 +33,6 @@ const GSTLedger = ({ filters }) => {
   }, [filters.kms_year]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useAutoRefresh(fetchData);
 
   const openObDialog = async () => {
     try {

@@ -401,13 +401,37 @@ class JsonDatabase {
     } catch (_) {}
 
     // Poll every 5 seconds - works reliably on Google Drive / network folders
+    // Safety improvements vs older logic:
+    //   - Bumped "our-save" buffer from 2s to 15s so quick in-memory changes
+    //     (e.g. typing a new Hemali item) aren't silently overwritten by a
+    //     stale version synced down from Google Drive / Dropbox before our
+    //     debounced save flushed to disk.
+    //   - NEVER reload if we have a pending save (debounce timer active) —
+    //     reloading would throw away unsaved in-memory edits.
+    //   - NEVER reload if remote file is SMALLER than current in-memory size
+    //     by more than 10% — protects against cloud-sync serving a truncated
+    //     copy (seen with OneDrive conflict files).
     this._fileWatcher = setInterval(() => {
       try {
         if (!fs.existsSync(this.dbFile)) return;
+        // Skip if our own debounced save is pending — writing now would clobber
+        // the pending changes with whatever is currently on disk.
+        if (this._pendingSave) return;
+
         const stat = fs.statSync(this.dbFile);
         const fileMtime = stat.mtimeMs;
-        // File changed and it was NOT our own save (allow 2s buffer)
-        if (fileMtime > this._lastKnownMtime && (fileMtime - this._lastOwnSaveTime) > 2000) {
+
+        // File changed and it was NOT our own save (allow 15s buffer)
+        if (fileMtime > this._lastKnownMtime && (fileMtime - this._lastOwnSaveTime) > 15000) {
+          // Sanity: if remote file is significantly smaller than what we have
+          // in memory, suspect a corrupt / partial sync → refuse to reload.
+          const inMemorySize = JSON.stringify(this.data).length;
+          if (stat.size < inMemorySize * 0.9) {
+            console.warn(`[FileWatcher] External file (${stat.size} bytes) is smaller than in-memory data (${inMemorySize} bytes). Refusing to reload — likely a stale cloud sync. Forcing save of current state.`);
+            this._lastKnownMtime = fileMtime;
+            this.saveImmediate();   // WIN the conflict with our fresh data
+            return;
+          }
           console.log('[FileWatcher] External file change detected, reloading data...');
           this._lastKnownMtime = fileMtime;
           const newData = JSON.parse(fs.readFileSync(this.dbFile, 'utf8'));

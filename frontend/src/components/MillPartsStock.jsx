@@ -13,7 +13,6 @@ import { Plus, Trash2, RefreshCw, Package, ArrowDown, ArrowUp, Download, FileTex
 import { downloadFile } from "../utils/download";
 import { useConfirm } from "./ConfirmProvider";
 import logger from "../utils/logger";
-import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
@@ -68,7 +67,6 @@ export default function MillPartsStock({ filters, user }) {
   }, [filters.kms_year, filters.season, txnFilters]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
-  useAutoRefresh(fetchAll);
 
   const handleAddPart = async (e) => {
     e.preventDefault();

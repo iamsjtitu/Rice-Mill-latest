@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FileSpreadsheet, FileText, Search, Loader2 } from "lucide-react";
 import logger from "../utils/logger";
-import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -36,7 +35,6 @@ export default function MandiCustodyRegister({ filters }) {
   };
 
   useEffect(() => { fetchData(); }, [filters?.kms_year, filters?.season]); // eslint-disable-line react-hooks/exhaustive-deps
-  useAutoRefresh(fetchData);
 
   const exportPdf = () => {
     const params = new URLSearchParams();

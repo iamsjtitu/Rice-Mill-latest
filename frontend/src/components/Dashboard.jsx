@@ -18,7 +18,6 @@ import {
   Plus, Trash2, Edit, Calculator, Target, TrendingUp, TrendingDown, Users, IndianRupee, BarChart3, FileText, RefreshCw, Wheat, Package, Truck, ShoppingCart,
 } from "lucide-react";
 import { useConfirm } from "./ConfirmProvider";
-import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { downloadFile } from "../utils/download";
 import logger from "../utils/logger";
 
@@ -111,8 +110,6 @@ export const Dashboard = ({ filters, user }) => {
     fetchDashboardData();
     fetchPLSummary();
   }, [fetchDashboardData, fetchPLSummary]);
-  useAutoRefresh(fetchDashboardData);
-  useAutoRefresh(fetchPLSummary);
 
   const handleCreateTarget = async (e) => {
     e.preventDefault();

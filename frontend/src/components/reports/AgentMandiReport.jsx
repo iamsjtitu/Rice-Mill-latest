@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RefreshCw, Download, FileText, Truck, Users } from "lucide-react";
 import { API } from "./constants";
-import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 
 const AgentMandiReport = ({ filters }) => {
   const [data, setData] = useState(null);
@@ -44,7 +43,6 @@ const AgentMandiReport = ({ filters }) => {
   }, [filters.kms_year, filters.season, search, dateFrom, dateTo]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useAutoRefresh(fetchData);
 
   const toggleMandi = (name) => {
     setExpandedMandis(prev => ({ ...prev, [name]: !prev[name] }));

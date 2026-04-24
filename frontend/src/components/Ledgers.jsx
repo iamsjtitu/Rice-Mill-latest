@@ -18,7 +18,6 @@ import {
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 import logger from "../utils/logger";
-import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import {
   RefreshCw, Download, FileText, AlertCircle, Truck, Users,
   IndianRupee, FileSpreadsheet, BookOpen, ClipboardList, Receipt, Wallet, Send
@@ -45,7 +44,6 @@ export const OutstandingReport = ({ filters }) => {
   }, [filters.kms_year]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useAutoRefresh(fetchData);
 
   const exportData = async (format) => {
     const p = new URLSearchParams();
@@ -293,7 +291,6 @@ const PartyLedger = ({ filters }) => {
   }, [filters.kms_year, selectedParty, selectedType, dateFrom, dateTo]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useAutoRefresh(fetchData);
 
   const exportData = async (format) => {
     const p = new URLSearchParams();
@@ -571,7 +568,6 @@ const GSTLedger = ({ filters }) => {
   }, [filters.kms_year]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useAutoRefresh(fetchData);
 
   const openObDialog = async () => {
     try {

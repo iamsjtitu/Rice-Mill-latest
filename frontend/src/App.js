@@ -69,21 +69,15 @@ const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')
 const API = `${BACKEND_URL}/api`;
 
 // ============ GLOBAL MUTATION INVALIDATION ============
-// On every successful mutation, fire a global event so components using
-// useAutoRefresh() auto-refetch. Also invalidate React Query cache for any
-// future components that use useApiQuery. Server-side Cache-Control: no-store
-// ensures nothing else caches responses.
+// React Query cache invalidation on every successful mutation. Server-side
+// Cache-Control: no-store ensures no HTTP caching. Components do their own
+// fetches via useEffect — manual refresh button always works.
 axios.interceptors.response.use(
   (response) => {
     try {
       const method = (response.config?.method || 'get').toLowerCase();
       if (method !== 'get') {
         try { queryClient.invalidateQueries(); } catch { /* ignore */ }
-        try {
-          window.dispatchEvent(new CustomEvent('data-changed', {
-            detail: { url: response.config?.url, method },
-          }));
-        } catch { /* non-blocking */ }
       }
     } catch { /* non-blocking */ }
     return response;

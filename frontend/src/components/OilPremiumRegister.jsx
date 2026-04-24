@@ -13,7 +13,6 @@ import { fmtDate } from "@/utils/date";
 import { useConfirm } from "./ConfirmProvider";
 import { useCloseFiltersOnEsc } from "../utils/useCloseFiltersOnEsc";
 import logger from "../utils/logger";
-import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = `${_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')}/api`;
@@ -51,7 +50,6 @@ export default function OilPremiumRegister({ filters, user }) {
   }, [filters.kms_year, filters.season]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useAutoRefresh(fetchData);
 
   const lookupSale = async (field, value) => {
     if (!value) return;

@@ -26,7 +26,7 @@ module.exports = (database) => {
     if (!d.name || !d.rate) return res.status(400).json({ detail: 'Name aur rate required' });
     const item = { id: uuidv4(), name: d.name.trim(), rate: parseFloat(d.rate) || 0, unit: d.unit || 'bag', is_active: true, created_at: new Date().toISOString() };
     col('hemali_items').push(item);
-    database.save();
+    database.saveImmediate();  // immediate flush — prevent cloud-sync race overwrite
     res.json(item);
   }));
 
@@ -36,7 +36,7 @@ module.exports = (database) => {
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
     Object.assign(items[idx], req.body, { updated_at: new Date().toISOString() });
     if (req.body.rate) items[idx].rate = parseFloat(req.body.rate);
-    database.save();
+    database.saveImmediate();
     res.json(items[idx]);
   }));
 
@@ -45,7 +45,7 @@ module.exports = (database) => {
     const idx = items.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
     items[idx].is_active = false;
-    database.save();
+    database.saveImmediate();
     res.json({ message: 'Item deactivated' });
   }));
 
@@ -227,10 +227,18 @@ module.exports = (database) => {
     const p = col('hemali_payments').find(p => p.id === req.params.id);
     if (!p) return res.status(404).json({ detail: 'Payment not found' });
 
+    // Defensive defaults — all numeric fields may be null/undefined on older records
+    const total = Number(p.total) || 0;
+    const advance = Number(p.advance_deducted) || 0;
+    const payable = Number(p.amount_payable) || 0;
+    const paid = Number(p.amount_paid) || 0;
+    const newAdv = Number(p.new_advance) || 0;
+    const items = Array.isArray(p.items) ? p.items : [];
+
     const doc = new PDFDocument({ size: 'A5', margin: 25 });
-      registerFonts(doc);
+    registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=hemali_receipt_${p.id.substring(0,8)}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=hemali_receipt_${String(p.id).substring(0,8)}.pdf`);
     // PDF will be sent via safePdfPipe
 
     // Header
@@ -245,10 +253,10 @@ module.exports = (database) => {
 
     // Info
     doc.fontSize(7).fillColor('#6b7280').text('RECEIPT DATE');
-    doc.fontSize(10).fillColor('#1a365d').font(F('bold')).text(fmtD(p.date));
+    doc.fontSize(10).fillColor('#1a365d').font(F('bold')).text(p.date ? fmtD(p.date) : '-');
     doc.moveDown(0.2);
     doc.fontSize(7).fillColor('#6b7280').font(F('normal')).text('SARDAR NAME');
-    doc.fontSize(10).fillColor('#1a365d').font(F('bold')).text(p.sardar_name || '');
+    doc.fontSize(10).fillColor('#1a365d').font(F('bold')).text(String(p.sardar_name || '-'));
     doc.font(F('normal')).moveDown(0.5);
 
     // Items table
@@ -260,8 +268,12 @@ module.exports = (database) => {
       doc.fontSize(8).fillColor('#1a365d').font(F('bold')).text(h, x + 3, y + 4, { width: colW[i] - 6, align: i > 0 ? 'right' : 'left' });
     });
     y += 16;
-    (p.items || []).forEach(item => {
-      ['', item.item_name, String(Math.round(item.quantity)), `Rs. ${item.rate}`, `Rs. ${Math.round(item.amount)}`].slice(1).forEach((v, i) => {
+    items.forEach(item => {
+      const qty = Math.round(Number(item.quantity) || 0);
+      const rate = Number(item.rate) || 0;
+      const amount = Math.round(Number(item.amount) || 0);
+      const row = [String(item.item_name || '-'), String(qty), `Rs. ${rate}`, `Rs. ${amount}`];
+      row.forEach((v, i) => {
         let x = 25; for (let j = 0; j < i; j++) x += colW[j];
         doc.fontSize(9).fillColor('#334155').font(F('normal')).text(v, x + 3, y + 3, { width: colW[i] - 6, align: i > 0 ? 'right' : 'left' });
       });
@@ -270,17 +282,17 @@ module.exports = (database) => {
     doc.y = y + 8;
 
     // Calculation
-    doc.fontSize(9).fillColor('#1a365d').text(`Gross Amount`, 25).text(`Rs. ${Math.round(p.total || 0)}`, 25, doc.y - 12, { align: 'right', width: tw });
-    if ((p.advance_deducted || 0) > 0) {
-      doc.fillColor('#dc2626').text('Advance Deducted', 25).text(`- Rs. ${Math.round(p.advance_deducted)}`, 25, doc.y - 12, { align: 'right', width: tw });
+    doc.fontSize(9).fillColor('#1a365d').text(`Gross Amount`, 25).text(`Rs. ${Math.round(total)}`, 25, doc.y - 12, { align: 'right', width: tw });
+    if (advance > 0) {
+      doc.fillColor('#dc2626').text('Advance Deducted', 25).text(`- Rs. ${Math.round(advance)}`, 25, doc.y - 12, { align: 'right', width: tw });
     }
     doc.moveDown(0.3);
     doc.moveTo(25, doc.y).lineTo(375, doc.y).strokeColor('#d97706').lineWidth(1).stroke();
     doc.moveDown(0.3);
-    doc.fontSize(11).fillColor('#1a365d').font(F('bold')).text('Net Amount', 25).text(`Rs. ${Math.round(p.amount_payable || 0)}`, 25, doc.y - 14, { align: 'right', width: tw });
-    doc.fontSize(9).fillColor('#16a34a').font(F('normal')).text('Amount Paid', 25).text(`Rs. ${Math.round(p.amount_paid || 0)}`, 25, doc.y - 12, { align: 'right', width: tw });
-    if ((p.new_advance || 0) > 0) {
-      doc.fillColor('#1a365d').text('New Advance', 25).text(`Rs. ${Math.round(p.new_advance)}`, 25, doc.y - 12, { align: 'right', width: tw });
+    doc.fontSize(11).fillColor('#1a365d').font(F('bold')).text('Net Amount', 25).text(`Rs. ${Math.round(payable)}`, 25, doc.y - 14, { align: 'right', width: tw });
+    doc.fontSize(9).fillColor('#16a34a').font(F('normal')).text('Amount Paid', 25).text(`Rs. ${Math.round(paid)}`, 25, doc.y - 12, { align: 'right', width: tw });
+    if (newAdv > 0) {
+      doc.fillColor('#1a365d').text('New Advance', 25).text(`Rs. ${Math.round(newAdv)}`, 25, doc.y - 12, { align: 'right', width: tw });
     }
     doc.moveDown(1);
 
