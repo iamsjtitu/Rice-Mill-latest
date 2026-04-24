@@ -9,12 +9,13 @@ const CHANGELOG = [
   {
     version: "104.28.1",
     date: "Feb 2026",
-    title: "v104.28.1 — Cache Fix (Stale data / slow tabs)",
+    title: "v104.28.1 — Speed Boost + Cache Fix",
     items: [
       { type: "fix", text: "🐛 Fixed: New entries (Hemali payment, Jama/Udhar, etc.) ab turant dikh jaate hain bina browser reload ke — Cloudflare tunnel cache issue resolve" },
-      { type: "fix", text: "⚡ Tab switching thoda faster — API responses fresh aate hain har baar" },
+      { type: "new", text: "⚡ Tab switching kaafi faster — axios response cache (30s TTL) use kiya, ek baar fetch hua data turant available rahega repeat visit pe" },
+      { type: "new", text: "🔄 Auto-invalidation — kisi bhi entry save/update/delete karne pe saara cache turant refresh, stale data kabhi nahi dikhega" },
       { type: "note", text: "Backend: /api/* routes ab Cache-Control: no-store header bhejte hain (desktop + local-server dono)" },
-      { type: "note", text: "Frontend: Axios GET requests me auto timestamp param + no-cache header — belt-and-braces protection" },
+      { type: "note", text: "Frontend: axios-cache-interceptor library + smart invalidation on mutations" },
     ],
   },
   {
