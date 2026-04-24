@@ -1,10 +1,35 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.2
+## Current Version: v104.28.8
 
 ## Recent Fixes (Feb 2026)
 
-### TP (Transit Pass) Register showing empty despite entries having TP No — FIXED
+### Hemali module overhaul — v104.28.8
+1. **Professional Print Receipt Redesign**
+   - Dark navy title banner + Receipt No. in amber box + PAID/UNPAID status banner (color-coded green/red)
+   - 2×2 Info Grid (Receipt Date / Sardar Name / Items Count / Total Qty)
+   - Items table with dark header + alternating row colors
+   - 6 color-coded summary tiles: Gross Amount, Adv. Deducted, Net Payable, Amount Paid, New Advance, Balance (shows "SETTLED" if zero)
+   - Signature lines + computer-generated footer
+
+2. **Cash Book auto-sync (on CREATE)**
+   - On Hemali payment creation → auto-inserts a Ledger "Jama" entry (`hemali_work:<id>`) so the liability "we owe Sardar X" appears immediately in Cash Book > Ledger tab.
+   - Startup backfill assigns missing `hemali_work` entries for pre-upgrade payments.
+   - Mark-Paid uses upsert to avoid duplication.
+   - **UNDO paid** now keeps the work ledger entry (work was still done); only payment entries removed.
+   - **DELETE** removes all references (work + payment + debit).
+
+3. **Monthly Summary `Total Work = Rs.0` bug** — FIXED
+   - Previously only `status === 'paid'` payments were counted for Total Work → unpaid payments showed Rs.0.
+   - Now work is counted regardless of payment status (work done = work counted). Total Paid still uses paid-only.
+
+4. **Hemali Export PDF/Excel showing empty** — FIXED
+   - Previously filtered to `status === 'paid'` only.
+   - Now includes both paid + unpaid; added `Receipt No.` and `Status` columns for clarity.
+
+**Triple-backend parity:** All fixes implemented in `/app/backend/routes/hemali.py`, `/app/desktop-app/routes/hemali.js`, `/app/local-server/routes/hemali.js`, and shared `/app/*/shared/hemali-service.js`.
+
+### TP Register empty despite entries — v104.28.7 FIXED
 - **File:** `/app/frontend/src/components/GovtRegisters.jsx` (`TransitPassRegister` + `buildExportParams`)
 - **Root cause:** Global app filter defaults to `date_from = date_to = today` (see `/app/frontend/src/hooks/useFilters.js` line 17). TP Register was blindly forwarding this to backend → backend filtered entries to today only → zero results. Purchase Register didn't suffer this because `/api/entries` skips date filter when any search field (mandi/agent/etc.) is active.
 - **Fix:** Removed `date_from`/`date_to` params from TP Register fetch + export calls. TP Register now scopes by KMS year + optional Mandi/Agent (matching its actual UI — no date picker).

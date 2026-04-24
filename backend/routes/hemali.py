@@ -215,6 +215,26 @@ async def create_hemali_payment(request: Request):
         "created_at": now,
     })
 
+    # Also create the Ledger "jama" entry immediately (liability: we owe Sardar the work amount)
+    # This makes the unpaid Hemali visible in Cash Book > Ledger right after creation.
+    # The matching "nikasi" (payment) entry is added later during mark-paid.
+    await db.cash_transactions.insert_one({
+        "id": str(uuid.uuid4()),
+        "date": payment["date"],
+        "account": "ledger",
+        "txn_type": "jama",
+        "amount": total,
+        "category": "Hemali Payment",
+        "party_type": "Hemali",
+        "description": f"{sardar_name} - {items_desc} | Total: Rs.{total:.0f}",
+        "reference": f"hemali_work:{payment_id}",
+        "kms_year": kms_year,
+        "season": season,
+        "created_by": created_by,
+        "created_at": now,
+        "updated_at": now,
+    })
+
     return payment
 
 
@@ -238,13 +258,18 @@ async def _create_cash_entries(p, round_off=0):
         "reference": f"hemali_payment:{pid}", **base,
     })
 
-    # 2. Ledger: Jama (work amount) - shows in Party Ledger tab
-    await db.cash_transactions.insert_one({
-        "id": str(uuid.uuid4()), "date": p["date"], "account": "ledger", "txn_type": "jama",
-        "amount": p.get("total", 0), "category": "Hemali Payment", "party_type": "Hemali",
-        "description": f"{sardar} - {items_desc} | Total: Rs.{p.get('total',0):.0f}",
-        "reference": f"hemali_work:{pid}", **base,
-    })
+    # 2. Ledger: Jama (work amount) — shows in Party Ledger tab
+    #    UPSERT in case this is a legacy payment that didn't get a work entry on CREATE.
+    await db.cash_transactions.update_one(
+        {"reference": f"hemali_work:{pid}"},
+        {"$set": {
+            "date": p["date"], "account": "ledger", "txn_type": "jama",
+            "amount": p.get("total", 0), "category": "Hemali Payment", "party_type": "Hemali",
+            "description": f"{sardar} - {items_desc} | Total: Rs.{p.get('total',0):.0f}",
+            "reference": f"hemali_work:{pid}", **base,
+        }, "$setOnInsert": {"id": str(uuid.uuid4())}},
+        upsert=True,
+    )
 
     # 3. Ledger: Nikasi (payment) - includes round off for correct balance
     adv_info = ""
@@ -278,11 +303,11 @@ async def _create_cash_entries(p, round_off=0):
 
 
 async def _remove_cash_entries(payment_id):
-    """Remove cashbook + ledger + local party PAYMENT entries (undo). Keeps debit entry."""
+    """Remove cashbook + ledger PAYMENT entries (undo). Keeps the 'hemali_work' jama
+    ledger entry because the work was actually done — only the payment is undone."""
     await db.cash_transactions.delete_many({
         "reference": {"$in": [
             f"hemali_payment:{payment_id}",
-            f"hemali_work:{payment_id}",
             f"hemali_paid:{payment_id}",
         ]}
     })
@@ -395,7 +420,8 @@ async def delete_hemali_payment(payment_id: str):
     if not p:
         raise HTTPException(status_code=404, detail="Payment not found")
     await _remove_cash_entries(payment_id)
-    # Also remove debit entry (delete = full removal)
+    # Full delete: also remove the work ledger entry + debit
+    await db.cash_transactions.delete_many({"reference": f"hemali_work:{payment_id}"})
     await db.local_party_accounts.delete_many({"reference": f"hemali_debit:{payment_id}"})
     await db.hemali_payments.delete_one({"id": payment_id})
     return {"message": "Deleted", "id": payment_id}
@@ -452,13 +478,16 @@ async def hemali_monthly_summary(kms_year: str = "", season: str = "", sardar_na
         m = sardars[sn]["months"][month_key]
         m["total_payments"] += 1
         is_paid = p.get("status") == "paid"
+
+        # Work is done regardless of payment status — count it always
+        m["total_work"] += p.get("total", 0)
+        sardars[sn]["grand_total_work"] += p.get("total", 0)
+
         if is_paid:
             m["paid_payments"] += 1
-            m["total_work"] += p.get("total", 0)
             m["total_paid"] += p.get("amount_paid", 0)
             m["advance_given"] += p.get("new_advance", 0)
             m["advance_deducted"] += p.get("advance_deducted", 0)
-            sardars[sn]["grand_total_work"] += p.get("total", 0)
             sardars[sn]["grand_total_paid"] += p.get("amount_paid", 0)
             sardars[sn]["grand_total_advance_given"] += p.get("new_advance", 0)
             sardars[sn]["grand_total_advance_deducted"] += p.get("advance_deducted", 0)
@@ -618,104 +647,204 @@ async def print_hemali_receipt(payment_id: str):
     green_c = colors.HexColor("#16a34a")
     grey_c = colors.HexColor("#6b7280")
 
-    # Header: Company branding from helper
+    # ═══════════════════ HEADER SECTION ═══════════════════
+    # Company branding
     from utils.branding_helper import get_pdf_company_header_from_db
     elements.extend(await get_pdf_company_header_from_db())
 
-    # Title
-    elements.append(Paragraph("HEMALI PAYMENT RECEIPT", ParagraphStyle("title", parent=styles["Heading2"], fontSize=13, textColor=dark, alignment=1, spaceAfter=4)))
+    # Receipt title banner (dark navy background, white text)
+    title_tbl = RTable(
+        [[Paragraph("HEMALI PAYMENT RECEIPT",
+                    ParagraphStyle("tt", parent=styles["Normal"], fontSize=12,
+                                   textColor=colors.white, alignment=1,
+                                   fontName="Helvetica-Bold"))]],
+        colWidths=[349]
+    )
+    title_tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), dark),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(title_tbl)
 
-    # Receipt No. (prominent, centered, amber)
-    if p.get("receipt_no"):
-        elements.append(Paragraph(str(p["receipt_no"]), ParagraphStyle("rcpt_no", parent=styles["Normal"], fontSize=10, textColor=colors.HexColor("#d97706"), alignment=1, fontName="Helvetica-Bold", spaceAfter=8)))
+    # Receipt No. + Status banner (2 columns — amber receipt no. left, status right)
+    status_text = "PAID" if p.get("status") == "paid" else "UNPAID"
+    status_bg = green_c if p.get("status") == "paid" else red_c
+    rcpt_no_str = str(p.get("receipt_no") or "—")
 
-    # Info fields (2-column)
-    label_s = ParagraphStyle("lbl", parent=styles["Normal"], fontSize=7, textColor=grey_c)
-    val_s = ParagraphStyle("val", parent=styles["Normal"], fontSize=10, textColor=dark, fontName="Helvetica-Bold")
+    banner_tbl = RTable([[
+        Paragraph(f"<b>Receipt No.</b><br/><font size='12' color='#d97706'><b>{rcpt_no_str}</b></font>",
+                  ParagraphStyle("rn", parent=styles["Normal"], fontSize=8, textColor=grey_c, alignment=0)),
+        Paragraph(status_text,
+                  ParagraphStyle("sb", parent=styles["Normal"], fontSize=13, textColor=colors.white,
+                                 alignment=1, fontName="Helvetica-Bold")),
+    ]], colWidths=[195, 154])
+    banner_tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#fef3c7")),
+        ("BACKGROUND", (1, 0), (1, 0), status_bg),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+    ]))
+    elements.append(banner_tbl)
+    elements.append(Spacer(1, 10))
+
+    # ═══════════════════ INFO GRID (2x2) ═══════════════════
+    label_s = ParagraphStyle("lbl", parent=styles["Normal"], fontSize=7, textColor=grey_c,
+                             fontName="Helvetica-Bold")
+    val_s = ParagraphStyle("val", parent=styles["Normal"], fontSize=10, textColor=dark,
+                           fontName="Helvetica-Bold")
+
+    items_count = len(p.get("items", []))
+    total_qty = sum(float(i.get("quantity") or 0) for i in p.get("items", []))
+
     info_data = [
         [Paragraph("RECEIPT DATE", label_s), Paragraph("SARDAR NAME", label_s)],
-        [Paragraph(fmt_d(p.get("date", "")), val_s), Paragraph(p.get("sardar_name", ""), val_s)],
+        [Paragraph(fmt_d(p.get("date", "")), val_s), Paragraph(p.get("sardar_name", "—"), val_s)],
+        [Paragraph("ITEMS COUNT", label_s), Paragraph("TOTAL QUANTITY", label_s)],
+        [Paragraph(str(items_count), val_s), Paragraph(f"{total_qty:,.0f}", val_s)],
     ]
-    info_t = RTable(info_data, colWidths=[155, 155])
-    info_t.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 4)]))
+    info_t = RTable(info_data, colWidths=[174.5, 174.5])
+    info_t.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+        ("LINEBELOW", (0, 1), (-1, 1), 0.5, colors.HexColor("#e2e8f0")),
+        ("LINEAFTER", (0, 0), (0, -1), 0.5, colors.HexColor("#e2e8f0")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f8fafc")),
+        ("BACKGROUND", (0, 2), (-1, 2), colors.HexColor("#f8fafc")),
+    ]))
     elements.append(info_t)
-    elements.append(Spacer(1, 8))
+    elements.append(Spacer(1, 10))
 
-    # Items table
-    items_rows = [["Item", "Qty", "Rate", "Amount"]]
+    # ═══════════════════ ITEMS TABLE ═══════════════════
+    items_rows = [[
+        Paragraph("<b>ITEM</b>", ParagraphStyle("ih", parent=styles["Normal"], fontSize=8, textColor=colors.white, fontName="Helvetica-Bold")),
+        Paragraph("<b>QTY</b>", ParagraphStyle("ih2", parent=styles["Normal"], fontSize=8, textColor=colors.white, alignment=2, fontName="Helvetica-Bold")),
+        Paragraph("<b>RATE</b>", ParagraphStyle("ih3", parent=styles["Normal"], fontSize=8, textColor=colors.white, alignment=2, fontName="Helvetica-Bold")),
+        Paragraph("<b>AMOUNT</b>", ParagraphStyle("ih4", parent=styles["Normal"], fontSize=8, textColor=colors.white, alignment=2, fontName="Helvetica-Bold")),
+    ]]
     for i in p.get("items", []):
         items_rows.append([
             i.get("item_name", ""),
-            str(int(i.get("quantity", 0))),
-            f"Rs. {i.get('rate', 0)}",
-            f"Rs. {i.get('amount', 0):,.0f}"
+            f"{float(i.get('quantity', 0)):,.0f}",
+            f"Rs. {float(i.get('rate', 0)):,.2f}",
+            f"Rs. {float(i.get('amount', 0)):,.0f}"
         ])
 
-    it = RTable(items_rows, colWidths=[110, 55, 60, 85], repeatRows=1)
+    it = RTable(items_rows, colWidths=[135, 60, 70, 84], repeatRows=1)
     it.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("BACKGROUND", (0, 0), (-1, 0), dark),
         ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+        ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#e2e8f0")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
         ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
         ("ALIGN", (0, 0), (0, -1), "LEFT"),
-        ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
     ]))
     elements.append(it)
-    elements.append(Spacer(1, 10))
-
-    # Calculation summary
-    calc_label = ParagraphStyle("cl", parent=styles["Normal"], fontSize=9, textColor=dark)
-    calc_val = ParagraphStyle("cv", parent=styles["Normal"], fontSize=9, textColor=dark, alignment=2, fontName="Helvetica-Bold")
-    calc_red = ParagraphStyle("cr", parent=styles["Normal"], fontSize=9, textColor=red_c, alignment=2, fontName="Helvetica-Bold")
-    calc_green = ParagraphStyle("cg", parent=styles["Normal"], fontSize=9, textColor=green_c, alignment=2, fontName="Helvetica-Bold")
-    calc_red_l = ParagraphStyle("crl", parent=styles["Normal"], fontSize=9, textColor=red_c)
-    calc_bold_l = ParagraphStyle("cbl", parent=styles["Normal"], fontSize=11, textColor=dark, fontName="Helvetica-Bold")
-    calc_bold_v = ParagraphStyle("cbv", parent=styles["Normal"], fontSize=11, textColor=dark, alignment=2, fontName="Helvetica-Bold")
-
-    calc_rows = [
-        [Paragraph("Gross Amount", calc_label), Paragraph(f"Rs. {p.get('total', 0):,.0f}", calc_val)],
-    ]
-    if p.get("advance_deducted", 0) > 0:
-        calc_rows.append([Paragraph("Advance Deducted", calc_red_l), Paragraph(f"- Rs. {p.get('advance_deducted', 0):,.0f}", calc_red)])
-
-    ct = RTable(calc_rows, colWidths=[200, 110])
-    ct.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
-    elements.append(ct)
-
-    # Orange separator
-    elements.append(HRFlowable(width="100%", thickness=1, color=orange, spaceBefore=4, spaceAfter=4))
-
-    # Net amount (bold)
-    net_rows = [
-        [Paragraph("Net Amount", calc_bold_l), Paragraph(f"Rs. {p.get('amount_payable', 0):,.0f}", calc_bold_v)],
-        [Paragraph("Amount Paid", calc_label), Paragraph(f"Rs. {p.get('amount_paid', 0):,.0f}", calc_green)],
-    ]
-    if p.get("new_advance", 0) > 0:
-        net_rows.append([Paragraph("New Advance", calc_label), Paragraph(f"Rs. {p.get('new_advance', 0):,.0f}", calc_val)])
-
-    nt = RTable(net_rows, colWidths=[200, 110])
-    nt.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
-    elements.append(nt)
     elements.append(Spacer(1, 12))
 
-    # Status
-    status_text = "PAID" if p.get("status") == "paid" else "UNPAID"
-    status_color = green_c if p.get("status") == "paid" else red_c
-    elements.append(Paragraph(status_text, ParagraphStyle("st", parent=styles["Normal"], fontSize=10, textColor=status_color, alignment=1, fontName="Helvetica-Bold", spaceAfter=20)))
+    # ═══════════════════ SUMMARY BOXES (color-coded) ═══════════════════
+    def tile(label, value, bg_color, text_color, value_size=11):
+        return RTable([[
+            Paragraph(label, ParagraphStyle(f"tl_{label}", parent=styles["Normal"], fontSize=7,
+                                             textColor=grey_c, alignment=1, fontName="Helvetica-Bold")),
+        ], [
+            Paragraph(value, ParagraphStyle(f"tv_{label}", parent=styles["Normal"], fontSize=value_size,
+                                             textColor=text_color, alignment=1, fontName="Helvetica-Bold")),
+        ]], colWidths=[None])
 
-    # Signature lines
+    gross = float(p.get("total") or 0)
+    adv_ded = float(p.get("advance_deducted") or 0)
+    payable = float(p.get("amount_payable") or 0)
+    paid = float(p.get("amount_paid") or 0)
+    new_adv = float(p.get("new_advance") or 0)
+
+    def money_tile(label, value, bg, fg, size=11):
+        inner = [
+            [Paragraph(label, ParagraphStyle(f"ml_{label}", parent=styles["Normal"], fontSize=6,
+                                              textColor=grey_c, alignment=1, fontName="Helvetica-Bold"))],
+            [Paragraph(value, ParagraphStyle(f"mv_{label}", parent=styles["Normal"], fontSize=size,
+                                              textColor=fg, alignment=1, fontName="Helvetica-Bold"))],
+        ]
+        t = RTable(inner, colWidths=[110])
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), bg),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        return t
+
+    # Row 1: Gross | Adv Deducted | Net Payable
+    row1 = RTable([[
+        money_tile("GROSS AMOUNT", f"Rs. {gross:,.0f}", colors.HexColor("#eff6ff"), dark),
+        money_tile("ADV. DEDUCTED", f"- Rs. {adv_ded:,.0f}" if adv_ded else "—",
+                   colors.HexColor("#fef2f2"), red_c if adv_ded else grey_c),
+        money_tile("NET PAYABLE", f"Rs. {payable:,.0f}",
+                   colors.HexColor("#fef3c7"), orange, 12),
+    ]], colWidths=[116.3, 116.3, 116.3])
+    row1.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+    ]))
+    elements.append(row1)
+    elements.append(Spacer(1, 4))
+
+    # Row 2: Amount Paid | New Advance | Balance
+    bal = payable - paid
+    row2 = RTable([[
+        money_tile("AMOUNT PAID", f"Rs. {paid:,.0f}",
+                   colors.HexColor("#f0fdf4"), green_c, 12),
+        money_tile("NEW ADVANCE", f"Rs. {new_adv:,.0f}" if new_adv else "—",
+                   colors.HexColor("#fefce8"), orange if new_adv else grey_c),
+        money_tile("BALANCE", f"Rs. {bal:,.0f}" if bal else "SETTLED",
+                   colors.HexColor("#f8fafc"), red_c if bal > 0 else green_c),
+    ]], colWidths=[116.3, 116.3, 116.3])
+    row2.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+    ]))
+    elements.append(row2)
+    elements.append(Spacer(1, 18))
+
+    # ═══════════════════ SIGNATURES ═══════════════════
     sig_rows = [[
-        Paragraph("Sardar Signature", ParagraphStyle("sig", parent=styles["Normal"], fontSize=7, textColor=grey_c)),
-        Paragraph("Authorized Signature", ParagraphStyle("sig2", parent=styles["Normal"], fontSize=7, textColor=grey_c, alignment=2)),
+        Paragraph("Sardar Signature",
+                  ParagraphStyle("sig", parent=styles["Normal"], fontSize=7,
+                                 textColor=grey_c, alignment=1)),
+        Paragraph("Authorized Signature",
+                  ParagraphStyle("sig2", parent=styles["Normal"], fontSize=7,
+                                 textColor=grey_c, alignment=1)),
     ]]
-    sig_t = RTable(sig_rows, colWidths=[155, 155])
-    sig_t.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ("LINEABOVE", (0, 0), (0, 0), 0.5, grey_c), ("LINEABOVE", (1, 0), (1, 0), 0.5, grey_c), ("TOPPADDING", (0, 0), (-1, -1), 6)]))
+    sig_t = RTable(sig_rows, colWidths=[174, 174])
+    sig_t.setStyle(TableStyle([
+        ("LINEABOVE", (0, 0), (0, 0), 0.5, grey_c),
+        ("LINEABOVE", (1, 0), (1, 0), 0.5, grey_c),
+        ("TOPPADDING", (0, 0), (-1, -1), 20),
+    ]))
     elements.append(sig_t)
-    elements.append(Spacer(1, 8))
+    elements.append(Spacer(1, 6))
 
     # Footer
-    elements.append(Paragraph("This is a computer generated receipt", ParagraphStyle("ft", parent=styles["Normal"], fontSize=6, textColor=grey_c, alignment=1)))
+    elements.append(Paragraph("This is a computer generated receipt",
+                              ParagraphStyle("ft", parent=styles["Normal"], fontSize=6,
+                                             textColor=grey_c, alignment=1)))
 
     doc.build(elements)
     buf.seek(0)
@@ -731,7 +860,7 @@ async def export_hemali_pdf(
     from_date: str = "", to_date: str = "",
     sardar_name: str = ""
 ):
-    query = {"status": "paid"}
+    query = {}
     if kms_year:
         query["kms_year"] = kms_year
     if season:
@@ -777,24 +906,26 @@ async def export_hemali_pdf(
         elements.append(Paragraph(" | ".join(meta_parts), ParagraphStyle("m", parent=styles["Normal"], fontSize=8, textColor=colors.grey)))
     elements.append(Spacer(1, 8))
 
-    headers = ["#", "Date", "Sardar", "Items", "Total", "Adv Deduct", "Payable", "Paid", "New Adv"]
+    headers = ["#", "Receipt No.", "Date", "Sardar", "Items", "Total", "Adv Deduct", "Payable", "Paid", "New Adv", "Status"]
     rows = [headers]
     grand_total = grand_paid = 0
     for idx, p in enumerate(payments, 1):
         items_str = ", ".join(f"{i.get('item_name','')} x{i.get('quantity',0)}" for i in p.get("items", []))
         rows.append([
-            str(idx), fmt_d(p.get("date", "")), p.get("sardar_name", ""), items_str,
+            str(idx), p.get("receipt_no", "-"), fmt_d(p.get("date", "")), p.get("sardar_name", ""), items_str,
             f"Rs.{p.get('total',0):,.2f}", f"Rs.{p.get('advance_deducted',0):,.2f}",
             f"Rs.{p.get('amount_payable',0):,.2f}", f"Rs.{p.get('amount_paid',0):,.2f}",
             f"Rs.{p.get('new_advance',0):,.2f}",
+            "PAID" if p.get("status") == "paid" else "UNPAID",
         ])
         grand_total += p.get("total", 0)
-        grand_paid += p.get("amount_paid", 0)
-    rows.append(["", "", "TOTAL", "", f"Rs.{grand_total:,.2f}", "", "", f"Rs.{grand_paid:,.2f}", ""])
+        if p.get("status") == "paid":
+            grand_paid += p.get("amount_paid", 0)
+    rows.append(["", "", "", "TOTAL", "", f"Rs.{grand_total:,.2f}", "", "", f"Rs.{grand_paid:,.2f}", "", ""])
 
     from utils.export_helpers import get_pdf_table_style
-    
-    t = RTable(rows, colWidths=[25, 60, 70, 200, 65, 65, 65, 65, 65], repeatRows=1)
+
+    t = RTable(rows, colWidths=[22, 70, 55, 65, 170, 60, 60, 60, 60, 60, 50], repeatRows=1)
     cols_info = [{'header': h} for h in headers]
     style_cmds = get_pdf_table_style(len(rows), cols_info)
     style_cmds.extend([
@@ -823,7 +954,7 @@ async def export_hemali_excel(
     from_date: str = "", to_date: str = "",
     sardar_name: str = ""
 ):
-    query = {"status": "paid"}
+    query = {}
     if kms_year:
         query["kms_year"] = kms_year
     if season:
@@ -849,10 +980,10 @@ async def export_hemali_excel(
     from utils.export_helpers import (style_excel_title, style_excel_header_row,
         style_excel_data_rows, style_excel_total_row, COLORS)
 
-    ncols = 9
+    ncols = 11
     style_excel_title(ws, "Hemali Payment Report / हेमाली भुगतान", ncols)
 
-    headers = ["#", "Date", "Sardar", "Items", "Total", "Adv Deducted", "Payable", "Paid", "New Advance"]
+    headers = ["#", "Receipt No.", "Date", "Sardar", "Items", "Total", "Adv Deducted", "Payable", "Paid", "New Advance", "Status"]
     for i, h in enumerate(headers, 1):
         ws.cell(row=4, column=i, value=h)
     style_excel_header_row(ws, 4, ncols)
@@ -861,24 +992,26 @@ async def export_hemali_excel(
     grand_total = grand_paid = 0
     for idx, p in enumerate(payments, 1):
         items_str = ", ".join(f"{i.get('item_name','')} x{i.get('quantity',0)}" for i in p.get("items", []))
-        vals = [idx, fmt_date(p.get("date", "")), p.get("sardar_name", ""), items_str,
+        status_txt = "PAID" if p.get("status") == "paid" else "UNPAID"
+        vals = [idx, p.get("receipt_no", "-"), fmt_date(p.get("date", "")), p.get("sardar_name", ""), items_str,
                 p.get("total", 0), p.get("advance_deducted", 0), p.get("amount_payable", 0),
-                p.get("amount_paid", 0), p.get("new_advance", 0)]
+                p.get("amount_paid", 0), p.get("new_advance", 0), status_txt]
         for ci, v in enumerate(vals, 1):
             ws.cell(row=row_n, column=ci, value=v)
         grand_total += p.get("total", 0)
-        grand_paid += p.get("amount_paid", 0)
+        if p.get("status") == "paid":
+            grand_paid += p.get("amount_paid", 0)
         row_n += 1
 
     if payments:
         style_excel_data_rows(ws, data_start, row_n - 1, ncols, headers)
 
-    ws.cell(row=row_n, column=3, value="TOTAL")
-    ws.cell(row=row_n, column=5, value=grand_total)
-    ws.cell(row=row_n, column=8, value=grand_paid)
+    ws.cell(row=row_n, column=4, value="TOTAL")
+    ws.cell(row=row_n, column=6, value=grand_total)
+    ws.cell(row=row_n, column=9, value=grand_paid)
     style_excel_total_row(ws, row_n, ncols)
 
-    for w, col_letter in [(5, "A"), (12, "B"), (16, "C"), (35, "D"), (12, "E"), (14, "F"), (12, "G"), (12, "H"), (14, "I")]:
+    for w, col_letter in [(5, "A"), (14, "B"), (12, "C"), (16, "D"), (35, "E"), (12, "F"), (14, "G"), (12, "H"), (12, "I"), (14, "J"), (10, "K")]:
         ws.column_dimensions[col_letter].width = w
 
     buf = io.BytesIO()

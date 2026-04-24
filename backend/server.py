@@ -469,3 +469,58 @@ async def hemali_receipt_no_backfill():
             logger.info(f"Hemali receipt_no backfill: assigned {assigned} receipts")
     except Exception as e:
         logger.error(f"Hemali receipt_no backfill error: {e}")
+
+
+@app.on_event("startup")
+async def hemali_work_ledger_backfill():
+    """Create missing hemali_work ledger entries for existing payments (created before
+    auto-ledger-on-create was introduced). Ensures unpaid Hemali liabilities show up
+    in Cash Book > Ledger immediately after upgrade."""
+    try:
+        from database import db
+        import uuid as _uuid
+        payments = await db.hemali_payments.find({}, {"_id": 0}).to_list(10000)
+        if not payments:
+            return
+        # Find existing hemali_work references in one query
+        existing_refs = set()
+        async for t in db.cash_transactions.find(
+            {"reference": {"$regex": "^hemali_work:"}},
+            {"_id": 0, "reference": 1}
+        ):
+            existing_refs.add(str(t.get("reference", "")))
+
+        assigned = 0
+        for p in payments:
+            pid = p.get("id")
+            if not pid:
+                continue
+            ref = f"hemali_work:{pid}"
+            if ref in existing_refs:
+                continue
+            items_desc = ", ".join(
+                f"{i.get('item_name','')} x{i.get('quantity',0)}" for i in p.get("items", [])
+            )
+            await db.cash_transactions.insert_one({
+                "id": str(_uuid.uuid4()),
+                "date": p.get("date", ""),
+                "account": "ledger",
+                "txn_type": "jama",
+                "amount": p.get("total", 0),
+                "category": "Hemali Payment",
+                "party_type": "Hemali",
+                "description": f"{p.get('sardar_name','')} - {items_desc} | Total: Rs.{p.get('total',0):.0f}",
+                "reference": ref,
+                "kms_year": p.get("kms_year", ""),
+                "season": p.get("season", ""),
+                "created_by": p.get("created_by", ""),
+                "created_at": p.get("created_at", datetime.now(timezone.utc).isoformat()),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            })
+            assigned += 1
+        if assigned > 0:
+            logger.info(f"Hemali work-ledger backfill: created {assigned} missing entries")
+    except Exception as e:
+        logger.error(f"Hemali work-ledger backfill error: {e}")
+
+        logger.error(f"Hemali receipt_no backfill error: {e}")

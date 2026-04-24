@@ -39,8 +39,31 @@ function calcHemaliTotals(items, sardarName, kmsYear, season, allPayments) {
 }
 
 /**
+ * Create side effects when a new hemali payment is created
+ * Creates: ledger jama (work liability). Shows unpaid Hemali in Cash Book > Ledger immediately.
+ */
+function createHemaliPaymentSideEffects(db, payment) {
+  if (!db.data.cash_transactions) db.data.cash_transactions = [];
+  const itemsDesc = (payment.items || []).map(i => `${i.item_name} x${i.quantity}`).join(', ');
+  const base = {
+    kms_year: payment.kms_year || '', season: payment.season || '',
+    created_by: payment.created_by || '', created_at: payment.created_at || new Date().toISOString(),
+    updated_at: payment.updated_at || new Date().toISOString(),
+  };
+  // Remove any existing work entry for this payment (idempotent)
+  db.data.cash_transactions = db.data.cash_transactions.filter(t => t.reference !== `hemali_work:${payment.id}`);
+  db.data.cash_transactions.push({
+    id: _uuid(), date: payment.date, account: 'ledger', txn_type: 'jama',
+    amount: payment.total || 0, category: 'Hemali Payment', party_type: 'Hemali',
+    description: `${payment.sardar_name} - ${itemsDesc} | Total: Rs.${Math.round(payment.total || 0)}`,
+    reference: `hemali_work:${payment.id}`, ...base
+  });
+}
+
+/**
  * Create side effects when marking hemali payment as paid
- * Creates: cash nikasi, ledger jama (work), ledger nikasi (payment), local party payment
+ * Creates: cash nikasi, ledger nikasi (payment), local party payment
+ * Upserts ledger jama (work) in case it wasn't created on POST (legacy payments)
  */
 function markHemaliPaidSideEffects(db, payment, amountPaid, roundOff) {
   if (!db.data.cash_transactions) db.data.cash_transactions = [];
@@ -59,7 +82,8 @@ function markHemaliPaidSideEffects(db, payment, amountPaid, roundOff) {
     description: `Hemali: ${payment.sardar_name} - ${itemsDesc}`,
     reference: `hemali_payment:${payment.id}`, ...base
   });
-  // Ledger jama (work done)
+  // Ledger jama (work done) — UPSERT (replace if exists from CREATE, else insert)
+  db.data.cash_transactions = db.data.cash_transactions.filter(t => t.reference !== `hemali_work:${payment.id}`);
   db.data.cash_transactions.push({
     id: _uuid(), date: payment.date, account: 'ledger', txn_type: 'jama',
     amount: payment.total || 0, category: 'Hemali Payment', party_type: 'Hemali',
@@ -91,11 +115,12 @@ function markHemaliPaidSideEffects(db, payment, amountPaid, roundOff) {
 }
 
 /**
- * Undo hemali paid - remove all linked cash + local party entries
+ * Undo hemali paid - remove payment entries but KEEP the work ledger entry
+ * (the work was actually done, only the payment is being undone)
  */
 function undoHemaliPaidSideEffects(db, paymentId) {
   db.data.cash_transactions = (db.data.cash_transactions || []).filter(t =>
-    t.reference !== `hemali_payment:${paymentId}` && t.reference !== `hemali_work:${paymentId}` && t.reference !== `hemali_paid:${paymentId}`
+    t.reference !== `hemali_payment:${paymentId}` && t.reference !== `hemali_paid:${paymentId}`
   );
   db.data.local_party_accounts = (db.data.local_party_accounts || []).filter(t =>
     t.reference !== `hemali_paid:${paymentId}`
@@ -114,4 +139,4 @@ function deleteHemaliPaymentSideEffects(db, paymentId) {
   );
 }
 
-module.exports = { filterByFy, getAdvanceBalance, calcHemaliTotals, markHemaliPaidSideEffects, undoHemaliPaidSideEffects, deleteHemaliPaymentSideEffects };
+module.exports = { filterByFy, getAdvanceBalance, calcHemaliTotals, createHemaliPaymentSideEffects, markHemaliPaidSideEffects, undoHemaliPaidSideEffects, deleteHemaliPaymentSideEffects };

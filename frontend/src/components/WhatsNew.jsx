@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.8",
+    date: "Feb 2026",
+    title: "v104.28.8 — Hemali: Professional Receipt + Cash Book Sync + Fixes",
+    items: [
+      { type: "new", text: "🎨 Hemali Print Receipt ka naya professional design — Title banner, Receipt No. + Status badge (PAID/UNPAID coloured), 2×2 Info Grid (Date / Sardar / Items Count / Qty), items table with dark header, aur 6 colour-coded summary tiles (Gross / Adv. Deducted / Net Payable / Paid / New Advance / Balance)" },
+      { type: "new", text: "💰 Hemali payment create karte hi Cash Book > Ledger mein auto 'Jama' entry ban jaati hai (liability dikhti hai turant). Startup pe ek baar ka backfill — purani Hemali payments ke liye bhi missing ledger entries ban jayengi" },
+      { type: "fix", text: "🐛 Monthly Summary mein Total Work ab unpaid payments ka bhi count hota hai (work toh ho gaya, payment baad mein). Pehle sirf paid ka dikhta tha = Rs.0 bug" },
+      { type: "fix", text: "🐛 Hemali Export PDF aur Excel ab saari payments dikhate hain (paid + unpaid) — pehle sirf paid wale jaate the, isliye blank aata tha. Naya 'Receipt No.' aur 'Status' column bhi add" },
+      { type: "fix", text: "↩️ Mark Paid UNDO ab sirf payment entries remove karta hai — 'Work' ledger entry preserve rehti hai (kyunki kaam toh ho gaya tha)" },
+    ],
+  },
+  {
     version: "104.28.7",
     date: "Feb 2026",
     title: "v104.28.7 — T.P Register Fix + Hemali Receipt No.",

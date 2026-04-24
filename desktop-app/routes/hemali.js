@@ -5,7 +5,7 @@ const { safeHandler } = require('./safe_handler');
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
 const { safePdfPipe, addPdfHeader, registerFonts, fmtDate, F } = require('./pdf_helpers');
-const { filterByFy, getAdvanceBalance, calcHemaliTotals, markHemaliPaidSideEffects, undoHemaliPaidSideEffects, deleteHemaliPaymentSideEffects } = require('../shared/hemali-service');
+const { filterByFy, getAdvanceBalance, calcHemaliTotals, createHemaliPaymentSideEffects, markHemaliPaidSideEffects, undoHemaliPaidSideEffects, deleteHemaliPaymentSideEffects } = require('../shared/hemali-service');
 
 module.exports = (database) => {
   const router = express.Router();
@@ -113,7 +113,9 @@ module.exports = (database) => {
       kms_year: d.kms_year || '', season: d.season || '',
       created_by: d.created_by || '', created_at: now
     });
-    database.save();
+    // Immediately create Ledger "jama" entry so unpaid Hemali liability shows in Cash Book
+    createHemaliPaymentSideEffects(database, payment);
+    database.saveImmediate ? database.saveImmediate() : database.save();
     res.json(payment);
   }));
 
@@ -142,7 +144,9 @@ module.exports = (database) => {
       amount_payable: amountPayable, amount_paid: amountPaid, new_advance: newAdvance,
       updated_at: new Date().toISOString()
     });
-    database.save();
+    // Sync the Ledger "jama" entry with new total (idempotent)
+    createHemaliPaymentSideEffects(database, p);
+    database.saveImmediate ? database.saveImmediate() : database.save();
     res.json(p);
   }));
 
@@ -208,11 +212,14 @@ module.exports = (database) => {
       if (!sardars[sn].months[monthKey]) sardars[sn].months[monthKey] = { month: monthKey, total_payments: 0, paid_payments: 0, unpaid_payments: 0, total_work: 0, total_paid: 0, advance_given: 0, advance_deducted: 0, items_breakdown: {} };
       const m = sardars[sn].months[monthKey];
       m.total_payments++;
+      // Work is done regardless of payment status — count it always
+      m.total_work += p.total || 0;
+      sardars[sn].grand_total_work += p.total || 0;
       if (p.status === 'paid') {
         m.paid_payments++;
-        m.total_work += p.total || 0; m.total_paid += p.amount_paid || 0;
+        m.total_paid += p.amount_paid || 0;
         m.advance_given += p.new_advance || 0; m.advance_deducted += p.advance_deducted || 0;
-        sardars[sn].grand_total_work += p.total || 0; sardars[sn].grand_total_paid += p.amount_paid || 0;
+        sardars[sn].grand_total_paid += p.amount_paid || 0;
         sardars[sn].grand_total_advance_given += p.new_advance || 0; sardars[sn].grand_total_advance_deducted += p.advance_deducted || 0;
       } else { m.unpaid_payments++; }
       for (const item of (p.items || [])) {
@@ -247,88 +254,150 @@ module.exports = (database) => {
     const paid = Number(p.amount_paid) || 0;
     const newAdv = Number(p.new_advance) || 0;
     const items = Array.isArray(p.items) ? p.items : [];
+    const balance = payable - paid;
 
     const doc = new PDFDocument({ size: 'A5', margin: 25 });
     registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=hemali_receipt_${String(p.id).substring(0,8)}.pdf`);
-    // PDF will be sent via safePdfPipe
 
-    // Header
-    doc.fontSize(18).fillColor('#d97706').text('NAVKAR AGRO', { align: 'center' });
-    doc.fontSize(8).fillColor('#6b7280').text('JOLKO, KESINGA - Mill Entry System', { align: 'center' });
-    doc.moveDown(0.3);
-    doc.moveTo(25, doc.y).lineTo(395, doc.y).strokeColor('#d97706').lineWidth(1.5).stroke();
-    doc.moveDown(0.5);
-
-    doc.fontSize(13).fillColor('#1a365d').text('HEMALI PAYMENT RECEIPT', { align: 'center' });
-    doc.moveDown(0.3);
-
-    // Receipt No. (prominent, centered, amber)
-    if (p.receipt_no) {
-      doc.fontSize(10).fillColor('#d97706').font(F('bold')).text(String(p.receipt_no), { align: 'center' });
-      doc.font(F('normal'));
-    }
-    doc.moveDown(0.5);
-
-    // Info
-    doc.fontSize(7).fillColor('#6b7280').text('RECEIPT DATE');
-    doc.fontSize(10).fillColor('#1a365d').font(F('bold')).text(p.date ? fmtD(p.date) : '-');
-    doc.moveDown(0.2);
-    doc.fontSize(7).fillColor('#6b7280').font(F('normal')).text('SARDAR NAME');
-    doc.fontSize(10).fillColor('#1a365d').font(F('bold')).text(String(p.sardar_name || '-'));
-    doc.font(F('normal')).moveDown(0.5);
-
-    // Items table
-    let y = doc.y;
-    const tw = 350, colW = [140, 55, 65, 90];
-    doc.rect(25, y, tw, 16).fill('#f1f5f9');
-    ['Item', 'Qty', 'Rate', 'Amount'].forEach((h, i) => {
-      let x = 25; for (let j = 0; j < i; j++) x += colW[j];
-      doc.fontSize(8).fillColor('#1a365d').font(F('bold')).text(h, x + 3, y + 4, { width: colW[i] - 6, align: i > 0 ? 'right' : 'left' });
+    // Branded header via addPdfHeader helper (consistent with rest of app)
+    addPdfHeader(doc, '', {
+      ...(database.getBranding ? database.getBranding() : {}),
+      _watermark: ((database.data || {}).app_settings || []).find(s => s.setting_id === 'watermark'),
     });
-    y += 16;
-    items.forEach(item => {
-      const qty = Math.round(Number(item.quantity) || 0);
+
+    // ═══════════ TITLE BANNER (dark navy) ═══════════
+    const pageLeft = 25;
+    const pageWidth = 350; // A5 width - 2*margin
+    let y = doc.y + 2;
+    doc.rect(pageLeft, y, pageWidth, 22).fill('#1a365d');
+    doc.fontSize(12).fillColor('#ffffff').font(F('bold'))
+       .text('HEMALI PAYMENT RECEIPT', pageLeft, y + 6, { width: pageWidth, align: 'center' });
+    y += 22;
+
+    // ═══════════ RECEIPT NO. + STATUS BANNER ═══════════
+    const rcptBoxW = 200, statusBoxW = pageWidth - rcptBoxW;
+    const isPaid = p.status === 'paid';
+    const statusBg = isPaid ? '#16a34a' : '#dc2626';
+    const statusText = isPaid ? 'PAID' : 'UNPAID';
+
+    doc.rect(pageLeft, y, rcptBoxW, 32).fill('#fef3c7');
+    doc.rect(pageLeft + rcptBoxW, y, statusBoxW, 32).fill(statusBg);
+    doc.fontSize(7).fillColor('#6b7280').font(F('bold'))
+       .text('RECEIPT NO.', pageLeft + 10, y + 6);
+    doc.fontSize(13).fillColor('#d97706').font(F('bold'))
+       .text(String(p.receipt_no || '—'), pageLeft + 10, y + 15);
+    doc.fontSize(15).fillColor('#ffffff').font(F('bold'))
+       .text(statusText, pageLeft + rcptBoxW, y + 9, { width: statusBoxW, align: 'center' });
+    y += 32 + 10;
+    doc.font(F('normal'));
+
+    // ═══════════ INFO GRID (2x2) ═══════════
+    const itemsCount = items.length;
+    const totalQty = items.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
+    const cellW = pageWidth / 2;
+    const labelRowH = 14, valueRowH = 18;
+
+    const drawCell = (x0, y0, w, h, bg) => doc.rect(x0, y0, w, h).fill(bg);
+    const labelBg = '#f8fafc', valueBg = '#ffffff';
+
+    // Row 1: labels
+    drawCell(pageLeft, y, cellW, labelRowH, labelBg);
+    drawCell(pageLeft + cellW, y, cellW, labelRowH, labelBg);
+    doc.fontSize(7).fillColor('#6b7280').font(F('bold'))
+       .text('RECEIPT DATE', pageLeft + 8, y + 4)
+       .text('SARDAR NAME', pageLeft + cellW + 8, y + 4);
+    y += labelRowH;
+    // Row 1: values
+    drawCell(pageLeft, y, cellW, valueRowH, valueBg);
+    drawCell(pageLeft + cellW, y, cellW, valueRowH, valueBg);
+    doc.fontSize(10).fillColor('#1a365d').font(F('bold'))
+       .text(p.date ? fmtD(p.date) : '—', pageLeft + 8, y + 5)
+       .text(String(p.sardar_name || '—'), pageLeft + cellW + 8, y + 5, { width: cellW - 16 });
+    y += valueRowH;
+    // Row 2: labels
+    drawCell(pageLeft, y, cellW, labelRowH, labelBg);
+    drawCell(pageLeft + cellW, y, cellW, labelRowH, labelBg);
+    doc.fontSize(7).fillColor('#6b7280').font(F('bold'))
+       .text('ITEMS COUNT', pageLeft + 8, y + 4)
+       .text('TOTAL QUANTITY', pageLeft + cellW + 8, y + 4);
+    y += labelRowH;
+    // Row 2: values
+    drawCell(pageLeft, y, cellW, valueRowH, valueBg);
+    drawCell(pageLeft + cellW, y, cellW, valueRowH, valueBg);
+    doc.fontSize(10).fillColor('#1a365d').font(F('bold'))
+       .text(String(itemsCount), pageLeft + 8, y + 5)
+       .text(String(Math.round(totalQty)), pageLeft + cellW + 8, y + 5);
+    y += valueRowH;
+    // Outer border
+    doc.lineWidth(0.5).strokeColor('#cbd5e1').rect(pageLeft, y - (labelRowH + valueRowH) * 2, pageWidth, (labelRowH + valueRowH) * 2).stroke();
+    doc.font(F('normal'));
+    y += 12;
+
+    // ═══════════ ITEMS TABLE ═══════════
+    const colW = [140, 55, 70, 85];
+    // Header (dark navy)
+    doc.rect(pageLeft, y, pageWidth, 18).fill('#1a365d');
+    ['ITEM', 'QTY', 'RATE', 'AMOUNT'].forEach((h, i) => {
+      let x = pageLeft; for (let j = 0; j < i; j++) x += colW[j];
+      doc.fontSize(8).fillColor('#ffffff').font(F('bold'))
+         .text(h, x + 6, y + 5, { width: colW[i] - 12, align: i > 0 ? 'right' : 'left' });
+    });
+    y += 18;
+    items.forEach((item, idx) => {
+      const qty = Number(item.quantity) || 0;
       const rate = Number(item.rate) || 0;
-      const amount = Math.round(Number(item.amount) || 0);
-      const row = [String(item.item_name || '-'), String(qty), `Rs. ${rate}`, `Rs. ${amount}`];
+      const amount = Number(item.amount) || 0;
+      const row = [String(item.item_name || '-'), qty.toLocaleString(), `Rs. ${rate.toFixed(2)}`, `Rs. ${Math.round(amount).toLocaleString()}`];
+      doc.rect(pageLeft, y, pageWidth, 16).fill(idx % 2 === 0 ? '#ffffff' : '#f8fafc');
       row.forEach((v, i) => {
-        let x = 25; for (let j = 0; j < i; j++) x += colW[j];
-        doc.fontSize(9).fillColor('#334155').font(F('normal')).text(v, x + 3, y + 3, { width: colW[i] - 6, align: i > 0 ? 'right' : 'left' });
+        let x = pageLeft; for (let j = 0; j < i; j++) x += colW[j];
+        doc.fontSize(9).fillColor('#334155').font(F('normal'))
+           .text(v, x + 6, y + 4, { width: colW[i] - 12, align: i > 0 ? 'right' : 'left' });
       });
       y += 16;
     });
-    doc.y = y + 8;
+    // Outer border
+    doc.lineWidth(0.3).strokeColor('#e2e8f0').rect(pageLeft, y - 18 - items.length * 16, pageWidth, 18 + items.length * 16).stroke();
+    y += 14;
 
-    // Calculation
-    doc.fontSize(9).fillColor('#1a365d').text(`Gross Amount`, 25).text(`Rs. ${Math.round(total)}`, 25, doc.y - 12, { align: 'right', width: tw });
-    if (advance > 0) {
-      doc.fillColor('#dc2626').text('Advance Deducted', 25).text(`- Rs. ${Math.round(advance)}`, 25, doc.y - 12, { align: 'right', width: tw });
-    }
-    doc.moveDown(0.3);
-    doc.moveTo(25, doc.y).lineTo(375, doc.y).strokeColor('#d97706').lineWidth(1).stroke();
-    doc.moveDown(0.3);
-    doc.fontSize(11).fillColor('#1a365d').font(F('bold')).text('Net Amount', 25).text(`Rs. ${Math.round(payable)}`, 25, doc.y - 14, { align: 'right', width: tw });
-    doc.fontSize(9).fillColor('#16a34a').font(F('normal')).text('Amount Paid', 25).text(`Rs. ${Math.round(paid)}`, 25, doc.y - 12, { align: 'right', width: tw });
-    if (newAdv > 0) {
-      doc.fillColor('#1a365d').text('New Advance', 25).text(`Rs. ${Math.round(newAdv)}`, 25, doc.y - 12, { align: 'right', width: tw });
-    }
-    doc.moveDown(1);
+    // ═══════════ SUMMARY TILES (2 rows × 3 cols) ═══════════
+    const tileW = pageWidth / 3, tileH = 36;
 
-    // Status
-    const status = p.status === 'paid' ? 'PAID' : 'UNPAID';
-    doc.fontSize(10).fillColor(p.status === 'paid' ? '#16a34a' : '#dc2626').font(F('bold')).text(status, { align: 'center' });
-    doc.font(F('normal')).moveDown(2);
+    const drawTile = (x0, y0, label, value, bgColor, valueColor, valueSize) => {
+      doc.rect(x0, y0, tileW, tileH).fill(bgColor);
+      doc.fontSize(6).fillColor('#6b7280').font(F('bold'))
+         .text(label, x0, y0 + 4, { width: tileW, align: 'center' });
+      doc.fontSize(valueSize || 11).fillColor(valueColor).font(F('bold'))
+         .text(value, x0, y0 + 14, { width: tileW, align: 'center' });
+    };
 
-    // Signature
-    doc.moveTo(25, doc.y).lineTo(180, doc.y).strokeColor('#6b7280').lineWidth(0.5).stroke();
-    doc.moveTo(240, doc.y).lineTo(375, doc.y).stroke();
-    doc.moveDown(0.2);
-    doc.fontSize(7).fillColor('#6b7280').text('Sardar Signature', 25, doc.y, { width: 155 });
-    doc.text('Authorized Signature', 240, doc.y - 9, { width: 135, align: 'right' });
-    doc.moveDown(1);
-    doc.fontSize(6).fillColor('#6b7280').text('This is a computer generated receipt', { align: 'center' });
+    // Row 1: Gross | Adv Deducted | Net Payable
+    drawTile(pageLeft + 0 * tileW, y, 'GROSS AMOUNT', `Rs. ${Math.round(total).toLocaleString()}`, '#eff6ff', '#1a365d');
+    drawTile(pageLeft + 1 * tileW, y, 'ADV. DEDUCTED', advance > 0 ? `- Rs. ${Math.round(advance).toLocaleString()}` : '—', '#fef2f2', advance > 0 ? '#dc2626' : '#94a3b8');
+    drawTile(pageLeft + 2 * tileW, y, 'NET PAYABLE', `Rs. ${Math.round(payable).toLocaleString()}`, '#fef3c7', '#d97706', 12);
+    y += tileH + 3;
+
+    // Row 2: Paid | New Advance | Balance
+    drawTile(pageLeft + 0 * tileW, y, 'AMOUNT PAID', `Rs. ${Math.round(paid).toLocaleString()}`, '#f0fdf4', '#16a34a', 12);
+    drawTile(pageLeft + 1 * tileW, y, 'NEW ADVANCE', newAdv > 0 ? `Rs. ${Math.round(newAdv).toLocaleString()}` : '—', '#fefce8', newAdv > 0 ? '#d97706' : '#94a3b8');
+    drawTile(pageLeft + 2 * tileW, y, 'BALANCE', balance > 0 ? `Rs. ${Math.round(balance).toLocaleString()}` : 'SETTLED', '#f8fafc', balance > 0 ? '#dc2626' : '#16a34a');
+    y += tileH;
+    // Outer border for summary tiles
+    doc.lineWidth(0.5).strokeColor('#cbd5e1').rect(pageLeft, y - (tileH * 2 + 3), pageWidth, tileH * 2 + 3).stroke();
+    y += 24;
+
+    // ═══════════ SIGNATURES ═══════════
+    const sigW = pageWidth / 2 - 10;
+    doc.moveTo(pageLeft + 10, y).lineTo(pageLeft + 10 + sigW, y).strokeColor('#6b7280').lineWidth(0.5).stroke();
+    doc.moveTo(pageLeft + pageWidth / 2 + 10, y).lineTo(pageLeft + pageWidth / 2 + 10 + sigW, y).stroke();
+    doc.fontSize(7).fillColor('#6b7280').font(F('normal'))
+       .text('Sardar Signature', pageLeft + 10, y + 4, { width: sigW, align: 'center' })
+       .text('Authorized Signature', pageLeft + pageWidth / 2 + 10, y + 4, { width: sigW, align: 'center' });
+    y += 22;
+    doc.fontSize(6).fillColor('#94a3b8')
+       .text('This is a computer generated receipt', pageLeft, y, { width: pageWidth, align: 'center' });
 
     await safePdfPipe(doc, res);
   }));
@@ -405,7 +474,9 @@ module.exports = (database) => {
       if (!sardars[sn].months[mk]) sardars[sn].months[mk] = { month: mk, paid: 0, total: 0, work: 0, paid_amt: 0, adv_given: 0, adv_ded: 0 };
       const m = sardars[sn].months[mk];
       m.total++;
-      if (p.status === 'paid') { m.paid++; m.work += p.total || 0; m.paid_amt += p.amount_paid || 0; m.adv_given += p.new_advance || 0; m.adv_ded += p.advance_deducted || 0; }
+      // Work is done regardless of payment status — count it always
+      m.work += p.total || 0;
+      if (p.status === 'paid') { m.paid++; m.paid_amt += p.amount_paid || 0; m.adv_given += p.new_advance || 0; m.adv_ded += p.advance_deducted || 0; }
     }
 
     const wb = new ExcelJS.Workbook();
@@ -437,7 +508,7 @@ module.exports = (database) => {
   // ============ PDF EXPORT ============
   router.get('/api/hemali/export/pdf', safeHandler(async (req, res) => {
     const { kms_year, season, from_date, to_date, sardar_name } = req.query;
-    let payments = filterByFy(col('hemali_payments'), kms_year, season).filter(p => p.status === 'paid');
+    let payments = filterByFy(col('hemali_payments'), kms_year, season);
     if (from_date) payments = payments.filter(p => p.date >= from_date);
     if (to_date) payments = payments.filter(p => p.date <= to_date);
     if (sardar_name) payments = payments.filter(p => p.sardar_name === sardar_name);
@@ -457,15 +528,15 @@ module.exports = (database) => {
     if (meta.length) { doc.fontSize(8).fillColor('#666').text(meta.join(' | '), { align: 'center' }); doc.moveDown(0.5); }
 
     // Table
-    const headers = ['#', 'Date', 'Sardar', 'Items', 'Total', 'Adv. Deducted', 'Payable', 'Paid', 'New Advance'];
-    const colWidths = [25, 60, 70, 230, 55, 65, 55, 55, 60];
+    const headers = ['#', 'Receipt No.', 'Date', 'Sardar', 'Items', 'Total', 'Adv. Deducted', 'Payable', 'Paid', 'New Advance', 'Status'];
+    const colWidths = [22, 70, 55, 65, 180, 55, 60, 55, 55, 55, 45];
     let y = doc.y;
     const startX = 25;
 
     // Header row
     doc.rect(startX, y, colWidths.reduce((a, b) => a + b, 0), 18).fill('#1e293b');
     let x = startX;
-    headers.forEach((h, i) => { doc.fontSize(7).fillColor('#fff').text(h, x + 2, y + 4, { width: colWidths[i] - 4, align: i >= 4 ? 'right' : 'left' }); x += colWidths[i]; });
+    headers.forEach((h, i) => { doc.fontSize(7).fillColor('#fff').text(h, x + 2, y + 4, { width: colWidths[i] - 4, align: i >= 5 ? 'right' : 'left' }); x += colWidths[i]; });
     y += 18;
 
     let grandTotal = 0, grandPaid = 0;
@@ -474,14 +545,19 @@ module.exports = (database) => {
       const bgColor = idx % 2 === 0 ? '#f8fafc' : '#fff';
       doc.rect(startX, y, colWidths.reduce((a, b) => a + b, 0), 16).fill(bgColor);
       const itemsStr = (p.items || []).map(i => `${i.item_name} x${i.quantity}`).join(', ');
-      const vals = [idx + 1, fmtD(p.date) || '', p.sardar_name || '', itemsStr, p.total, p.advance_deducted, p.amount_payable, p.amount_paid, p.new_advance];
+      const statusTxt = p.status === 'paid' ? 'PAID' : 'UNPAID';
+      const vals = [idx + 1, p.receipt_no || '-', fmtD(p.date) || '', p.sardar_name || '', itemsStr, p.total, p.advance_deducted, p.amount_payable, p.amount_paid, p.new_advance, statusTxt];
       x = startX;
       vals.forEach((v, i) => {
-        const color = i === 7 ? '#dc2626' : i === 8 && v > 0 ? '#d97706' : '#334155';
-        doc.fontSize(7).fillColor(color).text(typeof v === 'number' ? v.toFixed(2) : String(v), x + 2, y + 3, { width: colWidths[i] - 4, align: i >= 4 ? 'right' : 'left' });
+        let color = '#334155';
+        if (i === 10) color = p.status === 'paid' ? '#16a34a' : '#dc2626';
+        else if (i === 8) color = '#16a34a';
+        else if (i === 10 && v > 0) color = '#d97706';
+        doc.fontSize(7).fillColor(color).text(typeof v === 'number' ? v.toFixed(2) : String(v), x + 2, y + 3, { width: colWidths[i] - 4, align: i >= 5 ? 'right' : 'left' });
         x += colWidths[i];
       });
-      grandTotal += p.total || 0; grandPaid += p.amount_paid || 0;
+      grandTotal += p.total || 0;
+      if (p.status === 'paid') grandPaid += p.amount_paid || 0;
       y += 16;
     });
 
@@ -497,7 +573,7 @@ module.exports = (database) => {
   // ============ EXCEL EXPORT ============
   router.get('/api/hemali/export/excel', safeHandler(async (req, res) => {
     const { kms_year, season, from_date, to_date, sardar_name } = req.query;
-    let payments = filterByFy(col('hemali_payments'), kms_year, season).filter(p => p.status === 'paid');
+    let payments = filterByFy(col('hemali_payments'), kms_year, season);
     if (from_date) payments = payments.filter(p => p.date >= from_date);
     if (to_date) payments = payments.filter(p => p.date <= to_date);
     if (sardar_name) payments = payments.filter(p => p.sardar_name === sardar_name);
@@ -505,17 +581,18 @@ module.exports = (database) => {
 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Hemali Payments');
-    const headers = ['#', 'Date', 'Sardar', 'Items', 'Total', 'Adv Deducted', 'Payable', 'Paid', 'New Advance', 'Status'];
+    const headers = ['#', 'Receipt No.', 'Date', 'Sardar', 'Items', 'Total', 'Adv Deducted', 'Payable', 'Paid', 'New Advance', 'Status'];
     const headerRow = ws.addRow(headers);
     headerRow.eachCell((cell) => { cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } }; cell.alignment = { horizontal: 'center' }; });
 
     payments.forEach((p, idx) => {
       const itemsStr = (p.items || []).map(i => `${i.item_name} x${i.quantity}`).join(', ');
-      const row = ws.addRow([idx + 1, fmtD(p.date), p.sardar_name, itemsStr, p.total, p.advance_deducted, p.amount_payable, p.amount_paid, p.new_advance, p.status]);
+      const statusTxt = p.status === 'paid' ? 'PAID' : 'UNPAID';
+      const row = ws.addRow([idx + 1, p.receipt_no || '-', fmtD(p.date), p.sardar_name, itemsStr, p.total, p.advance_deducted, p.amount_payable, p.amount_paid, p.new_advance, statusTxt]);
       if (idx % 2 === 0) row.eachCell((cell) => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; });
     });
 
-    [5, 12, 16, 35, 12, 14, 12, 12, 14, 10].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    [5, 14, 12, 16, 35, 12, 14, 12, 12, 14, 10].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
