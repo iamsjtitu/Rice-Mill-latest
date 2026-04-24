@@ -104,6 +104,61 @@ export function MillEntryForm({
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* RST No. & TP No. & TP Weight — RST first for quick lookup */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <Label className="text-slate-300">RST No.</Label>
+              <Input
+                value={formData.rst_no}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData(prev => ({ ...prev, rst_no: val }));
+                  if (val && !isNaN(val) && Number(val) > 0) {
+                    debouncedRstLookup(val);
+                  }
+                }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
+                placeholder="RST Number"
+                className={`bg-slate-700 border-slate-600 text-white ${dupWarning.rst ? 'border-red-500 ring-1 ring-red-500' : ''}`}
+                data-testid="input-rst-no"
+                autoFocus
+              />
+              {dupWarning.rst && (
+                <p className="text-red-400 text-xs mt-1 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Ye RST pehle se hai: {dupWarning.rst}
+                </p>
+              )}
+            </div>
+            <div>
+              <Label className="text-slate-300">TP No.{rstFetched ? ' (Locked)' : ''}</Label>
+              <Input
+                value={formData.tp_no}
+                onChange={(e) => setFormData(prev => ({ ...prev, tp_no: e.target.value }))}
+                placeholder="TP Number"
+                className={`${rstFetched ? 'bg-slate-800 border-slate-600 text-slate-400 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-white'} ${dupWarning.tp ? 'border-red-500 ring-1 ring-red-500' : ''}`}
+                data-testid="input-tp-no"
+                disabled={!!rstFetched}
+              />
+              {dupWarning.tp && (
+                <p className="text-red-400 text-xs mt-1 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Ye TP pehle se hai: {dupWarning.tp}
+                </p>
+              )}
+            </div>
+            <div>
+              <Label className="text-slate-300">TP Weight (QNTL){rstFetched ? ' (Locked)' : ''}</Label>
+              <Input
+                type="number"
+                value={formData.tp_weight}
+                onChange={(e) => setFormData(prev => ({ ...prev, tp_weight: e.target.value }))}
+                placeholder="TP Weight"
+                className={`${rstFetched ? 'bg-slate-800 border-slate-600 text-slate-400 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-white'}`}
+                data-testid="input-tp-weight"
+                disabled={!!rstFetched}
+              />
+            </div>
+          </div>
+
           {/* FY Year & Season */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
@@ -171,60 +226,6 @@ export function MillEntryForm({
                 <span className="font-medium">Leased Truck</span> - Yeh truck lease par hai
               </div>
             )}
-          </div>
-
-          {/* RST No. & TP No. & TP Weight */}
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <Label className="text-slate-300">RST No.</Label>
-              <Input
-                value={formData.rst_no}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setFormData(prev => ({ ...prev, rst_no: val }));
-                  if (val && !isNaN(val) && Number(val) > 0) {
-                    debouncedRstLookup(val);
-                  }
-                }}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
-                placeholder="RST Number"
-                className={`bg-slate-700 border-slate-600 text-white ${dupWarning.rst ? 'border-red-500 ring-1 ring-red-500' : ''}`}
-                data-testid="input-rst-no"
-              />
-              {dupWarning.rst && (
-                <p className="text-red-400 text-xs mt-1 flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" /> Ye RST pehle se hai: {dupWarning.rst}
-                </p>
-              )}
-            </div>
-            <div>
-              <Label className="text-slate-300">TP No.{rstFetched ? ' (Locked)' : ''}</Label>
-              <Input
-                value={formData.tp_no}
-                onChange={(e) => setFormData(prev => ({ ...prev, tp_no: e.target.value }))}
-                placeholder="TP Number"
-                className={`${rstFetched ? 'bg-slate-800 border-slate-600 text-slate-400 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-white'} ${dupWarning.tp ? 'border-red-500 ring-1 ring-red-500' : ''}`}
-                data-testid="input-tp-no"
-                disabled={!!rstFetched}
-              />
-              {dupWarning.tp && (
-                <p className="text-red-400 text-xs mt-1 flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" /> Ye TP pehle se hai: {dupWarning.tp}
-                </p>
-              )}
-            </div>
-            <div>
-              <Label className="text-slate-300">TP Weight (QNTL){rstFetched ? ' (Locked)' : ''}</Label>
-              <Input
-                type="number"
-                value={formData.tp_weight}
-                onChange={(e) => setFormData(prev => ({ ...prev, tp_weight: e.target.value }))}
-                placeholder="TP Weight"
-                className={`${rstFetched ? 'bg-slate-800 border-slate-600 text-slate-400 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-white'}`}
-                data-testid="input-tp-weight"
-                disabled={!!rstFetched}
-              />
-            </div>
           </div>
 
           {/* Agent & Mandi */}
