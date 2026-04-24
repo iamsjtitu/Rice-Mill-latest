@@ -520,6 +520,8 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
   const VW_PAGE_SIZE = 30;
   const [secondWtValue, setSecondWtValue] = useState("");
   const [secondWtMode, setSecondWtMode] = useState(null);
+  const [pendingSelectedIdx, setPendingSelectedIdx] = useState(-1);
+  const pendingListRef = useRef(null);
   const [showCompleted, setShowCompleted] = useState(true);
   const [autoNotify, setAutoNotify] = useState(false);
   const [editDialog, setEditDialog] = useState({ open: false, entry: null });
@@ -737,7 +739,22 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
       if (!canChangeDate) payload.date = todayStr;
       if (form.rst_no && Number(form.rst_no) > 0) payload.rst_no = Number(form.rst_no);
       const r = await axios.post(`${API}/vehicle-weight`, payload);
-      if (r.data.success) { toast.success(r.data.message); sendAutoNotify(r.data.entry?.id || "", "1st"); setForm({ ...blank, rst_no: "" }); setRstEditable(false); setTpWarning(""); fetchData(); if (onVwChange) onVwChange(); }
+      if (r.data.success) {
+        toast.success(r.data.message);
+        sendAutoNotify(r.data.entry?.id || "", "1st");
+        setForm({ ...blank, rst_no: "" });
+        setRstEditable(false);
+        setTpWarning("");
+        fetchData();
+        if (onVwChange) onVwChange();
+        // After 1st weight saved, focus the pending list so user can Arrow/Enter to pick next vehicle for 2nd weight
+        setTimeout(() => {
+          if (pendingListRef.current) {
+            pendingListRef.current.focus();
+            setPendingSelectedIdx(0);
+          }
+        }, 150);
+      }
     } catch (e) { toast.error(e.response?.data?.detail || "Save error"); }
   };
 
@@ -1330,12 +1347,34 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
               <CardTitle className="text-xs font-bold flex items-center justify-between">
                 <span className="text-yellow-700 flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5" /> Pending Vehicle List
+                  <span className="text-[9px] font-normal text-slate-500 ml-1 hidden md:inline" title="Use Arrow keys to navigate, Enter to load for 2nd weight">(↑↓ Enter)</span>
                 </span>
                 <Badge className={`text-[10px] ${pending.length > 0 ? 'bg-red-100 text-red-700 border-red-400 animate-pulse' : 'bg-yellow-100 text-yellow-700 border-yellow-300'}`}>{pending.length}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0" data-testid="vw-pending-card">
-              <div className="overflow-auto max-h-[420px]">
+              <div
+                className="overflow-auto max-h-[420px] outline-none focus:ring-2 focus:ring-amber-400/40"
+                ref={pendingListRef}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (pending.length === 0) return;
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setPendingSelectedIdx(prev => (prev < pending.length - 1 ? prev + 1 : 0));
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setPendingSelectedIdx(prev => (prev > 0 ? prev - 1 : pending.length - 1));
+                  } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const idx = pendingSelectedIdx >= 0 ? pendingSelectedIdx : 0;
+                    if (pending[idx]) {
+                      loadPendingToForm(pending[idx]);
+                      setPendingSelectedIdx(-1);
+                    }
+                  }
+                }}
+              >
                 <Table>
                   <TableHeader>
                     <TableRow className="border-slate-700 bg-slate-700">
@@ -1355,7 +1394,14 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                         </TableCell>
                       </TableRow>
                     ) : pending.map((p, i) => (
-                      <TableRow key={p.id} className={`border-slate-700 hover:bg-yellow-50/50 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-700/50'}`} data-testid={`vw-pending-row-${p.id}`}>
+                      <TableRow
+                        key={p.id}
+                        className={`border-slate-700 hover:bg-yellow-50/50 transition-colors cursor-pointer ${
+                          i === pendingSelectedIdx ? 'bg-amber-500/30 ring-1 ring-amber-400' : (i % 2 === 0 ? '' : 'bg-slate-700/50')
+                        }`}
+                        data-testid={`vw-pending-row-${p.id}`}
+                        onMouseEnter={() => setPendingSelectedIdx(i)}
+                      >
                         <TableCell className="py-2 px-2">
                           <span className="text-amber-700 font-bold text-xs bg-amber-100 px-1.5 py-0.5 rounded">#{p.rst_no}</span>
                         </TableCell>

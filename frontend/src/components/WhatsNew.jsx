@@ -11,6 +11,7 @@ const CHANGELOG = [
     date: "Feb 2026",
     title: "v104.28.8 — Hemali: Professional Receipt + Cash Book Sync + Fixes",
     items: [
+      { type: "new", text: "⌨️ Vehicle Weight workflow keyboard-friendly — 1st weight save karte hi focus pending list pe chala jaata hai. Up/Down arrows se vehicle choose karo, Enter dabao → us row ka 2nd weight capture mode active. Mouse click ki zarurat nahi" },
       { type: "new", text: "📝 Mill Entry Form mein RST No. ab sabse pehle hai (auto-focus bhi) — turant RST type karke purani entry ka lookup ho jaaye, phir baaki fields auto-populate" },
       { type: "new", text: "📜 Truck Payment History mein ab Cash aur Diesel advances bhi dikhte hain (date ke saath) — pehle sirf final payment aata tha. Har entry pe colour-coded badge: Cash (blue) / Diesel (amber) / Payment (green)" },
       { type: "new", text: "🔎 Vehicle Weight entry form mein smarter suggestions — Truck / Agent / Mandi mein kahin ka bhi koi word type karo, auto-suggestion turant aayega. Word-start matches top pe, uske baad substring matches" },
