@@ -40,15 +40,23 @@ router.get('/licenses', (req, res) => {
   }
   rows.sort((a, b) => String(b.issued_at || '').localeCompare(String(a.issued_at || '')));
 
-  // Attach active activation info
+  // Attach active activation info + derived online/offline status
   const activations = data.activations || [];
+  const LIVE_THRESHOLD_MS = 10 * 60 * 1000; // same 10-min window used in stats
   rows = rows.map(l => {
     const act = activations.find(a => a.license_id === l.id && a.active);
+    let online_status = 'never'; // never activated
+    if (act) {
+      const hbMs = act.last_seen_at ? (Date.now() - new Date(act.last_seen_at).getTime()) : Infinity;
+      online_status = hbMs <= LIVE_THRESHOLD_MS ? 'online' : 'offline';
+    }
     return {
       ...l,
       current_machine: act ? act.machine_fingerprint : null,
       current_pc: act ? act.pc_info : null,
       last_seen_at: act ? act.last_seen_at : null,
+      online_status,                                // 'online' | 'offline' | 'never'
+      via_mlic: act ? !!act.via_mlic : false,       // activated through offline .mlic file
     };
   });
 

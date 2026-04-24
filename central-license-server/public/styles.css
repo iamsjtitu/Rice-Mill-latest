@@ -241,6 +241,9 @@ textarea { resize: vertical; min-height: 60px; font-family: inherit; }
 .badge-revoked { color: var(--revoked); background: rgba(220,38,38,0.08); border-color: rgba(220,38,38,0.25); }
 .badge-expired { color: var(--expired); background: rgba(217,119,6,0.09); border-color: rgba(217,119,6,0.25); }
 .badge-suspended { color: #a855f7; background: rgba(168,85,247,0.08); border-color: rgba(168,85,247,0.25); }
+.badge-online { color: #059669; background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.3); font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+.badge-offline { color: #64748b; background: rgba(100,116,139,0.07); border-color: rgba(100,116,139,0.25); font-family: 'JetBrains Mono', monospace; }
+.badge-mlic { color: var(--accent); background: rgba(232,119,10,0.08); border-color: rgba(232,119,10,0.25); font-family: 'JetBrains Mono', monospace; }
 .badge-master { color: var(--master); background: rgba(37,99,235,0.08); border-color: rgba(37,99,235,0.25); }
 .badge-live { color: var(--active); background: rgba(5,150,105,0.09); border-color: rgba(5,150,105,0.25); }
 .badge-live::before { content: ''; width: 6px; height: 6px; background: var(--active); border-radius: 50%; box-shadow: 0 0 6px var(--active-glow); animation: pulse 2s ease-out infinite; }

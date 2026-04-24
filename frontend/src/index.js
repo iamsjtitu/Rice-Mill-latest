@@ -2,6 +2,8 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "@/index.css";
 import App from "@/App";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 
 // Fix: Radix UI sets pointer-events:none on body for overlays.
 // window.confirm() blocks JS, preventing Radix cleanup, leaving body stuck.
@@ -61,6 +63,8 @@ setInterval(() => {
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
-    <App />
+    <QueryClientProvider client={queryClient}>
+      <App />
+    </QueryClientProvider>
   </React.StrictMode>,
 );

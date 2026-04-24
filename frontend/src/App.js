@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react"
 import "@/App.css";
 import axios from "axios";
 import { setupCache } from "axios-cache-interceptor";
+import { queryClient } from "@/lib/queryClient";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -103,8 +104,13 @@ axios.interceptors.response.use(
       // Any successful mutation invalidates the entire GET cache — broad invalidation
       // is cheap and guarantees correctness. E.g. POST /api/payments/hemali-payments
       // clears every cached GET so subsequent list loads fetch fresh data.
-      if (method !== 'get' && axios.storage?.clear) {
-        axios.storage.clear();
+      if (method !== 'get') {
+        if (axios.storage?.clear) axios.storage.clear();
+        // ALSO invalidate React Query cache for hot-path components — this is
+        // surgical + INSTANT refetch (not just "mark stale" like axios-cache).
+        // Without this, a hot-path component might still show cached data for
+        // up to gcTime after a mutation. invalidateQueries({}) = all queries.
+        try { queryClient.invalidateQueries(); } catch { /* ignore in SSR/tests */ }
       }
     } catch { /* non-blocking */ }
     return response;
@@ -118,6 +124,7 @@ axios.interceptors.response.use(
     if (error.response?.status === 409) {
       toast.error(error.response?.data?.detail || "Ye record kisi aur ne update kar diya hai. Data refresh ho raha hai.", { duration: 4000 });
       try { if (axios.storage?.clear) axios.storage.clear(); } catch {}
+      try { queryClient.invalidateQueries(); } catch {}
       window.dispatchEvent(new CustomEvent('data-conflict-refresh'));
     }
     return Promise.reject(error);

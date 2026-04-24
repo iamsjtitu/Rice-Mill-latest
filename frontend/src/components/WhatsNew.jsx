@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.2",
+    date: "Feb 2026",
+    title: "v104.28.2 — React Query Foundation + Stronger Freshness",
+    items: [
+      { type: "new", text: "⚡ React Query infrastructure setup — background refetch on window focus, shared cache, zero stale data" },
+      { type: "new", text: "🔄 4-layer cache invalidation on every entry save: axios-cache + react-query + server no-store + pragma header — naya data 100% guaranteed" },
+      { type: "new", text: "🛠 Reusable useApiQuery / useApiMutation hooks added for future component migrations" },
+      { type: "note", text: "Components abhi purane pattern pe hain (axios-cache + useEffect) — woh bhi fresh data guarantee rakhte hain. Future hot-path migrations will use useApiQuery for extra smoothness" },
+    ],
+  },
+  {
     version: "104.28.1",
     date: "Feb 2026",
     title: "v104.28.1 — Speed Boost + Cache Fix",

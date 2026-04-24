@@ -170,3 +170,15 @@
     - Added `mlic-import.js` to electron-builder files whitelist
   - Deploy tarball (central-server only): `https://paste.rs/QshNR` (78 KB, MD5 `2e4d4499005764af9f51ba0bdf8bebcf`)
   - Desktop app changes ship via next "Save to GitHub" → GitHub Actions → Windows installer v104.27.2+
+
+- **v104.28.2 — Offline Tag + React Query Foundation** (DONE, Feb 2026):
+  - **Central server — Online/Offline/.mlic tags**: GET /api/admin/licenses now derives `online_status` ('online'/'offline'/'never') from activation `last_seen_at` (10-min live window), plus `via_mlic` boolean. Frontend renders 3 new badges — green "● Online", grey "○ Offline", orange "📥 .mlic". Deploy tarball: `https://paste.rs/xrO3R` (82 KB, MD5 `a4d02f97c84c7572143beebed2363b4a`)
+  - **Desktop/frontend — React Query setup**:
+    - Installed `@tanstack/react-query` + wrapped app in `QueryClientProvider`
+    - Global QueryClient with `staleTime: 0` + `refetchOnMount: 'always'` + `refetchOnWindowFocus: true` (always-fresh discipline)
+    - New helper module `/src/lib/queryClient.js` with query key factory (`qk.hemaliPayments.list()`, etc.)
+    - New hooks `useApiQuery` + `useApiMutation` in `/src/lib/useApiQuery.js` for future component migrations
+    - Axios response interceptor on mutations now ALSO calls `queryClient.invalidateQueries()` → surgical refetch of all react-query hooks (works even for components not yet migrated)
+    - 409 conflict handler also invalidates RQ queries
+  - **Freshness guarantee (4-layer)**: Server no-store + axios-cache clear + RQ invalidate + Pragma header — verified via build + lint clean
+  - Existing 52 components unchanged — they keep getting fresh data via axios-cache; future hot-path migrations opt-in to useApiQuery for window-focus refetch bonus

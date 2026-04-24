@@ -199,6 +199,10 @@ function renderLicenses(rows) {
     else if (isExpired)                statusBadge = '<span class="badge badge-expired">Expired</span>';
     else                               statusBadge = '<span class="badge badge-active">Active</span>';
     if (r.is_master) statusBadge += ' <span class="badge badge-master">Master</span>';
+    // Online / Offline / via .mlic tags — only show for activated licenses
+    if (r.online_status === 'online')  statusBadge += ' <span class="badge badge-online" title="Active in last 10 minutes">● Online</span>';
+    else if (r.online_status === 'offline') statusBadge += ' <span class="badge badge-offline" title="No heartbeat for > 10 minutes">○ Offline</span>';
+    if (r.via_mlic) statusBadge += ' <span class="badge badge-mlic" title="Activated via offline .mlic file (air-gapped setup)">📥 .mlic</span>';
     const online = r.last_seen_at && (Date.now() - new Date(r.last_seen_at).getTime()) < 10 * 60 * 1000;
     const pcText = r.current_pc && (r.current_pc.hostname || r.current_pc.platform)
       ? `${r.current_pc.hostname || ''}${r.current_pc.platform ? ' · ' + r.current_pc.platform : ''}`.trim()
