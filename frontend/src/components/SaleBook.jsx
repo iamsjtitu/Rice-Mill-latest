@@ -18,6 +18,7 @@ import { useConfirm } from "./ConfirmProvider";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 import logger from "../utils/logger";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 const HSN_MAP = {
   "Rice (Usna)": "1006 30 20", "Rice (Raw)": "1006 30 10",
   "Broken Rice": "1006 40 00", "Rejection Rice": "1006 40 00", "Pin Broken Rice": "1006 40 00",
@@ -99,6 +100,7 @@ export default function SaleBook({ filters, user, category }) {
   }, [p, filters.kms_year, searchQuery, category]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useAutoRefresh(fetchData);
 
   const openNewForm = () => {
     setEditingId(null);

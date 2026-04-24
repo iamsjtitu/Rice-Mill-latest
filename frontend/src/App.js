@@ -111,6 +111,13 @@ axios.interceptors.response.use(
         // Without this, a hot-path component might still show cached data for
         // up to gcTime after a mutation. invalidateQueries({}) = all queries.
         try { queryClient.invalidateQueries(); } catch { /* ignore in SSR/tests */ }
+        // Dispatch a global event so legacy useEffect components using
+        // useAutoRefresh() re-fetch their data. Debounced inside the hook.
+        try {
+          window.dispatchEvent(new CustomEvent('data-changed', {
+            detail: { url: response.config?.url, method },
+          }));
+        } catch { /* non-blocking */ }
       }
     } catch { /* non-blocking */ }
     return response;

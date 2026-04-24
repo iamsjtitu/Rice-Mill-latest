@@ -25,6 +25,7 @@ import { SendToGroupDialog } from "./SendToGroupDialog";
 import RecordHistory from "./RecordHistory";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 import logger from "../utils/logger";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
@@ -99,6 +100,7 @@ export const PaddyPurchase = ({ filters, user }) => {
   }, [filters.kms_year, filters.season]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useAutoRefresh(fetchData);
 
   const filtered = useMemo(() => {
     if (!searchText) return items;

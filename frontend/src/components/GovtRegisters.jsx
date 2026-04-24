@@ -20,6 +20,7 @@ import { useConfirm } from "./ConfirmProvider";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import logger from "../utils/logger";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
 // Official-looking WhatsApp glyph (SVG) for a sundar icon
 const WhatsAppIcon = ({ className = "w-3.5 h-3.5" }) => (
@@ -63,6 +64,7 @@ export function PaddyCustodyRegister({ filters }) {
   }, [filters, viewMode]);
 
   useEffect(() => { fetchRegister(); }, [fetchRegister]);
+  useAutoRefresh(fetchRegister);
 
   const exportExcel = async () => {
     const params = new URLSearchParams();
@@ -176,6 +178,7 @@ function FormARegister({ filters }) {
   }, [filters, viewMode]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useAutoRefresh(fetchData);
 
   const handleExcel = () => {
     const params = new URLSearchParams();
@@ -294,6 +297,7 @@ function FormBRegister({ filters }) {
   }, [filters]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useAutoRefresh(fetchData);
 
   const handleExcel = () => {
     const params = new URLSearchParams();
@@ -374,6 +378,7 @@ function FormERegister({ filters }) {
   }, [filters]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useAutoRefresh(fetchData);
 
   const handleExcel = () => {
     const params = new URLSearchParams();
@@ -455,6 +460,7 @@ function FormFRegister({ filters }) {
   }, [filters]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useAutoRefresh(fetchData);
 
   const handleExcel = () => {
     const params = new URLSearchParams();
@@ -540,6 +546,7 @@ function FrkRegister({ filters, user }) {
   }, [filters]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useAutoRefresh(fetchData);
 
   const handleSave = async () => {
     try {
@@ -724,6 +731,7 @@ export function GunnyBagRegister({ filters, user }) {
   }, [filters]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useAutoRefresh(fetchData);
 
   const handleSave = async () => {
     try {
@@ -908,6 +916,7 @@ export function TransitPassRegister({ filters }) {
   }, [filters, tpFilters]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useAutoRefresh(fetchData);
 
   const buildExportParams = () => {
     const params = new URLSearchParams();
@@ -1277,6 +1286,7 @@ export function MillingRegister({ filters, user }) {
   }, [filters.kms_year, filters.season]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useAutoRefresh(fetchData);
 
   const fmtD = (d) => { if (!d) return ''; const p = d.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d; };
   const s = data.summary || {};
@@ -1662,6 +1672,7 @@ function CmrDeliveryTracker({ filters, user }) {
   }, [filters]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useAutoRefresh(fetchData);
 
   const resetForm = () => setForm({ date: new Date().toISOString().split("T")[0], delivery_no: "", rrc_depot: "", rice_type: "Parboiled", cmr_qty: "", bags: "", vehicle_no: "", driver_name: "", fortified: true, gate_pass_no: "", quality_grade: "FAQ", remark: "" });
 
@@ -1831,6 +1842,7 @@ function SecurityDepositManager({ filters, user }) {
   }, [filters.kms_year]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useAutoRefresh(fetchData);
 
   const resetForm = () => setForm({ bg_number: "", bank_name: "", amount: "", sd_ratio: "1:6", milling_capacity_mt: "", issue_date: "", expiry_date: "", status: "active", miller_type: "regular", remark: "" });
 

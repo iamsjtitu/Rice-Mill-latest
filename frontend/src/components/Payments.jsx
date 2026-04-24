@@ -28,6 +28,7 @@ import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 import LeasedTruck from "./LeasedTruck";
 import { MSPPayments } from "./DCTracker";
 import { useConfirm } from "./ConfirmProvider";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import RoundOffInput from "./common/RoundOffInput";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -102,6 +103,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   useEffect(() => {
     fetchPayments();
   }, [fetchPayments]);
+  useAutoRefresh(fetchPayments);
 
   // Filter truck payments by search
   const filteredTruckPayments = truckSearchFilter

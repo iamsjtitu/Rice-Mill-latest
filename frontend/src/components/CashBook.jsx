@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { useConfirm } from "./ConfirmProvider";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import logger from "../utils/logger";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -190,6 +191,8 @@ const CashBook = ({ filters, user }) => {
   useEffect(() => { fetchAgentNames(); }, [fetchAgentNames]);
   useEffect(() => { fetchBankAccounts(); }, [fetchBankAccounts]);
   useEffect(() => { if (activeView === "party-summary") fetchPartySummary(); }, [activeView, fetchPartySummary]);
+  useAutoRefresh(fetchData);
+  useAutoRefresh(activeView === "party-summary" ? fetchPartySummary : () => {});
 
   const resetForm = () => setForm({
     date: new Date().toISOString().split('T')[0], account: "cash", txn_type: "jama",

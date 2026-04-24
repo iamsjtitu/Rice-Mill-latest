@@ -22,6 +22,7 @@ import { downloadFile } from "../utils/download";
 import RoundOffInput from "./common/RoundOffInput";
 import { useConfirm } from "./ConfirmProvider";
 import logger from "../utils/logger";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
@@ -113,6 +114,7 @@ export default function PurchaseVouchers({ filters, user }) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchSuggestions(); fetchGstSettings(); }, [fetchSuggestions, fetchGstSettings]);
+  useAutoRefresh(fetchData);
 
   const subtotal = useMemo(() =>
     form.items.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * (parseFloat(i.rate) || 0), 0)

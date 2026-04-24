@@ -13,6 +13,7 @@ import { fmtDate } from "@/utils/date";
 import { useConfirm } from "./ConfirmProvider";
 import { useCloseFiltersOnEsc } from "../utils/useCloseFiltersOnEsc";
 import logger from "../utils/logger";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = `${_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')}/api`;
@@ -88,6 +89,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   }, [product, productId, filters.kms_year, filters.season]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useAutoRefresh(fetchData);
 
   // RST auto-fetch from Vehicle Weight — Sale context only
   // Backend validates trans_type and returns 409 if RST belongs to Purchase

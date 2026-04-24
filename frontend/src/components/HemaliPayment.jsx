@@ -12,6 +12,7 @@ import { fmtDate } from "@/utils/date";
 import RoundOffInput from "@/components/common/RoundOffInput";
 import { useConfirm } from "./ConfirmProvider";
 import logger from "../utils/logger";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
 
@@ -149,6 +150,7 @@ const MonthlySummary = ({ filters }) => {
   }, [filters.kms_year, filterSardar, filterMonth]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useAutoRefresh(fetchData);
 
   const handleExport = async (format) => {
     const params = new URLSearchParams();
@@ -314,6 +316,8 @@ export default function HemaliPayment({ filters, user }) {
 
   useEffect(() => { fetchItems(); fetchSardars(); }, [fetchItems, fetchSardars]);
   useEffect(() => { fetchPayments(); }, [fetchPayments]);
+  useAutoRefresh(fetchPayments);
+  useAutoRefresh(fetchSardars);
 
   // Fetch advance when sardar_name changes (auto)
   const fetchAdvance = useCallback(async (name) => {

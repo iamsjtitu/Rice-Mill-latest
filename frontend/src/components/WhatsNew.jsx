@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.3",
+    date: "Feb 2026",
+    title: "v104.28.3 — Auto-Refresh Every Screen",
+    items: [
+      { type: "new", text: "🔄 19 hot-path screens ab automatic refresh hote hain — koi bhi entry save/update/delete karne pe saare open tabs turant new data dikhayenge, bina manual refresh ke" },
+      { type: "new", text: "💡 Screens migrated: Dashboard, Payments, HemaliPayment, CashBook, PartyLedger, Purchases, Sales, PaddyPurchase, Stock, PL Reports aur 9 aur" },
+      { type: "fix", text: "🐛 Cross-tab consistency — dusre browser tab me entry karo, ye tab bhi auto-update ho jayega window focus hote hi" },
+      { type: "note", text: "Infrastructure: global 'data-changed' event bus + useAutoRefresh hook, 300ms debounce for safety" },
+    ],
+  },
+  {
     version: "104.28.2",
     date: "Feb 2026",
     title: "v104.28.2 — React Query Foundation + Stronger Freshness",

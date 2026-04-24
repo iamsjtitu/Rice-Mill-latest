@@ -11,6 +11,7 @@ import { SendToGroupDialog } from "../SendToGroupDialog";
 import { useMessagingEnabled } from "../../hooks/useMessagingEnabled";
 import { API } from "./constants";
 import logger from "../../utils/logger";
+import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 
 const DailyReport = ({ filters }) => {
   const { wa, tg } = useMessagingEnabled();
@@ -32,6 +33,7 @@ const DailyReport = ({ filters }) => {
   }, [date, mode, filters.kms_year, filters.season]);
 
   useEffect(() => { fetchReport(); }, [fetchReport]);
+  useAutoRefresh(fetchReport);
 
   const exportData = async (format) => {
     const p = new URLSearchParams({ date, mode });
