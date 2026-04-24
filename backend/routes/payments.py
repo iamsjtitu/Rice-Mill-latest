@@ -1297,44 +1297,64 @@ async def undo_agent_paid(mandi_name: str, kms_year: str = "", season: str = "",
 
 @router.get("/truck-payments/{entry_id}/history")
 async def get_truck_payment_history(entry_id: str):
-    """Get payment history for a truck entry - includes both Pay button and manual Cash Book payments"""
+    """Get FULL payment history for a truck entry — includes:
+    - Regular payments (Pay/Mark Paid buttons or manual cash book entries)
+    - Cash deductions (advance cash given against trip)
+    - Diesel deductions (diesel given against trip)
+    Each row has 'type' = Payment / Cash / Diesel so user can see the breakdown with dates."""
     # Get truck_payments history (from Pay/Mark Paid buttons)
     payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
-    button_history = payment_doc.get("payments_history", []) if payment_doc else []
-    
-    # Also get ledger-based payment history from cash_transactions
+
+    # Get the entry to resolve truck_no
     entry = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
     if not entry:
-        return {"history": button_history, "total_paid": payment_doc.get("paid_amount", 0) if payment_doc else 0}
-    
+        return {"history": payment_doc.get("payments_history", []) if payment_doc else [],
+                "total_paid": payment_doc.get("paid_amount", 0) if payment_doc else 0}
+
     truck_no = entry.get("truck_no", "")
     eid_short = entry_id[:8]
-    DEDUCTION_PREFIXES = [f"truck_cash_ded:{eid_short}", f"truck_diesel_ded:{eid_short}", f"entry_cash:{eid_short}"]
-    
-    # Get all ledger nikasi entries for this truck (payments, not deductions)
+
+    # Classify reference prefixes → type label
+    def classify(ref: str) -> str:
+        if not ref:
+            return "Payment"
+        if ref.startswith(f"truck_cash_ded:{eid_short}") or ref.startswith(f"entry_cash:{eid_short}"):
+            return "Cash"
+        if ref.startswith(f"truck_diesel_ded:{eid_short}"):
+            return "Diesel"
+        return "Payment"
+
+    # Fetch all ledger nikasi entries for this truck (payments + deductions)
     ledger_payments = await db.cash_transactions.find({
         "account": "ledger", "txn_type": "nikasi", "category": truck_no
     }, {"_id": 0}).to_list(50000)
-    
-    # Build combined history from ledger entries
-    ledger_history = []
+
+    all_history = []
     for txn in ledger_payments:
         ref = txn.get("reference", "")
-        if any(ref.startswith(p) for p in DEDUCTION_PREFIXES):
-            continue
-        ledger_history.append({
+        # Only include entries tied to THIS specific trip (by eid_short) or generic truck payments
+        is_deduction = any(ref.startswith(p) for p in [
+            f"truck_cash_ded:{eid_short}",
+            f"truck_diesel_ded:{eid_short}",
+            f"entry_cash:{eid_short}",
+        ])
+        is_generic_payment = not ref.startswith(("truck_cash_ded:", "truck_diesel_ded:", "entry_cash:"))
+        if not (is_deduction or is_generic_payment):
+            continue  # skip deductions from other trips (same truck)
+        all_history.append({
             "amount": txn.get("amount", 0),
             "date": txn.get("created_at") or txn.get("date", ""),
             "note": txn.get("description", ""),
             "by": txn.get("created_by", "system"),
-            "source": "ledger"
+            "source": "ledger",
+            "type": classify(ref),
+            "reference": ref,
         })
-    
-    # Use ledger history as the source of truth (it includes ALL payments)
-    # Sort by date
-    all_history = sorted(ledger_history, key=lambda h: h.get("date", ""), reverse=True)
+
+    # Sort newest first
+    all_history.sort(key=lambda h: h.get("date", ""), reverse=True)
     total_paid = round(sum(h.get("amount", 0) for h in all_history), 2)
-    
+
     return {"history": all_history, "total_paid": total_paid}
 
 

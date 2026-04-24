@@ -259,25 +259,40 @@ module.exports = function(database) {
     const entryId = req.params.entryId;
     const entry = database.data.entries.find(e => e.id === entryId);
     if (!entry) return res.json({ history: [], total_paid: 0 });
-    
+
     const truckNo = entry.truck_no || '';
     const eidShort = entryId.slice(0, 8);
-    const deductionPrefixes = [`truck_cash_ded:${eidShort}`, `truck_diesel_ded:${eidShort}`, `entry_cash:${eidShort}`];
     const txns = database.data.cash_transactions || [];
-    
-    // Get all ledger nikasi entries for this truck (payments, not deductions)
+
+    const classify = (ref) => {
+      if (!ref) return 'Payment';
+      if (ref.startsWith(`truck_cash_ded:${eidShort}`) || ref.startsWith(`entry_cash:${eidShort}`)) return 'Cash';
+      if (ref.startsWith(`truck_diesel_ded:${eidShort}`)) return 'Diesel';
+      return 'Payment';
+    };
     const ledgerHistory = txns
       .filter(t => t.account === 'ledger' && t.txn_type === 'nikasi' && t.category === truckNo)
-      .filter(t => !deductionPrefixes.some(p => (t.reference || '').startsWith(p)))
+      .filter(t => {
+        const ref = t.reference || '';
+        const isDedForThisTrip = ref.startsWith(`truck_cash_ded:${eidShort}`)
+          || ref.startsWith(`truck_diesel_ded:${eidShort}`)
+          || ref.startsWith(`entry_cash:${eidShort}`);
+        const isGenericPayment = !ref.startsWith('truck_cash_ded:')
+          && !ref.startsWith('truck_diesel_ded:')
+          && !ref.startsWith('entry_cash:');
+        return isDedForThisTrip || isGenericPayment;
+      })
       .map(t => ({
         amount: t.amount || 0,
         date: t.created_at || t.date || '',
         note: t.description || '',
         by: t.created_by || 'system',
-        source: 'ledger'
+        source: 'ledger',
+        type: classify(t.reference || ''),
+        reference: t.reference || '',
       }))
-      .sort((a, b) => (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10)));
-    
+      .sort((a, b) => (b.date || '').slice(0, 10).localeCompare((a.date || '').slice(0, 10)));
+
     const totalPaid = Math.round(ledgerHistory.reduce((s, h) => s + h.amount, 0) * 100) / 100;
     res.json({ history: ledgerHistory, total_paid: totalPaid });
   }));

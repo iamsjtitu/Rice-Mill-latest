@@ -1527,31 +1527,43 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
             </p>
             {paymentHistory.length > 0 ? (
               <div className="max-h-[300px] overflow-y-auto space-y-2">
-                {paymentHistory.map((record, idx) => (
-                  <div 
-                    key={record.id || record.date || `hist-${idx}`} 
+                {paymentHistory.map((record, idx) => {
+                  const type = record.type || 'Payment';
+                  const typeColor = type === 'Cash' ? 'bg-blue-900/40 text-blue-300 border-blue-600/40'
+                    : type === 'Diesel' ? 'bg-amber-900/40 text-amber-300 border-amber-600/40'
+                    : 'bg-emerald-900/40 text-emerald-300 border-emerald-600/40';
+                  return (
+                  <div
+                    key={record.id || record.date || `hist-${idx}`}
                     className={`p-3 rounded-lg border ${
-                      record.amount < 0 
-                        ? 'bg-red-900/20 border-red-600/50' 
+                      record.amount < 0
+                        ? 'bg-red-900/20 border-red-600/50'
                         : 'bg-slate-700/50 border-slate-600'
                     }`}
+                    data-testid={`history-row-${idx}`}
                   >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className={`font-bold ${record.amount < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                          {record.amount < 0 ? '' : '+'}₹{Math.abs(record.amount).toLocaleString()}
-                        </p>
-                        <p className="text-slate-400 text-xs">{record.note || 'Payment'}</p>
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded border ${typeColor}`} data-testid={`history-type-${idx}`}>
+                            {type}
+                          </span>
+                          <p className={`font-bold ${record.amount < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                            {record.amount < 0 ? '' : '+'}₹{Math.abs(record.amount).toLocaleString()}
+                          </p>
+                        </div>
+                        <p className="text-slate-400 text-xs break-words">{record.note || 'Payment'}</p>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         <p className="text-slate-400 text-xs">
-                          {new Date(record.date).toLocaleDateString('hi-IN')}
+                          {record.date ? new Date(record.date).toLocaleDateString('hi-IN') : '-'}
                         </p>
-                        <p className="text-slate-500 text-xs">by {record.by}</p>
+                        <p className="text-slate-500 text-xs">by {record.by || 'system'}</p>
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-slate-400 text-center py-4">Koi payment record nahi hai</p>
