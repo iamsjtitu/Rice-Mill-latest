@@ -919,8 +919,9 @@ export function TransitPassRegister({ filters }) {
     return params;
   };
 
-  // Fetch all options (without mandi/agent filter) for dropdowns
+  // Fetch all rows (without mandi/agent filter) for dropdowns + relationship map
   const [allOptions, setAllOptions] = useState({ mandis: [], agents: [] });
+  const [relMap, setRelMap] = useState({ agentToMandis: {}, mandiToAgents: {} });
   useEffect(() => {
     (async () => {
       try {
@@ -929,9 +930,43 @@ export function TransitPassRegister({ filters }) {
         if (filters.season) params.append("season", filters.season);
         const res = await axios.get(`${API}/govt-registers/transit-pass?${params}`);
         setAllOptions(res.data.filter_options || { mandis: [], agents: [] });
+        // Build bidirectional relationship map from unfiltered rows
+        const a2m = {}, m2a = {};
+        (res.data.rows || []).forEach(r => {
+          const a = (r.agent_name || "").trim();
+          const m = (r.mandi_name || "").trim();
+          if (!a || !m) return;
+          (a2m[a] = a2m[a] || new Set()).add(m);
+          (m2a[m] = m2a[m] || new Set()).add(a);
+        });
+        const toArr = (obj) => Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, [...v].sort()]));
+        setRelMap({ agentToMandis: toArr(a2m), mandiToAgents: toArr(m2a) });
       } catch (e) { logger.error(e); }
     })();
   }, [filters.kms_year, filters.season]);
+
+  // Compute visible dropdown options based on current cross-selection
+  const visibleMandis = tpFilters.agent_name && relMap.agentToMandis[tpFilters.agent_name]
+    ? relMap.agentToMandis[tpFilters.agent_name]
+    : allOptions.mandis;
+  const visibleAgents = tpFilters.mandi_name && relMap.mandiToAgents[tpFilters.mandi_name]
+    ? relMap.mandiToAgents[tpFilters.mandi_name]
+    : allOptions.agents;
+
+  // Auto-select when only 1 related option remains
+  useEffect(() => {
+    if (tpFilters.agent_name && !tpFilters.mandi_name) {
+      const rel = relMap.agentToMandis[tpFilters.agent_name];
+      if (rel && rel.length === 1) setTpFilters(p => ({ ...p, mandi_name: rel[0] }));
+    }
+  }, [tpFilters.agent_name, relMap.agentToMandis]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (tpFilters.mandi_name && !tpFilters.agent_name) {
+      const rel = relMap.mandiToAgents[tpFilters.mandi_name];
+      if (rel && rel.length === 1) setTpFilters(p => ({ ...p, agent_name: rel[0] }));
+    }
+  }, [tpFilters.mandi_name, relMap.mandiToAgents]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-4" data-testid="transit-pass-register">
@@ -950,14 +985,14 @@ export function TransitPassRegister({ filters }) {
         </div>
       </div>
 
-      {/* Mandi / Agent Filters */}
+      {/* Mandi / Agent Filters (linked — selecting one auto-filters the other) */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-1">
           <label className="text-xs text-slate-400">Mandi:</label>
           <select value={tpFilters.mandi_name} onChange={e => setTpFilters(p => ({ ...p, mandi_name: e.target.value }))}
             className="bg-slate-900 border border-slate-600 text-white rounded h-8 text-xs px-2 min-w-[120px]" data-testid="tp-filter-mandi">
             <option value="">All Mandis</option>
-            {allOptions.mandis.map(m => <option key={m} value={m}>{m}</option>)}
+            {visibleMandis.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
         <div className="flex items-center gap-1">
@@ -965,11 +1000,11 @@ export function TransitPassRegister({ filters }) {
           <select value={tpFilters.agent_name} onChange={e => setTpFilters(p => ({ ...p, agent_name: e.target.value }))}
             className="bg-slate-900 border border-slate-600 text-white rounded h-8 text-xs px-2 min-w-[120px]" data-testid="tp-filter-agent">
             <option value="">All Agents</option>
-            {allOptions.agents.map(a => <option key={a} value={a}>{a}</option>)}
+            {visibleAgents.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
         </div>
         {(tpFilters.mandi_name || tpFilters.agent_name) && (
-          <Button onClick={() => setTpFilters({ mandi_name: "", agent_name: "" })} variant="ghost" size="sm" className="text-slate-400 text-xs h-8">
+          <Button onClick={() => setTpFilters({ mandi_name: "", agent_name: "" })} variant="ghost" size="sm" className="text-slate-400 text-xs h-8" data-testid="tp-clear-filters">
             Clear Filters
           </Button>
         )}
