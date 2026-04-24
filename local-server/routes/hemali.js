@@ -4,7 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const { safeHandler } = require('./safe_handler');
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
-const { safePdfPipe, addPdfHeader, registerFonts, fmtDate } = require('./pdf_helpers');
+const { safePdfPipe, addPdfHeader, registerFonts, fmtDate, F } = require('./pdf_helpers');
 const { filterByFy, getAdvanceBalance, calcHemaliTotals, markHemaliPaidSideEffects, undoHemaliPaidSideEffects, deleteHemaliPaymentSideEffects } = require('../shared/hemali-service');
 
 module.exports = (database) => {

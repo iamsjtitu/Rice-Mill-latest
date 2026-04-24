@@ -1,6 +1,19 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.27.0
+## Current Version: v104.28.1
+
+## Recent Fix (Feb 2026)
+### Hemali Print/PDF 500 error — FIXED
+- **File:** `/app/desktop-app/routes/hemali.js` line 7 (+ `/app/local-server/routes/hemali.js` parity)
+- **Root cause:** `F` helper (font-weight resolver) was used throughout print receipt + monthly-summary PDF code but never imported from `./pdf_helpers` → `ReferenceError: F is not defined` → 500 caught by `safeHandler`
+- **Fix:** Added `F` to destructured import
+- **Verified end-to-end:** All 5 endpoints returning valid PDF/XLSX:
+  - `GET /api/hemali/payments/:id/print` → valid PDF
+  - `GET /api/hemali/monthly-summary/pdf` → valid PDF
+  - `GET /api/hemali/monthly-summary/excel` → valid XLSX
+  - `GET /api/hemali/export/pdf` → valid PDF
+  - `GET /api/hemali/export/excel` → valid XLSX
+- **Visual validation:** PDF content rendered correctly (header, items table, totals, PAID badge, signatures)
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind
