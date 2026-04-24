@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.4",
+    date: "Feb 2026",
+    title: "v104.28.4 — Hotfix: Data load bug (axios-cache-interceptor removed)",
+    items: [
+      { type: "fix", text: "🚨 HOTFIX: Data load nahi hua error fixed — axios-cache-interceptor library ne AbortController ke saath conflict kiya tha, removed kar diya hai" },
+      { type: "fix", text: "🐛 Headers stripping issue (Pragma interceptor axios v1.x AxiosHeaders ke saath unsafe tha) — hata diya" },
+      { type: "note", text: "Auto-refresh + React Query invalidation + server no-store headers abhi bhi active — data freshness guarantee untouched" },
+      { type: "note", text: "All 19 screens ka auto-refresh behavior normal rahega" },
+    ],
+  },
+  {
     version: "104.28.3",
     date: "Feb 2026",
     title: "v104.28.3 — Auto-Refresh Every Screen",

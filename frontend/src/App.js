@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import "@/App.css";
 import axios from "axios";
-import { setupCache } from "axios-cache-interceptor";
 import { queryClient } from "@/lib/queryClient";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
@@ -69,50 +68,17 @@ const _isElectron = typeof window !== 'undefined' && (window.electronAPI || wind
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
 
-// ============ AXIOS RESPONSE CACHE ============
-// Wraps the shared axios instance with an in-memory cache. GET responses are
-// served from cache if fresh (<30s), dramatically speeding up tab switching and
-// repeat visits. Any POST/PUT/PATCH/DELETE clears ALL cache entries automatically
-// (simple & safe — broad invalidation guarantees correctness after mutations).
-//
-// TTL rationale:
-//   30s = long enough to make tab-switch feel instant, short enough that users
-//         clicking Refresh within a few seconds of a save still see fresh data
-//         (mutation-invalidation handles the main case; TTL covers edge cases).
-//
-// Zero changes needed in 52+ components — they keep using axios.get() as-is.
-setupCache(axios, {
-  ttl: 30 * 1000,
-  interpretHeader: false,      // server sends no-store, but we override with TTL here
-  methods: ['get'],            // only cache GETs
-  cachePredicate: {
-    // Don't cache auth-related endpoints, realtime streams, or license checks
-    ignoreUrls: [
-      /\/api\/auth\//,
-      /\/api\/weighbridge\/stream/,
-      /\/api\/lan-clients/,
-      /\/api\/license\//,
-      /\/api\/settings\/branding/,  // branding updates need to reflect instantly
-    ],
-  },
-});
-
+// ============ GLOBAL MUTATION INVALIDATION ============
+// On every successful mutation, fire a global event so components using
+// useAutoRefresh() auto-refetch. Also invalidate React Query cache for any
+// future components that use useApiQuery. Server-side Cache-Control: no-store
+// ensures nothing else caches responses.
 axios.interceptors.response.use(
   (response) => {
     try {
       const method = (response.config?.method || 'get').toLowerCase();
-      // Any successful mutation invalidates the entire GET cache — broad invalidation
-      // is cheap and guarantees correctness. E.g. POST /api/payments/hemali-payments
-      // clears every cached GET so subsequent list loads fetch fresh data.
       if (method !== 'get') {
-        if (axios.storage?.clear) axios.storage.clear();
-        // ALSO invalidate React Query cache for hot-path components — this is
-        // surgical + INSTANT refetch (not just "mark stale" like axios-cache).
-        // Without this, a hot-path component might still show cached data for
-        // up to gcTime after a mutation. invalidateQueries({}) = all queries.
-        try { queryClient.invalidateQueries(); } catch { /* ignore in SSR/tests */ }
-        // Dispatch a global event so legacy useEffect components using
-        // useAutoRefresh() re-fetch their data. Debounced inside the hook.
+        try { queryClient.invalidateQueries(); } catch { /* ignore */ }
         try {
           window.dispatchEvent(new CustomEvent('data-changed', {
             detail: { url: response.config?.url, method },
@@ -130,7 +96,6 @@ axios.interceptors.response.use(
   (error) => {
     if (error.response?.status === 409) {
       toast.error(error.response?.data?.detail || "Ye record kisi aur ne update kar diya hai. Data refresh ho raha hai.", { duration: 4000 });
-      try { if (axios.storage?.clear) axios.storage.clear(); } catch {}
       try { queryClient.invalidateQueries(); } catch {}
       window.dispatchEvent(new CustomEvent('data-conflict-refresh'));
     }
@@ -138,15 +103,10 @@ axios.interceptors.response.use(
   }
 );
 
-// Belt-and-braces: explicit Pragma header for any legacy proxy that ignores
-// Cache-Control. axios-cache-interceptor's cacheTakeover already adds both,
-// but this ensures even direct network paths stay uncached at edges.
-axios.interceptors.request.use((config) => {
-  if ((config.method || 'get').toLowerCase() === 'get') {
-    config.headers = { ...(config.headers || {}), 'Pragma': 'no-cache' };
-  }
-  return config;
-});
+// Server already sends Cache-Control: no-store on /api/* routes — no additional
+// client-side header manipulation needed. (Previously attempted to add a Pragma
+// header via request interceptor but axios v1.x AxiosHeaders class made that
+// unsafe; server headers alone are sufficient.)
 
 import { safePrintHTML } from './utils/print';
 import { FY_YEARS, CURRENT_FY, SEASONS, initialFormState } from './utils/constants';
