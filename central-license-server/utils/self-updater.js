@@ -89,16 +89,31 @@ function httpsRequest(url, extraHeaders = {}, followRedirects = 5) {
 
 // ====== Public API ======
 
-/** Check: returns { current_sha, latest_sha, latest_commit, update_available } */
+/** Check: returns { current_sha, latest_sha, latest_commit, update_available }
+ *
+ *  NOTE: uses the `commits?path=central-license-server&per_page=1` endpoint
+ *  instead of `commits/:branch`. This way frontend-only or desktop-app-only
+ *  pushes to the monorepo do NOT trigger a false "update available" on the
+ *  admin dashboard — only commits that actually touched the central-license-server
+ *  folder count.
+ */
 async function checkForUpdate() {
   const cfg = getConfig();
-  const url = `https://api.github.com/repos/${cfg.repo}/commits/${encodeURIComponent(cfg.branch)}`;
+  const url = `https://api.github.com/repos/${cfg.repo}/commits?sha=${encodeURIComponent(cfg.branch)}&path=${encodeURIComponent(SUBDIR_IN_REPO)}&per_page=1`;
   const res = await httpsRequest(url);
   if (res.status === 404) throw new Error(`Repo or branch not found: ${cfg.repo}@${cfg.branch}`);
   if (res.status === 401 || res.status === 403) throw new Error(`GitHub auth failed (HTTP ${res.status}). If repo is private, set a GitHub PAT in settings.`);
   if (res.status !== 200) throw new Error(`GitHub API HTTP ${res.status}`);
-  let data;
-  try { data = JSON.parse(res.body.toString('utf8')); } catch { throw new Error('Invalid JSON from GitHub'); }
+  let list;
+  try { list = JSON.parse(res.body.toString('utf8')); } catch { throw new Error('Invalid JSON from GitHub'); }
+  if (!Array.isArray(list) || list.length === 0) {
+    // No commits have ever touched this folder — fall back to branch HEAD as a safe default
+    const fallback = await httpsRequest(`https://api.github.com/repos/${cfg.repo}/commits/${encodeURIComponent(cfg.branch)}`);
+    if (fallback.status !== 200) throw new Error(`GitHub API HTTP ${fallback.status}`);
+    const fb = JSON.parse(fallback.body.toString('utf8'));
+    list = [{ sha: fb.sha, commit: fb.commit, author: fb.author }];
+  }
+  const data = list[0];
   const latestSha = data.sha;
   if (!latestSha) throw new Error('GitHub did not return a commit SHA');
   return {
@@ -111,6 +126,7 @@ async function checkForUpdate() {
     latest_commit_date: data.commit?.author?.date,
     update_available: !cfg.currentSha || cfg.currentSha !== latestSha,
     has_pat: !!cfg.pat,
+    scoped_to: SUBDIR_IN_REPO,
   };
 }
 
