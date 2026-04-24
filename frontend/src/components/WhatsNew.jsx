@@ -7,6 +7,19 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.7",
+    date: "Feb 2026",
+    title: "v104.28.7 — T.P Register Fix + Hemali Receipt No.",
+    items: [
+      { type: "fix", text: "🐛 T.P Register ab entries dikhayega — bug tha ki global date filter (default: aaj ka din) TPR pe blindly apply ho raha tha → historical entries hide ho jaati thi. Ab TPR sirf KMS year + Mandi/Agent scope use karta hai" },
+      { type: "new", text: "🧾 Hemali Receipt No. — har payment pe auto sequential number (format: HEM-2026-0001, HEM-2026-0002…). Calendar year per sequence reset hoti hai" },
+      { type: "new", text: "📄 PDF receipt ke top pe Receipt No. prominently dikhega (amber colour, bold, centered)" },
+      { type: "new", text: "📋 Hemali Payments table mein nayi 'Receipt No.' column add hui — quick identification ke liye" },
+      { type: "new", text: "♻️ Purani Hemali payments ke liye one-time backfill — startup pe auto sequential numbers assign ho jayenge chronological order mein" },
+      { type: "fix", text: "🖨️ Hemali Print/PDF/Excel 500 error fixed — pichhle release mein `F` font-helper import missing tha jo print receipt + monthly summary PDF crash kar raha tha" },
+    ],
+  },
+  {
     version: "104.28.6",
     date: "Feb 2026",
     title: "v104.28.6 — Diagnostics Panel + CashBook Delete Visible",
