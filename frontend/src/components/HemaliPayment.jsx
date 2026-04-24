@@ -289,7 +289,7 @@ export default function HemaliPayment({ filters, user }) {
     try {
       const res = await axios.get(`${API}/hemali/items`);
       setItems(res.data || []);
-    } catch (e) { /* ignore */ }
+    } catch (e) { logger.error('fetchItems failed:', e?.message || e); }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchPayments = useCallback(async () => {
@@ -311,13 +311,14 @@ export default function HemaliPayment({ filters, user }) {
     try {
       const res = await axios.get(`${API}/hemali/sardars`);
       setSardars(res.data || []);
-    } catch (e) { /* ignore */ }
+    } catch (e) { logger.error('fetchSardars failed:', e?.message || e); }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchItems(); fetchSardars(); }, [fetchItems, fetchSardars]);
   useEffect(() => { fetchPayments(); }, [fetchPayments]);
   useAutoRefresh(fetchPayments);
   useAutoRefresh(fetchSardars);
+  useAutoRefresh(fetchItems);
 
   // Fetch advance when sardar_name changes (auto)
   const fetchAdvance = useCallback(async (name) => {

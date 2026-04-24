@@ -1336,6 +1336,29 @@ function createApiServer(database) {
     });
   }));
 
+  // Diagnostic: full DB stats — shows record counts for every collection so
+  // user can spot which collection is empty/missing. Useful when "my items are
+  // missing" — check item_counts[hemali_items].
+  apiApp.get('/api/diagnostics/db-stats', safeSync((req, res) => {
+    const stats = {};
+    try {
+      const data = database.data || {};
+      Object.keys(data).sort().forEach(k => {
+        const v = data[k];
+        if (Array.isArray(v)) stats[k] = { type: 'array', count: v.length };
+        else if (v && typeof v === 'object') stats[k] = { type: 'object', keys: Object.keys(v).length };
+        else stats[k] = { type: typeof v, value: typeof v === 'string' ? v.slice(0, 30) : v };
+      });
+    } catch (e) { return res.status(500).json({ error: e.message }); }
+    res.json({
+      data_folder: database.dataFolder,
+      db_file: database.dbFile || null,
+      db_file_exists: database.dbFile ? require('fs').existsSync(database.dbFile) : false,
+      engine: dbEngine,
+      collections: stats,
+    });
+  }));
+
   // Date Format Validator API
   apiApp.get('/api/health/date-format', safeSync((req, res) => {
     const { validateDateFormats } = require('./shared/report_helper');

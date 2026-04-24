@@ -1058,6 +1058,28 @@ async function startServer() {
     }
   });
 
+  // Diagnostic: full DB stats — shows record counts for every collection so
+  // user can spot which collection is empty/missing.
+  app.get('/api/diagnostics/db-stats', (req, res) => {
+    try {
+      const stats = {};
+      const data = database.data || {};
+      Object.keys(data).sort().forEach(k => {
+        const v = data[k];
+        if (Array.isArray(v)) stats[k] = { type: 'array', count: v.length };
+        else if (v && typeof v === 'object') stats[k] = { type: 'object', keys: Object.keys(v).length };
+        else stats[k] = { type: typeof v, value: typeof v === 'string' ? v.slice(0, 30) : v };
+      });
+      res.json({
+        data_folder: database.dataFolder,
+        db_file: database.dbFile || null,
+        db_file_exists: database.dbFile ? require('fs').existsSync(database.dbFile) : false,
+        engine: database.sqlite ? 'sqlite' : 'json',
+        collections: stats,
+      });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
 
   app.post('/api/sync/reload', async (req, res) => {
     try {

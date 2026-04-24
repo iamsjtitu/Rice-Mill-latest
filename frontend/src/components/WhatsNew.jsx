@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.5",
+    date: "Feb 2026",
+    title: "v104.28.5 — Diagnostic + Silent Error Fix",
+    items: [
+      { type: "fix", text: "🐛 Hemali Items Config, Sardars list, CashBook categories — ab agar fetch fail ho to console me error log hoga (pehle silent tha, isliye 'data nahi aa raha' ka pata nahi chalta tha)" },
+      { type: "new", text: "🔧 Diagnostic endpoint: /api/diagnostics/db-stats — sab collections ka record count + data folder path dikhayega. Browser me kholo: http://localhost:PORT/api/diagnostics/db-stats" },
+      { type: "new", text: "🔄 Hemali Items Config ab auto-refresh hoga (item add/delete karne pe list turant update)" },
+      { type: "note", text: "Agar items abhi bhi nahi dikhe: Diagnostic endpoint check karo — hemali_items count dikha jayega. Agar 0 hai to data folder galat select hua hai, correct folder select karo Home screen me" },
+    ],
+  },
+  {
     version: "104.28.4",
     date: "Feb 2026",
     title: "v104.28.4 — Hotfix: Data load bug (axios-cache-interceptor removed)",

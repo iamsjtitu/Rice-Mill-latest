@@ -117,7 +117,7 @@ const CashBook = ({ filters, user }) => {
     try {
       const res = await axios.get(`${API}/cash-book/categories`);
       setCustomCategories(res.data);
-    } catch (e) { /* ignore */ }
+    } catch (e) { console.warn('fetchCategories failed:', e?.message || e); }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchAgentNames = useCallback(async () => {
@@ -126,14 +126,14 @@ const CashBook = ({ filters, user }) => {
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
       const res = await axios.get(`${API}/cash-book/agent-names?${params}`);
       setAgentSuggestions(res.data);
-    } catch (e) { /* ignore */ }
+    } catch (e) { console.warn('fetchAgentNames failed:', e?.message || e); }
   }, [filters.kms_year]);
 
   const fetchBankAccounts = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/bank-accounts`);
       setBankAccounts(res.data);
-    } catch (e) { /* ignore */ }
+    } catch (e) { console.warn('fetchBankAccounts failed:', e?.message || e); }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cbAbortRef = useRef(null);
