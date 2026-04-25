@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.24
+## Current Version: v104.28.25
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -10,6 +10,36 @@
 - Test contrast: text on tinted backgrounds should be at least slate-700 / slate-800
 - Borders: slate-200 / slate-300 instead of slate-700
 - Hover: bg-slate-50 / bg-slate-100
+
+## Recent Fixes (Apr 2026) — v104.28.25
+
+### Backup Encryption (License-Key Derived AES-256-GCM) — NEW
+- **User directive**: *"har backup file ko user ke license-key derived AES key se encrypt karein. Iska fayda: agar koi backup file leak ho, plain JSON read nahi kar sakta"*
+- **Crypto** (`/app/desktop-app/utils/backup-crypto.js` + `/app/local-server/utils/backup-crypto.js`):
+  - **Algorithm**: AES-256-GCM (authenticated encryption — both confidentiality + integrity).
+  - **KDF**: scrypt (N=16384, r=8, p=1, 32-byte key) seeded with `"millentry-backup-v1\0" + license_key` (domain separated to avoid key reuse with the license-cache encryption).
+  - **Format** (single JSON wrapper, valid for transport):
+    ```json
+    { "_encrypted": true, "_version": 1, "_algorithm": "aes-256-gcm",
+      "_kdf": "scrypt", "_kdf_params": {...}, "_salt": "<b64>",
+      "_iv": "<b64>", "_auth_tag": "<b64>", "_ciphertext": "<b64>",
+      "_created_at": "<iso>", "_hint": "License key required to decrypt" }
+    ```
+  - Random 16-byte salt + 12-byte IV per backup (so identical plaintext → different ciphertext).
+- **Toggle setting**: `backup_encryption_enabled` (default `false` for backward compat). UI checkbox.
+- **License-key getter**: `licenseManager.getLicenseKey()` (NEW) returns activated license key or `null`.
+- **createBackup hook** (`/app/desktop-app/main.js`): if setting enabled AND license activated → encrypt before disk write. If license missing → fail-soft to plain backup with console warn (rare, the toggle is gated by license presence in the API).
+- **restoreBackup hook**: detects `_encrypted: true` flag in JSON, decrypts using current license key. Wrong key → clear domain message (no raw crypto stack). Tampered ciphertext → GCM auth tag mismatch → same clear error.
+- **API endpoints** (`/app/desktop-app/routes/backups.js`):
+  - `GET /api/backups/encryption` → `{ enabled, can_enable, license_present, encrypted_count, plain_count }` — counts walk current backups dir + custom dir to classify each file.
+  - `PUT /api/backups/encryption { enabled }` → 400 if enabling without active license, otherwise saves setting.
+- **Frontend** (`/app/frontend/src/components/settings/DataTab.jsx`):
+  - New "Backup Encryption (AES-256-GCM)" card at top of backup section. Visual states: plain (slate) vs encrypted (emerald with "ON" badge + Lock icon).
+  - Live counts: "X encrypted · Y plain".
+  - Disabled state when `can_enable=false` (license not activated) with explanatory amber alert.
+  - Confirmation dialog before enabling, listing the "license key kho jaye toh restore nahi hoga" warning.
+- **LAN Local-Server**: stub endpoints return `can_enable: false, reason: "use BitLocker / OS-level encryption"` (LAN host has no real license). `restoreBackup` detects encrypted format and returns clear error.
+- **Verified**: 9 unit tests + 5 E2E tests passed (encrypt/decrypt roundtrip, plaintext invisibility, wrong key rejection, tampering detection, large 1 MB payload, deterministic key derivation, plain backup backward compat, settings persistence, gating by license).
 
 ## Recent Fixes (Apr 2026) — v104.28.24
 

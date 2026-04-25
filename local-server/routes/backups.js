@@ -113,6 +113,22 @@ module.exports = function(database, { getBackupsList, createBackup, restoreBacku
   }));
 
   // Auto-delete settings (toggle + days)
+  // Backup encryption — STUB for LAN local-server (no real license available)
+  // Real encryption only works in Desktop App where license-manager has the customer key.
+  router.get('/api/backups/encryption', safeSync(async (req, res) => {
+    res.json({
+      enabled: false,
+      can_enable: false,
+      license_present: false,
+      encrypted_count: 0,
+      plain_count: 0,
+      reason: 'LAN local-server has no real license — backup encryption only works in Desktop App. Use OS-level disk encryption (BitLocker) for the LAN host.',
+    });
+  }));
+  router.put('/api/backups/encryption', safeSync(async (req, res) => {
+    res.status(400).json({ detail: 'Backup encryption sirf Desktop App mein available hai (LAN host pe license nahi hota).' });
+  }));
+
   router.get('/api/backups/auto-delete', safeSync(async (req, res) => {
     const s = database.data?.settings || {};
     res.json({

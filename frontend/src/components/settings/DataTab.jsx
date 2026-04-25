@@ -3,7 +3,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { HardDrive, ShieldCheck, LogOut, Clock, Hand, Trash2, Download, Upload, AlertTriangle, CalendarClock } from "lucide-react";
+import { HardDrive, ShieldCheck, LogOut, Clock, Hand, Trash2, Download, Upload, AlertTriangle, CalendarClock, Lock, KeyRound } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmProvider";
 import { API } from "./settingsConstants";
 import logger from "../../utils/logger";
@@ -17,6 +17,7 @@ function DataTab({ user }) {
   const [backupLoading, setBackupLoading] = useState(false);
   const [autoDelete, setAutoDelete] = useState({ enabled: false, days: 7 });
   const [schedule, setSchedule] = useState({ hour: 0, enabled: true });
+  const [encryption, setEncryption] = useState({ enabled: false, can_enable: false, license_present: false, encrypted_count: 0, plain_count: 0, reason: '' });
   const [storageEngine, setStorageEngine] = useState('json');
 
   const fetchBackups = async () => {
@@ -44,10 +45,25 @@ function DataTab({ user }) {
     } catch (e) { /* endpoint optional / web version */ }
   };
 
+  const fetchEncryption = async () => {
+    try {
+      const res = await axios.get(`${API}/backups/encryption`);
+      setEncryption({
+        enabled: !!res.data.enabled,
+        can_enable: !!res.data.can_enable,
+        license_present: !!res.data.license_present,
+        encrypted_count: res.data.encrypted_count || 0,
+        plain_count: res.data.plain_count || 0,
+        reason: res.data.reason || '',
+      });
+    } catch (e) { /* web version doesn't have backups */ }
+  };
+
   useEffect(() => {
     fetchBackups();
     fetchAutoDelete();
     fetchSchedule();
+    fetchEncryption();
     axios.get(`${API}/settings/storage-engine`).then(r => {
       setStorageEngine(r.data.engine || 'json');
     }).catch(() => {});
@@ -122,6 +138,26 @@ function DataTab({ user }) {
       });
       toast.success(`Schedule saved · daily backup ${enabled ? `at ${String(hour).padStart(2, '0')}:00` : 'disabled'}`);
     } catch (e) { logger.error(e); toast.error("Schedule save error (web version pe support nahi)"); }
+  };
+
+  const updateEncryption = async (enabled) => {
+    if (enabled) {
+      const ok = await showConfirm(
+        'Enable Backup Encryption',
+        'New backups ab AES-256-GCM se encrypt ho jayengi (license key se derive). ⚠ IMPORTANT: agar license change ho jaye toh purani encrypted backups restore nahi hongi. Apni license key safe rakhein. Continue?'
+      );
+      if (!ok) return;
+    }
+    try {
+      const res = await axios.put(`${API}/backups/encryption`, { enabled });
+      setEncryption(prev => ({ ...prev, enabled: !!res.data.enabled }));
+      // Refresh counts
+      fetchEncryption();
+      toast.success(`Backup encryption ${res.data.enabled ? 'ENABLED' : 'disabled'}`);
+    } catch (e) {
+      logger.error(e);
+      toast.error(e.response?.data?.detail || 'Encryption setting save fail');
+    }
   };
 
   // Total backup size + warning threshold (100MB)
@@ -378,6 +414,73 @@ function DataTab({ user }) {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* === Backup Encryption Settings === */}
+          <div
+            className={`border-2 rounded-lg p-4 ${encryption.enabled ? 'bg-emerald-50 border-emerald-300' : 'bg-slate-50 border-slate-200'}`}
+            data-testid="backup-encryption-section"
+          >
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <div className={`p-2 rounded-md ${encryption.enabled ? 'bg-emerald-100' : 'bg-slate-200'}`}>
+                  {encryption.enabled
+                    ? <Lock className="w-5 h-5 text-emerald-700" />
+                    : <KeyRound className="w-5 h-5 text-slate-600" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-bold ${encryption.enabled ? 'text-emerald-800' : 'text-slate-800'}`}>
+                    Backup Encryption (AES-256-GCM)
+                    {encryption.enabled && <span className="ml-2 px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-xs font-semibold border border-emerald-300">ON</span>}
+                  </p>
+                  <p className="text-slate-700 text-xs mt-1">
+                    {encryption.enabled
+                      ? 'New backups encrypted hote hain — license key ke bina restore nahi ho sakti. Disk leak / chori se data safe.'
+                      : 'Plain JSON backups ban rahi hain. Enable karne par naye backups license-key se encrypt honge.'}
+                  </p>
+                  {(encryption.encrypted_count > 0 || encryption.plain_count > 0) && (
+                    <p className="text-slate-600 text-xs mt-1.5" data-testid="encryption-counts">
+                      Current backups: <span className="font-semibold text-emerald-700">{encryption.encrypted_count} encrypted</span>
+                      <span className="mx-1.5 text-slate-400">·</span>
+                      <span className="font-semibold text-slate-700">{encryption.plain_count} plain</span>
+                    </p>
+                  )}
+                  {!encryption.can_enable && encryption.reason && (
+                    <p className="text-amber-700 text-xs mt-2 flex items-start gap-1.5" data-testid="encryption-disabled-reason">
+                      <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                      <span>{encryption.reason}</span>
+                    </p>
+                  )}
+                  {!encryption.can_enable && !encryption.reason && (
+                    <p className="text-amber-700 text-xs mt-2 flex items-start gap-1.5" data-testid="encryption-no-license">
+                      <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                      <span>License activate karein pehle — encryption ke liye license key required hai.</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
+                <input
+                  type="checkbox"
+                  checked={encryption.enabled}
+                  disabled={!encryption.can_enable && !encryption.enabled}
+                  onChange={e => updateEncryption(e.target.checked)}
+                  className="w-5 h-5 accent-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  data-testid="encryption-toggle"
+                />
+                <span className={`text-sm font-bold ${encryption.enabled ? 'text-emerald-700' : 'text-slate-700'} ${(!encryption.can_enable && !encryption.enabled) ? 'opacity-50' : ''}`}>
+                  {encryption.enabled ? 'Encrypted' : 'Encrypt new backups'}
+                </span>
+              </label>
+            </div>
+            {encryption.enabled && (
+              <div className="mt-3 pt-3 border-t border-emerald-200 text-xs text-emerald-900 bg-white/60 rounded p-2.5 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-700" />
+                <p>
+                  <span className="font-bold">Important:</span> Apni license key safe rakhein. Agar license key kho jaye ya badal jaye, encrypted backups restore nahi hongi. Safety ke liye license activation cache ko bhi (Settings → License) backup karte rahein.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* === Backup Schedule Settings === */}

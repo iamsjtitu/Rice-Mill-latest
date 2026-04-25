@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.25",
+    date: "Apr 2026",
+    title: "v104.28.25 — 🔐 Backup Encryption (License-Key Derived AES-256-GCM)",
+    items: [
+      { type: "new", text: "🔐 **Backup Encryption** — Settings → Data tab mein naya toggle. Enable karne par naye saare backups (manual + automatic + logout) AES-256-GCM se encrypt hote hain. Encryption key aapki license key se derive hoti hai (scrypt KDF + 256-bit). Backup file leak hone par bhi data unreadable" },
+      { type: "new", text: "🛡️ Backwards compatible — purani plain backups ab bhi normally restore hoti hain. Restore code automatic detect karta hai (encrypted vs plain) aur sahi path follow karta hai" },
+      { type: "new", text: "🚨 Wrong license = clear error — agar koi different license wala system pe encrypted backup restore karne ki koshish kare, system clear message deta hai 'license key does not match' (raw crypto error nahi). Tampered files bhi GCM auth tag se detect hoti hain" },
+      { type: "new", text: "📊 Settings UI mein live status — kitni backups encrypted hain, kitni plain, license activated hai ya nahi — sab dikhta hai. Toggle disabled rehta hai jab tak license activate na ho" },
+      { type: "fix", text: "🔄 Triple-Backend Parity — endpoint surface match karta hai. Desktop App full encryption (real license). LAN Local Server stub returns 'use BitLocker / OS-level encryption' since LAN host pe license nahi hota. Encrypted backup file LAN pe restore karne ki koshish karne par clear error dikhta hai" },
+    ],
+  },
+  {
     version: "104.28.24",
     date: "Apr 2026",
     title: "v104.28.24 — 🎯 Hemali PDF Page-Centered + 🛡️ Backup Management Polish",

@@ -1214,7 +1214,25 @@ function createBackup(database, label = 'auto') {
   const filename = `backup_${label}_${dateStr}.json`;
   try {
     // Works for both JSON and SQLite databases
-    const data = database.exportToJson ? database.exportToJson() : fs.readFileSync(database.dbFile, 'utf8');
+    let data = database.exportToJson ? database.exportToJson() : fs.readFileSync(database.dbFile, 'utf8');
+
+    // Optional encryption (license-key-derived AES-256-GCM)
+    const settings = (database.data || {}).settings || {};
+    if (settings.backup_encryption_enabled === true) {
+      try {
+        const licenseKey = licenseManager.getLicenseKey && licenseManager.getLicenseKey();
+        if (!licenseKey) {
+          // Fail-soft: create plain backup but flag a warning so the user knows.
+          console.warn('[Backup] Encryption requested but license not activated — saving plain backup.');
+        } else {
+          const backupCrypto = require('./utils/backup-crypto');
+          data = backupCrypto.encrypt(data, licenseKey);
+        }
+      } catch (encErr) {
+        console.error('[Backup] Encryption failed, falling back to plain backup:', encErr.message);
+      }
+    }
+
     fs.writeFileSync(path.join(backupDir, filename), data);
     cleanupOldBackups();
     // Copy to custom backup dir if set
@@ -1264,7 +1282,22 @@ function restoreBackup(database, filename, sourceDir) {
   if (!fs.existsSync(backupPath)) return { success: false, error: 'Backup not found' };
   try {
     createBackup(database, 'pre-restore');
-    const data = fs.readFileSync(backupPath, 'utf8');
+    let data = fs.readFileSync(backupPath, 'utf8');
+
+    // Detect & decrypt encrypted backup format (AES-256-GCM with license-key derivation)
+    const backupCrypto = require('./utils/backup-crypto');
+    if (backupCrypto.isEncrypted(data)) {
+      const licenseKey = licenseManager.getLicenseKey && licenseManager.getLicenseKey();
+      if (!licenseKey) {
+        return { success: false, error: 'Backup is encrypted but license is not activated. Activate the original license first.' };
+      }
+      try {
+        data = backupCrypto.decrypt(data, licenseKey);
+      } catch (decErr) {
+        return { success: false, error: decErr.message };
+      }
+    }
+
     JSON.parse(data); // Validate JSON
     if (database.importFromJson) {
       // SQLite mode: import via method

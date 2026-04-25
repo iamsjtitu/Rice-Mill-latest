@@ -819,6 +819,13 @@ function restoreBackup(filename) {
     // Create safety backup before restore
     createBackup('pre-restore');
     const data = fs.readFileSync(backupPath, 'utf8');
+    // Detect encrypted backup format (created by Desktop App with license key)
+    try {
+      const backupCrypto = require('./utils/backup-crypto');
+      if (backupCrypto.isEncrypted(data)) {
+        return { success: false, error: 'Ye backup encrypted hai (Desktop App ne license key se bani thi). LAN local-server mein license nahi hota — restore ke liye Desktop App use karein.' };
+      }
+    } catch (_) { /* crypto util optional */ }
     JSON.parse(data); // Validate JSON
     if (database.importFromJson) {
       // SQLite mode: import via method

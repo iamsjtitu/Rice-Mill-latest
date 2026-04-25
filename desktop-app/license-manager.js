@@ -525,6 +525,12 @@ function getStatus() {
   };
 }
 
+/** Returns the activated license key string, or null if not activated. Used by backup encryption. */
+function getLicenseKey() {
+  const cache = loadCache();
+  return (cache && cache.key) ? cache.key : null;
+}
+
 /**
  * Ask central server to provision (or return existing) Cloudflare tunnel for this license.
  * Returns: { success, hostname, tunnel_token, slug, existed }
@@ -572,6 +578,7 @@ module.exports = {
   sendHeartbeat,
   startBackgroundHeartbeat,
   getStatus,
+  getLicenseKey,
   clearCache,
   provisionCloudAccess,
   getCloudAccessStatus,
