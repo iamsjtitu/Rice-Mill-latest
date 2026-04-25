@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.27",
+    date: "Apr 2026",
+    title: "v104.28.27 — 🎨 Dashboard & Summary Report PDFs ko Professional Redesign",
+    items: [
+      { type: "fix", text: "🎨 **Dashboard PDF redesigned** — top pe colorful KPI hero banner (PADDY IN / USED / AVAILABLE / RICE PRODUCED / TARGETS / ACHIEVED / PENDING) with color-coded stats. Section header bands (Stock = orange, Targets = teal) with subtitle showing FY/season/achievement. TOTAL row amber-highlighted with bold dark text. Negative values (gunny -455) auto-shown in BOLD RED. Achievement % auto-coloured: green ≥100%, gold 50-99%, red <50%. Zebra row striping for readability. Duplicate tagline removed" },
+      { type: "fix", text: "🎨 **Complete Summary Report PDF redesigned** — same hero KPI banner with 7 stats including Grand Total, Paid (with %), Balance Due. Each section gets its own coloured band: orange (Stock), teal (Targets), purple (Truck), rose (Agent/Mandi), amber (Grand Total). Status column shows Paid in green / Pending in red. Grand Total final row in dramatic amber-700 with white text — looks like a financial executive summary now" },
+      { type: "fix", text: "📐 **Page-centered layout** — both PDFs use 14pt effective margin both sides (8pt page margin + 6pt frame padding) so content is perfectly centered on A4 page. Same width-percentage based column sizing — no more hardcoded mm values that overflow when data changes" },
+      { type: "new", text: "🛠️ **New reusable helper** `get_pdf_section_band(title, subtitle, preset)` added to `export_helpers.py` — 8 colour presets (navy/teal/orange/emerald/rose/purple/amber/slate) with automatic accent stripe on left edge. Future reports can use this for consistent professional section banding" },
+    ],
+  },
+  {
     version: "104.28.26",
     date: "Apr 2026",
     title: "v104.28.26 — 📂 Excel Auto-Open (Same UX as PDF)",

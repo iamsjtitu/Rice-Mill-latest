@@ -548,3 +548,73 @@ STAT_COLORS = {
     'teal':      '#0F766E',  # teal-700
     'pink':      '#BE185D',  # pink-700
 }
+
+
+
+# ============================================================================
+# SECTION BAND — full-width color-coded title bar used between report sections
+# ============================================================================
+# Each "section" inside a report (e.g. STOCK OVERVIEW, MANDI TARGETS) gets a
+# prominent colored band so the eye can scan the document quickly. The band is
+# a single-row Table that renders as a full-width title + optional sub-text.
+
+# Pre-defined visual presets keyed by intent. Each preset = (bg, text, accent).
+SECTION_BAND_PRESETS = {
+    'navy':    ('#1E3A8A', '#FFFFFF', '#FBBF24'),  # blue-900 + amber accent
+    'teal':    ('#0F766E', '#FFFFFF', '#A7F3D0'),  # teal-700
+    'orange':  ('#C2410C', '#FFFFFF', '#FFEDD5'),  # orange-700
+    'emerald': ('#047857', '#FFFFFF', '#A7F3D0'),  # emerald-700
+    'rose':    ('#BE123C', '#FFFFFF', '#FECDD3'),  # rose-700
+    'purple':  ('#6D28D9', '#FFFFFF', '#DDD6FE'),  # violet-700
+    'amber':   ('#B45309', '#FFFFFF', '#FDE68A'),  # amber-700
+    'slate':   ('#334155', '#FFFFFF', '#CBD5E1'),  # slate-700
+}
+
+
+def get_pdf_section_band(title, subtitle=None, preset='navy', total_width=None):
+    """Returns a single full-width Table flowable rendering a colored section band.
+
+    Args:
+        title: Section title text (e.g. "STOCK OVERVIEW")
+        subtitle: Optional small right-aligned subtitle (e.g. "Updated: 04-2026")
+        preset: One of SECTION_BAND_PRESETS keys
+        total_width: Total width in points (defaults to a value the caller will set)
+    """
+    register_hindi_fonts()
+    from reportlab.platypus import Table as RTable, TableStyle
+    from reportlab.lib import colors as rl_colors
+
+    bg, fg, accent = SECTION_BAND_PRESETS.get(preset, SECTION_BAND_PRESETS['navy'])
+    width = total_width or 540  # safe default for A4 portrait with 15mm margins
+
+    if subtitle:
+        # Two-cell band: title on left, subtitle on right
+        row = [title.upper(), subtitle]
+        col_widths = [width * 0.62, width * 0.38]
+    else:
+        row = [title.upper()]
+        col_widths = [width]
+
+    t = RTable([row], colWidths=col_widths)
+    t.hAlign = 'LEFT'
+    style = [
+        ('BACKGROUND', (0, 0), (-1, -1), rl_colors.HexColor(bg)),
+        ('TEXTCOLOR', (0, 0), (-1, -1), rl_colors.HexColor(fg)),
+        ('FONTNAME', (0, 0), (-1, -1), 'FreeSansBold'),
+        ('FONTSIZE', (0, 0), (0, 0), 11),
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+        # Accent stripe at left edge (visual marker)
+        ('LINEBEFORE', (0, 0), (0, 0), 4, rl_colors.HexColor(accent)),
+    ]
+    if subtitle:
+        style.append(('FONTSIZE', (1, 0), (1, 0), 8.5))
+        style.append(('TEXTCOLOR', (1, 0), (1, 0), rl_colors.HexColor(accent)))
+        style.append(('ALIGN', (1, 0), (1, 0), 'RIGHT'))
+        style.append(('FONTNAME', (1, 0), (1, 0), 'FreeSans'))
+    t.setStyle(TableStyle(style))
+    return t

@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.26
+## Current Version: v104.28.27
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -10,6 +10,33 @@
 - Test contrast: text on tinted backgrounds should be at least slate-700 / slate-800
 - Borders: slate-200 / slate-300 instead of slate-700
 - Hover: bg-slate-50 / bg-slate-100
+
+## Recent Fixes (Apr 2026) — v104.28.27
+
+### Dashboard & Summary Report PDFs — Professional Redesign
+- **User directive**: *"dashboard and target mai Pdf and summary report professional and sunder banao"*
+- **New reusable helper** in `/app/backend/utils/export_helpers.py`:
+  - `get_pdf_section_band(title, subtitle, preset, total_width)` — full-width coloured section title bar with optional right-aligned subtitle. 8 colour presets (`navy`, `teal`, `orange`, `emerald`, `rose`, `purple`, `amber`, `slate`). Each preset includes a 4pt accent stripe on the left edge for visual branding.
+  - `SECTION_BAND_PRESETS` dict for future reports.
+- **Dashboard PDF** (`/app/backend/routes/exports.py:export_dashboard_pdf`):
+  - **KPI hero banner** at top using `get_pdf_summary_banner` with 7 stats (PADDY IN / USED / AVAILABLE / RICE PRODUCED / TARGETS / ACHIEVED / PENDING), each colour-coded.
+  - **Section bands**: orange for STOCK OVERVIEW, teal for MANDI TARGETS — both with informative subtitles ("FY 2026-2027 · Kharif", "Overall: 9.3% achieved").
+  - **Stock table**: TOTAL PADDY row highlighted in amber, Available column conditionally green/red, Gunny Bags negative shown in BOLD RED.
+  - **Targets table**: per-row Progress colour-coded (green ≥100%, gold 50-99%, red <50%) + bold for extreme values.
+  - **Layout fix**: leftMargin=8 + rightMargin=8 (with Frame's 6pt padding = 14pt effective) → 580pt content perfectly centered on A4. Column widths use percentages of PAGE_W instead of hardcoded mm so data won't overflow on different content sets.
+  - Duplicate tagline removed (header helper already shows it).
+- **Summary Report PDF** (`/app/backend/routes/exports.py:export_summary_report_pdf`):
+  - **KPI hero banner** with 7 stats including Grand Total, Paid (with paid %), Balance Due — all colour-coded.
+  - **Five colour-coded section bands**:
+    - 1 · Stock Overview (orange) — subtitle: Available + Rice
+    - 2 · Mandi Targets (teal) — subtitle: Overall achievement %
+    - 3 · Truck Payments (purple) — subtitle: Balance
+    - 4 · Agent / Mandi Payments (rose) — subtitle: Balance
+    - 5 · Grand Total (amber) — subtitle: Outstanding amount + %
+  - **Status columns** colour-coded: green Paid / red Pending with bold weight.
+  - **Grand Total final row**: amber-700 bg + white text + 11pt bold for executive emphasis (replaces the previous less-emphatic styling).
+  - Same 14pt-effective margin centering + percentage-based column widths.
+  - Same orange "COMPLETE SUMMARY REPORT" banner removed (replaced by sub-header line + KPI banner that does the job better).
 
 ## Recent Fixes (Apr 2026) — v104.28.26
 
