@@ -22,18 +22,31 @@ module.exports = (database) => {
         });
       }
       // Not activated — include debug info so admin can diagnose
-      let cachePath = '', cacheExists = false;
+      let cachePath = '', cacheExists = false, cacheSize = 0;
       try {
         const { app } = require('electron');
         cachePath = path.join(app.getPath('userData'), 'license.enc');
         cacheExists = fs.existsSync(cachePath);
+        if (cacheExists) cacheSize = fs.statSync(cachePath).size;
       } catch { /* non-electron context */ }
+
+      // Surface the specific reason ('decrypt_failed' is the silent-killer case
+      // that previously appeared as "Cache not found" to the user).
+      const decryptFailed = !!status.decrypt_failed;
       res.json({
         activated: false,
+        decrypt_failed: decryptFailed,
+        load_reason: status.load_reason || 'unknown',
+        // User-facing helpful message
+        diagnostic: decryptFailed
+          ? 'Cache file is present but cannot be decrypted (machine fingerprint shifted - common after USB / Hyper-V / VPN / Bluetooth changes). Click Repair to re-sync with server.'
+          : (cacheExists
+            ? 'Cache file exists but contains no valid activation. Click Repair to re-sync with server.'
+            : 'No activation cache found. Use Activate License to set up.'),
         debug: {
           cache_path: cachePath,
           cache_file_exists: cacheExists,
-          cache_file_size: cacheExists ? fs.statSync(cachePath).size : 0,
+          cache_file_size: cacheSize,
           machine_fingerprint: licenseManager.getMachineFingerprint(),
         },
       });

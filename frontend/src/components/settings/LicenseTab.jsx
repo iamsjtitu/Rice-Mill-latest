@@ -64,12 +64,28 @@ export default function LicenseTab() {
   if (loading) return <div className="p-8 text-center text-slate-500 text-sm" data-testid="license-info-loading">Loading license info...</div>;
 
   if (!info?.activated) {
+    // Differentiate the silent-killer "decrypt failed" case from genuine "never activated"
+    const isDecryptFailure = info?.decrypt_failed === true;
+    const fileExists = info?.debug?.cache_file_exists;
     return (
       <Card className="bg-slate-800/40 border-slate-700" data-testid="license-info-inactive">
         <CardContent className="p-6 text-center">
-          <CircleAlert className="w-10 h-10 mx-auto text-amber-500 mb-3" />
-          <p className="text-slate-300 font-semibold text-sm">License not activated on this device</p>
-          <p className="text-slate-500 text-xs mt-1 mb-4">Cache not found. If you previously activated, click Repair to re-sync with the license server.</p>
+          <CircleAlert className={`w-10 h-10 mx-auto mb-3 ${isDecryptFailure ? 'text-orange-500' : 'text-amber-500'}`} />
+          <p className="text-slate-300 font-semibold text-sm" data-testid="license-status-headline">
+            {isDecryptFailure ? 'License Cache Decrypt Failed' : 'License not activated on this device'}
+          </p>
+          <p className="text-slate-400 text-xs mt-1.5 mb-1 max-w-md mx-auto leading-relaxed">
+            {info?.diagnostic || (fileExists
+              ? 'Cache file is present but contains no valid activation. Click Repair to re-sync with server.'
+              : 'Cache not found. If you previously activated, click Repair to re-sync with the license server.')}
+          </p>
+          {isDecryptFailure && (
+            <p className="text-slate-500 text-[11px] mt-1 mb-4 max-w-md mx-auto">
+              <strong className="text-orange-400">Common causes:</strong> Plugged/unplugged USB ethernet, WiFi or Bluetooth adapter; installed Hyper-V / WSL / Docker / VirtualBox / VMware; activated VPN; Windows Update changed CPU info.<br/>
+              <strong className="text-emerald-400">Click Repair below to fix automatically.</strong>
+            </p>
+          )}
+          {!isDecryptFailure && <div className="mb-4" />}
           <div className="max-w-sm mx-auto">
             <input
               type="text"

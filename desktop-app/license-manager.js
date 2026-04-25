@@ -27,8 +27,73 @@ const CACHE_FILE_NAME = 'license.enc';
 const CACHE_KEY_SEED = '9x-design-millentry-license-cache-v1';
 
 // ====== Machine Fingerprint ======
+// IMPORTANT: This must be STABLE across restarts. Common pitfalls (cause "License not
+// activated" errors when cache is actually present):
+//   - USB ethernet/WiFi/Bluetooth adapters being plugged/unplugged
+//   - Hyper-V, WSL, Docker, VirtualBox, VMware adapters appearing/disappearing
+//   - VPN adapters (NordVPN, ExpressVPN, etc.) toggling on/off
+//   - Windows Update sometimes renames the CPU model string
+//
+// Fix: Filter to PHYSICAL non-virtual MACs only, and OMIT the volatile CPU model.
+const VIRTUAL_INTERFACE_PATTERNS = [
+  /vEthernet/i, /Hyper-V/i, /VirtualBox/i, /VMware/i, /VMnet/i,
+  /Bluetooth/i, /Tunnel/i, /TAP/i, /Loopback/i, /isatap/i, /Teredo/i,
+  /Docker/i, /WSL/i, /VPN/i, /TailScale/i, /Wintun/i, /Pseudo/i,
+  /vboxnet/i, /utun\d+/i, /awdl/i, /llw/i, /anpi/i, /ap\d+/i, /bridge/i, /gif/i, /stf/i,
+];
+
+// Common fake/locally-administered MAC prefixes (virtual NICs)
+function isPhysicalMac(mac) {
+  if (!mac || mac === '00:00:00:00:00:00') return false;
+  const firstByte = parseInt(mac.split(':')[0], 16);
+  if (isNaN(firstByte)) return false;
+  // The 2nd-least-significant bit of the 1st byte = "locally administered"
+  // Hyper-V/Docker/etc usually set this; physical NICs almost never do.
+  // We TOLERATE these (some real laptops have it) but still filter virtual adapters by name.
+  return true;
+}
+
+function getStableMacs() {
+  const nets = os.networkInterfaces();
+  const macs = [];
+  for (const name of Object.keys(nets)) {
+    // Skip if name matches any virtual pattern
+    if (VIRTUAL_INTERFACE_PATTERNS.some(p => p.test(name))) continue;
+    for (const net of nets[name] || []) {
+      if (!net.internal && net.mac && isPhysicalMac(net.mac)) {
+        macs.push(net.mac.toLowerCase());
+      }
+    }
+  }
+  // Dedupe + sort
+  return [...new Set(macs)].sort();
+}
+
 function getMachineFingerprint() {
-  // Stable across reboots & app restarts. Changes if user reinstalls OS or moves HDD.
+  // Stable across reboots & app restarts. Filters virtual/USB adapters that come & go.
+  const macs = getStableMacs();
+  const data = [
+    os.hostname(),
+    os.platform(),
+    os.arch(),
+    macs.join(','),
+    // CPU model REMOVED - sometimes changes after Windows Updates / power state
+  ].join('|');
+  return crypto.createHash('sha256').update(data).digest('hex');
+}
+
+// "Minimal" fingerprint — used as fallback for decrypting older caches when MACs
+// have changed (USB plugged/unplugged, virtual adapter installed, etc.). Without
+// this, the user's session would appear to be "Cache not found".
+function getMinimalFingerprint() {
+  const data = [os.hostname(), os.platform(), os.arch()].join('|');
+  return crypto.createHash('sha256').update(data).digest('hex');
+}
+
+// Legacy v1 fingerprint — what the OLD code (pre-v104.28.21) used. Includes ALL
+// MACs (virtual + physical) and the CPU model. Needed for backward-compatible
+// decryption of caches created by older versions.
+function getLegacyFingerprintV1() {
   const nets = os.networkInterfaces();
   const macs = [];
   for (const name of Object.keys(nets)) {
@@ -59,14 +124,15 @@ function getPcInfo() {
 }
 
 // ====== Encrypted cache (AES-256-GCM) ======
-function deriveKey() {
+function deriveKey(fingerprint) {
+  const fp = fingerprint || getMachineFingerprint();
   return crypto.createHash('sha256')
-    .update(CACHE_KEY_SEED + '|' + getMachineFingerprint())
+    .update(CACHE_KEY_SEED + '|' + fp)
     .digest();
 }
 
 function encryptCache(obj) {
-  const key = deriveKey();
+  const key = deriveKey();  // always uses the current (stable) fingerprint
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
   const plaintext = Buffer.from(JSON.stringify(obj), 'utf8');
@@ -75,21 +141,52 @@ function encryptCache(obj) {
   return Buffer.concat([iv, tag, ciphertext]).toString('base64');
 }
 
+function decryptCacheWithKey(buf, key) {
+  const iv = buf.subarray(0, 12);
+  const tag = buf.subarray(12, 28);
+  const ciphertext = buf.subarray(28);
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+  const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+  return JSON.parse(plaintext.toString('utf8'));
+}
+
+/**
+ * Decrypt cache, trying multiple candidate fingerprints in priority order.
+ * Why: A user's machine fingerprint can shift between sessions when they:
+ *   - plug/unplug USB ethernet, WiFi or Bluetooth adapters
+ *   - install/uninstall WSL, Docker, Hyper-V, VPN, VirtualBox, VMware
+ *   - apply a Windows Update that changes the CPU model string
+ * Without fallbacks, the cache file would be unreadable and the user would see
+ * "License not activated" / "Cache not found" — even though the file is right there.
+ *
+ * Returns null if NO candidate works (then the cache is genuinely corrupt or
+ * the machine has actually changed).
+ */
 function decryptCache(str) {
-  try {
-    const buf = Buffer.from(str, 'base64');
-    const iv = buf.subarray(0, 12);
-    const tag = buf.subarray(12, 28);
-    const ciphertext = buf.subarray(28);
-    const key = deriveKey();
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-    decipher.setAuthTag(tag);
-    const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-    return JSON.parse(plaintext.toString('utf8'));
-  } catch (e) {
-    console.warn('[License] Cache decrypt failed:', e.message);
-    return null;
+  let buf;
+  try { buf = Buffer.from(str, 'base64'); } catch (e) { return null; }
+  if (buf.length < 30) return null;
+
+  const candidates = [
+    { name: 'current',  fp: getMachineFingerprint() },
+    { name: 'minimal',  fp: getMinimalFingerprint() },
+    { name: 'legacy_v1', fp: getLegacyFingerprintV1() },
+  ];
+
+  for (const cand of candidates) {
+    try {
+      const data = decryptCacheWithKey(buf, deriveKey(cand.fp));
+      if (cand.name !== 'current') {
+        console.warn(`[License] Cache decrypted via ${cand.name} fallback (machine fingerprint shifted). Re-saving with current key.`);
+        // Re-save immediately with the current fingerprint so future loads use 'current' path
+        try { saveCache(data); } catch (e) { /* best-effort */ }
+      }
+      return data;
+    } catch (e) { /* try next candidate */ }
   }
+  console.warn('[License] Cache decrypt failed — all candidate fingerprints exhausted.');
+  return null;
 }
 
 function getCachePath() {
@@ -101,15 +198,29 @@ function getCachePath() {
 }
 
 function loadCache() {
+  const result = loadCacheWithReason();
+  return result.cache;
+}
+
+/**
+ * Like loadCache() but also returns WHY it failed. Used by status / startup logic
+ * to differentiate between "no file" and "file exists but cannot decrypt".
+ * Returns: { cache, reason: 'ok' | 'not_found' | 'decrypt_failed' | 'read_error' }
+ */
+function loadCacheWithReason() {
   const p = getCachePath();
-  if (!fs.existsSync(p)) return null;
+  if (!fs.existsSync(p)) return { cache: null, reason: 'not_found' };
+  let raw;
   try {
-    const raw = fs.readFileSync(p, 'utf8');
-    return decryptCache(raw);
+    raw = fs.readFileSync(p, 'utf8');
   } catch (e) {
-    console.warn('[License] loadCache error:', e.message);
-    return null;
+    console.warn('[License] loadCache read error:', e.message);
+    return { cache: null, reason: 'read_error', error: e.message };
   }
+  if (!raw || !raw.trim()) return { cache: null, reason: 'empty_file' };
+  const cache = decryptCache(raw);
+  if (!cache) return { cache: null, reason: 'decrypt_failed' };
+  return { cache, reason: 'ok' };
 }
 
 function saveCache(data) {
@@ -247,11 +358,15 @@ async function lookupLicense(key) {
 
 /**
  * Check license status at startup.
- * Returns: { ok: true, cache } | { ok: false, reason, cache? }
+ * Returns: { ok: true, cache } | { ok: false, reason, cache?, decrypt_failed? }
  */
 async function checkLicenseOnStartup() {
-  const cache = loadCache();
+  const { cache, reason: loadReason } = loadCacheWithReason();
   if (!cache || !cache.key) {
+    // Differentiate genuine "never activated" vs "cache exists but can't decrypt"
+    if (loadReason === 'decrypt_failed') {
+      return { ok: false, reason: 'cache_decrypt_failed', decrypt_failed: true };
+    }
     return { ok: false, reason: 'no_activation' };
   }
 
@@ -351,8 +466,15 @@ function startBackgroundHeartbeat(onRevoked) {
 }
 
 function getStatus() {
-  const cache = loadCache();
-  if (!cache) return { activated: false };
+  const { cache, reason } = loadCacheWithReason();
+  if (!cache) {
+    return {
+      activated: false,
+      cache_file_exists: reason !== 'not_found',
+      decrypt_failed: reason === 'decrypt_failed',
+      load_reason: reason,
+    };
+  }
   return {
     activated: true,
     key: cache.key,
@@ -401,6 +523,9 @@ async function getCloudAccessStatus() {
 
 module.exports = {
   getMachineFingerprint,
+  getMinimalFingerprint,
+  getLegacyFingerprintV1,
+  loadCacheWithReason,
   getPcInfo,
   checkLicenseOnStartup,
   lookupLicense,

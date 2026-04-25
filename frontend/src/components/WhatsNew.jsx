@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.21",
+    date: "Apr 2026",
+    title: "v104.28.21 — 🔐 License Cache Auto-Recovery (Fingerprint Drift Fix)",
+    items: [
+      { type: "fix", text: "🚨 CRITICAL FIX: 'License not activated on this device / Cache not found' — bhale hi cache file 472 bytes mein wahi padi ho. Ye contradiction tab aati thi jab user ka machine fingerprint shift ho jaata tha (USB ethernet plug/unplug, Hyper-V/WSL/Docker install, VPN toggle, Bluetooth, Windows Update CPU model change). Decryption fail hote hi system 'cache not found' bolne lag jaata tha." },
+      { type: "new", text: "🛡️ Multi-fingerprint fallback decryption — system ab 3 candidate fingerprints try karta hai (current → minimal → legacy v1). Jab koi bhi succeed ho, cache automatically current fingerprint se re-save ho jaata hai. User ko kuch nahi karna padta — silent recovery" },
+      { type: "new", text: "🎯 Stable fingerprint generation — virtual/temporary network adapters ab fingerprint mein nahi count hote: vEthernet, Hyper-V, VirtualBox, VMware, Bluetooth, VPN, Tailscale, Wintun, Docker, WSL — sab filter. CPU model bhi hata diya (Windows Update se badal sakta hai)" },
+      { type: "fix", text: "💬 Better error messages — agar genuine decrypt fail ho (different machine), UI ab spasht batata hai 'Cache file present but cannot be decrypted (machine fingerprint shifted)' aur common causes list dikhata hai (USB / Hyper-V / VPN), instead of misleading 'Cache not found'" },
+      { type: "fix", text: "🔍 Diagnostic info — `/api/license/status` ab `decrypt_failed`, `load_reason`, `cache_file_size`, `machine_fingerprint` return karta hai. Repair button click karne se pehle hi user ko clear picture milti hai" },
+    ],
+  },
+  {
     version: "104.28.20",
     date: "Apr 2026",
     title: "v104.28.20 — 🎨 Light-Theme Banner deployed to Desktop App + Local Server",
