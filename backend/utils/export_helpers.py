@@ -458,6 +458,8 @@ def get_pdf_summary_banner(stats, total_width=None):
         col_widths = [100] * n  # default 100pt per cell
 
     t = RTable([row], colWidths=col_widths)
+    # Center the banner horizontally on the page (instead of left-aligned)
+    t.hAlign = 'CENTER'
 
     style_cmds = [
         # Light cream background

@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.23",
+    date: "Apr 2026",
+    title: "v104.28.23 — 🎯 PDF Banner Centered + Hemali Monthly Summary Redesign + Branding Audit",
+    items: [
+      { type: "fix", text: "🎯 PDF Summary banner ab **horizontally centered** on every page — pehle left-aligned tha. Reusable helper mein `hAlign='CENTER'` set kar diya, sab reports ek saath fix" },
+      { type: "new", text: "📊 Hemali Monthly Summary PDF + Excel ab fully professional — branded header (NAVKAR AGRO + address), per-Sardar orange section bands with current advance balance, monthly breakdown tables, aur sab Sardars ka grand summary banner with 7 stats: Total Sardars, Payments, Gross Work, Total Paid, Adv. Given, Adv. Deducted, Outstanding" },
+      { type: "fix", text: "🏢 Branding consistency audit — Oil Premium, BP Sale Register, Govt Milling Register etc. mein ab shared `get_pdf_company_header()` use ho raha hai. Sab reports mein company name + address + phone + custom_fields (proprietor name, GST, etc.) ek saath dikhe" },
+    ],
+  },
+  {
     version: "104.28.22",
     date: "Apr 2026",
     title: "v104.28.22 — ⚡ License Auto-Recovery (No Key Re-entry Required)",

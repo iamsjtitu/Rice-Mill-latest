@@ -266,13 +266,9 @@ async def export_oil_premium_pdf(kms_year: str = "", season: str = "", bran_type
     elements = []
     styles = getSampleStyleSheet()
 
-    company_style = ParagraphStyle('CompanyHeader', parent=styles['Title'], fontSize=12,
-        textColor=colors.HexColor('#1F4E79'), spaceAfter=1, alignment=1)
-    addr_style = ParagraphStyle('Addr', parent=styles['Normal'], fontSize=7,
-        textColor=colors.HexColor('#666666'), spaceAfter=2, alignment=1)
-    elements.append(Paragraph(company.upper(), company_style))
-    if address:
-        elements.append(Paragraph(f"{address}  |  {phone}", addr_style))
+    # Use shared branded header (company name + address + phone + custom_fields like proprietor, GST, etc.)
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header(branding))
 
     title = "Oil Premium Register"
     if kms_year: title += f" - FY {kms_year}"

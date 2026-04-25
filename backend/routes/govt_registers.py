@@ -2250,24 +2250,15 @@ async def export_milling_register_pdf(kms_year: Optional[str] = None, season: Op
     rows = reg_data["rows"]
     summary = reg_data["summary"]
     branding = await db.branding.find_one({}, {"_id": 0}) or {}
-    company = branding.get("company_name", "Rice Mill")
-    tagline = branding.get("tagline", "")
-    custom_fields = branding.get("custom_fields", [])
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=10, rightMargin=10, topMargin=12, bottomMargin=12)
     elements = []
     styles = getSampleStyleSheet()
 
-    # Header
-    co_style = ParagraphStyle('Co', parent=styles['Title'], fontSize=13, textColor=colors.HexColor('#1F4E79'), spaceAfter=1, alignment=1)
-    elements.append(Paragraph(company.upper(), co_style))
-    info_parts = [tagline] if tagline else []
-    for cf in custom_fields:
-        info_parts.append(f"{cf.get('label','')}: {cf.get('value','')}")
-    if info_parts:
-        addr_style = ParagraphStyle('Addr', parent=styles['Normal'], fontSize=7, textColor=colors.HexColor('#666666'), spaceAfter=2, alignment=1)
-        elements.append(Paragraph("  |  ".join(info_parts), addr_style))
+    # Shared branded header (company + address + phone + custom_fields like proprietor, GST etc.)
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header(branding))
 
     title = "MILLING REGISTER"
     if kms_year: title += f" - KMS {kms_year}"

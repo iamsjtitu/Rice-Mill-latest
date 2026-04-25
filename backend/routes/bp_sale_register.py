@@ -515,23 +515,15 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
     has_oil_pdf = bool(oil_map_pdf) and any(oil_map_pdf.get(s.get('voucher_no') or '') or oil_map_pdf.get(s.get('rst_no') or '') for s in sales)
 
     branding = await db.branding.find_one({}, {"_id": 0}) or {}
-    company = branding.get("company_name", "Rice Mill")
-    address = branding.get("address", "")
-    phone = branding.get("phone", "")
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=12, rightMargin=12, topMargin=15, bottomMargin=15)
     elements = []
     styles = getSampleStyleSheet()
 
-    # Company header
-    company_style = ParagraphStyle('CompanyHeader', parent=styles['Title'], fontSize=12,
-        textColor=colors.HexColor('#1F4E79'), spaceAfter=1, alignment=1)
-    addr_style = ParagraphStyle('Addr', parent=styles['Normal'], fontSize=7,
-        textColor=colors.HexColor('#666666'), spaceAfter=2, alignment=1)
-    elements.append(Paragraph(company.upper(), company_style))
-    if address:
-        elements.append(Paragraph(f"{address}  |  {phone}", addr_style))
+    # Use shared branded header (company + address + phone + custom_fields like proprietor, GST, etc.)
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header(branding))
 
     # Title
     title = f"{product or 'By-Product'} Sale Register"

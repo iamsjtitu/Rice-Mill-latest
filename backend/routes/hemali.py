@@ -566,7 +566,9 @@ async def hemali_monthly_summary_pdf(kms_year: str = "", season: str = "", sarda
         buf.seek(0)
         return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=hemali_monthly_summary.pdf"})
 
-    # Per-sardar tables
+    # Per-sardar tables — accumulate grand totals across all sardars
+    grand_work = grand_paid = grand_adv_given = grand_adv_deducted = 0
+    grand_payments_total = grand_payments_paid = 0
     for sardar in data:
         # Sardar name pill + advance balance
         sardar_hdr = RTable(
@@ -580,6 +582,7 @@ async def hemali_monthly_summary_pdf(kms_year: str = "", season: str = "", sarda
             ]],
             colWidths=[400, 401]
         )
+        sardar_hdr.hAlign = 'CENTER'
         sardar_hdr.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#d97706")),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -602,6 +605,8 @@ async def hemali_monthly_summary_pdf(kms_year: str = "", season: str = "", sarda
                 f"Rs. {m['advance_given']:,.2f}",
                 f"Rs. {m['advance_deducted']:,.2f}",
             ])
+            grand_payments_total += m.get("total_payments", 0)
+            grand_payments_paid += m.get("paid_payments", 0)
         rows.append([
             "TOTAL", "",
             f"Rs. {sardar['grand_total_work']:,.2f}",
@@ -614,9 +619,31 @@ async def hemali_monthly_summary_pdf(kms_year: str = "", season: str = "", sarda
         style_cmds.append(("ALIGN", (1, 0), (-1, -1), "RIGHT"))
         style_cmds.append(("ALIGN", (0, 0), (0, -1), "LEFT"))
         t = RTable(rows, colWidths=[100, 100, 130, 130, 130, 130], repeatRows=1)
+        t.hAlign = 'CENTER'
         t.setStyle(TableStyle(style_cmds))
         elements.append(t)
         elements.append(Spacer(1, 14))
+
+        grand_work += sardar.get("grand_total_work", 0)
+        grand_paid += sardar.get("grand_total_paid", 0)
+        grand_adv_given += sardar.get("grand_total_advance_given", 0)
+        grand_adv_deducted += sardar.get("grand_total_advance_deducted", 0)
+
+    # ===== GRAND SUMMARY BANNER (across all sardars) — light theme, centered =====
+    from utils.export_helpers import get_pdf_summary_banner, fmt_inr, STAT_COLORS
+    summary_stats = [
+        {'label': 'TOTAL SARDARS', 'value': str(len(data)), 'color': STAT_COLORS['primary']},
+        {'label': 'PAYMENTS', 'value': f"{grand_payments_paid}/{grand_payments_total}", 'color': STAT_COLORS['blue']},
+        {'label': 'GROSS WORK', 'value': fmt_inr(grand_work), 'color': STAT_COLORS['gold']},
+        {'label': 'TOTAL PAID', 'value': fmt_inr(grand_paid), 'color': STAT_COLORS['emerald']},
+        {'label': 'ADV. GIVEN', 'value': fmt_inr(grand_adv_given), 'color': STAT_COLORS['orange']},
+        {'label': 'ADV. DEDUCTED', 'value': fmt_inr(grand_adv_deducted), 'color': STAT_COLORS['purple']},
+        {'label': 'OUTSTANDING', 'value': fmt_inr(grand_work - grand_paid - grand_adv_deducted), 'color': STAT_COLORS['red']},
+    ]
+    elements.append(Spacer(1, 4))
+    banner = get_pdf_summary_banner(summary_stats, total_width=720)
+    if banner:
+        elements.append(banner)
 
     doc.build(elements)
     buf.seek(0)
@@ -654,6 +681,8 @@ async def hemali_monthly_summary_excel(kms_year: str = "", season: str = "", sar
     # style_excel_title returns starting row; use a safe row 5 (header rows 1-4 used by branding)
     row_n = ws.max_row + 2 if ws.max_row else 5
 
+    grand_work = grand_paid = grand_adv_given = grand_adv_deducted = 0
+    grand_payments_total = grand_payments_paid = 0
     for sardar in data:
         # Sardar header band (orange)
         cell = ws.cell(row=row_n, column=1, value=f"SARDAR: {sardar['sardar_name']}")
@@ -685,6 +714,8 @@ async def hemali_monthly_summary_excel(kms_year: str = "", season: str = "", sar
             for ci, v in enumerate(vals, 1):
                 ws.cell(row=row_n, column=ci, value=v)
             row_n += 1
+            grand_payments_total += m.get("total_payments", 0)
+            grand_payments_paid += m.get("paid_payments", 0)
         if sardar["months"]:
             style_excel_data_rows(ws, data_start, row_n - 1, ncols, headers_list)
         ws.cell(row=row_n, column=1, value="TOTAL")
@@ -695,8 +726,27 @@ async def hemali_monthly_summary_excel(kms_year: str = "", season: str = "", sar
         style_excel_total_row(ws, row_n, ncols)
         row_n += 2
 
+        grand_work += sardar.get("grand_total_work", 0)
+        grand_paid += sardar.get("grand_total_paid", 0)
+        grand_adv_given += sardar.get("grand_total_advance_given", 0)
+        grand_adv_deducted += sardar.get("grand_total_advance_deducted", 0)
+
     for w, col_letter in [(14, "A"), (22, "B"), (16, "C"), (16, "D"), (16, "E"), (16, "F")]:
         ws.column_dimensions[col_letter].width = w
+
+    # ===== GRAND SUMMARY BANNER (across all sardars) =====
+    if data:
+        from utils.export_helpers import add_excel_summary_banner, fmt_inr
+        sum_stats = [
+            {'label': 'Total Sardars', 'value': str(len(data))},
+            {'label': 'Payments', 'value': f"{grand_payments_paid}/{grand_payments_total}"},
+            {'label': 'Gross Work', 'value': fmt_inr(grand_work)},
+            {'label': 'Total Paid', 'value': fmt_inr(grand_paid)},
+            {'label': 'Adv. Given', 'value': fmt_inr(grand_adv_given)},
+            {'label': 'Adv. Deducted', 'value': fmt_inr(grand_adv_deducted)},
+            {'label': 'Outstanding', 'value': fmt_inr(grand_work - grand_paid - grand_adv_deducted)},
+        ]
+        add_excel_summary_banner(ws, row_n + 1, ncols, sum_stats)
 
     buf = io.BytesIO()
     wb.save(buf)
