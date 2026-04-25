@@ -7,6 +7,19 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.19",
+    date: "Apr 2026",
+    title: "v104.28.19 — 🎨 Light-Theme Summary Banner on All Reports",
+    items: [
+      { type: "new", text: "🎨 Saari major reports ke PDF aur Excel exports ab ek **light cream + gold** themed beautiful summary banner ke saath aate hain — last row mein single-line professional stat strip" },
+      { type: "new", text: "📊 9 reports cover hue: Hemali Payments, Mill Entries, Cash Book, Vehicle Weight, Sale Book, Purchase Book, Stock Summary, Truck Lease, Agent Payments, Diesel Accounts" },
+      { type: "new", text: "🌈 Har stat apne signature color mein — slate (primary), emerald (paid), red (outstanding), gold (gross), orange (advances), blue (totals), purple (special) — high contrast on light cream background" },
+      { type: "new", text: "✨ Pehle dark navy theme tha jo zyada bharkila lagta tha. Ab light cream + gold accent stripe — saaf, professional, print-friendly" },
+      { type: "fix", text: "📐 Reusable helper functions (`get_pdf_summary_banner`, `add_excel_summary_banner`, `STAT_COLORS`, `fmt_inr`) banaye gaye `utils/export_helpers.py` mein — future reports mein bhi turant add ho sakta hai" },
+      { type: "fix", text: "🔄 Triple-backend parity: Hemali ka light theme banner desktop-app aur local-server (Node.js) mein bhi mirror ho gaya" },
+    ],
+  },
+  {
     version: "104.28.18",
     date: "Apr 2026",
     title: "v104.28.18 — 📊 Hemali Payment Export Redesigned (PDF + Excel)",

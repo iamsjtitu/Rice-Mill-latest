@@ -412,22 +412,31 @@ def get_pdf_company_header(branding=None):
 
 
 # ============================================================================
-# BEAUTIFUL SINGLE-LINE SUMMARY BANNER (PDF + Excel)
+# BEAUTIFUL SINGLE-LINE SUMMARY BANNER (PDF + Excel) — LIGHT THEME
 # ============================================================================
 # Used at the bottom of export reports to show key statistics in a single
 # professional horizontal strip with colored stat columns.
-# Stat dict format: { 'label': 'TOTAL ENTRIES', 'value': '42', 'color': '#fbbf24' }
-# Colors: white='#fff', green='#22c55e', red='#f87171', gold='#fbbf24',
-#         orange='#fb923c', blue='#60a5fa', emerald='#34d399', purple='#c084fc'
+# Stat dict format: { 'label': 'TOTAL ENTRIES', 'value': '42', 'color': '#b45309' }
+# 
+# Light theme palette (high contrast on cream/amber-50 bg):
+#   primary='#1e293b'  (dark slate)
+#   green='#15803d'    (emerald-700)
+#   red='#b91c1c'      (red-700)
+#   gold='#b45309'     (amber-700)
+#   orange='#c2410c'   (orange-700)
+#   blue='#1d4ed8'     (blue-700)
+#   emerald='#047857'  (emerald-700)
+#   purple='#7e22ce'   (purple-700)
 
-SUMMARY_BANNER_BG = '#1e293b'
-SUMMARY_ACCENT = '#f59e0b'
-SUMMARY_LABEL_COLOR = '#94a3b8'
-SUMMARY_DIVIDER = '#475569'
+SUMMARY_BANNER_BG = '#FFFBEB'      # amber-50 cream
+SUMMARY_LABEL_COLOR = '#64748b'    # slate-500 muted
+SUMMARY_DIVIDER = '#E5E7EB'        # gray-200 hairline
+SUMMARY_TOP_STRIPE = '#F59E0B'     # amber-500 gold
+SUMMARY_BOTTOM_STRIPE = '#FCD34D'  # amber-300 lighter gold
 
 
 def get_pdf_summary_banner(stats, total_width=None):
-    """Returns a ReportLab Table representing the dark-navy summary banner.
+    """Returns a ReportLab Table representing the LIGHT-themed summary banner.
     
     Args:
         stats: list of {'label': str, 'value': str, 'color': str} dicts
@@ -451,9 +460,12 @@ def get_pdf_summary_banner(stats, total_width=None):
     t = RTable([row], colWidths=col_widths)
 
     style_cmds = [
+        # Light cream background
         ('BACKGROUND', (0, 0), (-1, -1), rl_colors.HexColor(SUMMARY_BANNER_BG)),
-        ('LINEABOVE', (0, 0), (-1, 0), 2, rl_colors.HexColor(SUMMARY_ACCENT)),
-        # Default text color (label part); we'll override per-cell below
+        # Gold stripe at top + bottom for visual frame
+        ('LINEABOVE', (0, 0), (-1, 0), 2, rl_colors.HexColor(SUMMARY_TOP_STRIPE)),
+        ('LINEBELOW', (0, 0), (-1, 0), 1, rl_colors.HexColor(SUMMARY_BOTTOM_STRIPE)),
+        # Default text color (label part); we override per-cell below
         ('TEXTCOLOR', (0, 0), (-1, -1), rl_colors.HexColor(SUMMARY_LABEL_COLOR)),
         ('FONTNAME', (0, 0), (-1, -1), 'FreeSansBold'),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
@@ -464,9 +476,9 @@ def get_pdf_summary_banner(stats, total_width=None):
         ('LEFTPADDING', (0, 0), (-1, -1), 4),
         ('RIGHTPADDING', (0, 0), (-1, -1), 4),
     ]
-    # Per-cell color override + dividers between cells
+    # Per-cell colored value override + soft hairline dividers
     for i, s in enumerate(stats):
-        color_hex = s.get('color', '#ffffff')
+        color_hex = s.get('color', '#1e293b')
         style_cmds.append(('TEXTCOLOR', (i, 0), (i, 0), rl_colors.HexColor(color_hex)))
         if i > 0:
             style_cmds.append(('LINEBEFORE', (i, 0), (i, 0), 0.5, rl_colors.HexColor(SUMMARY_DIVIDER)))
@@ -475,13 +487,13 @@ def get_pdf_summary_banner(stats, total_width=None):
 
 
 def add_excel_summary_banner(ws, row_num, ncols, stats):
-    """Adds a teal single-line summary banner to an Excel worksheet at row_num.
+    """Adds a LIGHT-themed single-line summary banner to an Excel worksheet at row_num.
     
     Args:
         ws: openpyxl worksheet
         row_num: row number to place the banner
         ncols: number of columns to merge across
-        stats: list of {'label': str, 'value': str} dicts (color ignored - banner is uniform teal)
+        stats: list of {'label': str, 'value': str} dicts
     """
     if not stats:
         return
@@ -489,15 +501,21 @@ def add_excel_summary_banner(ws, row_num, ncols, stats):
     for s in stats:
         parts.append(f"{s['label']}: {s['value']}")
     text = "  •  ".join(parts)
-    # Prepend chart emoji if there's room
     text = f"📊  {text}"
 
     cell = ws.cell(row=row_num, column=1, value=text)
-    cell.font = Font(bold=True, size=11, color="FFFFFF")
-    cell.fill = PatternFill(start_color="0F766E", end_color="0F766E", fill_type="solid")
+    cell.font = Font(bold=True, size=11, color="1E293B")  # dark slate text
+    cell.fill = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")  # amber-50
     cell.alignment = Alignment(horizontal='center', vertical='center')
+    # Apply gold border on top + bottom for the visual frame
+    cell.border = Border(
+        top=Side(style='medium', color='F59E0B'),
+        bottom=Side(style='thin', color='FCD34D'),
+        left=Side(style='thin', color='FDE68A'),
+        right=Side(style='thin', color='FDE68A'),
+    )
     ws.merge_cells(start_row=row_num, start_column=1, end_row=row_num, end_column=ncols)
-    ws.row_dimensions[row_num].height = 26
+    ws.row_dimensions[row_num].height = 28
 
 
 def fmt_inr(amount, with_currency=True):
@@ -511,3 +529,18 @@ def fmt_inr(amount, with_currency=True):
     else:
         s = f"{n:,.2f}"
     return f"Rs. {s}" if with_currency else s
+
+
+# Light-theme stat color palette (use these for value text colors)
+STAT_COLORS = {
+    'primary':   '#1E293B',  # slate-900 (default for white-on-dark replacement)
+    'green':     '#15803D',  # emerald-700
+    'red':       '#B91C1C',  # red-700
+    'gold':      '#B45309',  # amber-700
+    'orange':    '#C2410C',  # orange-700
+    'blue':      '#1D4ED8',  # blue-700
+    'emerald':   '#047857',  # emerald-700
+    'purple':    '#7E22CE',  # purple-700
+    'teal':      '#0F766E',  # teal-700
+    'pink':      '#BE185D',  # pink-700
+}

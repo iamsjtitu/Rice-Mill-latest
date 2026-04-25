@@ -332,6 +332,25 @@ async def export_leases_pdf(kms_year: Optional[str] = None, season: Optional[str
     pdf_style = get_pdf_table_style(len(data))
     t.setStyle(TableStyle(pdf_style))
     elements.append(t)
+
+    # ===== Beautiful single-line summary banner =====
+    from utils.export_helpers import get_pdf_summary_banner, fmt_inr, STAT_COLORS
+    bal = max(0, grand_total - grand_paid)
+    active = sum(1 for l in leases if l.get('status', '').lower() == 'active')
+    closed = len(leases) - active
+    banner_stats = [
+        {'label': 'TOTAL LEASES', 'value': str(len(leases)), 'color': STAT_COLORS['primary']},
+        {'label': 'ACTIVE', 'value': str(active), 'color': STAT_COLORS['emerald']},
+        {'label': 'CLOSED', 'value': str(closed), 'color': STAT_COLORS['orange']},
+        {'label': 'TOTAL DUE', 'value': fmt_inr(grand_total), 'color': STAT_COLORS['gold']},
+        {'label': 'PAID', 'value': fmt_inr(grand_paid), 'color': STAT_COLORS['green']},
+        {'label': 'BALANCE', 'value': fmt_inr(bal), 'color': STAT_COLORS['red']},
+    ]
+    elements.append(Spacer(1, 6))
+    banner = get_pdf_summary_banner(banner_stats, total_width=sum(col_w))
+    if banner:
+        elements.append(banner)
+
     doc.build(elements)
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=truck_lease_report.pdf"})
@@ -389,6 +408,28 @@ async def export_leases_excel(kms_year: Optional[str] = None, season: Optional[s
         ws.column_dimensions[chr(64 + c)].width = 15
 
     style_excel_data_rows(ws, 5, row - 1, ncols)
+
+    # ===== Beautiful single-line summary banner =====
+    if leases:
+        from utils.export_helpers import add_excel_summary_banner, fmt_inr
+        # Aggregate from already-computed loop above is gone; recompute
+        gt = gp = 0
+        for ls in leases:
+            mts = get_months_between(ls.get("start_date", ""), ls.get("end_date", ""))
+            tr = len(mts) * ls.get("monthly_rent", 0)
+            pmts = await db.truck_lease_payments.find({"lease_id": ls["id"]}, {"_id": 0, "amount": 1}).to_list(5000)
+            gt += tr
+            gp += sum(p.get("amount", 0) for p in pmts)
+        active = sum(1 for ls in leases if ls.get('status', '').lower() == 'active')
+        sum_stats = [
+            {'label': 'Total Leases', 'value': str(len(leases))},
+            {'label': 'Active', 'value': str(active)},
+            {'label': 'Closed', 'value': str(len(leases) - active)},
+            {'label': 'Total Due', 'value': fmt_inr(gt)},
+            {'label': 'Paid', 'value': fmt_inr(gp)},
+            {'label': 'Balance', 'value': fmt_inr(max(0, gt - gp))},
+        ]
+        add_excel_summary_banner(ws, row + 1, ncols, sum_stats)
 
     buf = io.BytesIO()
     wb.save(buf)

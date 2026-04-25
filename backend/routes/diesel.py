@@ -304,6 +304,18 @@ async def export_diesel_excel(kms_year: Optional[str] = None, season: Optional[s
         ws.column_dimensions[get_column_letter(i)].width = 18
     ws.page_setup.orientation = 'landscape'
     ws.page_setup.fitToWidth = 1
+
+    # ===== Beautiful single-line summary banner =====
+    if txns:
+        from utils.export_helpers import add_excel_summary_banner, fmt_inr
+        sum_stats = [
+            {'label': 'Total Txns', 'value': str(len(txns))},
+            {'label': 'Pumps', 'value': str(len(summary.get('pumps', [])))},
+            {'label': 'Total Diesel', 'value': fmt_inr(summary.get('grand_total_diesel', 0))},
+            {'label': 'Total Paid', 'value': fmt_inr(summary.get('grand_total_paid', 0))},
+            {'label': 'Balance', 'value': fmt_inr(summary.get('grand_balance', 0))},
+        ]
+        add_excel_summary_banner(ws, row + 1, ncols, sum_stats)
     
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -357,6 +369,21 @@ async def export_diesel_pdf(kms_year: Optional[str] = None, season: Optional[str
     tt = Table(t_data, colWidths=[70, 100, 55, 80, 80, 70, 180])
     tt.setStyle(TableStyle(get_pdf_table_style(len(t_data))))
     elements.append(tt)
+
+    # ===== Beautiful single-line summary banner =====
+    from utils.export_helpers import get_pdf_summary_banner, fmt_inr, STAT_COLORS
+    pump_count = len(summary.get('pumps', []))
+    banner_stats = [
+        {'label': 'TOTAL TXNS', 'value': str(len(txns)), 'color': STAT_COLORS['primary']},
+        {'label': 'PUMPS', 'value': str(pump_count), 'color': STAT_COLORS['blue']},
+        {'label': 'TOTAL DIESEL', 'value': fmt_inr(summary.get('grand_total_diesel', 0)), 'color': STAT_COLORS['orange']},
+        {'label': 'TOTAL PAID', 'value': fmt_inr(summary.get('grand_total_paid', 0)), 'color': STAT_COLORS['green']},
+        {'label': 'BALANCE', 'value': fmt_inr(summary.get('grand_balance', 0)), 'color': STAT_COLORS['red']},
+    ]
+    elements.append(Spacer(1, 8))
+    banner = get_pdf_summary_banner(banner_stats, total_width=540)
+    if banner:
+        elements.append(banner)
 
     doc.build(elements)
     buffer.seek(0)

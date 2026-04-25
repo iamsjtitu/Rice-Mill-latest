@@ -728,6 +728,23 @@ async def export_purchase_book_pdf(kms_year: Optional[str] = None, season: Optio
     tbl.setStyle(TableStyle(style_cmds))
     elements.append(tbl)
 
+    # ===== Beautiful single-line summary banner =====
+    from utils.export_helpers import get_pdf_summary_banner, fmt_inr, STAT_COLORS
+    page_inner_w = sum(col_widths)
+    banner_stats = [
+        {'label': 'TOTAL ENTRIES', 'value': str(len(vouchers)), 'color': STAT_COLORS['primary']},
+        {'label': 'GROSS PURCHASE', 'value': fmt_inr(g['total']), 'color': STAT_COLORS['gold']},
+        {'label': 'ADVANCE', 'value': fmt_inr(g['adv']), 'color': STAT_COLORS['orange']},
+        {'label': 'CASH PAID', 'value': fmt_inr(g['cash']), 'color': STAT_COLORS['green']},
+        {'label': 'DIESEL', 'value': fmt_inr(g['diesel']), 'color': STAT_COLORS['purple']},
+        {'label': 'TOTAL PAID', 'value': fmt_inr(g['paid']), 'color': STAT_COLORS['emerald']},
+        {'label': 'OUTSTANDING', 'value': fmt_inr(g['bal']), 'color': STAT_COLORS['red']},
+    ]
+    elements.append(Spacer(1, 4))
+    banner = get_pdf_summary_banner(banner_stats, total_width=page_inner_w)
+    if banner:
+        elements.append(banner)
+
     footer_style = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=6, textColor=colors.HexColor('#999999'), alignment=TA_CENTER, spaceBefore=6)
     elements.append(Paragraph(f"{company} - Purchase Book | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", footer_style))
 
@@ -831,6 +848,20 @@ async def export_purchase_book_excel(kms_year: Optional[str] = None, season: Opt
             cell.alignment = Alignment(horizontal='right')
             if isinstance(val, (int, float)): cell.number_format = '#,##0'
         style_excel_total_row(ws, tr, ncols)
+
+        # ===== Beautiful single-line summary banner =====
+        if vouchers:
+            from utils.export_helpers import add_excel_summary_banner, fmt_inr
+            sum_stats = [
+                {'label': 'Total Entries', 'value': str(len(vouchers))},
+                {'label': 'Gross Purchase', 'value': fmt_inr(g['total'])},
+                {'label': 'Advance', 'value': fmt_inr(g['adv'])},
+                {'label': 'Cash Paid', 'value': fmt_inr(g['cash'])},
+                {'label': 'Diesel', 'value': fmt_inr(g['diesel'])},
+                {'label': 'Total Paid', 'value': fmt_inr(g['paid'])},
+                {'label': 'Outstanding', 'value': fmt_inr(g['bal'])},
+            ]
+            add_excel_summary_banner(ws, tr + 2, ncols, sum_stats)
 
         buf = io.BytesIO()
         wb.save(buf)
@@ -1095,6 +1126,26 @@ async def export_stock_summary_pdf(kms_year: Optional[str] = None, season: Optio
     footer_style = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=7, textColor=colors.HexColor('#999999'), alignment=TA_CENTER, spaceBefore=15)
     elements.append(Paragraph(f"{company} - Stock Summary | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", footer_style))
 
+    # ===== Beautiful single-line summary banner =====
+    from utils.export_helpers import get_pdf_summary_banner, STAT_COLORS
+    total_in = sum(it.get('in_qty', 0) for it in items)
+    total_out = sum(it.get('out_qty', 0) for it in items)
+    total_avail = sum(it.get('available', 0) for it in items)
+    neg_items = sum(1 for it in items if it.get('available', 0) < 0)
+    cat_count = len(grouped)
+    banner_stats = [
+        {'label': 'CATEGORIES', 'value': str(cat_count), 'color': STAT_COLORS['primary']},
+        {'label': 'TOTAL ITEMS', 'value': str(len(items)), 'color': STAT_COLORS['blue']},
+        {'label': 'IN QNTL', 'value': f"{total_in:,.2f}", 'color': STAT_COLORS['emerald']},
+        {'label': 'OUT QNTL', 'value': f"{total_out:,.2f}", 'color': STAT_COLORS['orange']},
+        {'label': 'AVAILABLE', 'value': f"{total_avail:,.2f}", 'color': STAT_COLORS['gold']},
+        {'label': 'NEG. STOCK', 'value': str(neg_items), 'color': STAT_COLORS['red']},
+    ]
+    elements.append(Spacer(1, 6))
+    banner = get_pdf_summary_banner(banner_stats, total_width=sum(col_widths))
+    if banner:
+        elements.append(banner)
+
     doc.build(elements)
     pdf_bytes = buf.getvalue()
 
@@ -1168,6 +1219,23 @@ async def export_stock_summary_excel(kms_year: Optional[str] = None, season: Opt
         ws.column_dimensions[get_column_letter(i)].width = w
     ws.page_setup.orientation = 'landscape'
     ws.page_setup.fitToWidth = 1
+
+    # ===== Beautiful single-line summary banner =====
+    if items:
+        from utils.export_helpers import add_excel_summary_banner
+        total_in = sum(it.get('in_qty', 0) for it in items)
+        total_out = sum(it.get('out_qty', 0) for it in items)
+        total_avail = sum(it.get('available', 0) for it in items)
+        neg_items = sum(1 for it in items if it.get('available', 0) < 0)
+        sum_stats = [
+            {'label': 'Categories', 'value': str(len(grouped))},
+            {'label': 'Total Items', 'value': str(len(items))},
+            {'label': 'In Qntl', 'value': f"{total_in:,.2f}"},
+            {'label': 'Out Qntl', 'value': f"{total_out:,.2f}"},
+            {'label': 'Available', 'value': f"{total_avail:,.2f}"},
+            {'label': 'Neg. Stock', 'value': str(neg_items)},
+        ]
+        add_excel_summary_banner(ws, row + 1, ncols, sum_stats)
 
     buf = io.BytesIO()
     wb.save(buf)

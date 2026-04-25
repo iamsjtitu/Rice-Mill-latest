@@ -1498,16 +1498,16 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
     elements.append(t)
 
     # ===== Beautiful single-line summary banner =====
-    from utils.export_helpers import get_pdf_summary_banner, fmt_inr
+    from utils.export_helpers import get_pdf_summary_banner, fmt_inr, STAT_COLORS
     page_inner_w = sum(col_widths)
     summary_stats = [
-        {'label': 'TOTAL ENTRIES', 'value': str(len(items)), 'color': '#ffffff'},
-        {'label': 'TOTAL BAGS', 'value': f"{tot_bags:,}", 'color': '#60a5fa'},
-        {'label': '1ST WT', 'value': f"{tot_1st:,.0f}", 'color': '#0ea5e9'},
-        {'label': '2ND WT', 'value': f"{tot_2nd:,.0f}", 'color': '#c084fc'},
-        {'label': 'NET WT', 'value': f"{tot_net:,.0f}", 'color': '#34d399'},
-        {'label': 'CASH PAID', 'value': fmt_inr(tot_cash), 'color': '#22c55e'},
-        {'label': 'DIESEL', 'value': fmt_inr(tot_diesel), 'color': '#fb923c'},
+        {'label': 'TOTAL ENTRIES', 'value': str(len(items)), 'color': STAT_COLORS['primary']},
+        {'label': 'TOTAL BAGS', 'value': f"{tot_bags:,}", 'color': STAT_COLORS['blue']},
+        {'label': '1ST WT', 'value': f"{tot_1st:,.0f}", 'color': STAT_COLORS['teal']},
+        {'label': '2ND WT', 'value': f"{tot_2nd:,.0f}", 'color': STAT_COLORS['purple']},
+        {'label': 'NET WT', 'value': f"{tot_net:,.0f}", 'color': STAT_COLORS['emerald']},
+        {'label': 'CASH PAID', 'value': fmt_inr(tot_cash), 'color': STAT_COLORS['green']},
+        {'label': 'DIESEL', 'value': fmt_inr(tot_diesel), 'color': STAT_COLORS['orange']},
     ]
     elements.append(Spacer(1, 4*mm))
     banner = get_pdf_summary_banner(summary_stats, total_width=page_inner_w)

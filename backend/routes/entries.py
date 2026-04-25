@@ -1342,17 +1342,17 @@ async def export_pdf(
     elements.append(main_table)
     
     # ===== Beautiful single-line summary banner =====
-    from utils.export_helpers import get_pdf_summary_banner, fmt_inr
+    from utils.export_helpers import get_pdf_summary_banner, fmt_inr, STAT_COLORS
     page_inner_w = page_width - 16*mm
     summary_stats = [
-        {'label': 'TOTAL ENTRIES', 'value': str(len(entries)), 'color': '#ffffff'},
-        {'label': 'QNTL', 'value': f"{totals.total_qntl:,.2f}", 'color': '#fbbf24'},
-        {'label': 'BAGS', 'value': str(int(totals.total_bag)), 'color': '#60a5fa'},
-        {'label': 'TP WEIGHT', 'value': f"{totals.total_tp_weight:,.2f}" if totals.total_tp_weight else "-", 'color': '#c084fc'},
-        {'label': 'MILL W', 'value': f"{totals.total_mill_w / 100:,.2f}", 'color': '#fb923c'},
-        {'label': 'FINAL W', 'value': f"{totals.total_final_w / 100:,.2f}", 'color': '#34d399'},
-        {'label': 'G.DEPOSITE', 'value': str(int(totals.total_g_deposite)), 'color': '#22c55e'},
-        {'label': 'G.ISSUED', 'value': str(int(totals.total_g_issued)), 'color': '#f87171'},
+        {'label': 'TOTAL ENTRIES', 'value': str(len(entries)), 'color': STAT_COLORS['primary']},
+        {'label': 'QNTL', 'value': f"{totals.total_qntl:,.2f}", 'color': STAT_COLORS['gold']},
+        {'label': 'BAGS', 'value': str(int(totals.total_bag)), 'color': STAT_COLORS['blue']},
+        {'label': 'TP WEIGHT', 'value': f"{totals.total_tp_weight:,.2f}" if totals.total_tp_weight else "-", 'color': STAT_COLORS['purple']},
+        {'label': 'MILL W', 'value': f"{totals.total_mill_w / 100:,.2f}", 'color': STAT_COLORS['orange']},
+        {'label': 'FINAL W', 'value': f"{totals.total_final_w / 100:,.2f}", 'color': STAT_COLORS['emerald']},
+        {'label': 'G.DEPOSITE', 'value': str(int(totals.total_g_deposite)), 'color': STAT_COLORS['green']},
+        {'label': 'G.ISSUED', 'value': str(int(totals.total_g_issued)), 'color': STAT_COLORS['red']},
     ]
     elements.append(Spacer(1, 4*mm))
     banner = get_pdf_summary_banner(summary_stats, total_width=page_inner_w)

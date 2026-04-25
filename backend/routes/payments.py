@@ -1821,6 +1821,23 @@ async def export_agent_payments_excel(kms_year: Optional[str] = None, season: Op
     from openpyxl.utils import get_column_letter
     for i, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = width
+
+    # ===== Beautiful single-line summary banner =====
+    if payments_data:
+        from utils.export_helpers import add_excel_summary_banner, fmt_inr
+        paid_count = sum(1 for p in payments_data if p['status'] == 'Paid')
+        partial_count = sum(1 for p in payments_data if p['status'] == 'Partial')
+        pending_count = sum(1 for p in payments_data if p['status'] == 'Pending')
+        sum_stats = [
+            {'label': 'Total Mandis', 'value': str(len(payments_data))},
+            {'label': 'Paid', 'value': str(paid_count)},
+            {'label': 'Partial', 'value': str(partial_count)},
+            {'label': 'Pending', 'value': str(pending_count)},
+            {'label': 'Total Amount', 'value': fmt_inr(total_amount_sum)},
+            {'label': 'Paid Amount', 'value': fmt_inr(total_paid_sum)},
+            {'label': 'Outstanding', 'value': fmt_inr(total_balance_sum)},
+        ]
+        add_excel_summary_banner(ws, total_row + 2, ncols, sum_stats)
     
     output = io.BytesIO()
     wb.save(output)
@@ -1941,6 +1958,26 @@ async def export_agent_payments_pdf(kms_year: Optional[str] = None, season: Opti
     
     main_table.setStyle(TableStyle(style_commands))
     elements.append(main_table)
+
+    # ===== Beautiful single-line summary banner =====
+    from utils.export_helpers import get_pdf_summary_banner, fmt_inr, STAT_COLORS
+    paid_count = sum(1 for r in payments_data if r[10] == 'Paid')
+    partial_count = sum(1 for r in payments_data if r[10] == 'Partial')
+    pending_count = sum(1 for r in payments_data if r[10] == 'Pending')
+    banner_stats = [
+        {'label': 'TOTAL MANDIS', 'value': str(len(payments_data)), 'color': STAT_COLORS['primary']},
+        {'label': 'PAID', 'value': str(paid_count), 'color': STAT_COLORS['emerald']},
+        {'label': 'PARTIAL', 'value': str(partial_count), 'color': STAT_COLORS['orange']},
+        {'label': 'PENDING', 'value': str(pending_count), 'color': STAT_COLORS['red']},
+        {'label': 'TOTAL AMT', 'value': fmt_inr(total_amount_sum), 'color': STAT_COLORS['gold']},
+        {'label': 'PAID AMT', 'value': fmt_inr(total_paid_sum), 'color': STAT_COLORS['green']},
+        {'label': 'OUTSTANDING', 'value': fmt_inr(total_balance_sum), 'color': STAT_COLORS['blue']},
+    ]
+    from reportlab.platypus import Spacer as RLSpacer
+    elements.append(RLSpacer(1, 4))
+    banner = get_pdf_summary_banner(banner_stats, total_width=sum(col_widths))
+    if banner:
+        elements.append(banner)
     
     doc.build(elements)
     buffer.seek(0)

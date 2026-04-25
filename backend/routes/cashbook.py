@@ -1413,15 +1413,15 @@ async def _generate_cash_book_pdf_bytes(kms_year=None, season=None, account=None
     elements.append(tbl)
 
     # ===== Beautiful single-line summary banner =====
-    from utils.export_helpers import get_pdf_summary_banner, fmt_inr
+    from utils.export_helpers import get_pdf_summary_banner, fmt_inr, STAT_COLORS
     net = tj - tn
     page_inner_w = sum(col_widths)
     summary_stats = [
-        {'label': 'TOTAL ENTRIES', 'value': str(len(rows)), 'color': '#ffffff'},
-        {'label': 'TOTAL JAMA', 'value': fmt_inr(tj), 'color': '#34d399'},
-        {'label': 'TOTAL NIKASI', 'value': fmt_inr(tn), 'color': '#f87171'},
-        {'label': 'NET MOVEMENT', 'value': fmt_inr(net), 'color': '#fbbf24' if net >= 0 else '#fb923c'},
-        {'label': 'CLOSING BALANCE', 'value': fmt_inr(run_bal), 'color': '#60a5fa' if run_bal >= 0 else '#f87171'},
+        {'label': 'TOTAL ENTRIES', 'value': str(len(rows)), 'color': STAT_COLORS['primary']},
+        {'label': 'TOTAL JAMA', 'value': fmt_inr(tj), 'color': STAT_COLORS['emerald']},
+        {'label': 'TOTAL NIKASI', 'value': fmt_inr(tn), 'color': STAT_COLORS['red']},
+        {'label': 'NET MOVEMENT', 'value': fmt_inr(net), 'color': STAT_COLORS['gold'] if net >= 0 else STAT_COLORS['orange']},
+        {'label': 'CLOSING BALANCE', 'value': fmt_inr(run_bal), 'color': STAT_COLORS['blue'] if run_bal >= 0 else STAT_COLORS['red']},
     ]
     elements.append(Spacer(1, 8))
     banner = get_pdf_summary_banner(summary_stats, total_width=page_inner_w)

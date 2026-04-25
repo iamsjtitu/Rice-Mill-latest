@@ -603,6 +603,23 @@ async def export_sale_book_pdf(kms_year: Optional[str] = None, season: Optional[
     tbl.setStyle(TableStyle(style_cmds))
     elements.append(tbl)
 
+    # ===== Beautiful single-line summary banner =====
+    from utils.export_helpers import get_pdf_summary_banner, fmt_inr, STAT_COLORS
+    page_inner_w = sum(col_widths)
+    banner_stats = [
+        {'label': 'TOTAL ENTRIES', 'value': str(len(vouchers)), 'color': STAT_COLORS['primary']},
+        {'label': 'GROSS SALE', 'value': fmt_inr(g['total']), 'color': STAT_COLORS['gold']},
+        {'label': 'ADVANCE', 'value': fmt_inr(g['adv']), 'color': STAT_COLORS['orange']},
+        {'label': 'CASH PAID', 'value': fmt_inr(g['cash']), 'color': STAT_COLORS['green']},
+        {'label': 'DIESEL', 'value': fmt_inr(g['diesel']), 'color': STAT_COLORS['purple']},
+        {'label': 'TOTAL PAID', 'value': fmt_inr(g['paid']), 'color': STAT_COLORS['emerald']},
+        {'label': 'OUTSTANDING', 'value': fmt_inr(g['bal']), 'color': STAT_COLORS['red']},
+    ]
+    elements.append(Spacer(1, 4))
+    banner = get_pdf_summary_banner(banner_stats, total_width=page_inner_w)
+    if banner:
+        elements.append(banner)
+
     footer_style = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=6, textColor=colors.HexColor('#999999'), alignment=TA_CENTER, spaceBefore=6)
     elements.append(Paragraph(f"{company} - Sale Book | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", footer_style))
 
@@ -713,6 +730,20 @@ async def export_sale_book_excel(kms_year: Optional[str] = None, season: Optiona
         cell.alignment = Alignment(horizontal='right')
         if isinstance(val, (int, float)): cell.number_format = '#,##0'
     style_excel_total_row(ws, tr, ncols)
+    
+    # ===== Beautiful single-line summary banner =====
+    if vouchers:
+        from utils.export_helpers import add_excel_summary_banner, fmt_inr
+        sum_stats = [
+            {'label': 'Total Entries', 'value': str(len(vouchers))},
+            {'label': 'Gross Sale', 'value': fmt_inr(g['total'])},
+            {'label': 'Advance', 'value': fmt_inr(g['adv'])},
+            {'label': 'Cash Paid', 'value': fmt_inr(g['cash'])},
+            {'label': 'Diesel', 'value': fmt_inr(g['diesel'])},
+            {'label': 'Total Paid', 'value': fmt_inr(g['paid'])},
+            {'label': 'Outstanding', 'value': fmt_inr(g['bal'])},
+        ]
+        add_excel_summary_banner(ws, tr + 2, ncols, sum_stats)
     
     buf = io.BytesIO()
     wb.save(buf)

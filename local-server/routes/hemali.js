@@ -567,32 +567,33 @@ module.exports = (database) => {
       y += 16;
     });
 
-    // ===== Beautiful single-line summary footer =====
+    // ===== Beautiful single-line summary footer (LIGHT theme) =====
     y += 10;
     if (y > 540) { doc.addPage(); y = 30; }
     const tableW = colWidths.reduce((a, b) => a + b, 0);
-    const summaryH = 26;
-    doc.rect(startX, y, tableW, summaryH).fill('#1e293b');
-    doc.rect(startX, y, tableW, 2).fill('#f59e0b');
+    const summaryH = 30;
+    doc.rect(startX, y, tableW, summaryH).fill('#FFFBEB');
+    doc.rect(startX, y, tableW, 2).fill('#F59E0B');
+    doc.rect(startX, y + 2, tableW, 1).fill('#FCD34D');
 
     const fmtRs = (n) => `Rs.${(n || 0).toFixed(2)}`;
     const stats = [
-      { lbl: 'TOTAL ENTRIES', val: String(payments.length), color: '#fff' },
-      { lbl: 'PAID', val: String(paidCount), color: '#22c55e' },
-      { lbl: 'UNPAID', val: String(unpaidCount), color: '#f87171' },
-      { lbl: 'GROSS WORK', val: fmtRs(grandTotal), color: '#fbbf24' },
-      { lbl: 'ADV. DEDUCTED', val: fmtRs(grandAdvDed), color: '#fb923c' },
-      { lbl: 'PAYABLE', val: fmtRs(grandPayable), color: '#60a5fa' },
-      { lbl: 'TOTAL PAID', val: fmtRs(grandPaid), color: '#34d399' },
-      { lbl: 'NEW ADV.', val: fmtRs(grandNewAdv), color: '#c084fc' },
+      { lbl: 'TOTAL ENTRIES', val: String(payments.length), color: '#1E293B' },
+      { lbl: 'PAID', val: String(paidCount), color: '#047857' },
+      { lbl: 'UNPAID', val: String(unpaidCount), color: '#B91C1C' },
+      { lbl: 'GROSS WORK', val: fmtRs(grandTotal), color: '#B45309' },
+      { lbl: 'ADV. DEDUCTED', val: fmtRs(grandAdvDed), color: '#C2410C' },
+      { lbl: 'PAYABLE', val: fmtRs(grandPayable), color: '#1D4ED8' },
+      { lbl: 'TOTAL PAID', val: fmtRs(grandPaid), color: '#15803D' },
+      { lbl: 'NEW ADV.', val: fmtRs(grandNewAdv), color: '#7E22CE' },
     ];
 
     const cellW = tableW / stats.length;
     stats.forEach((s, i) => {
       const cx = startX + i * cellW;
-      if (i > 0) doc.moveTo(cx, y + 6).lineTo(cx, y + summaryH - 4).strokeColor('#475569').lineWidth(0.5).stroke();
-      doc.fontSize(6).fillColor('#94a3b8').text(s.lbl, cx + 4, y + 5, { width: cellW - 8, align: 'center', characterSpacing: 0.4 });
-      doc.fontSize(9).fillColor(s.color).text(s.val, cx + 4, y + 13, { width: cellW - 8, align: 'center' });
+      if (i > 0) doc.moveTo(cx, y + 8).lineTo(cx, y + summaryH - 4).strokeColor('#E5E7EB').lineWidth(0.5).stroke();
+      doc.fontSize(6).fillColor('#64748B').text(s.lbl, cx + 4, y + 7, { width: cellW - 8, align: 'center', characterSpacing: 0.4 });
+      doc.fontSize(9).fillColor(s.color).text(s.val, cx + 4, y + 16, { width: cellW - 8, align: 'center' });
     });
     y += summaryH;
 
@@ -717,10 +718,16 @@ module.exports = (database) => {
     ws.mergeCells(sumRowIdx, 1, sumRowIdx, 11);
     const sumCell = ws.getCell(sumRowIdx, 1);
     sumCell.value = `📊  Total Entries: ${payments.length}   •   Paid: ${paidCount}   •   Unpaid: ${unpaidCount}   •   Gross Work: Rs.${grandTotal.toFixed(2)}   •   Total Paid: Rs.${grandPaid.toFixed(2)}   •   Outstanding: Rs.${(grandPayable - grandPaid).toFixed(2)}`;
-    sumCell.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
-    sumCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } };
+    sumCell.font = { bold: true, size: 11, color: { argb: 'FF1E293B' } };
+    sumCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
     sumCell.alignment = { horizontal: 'center', vertical: 'middle' };
-    ws.getRow(sumRowIdx).height = 26;
+    sumCell.border = {
+      top: { style: 'medium', color: { argb: 'FFF59E0B' } },
+      bottom: { style: 'thin', color: { argb: 'FFFCD34D' } },
+      left: { style: 'thin', color: { argb: 'FFFDE68A' } },
+      right: { style: 'thin', color: { argb: 'FFFDE68A' } },
+    };
+    ws.getRow(sumRowIdx).height = 28;
 
     [5, 14, 12, 16, 38, 13, 14, 13, 13, 13, 12].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 

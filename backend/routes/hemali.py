@@ -1069,37 +1069,20 @@ async def export_hemali_pdf(
     # ===== Beautiful single-line summary banner =====
     elements.append(Spacer(1, 12))
     outstanding = grand_payable - grand_paid
-    summary_data = [[
-        f"TOTAL ENTRIES\n{len(payments)}",
-        f"PAID\n{paid_count}",
-        f"UNPAID\n{unpaid_count}",
-        f"GROSS WORK\nRs. {grand_total:,.0f}",
-        f"ADV. DEDUCTED\nRs. {grand_adv_ded:,.0f}",
-        f"PAYABLE\nRs. {grand_payable:,.0f}",
-        f"TOTAL PAID\nRs. {grand_paid:,.0f}",
-        f"OUTSTANDING\nRs. {outstanding:,.0f}",
-    ]]
-    summary_t = RTable(summary_data, colWidths=[100] * 8)
-    summary_t.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#1e293b")),
-        ("LINEABOVE", (0, 0), (-1, 0), 2, colors.HexColor("#f59e0b")),
-        ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#94a3b8")),
-        ("TEXTCOLOR", (0, 0), (0, 0), colors.white),
-        ("TEXTCOLOR", (1, 0), (1, 0), colors.HexColor("#22c55e")),
-        ("TEXTCOLOR", (2, 0), (2, 0), colors.HexColor("#f87171")),
-        ("TEXTCOLOR", (3, 0), (3, 0), colors.HexColor("#fbbf24")),
-        ("TEXTCOLOR", (4, 0), (4, 0), colors.HexColor("#fb923c")),
-        ("TEXTCOLOR", (5, 0), (5, 0), colors.HexColor("#60a5fa")),
-        ("TEXTCOLOR", (6, 0), (6, 0), colors.HexColor("#34d399")),
-        ("TEXTCOLOR", (7, 0), (7, 0), colors.HexColor("#c084fc")),
-        ("FONT", (0, 0), (-1, -1), "Helvetica-Bold", 10),
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ("LINEAFTER", (0, 0), (-2, -1), 0.5, colors.HexColor("#475569")),
-    ]))
-    elements.append(summary_t)
+    from utils.export_helpers import get_pdf_summary_banner, STAT_COLORS
+    summary_stats = [
+        {'label': 'TOTAL ENTRIES', 'value': str(len(payments)), 'color': STAT_COLORS['primary']},
+        {'label': 'PAID', 'value': str(paid_count), 'color': STAT_COLORS['emerald']},
+        {'label': 'UNPAID', 'value': str(unpaid_count), 'color': STAT_COLORS['red']},
+        {'label': 'GROSS WORK', 'value': f"Rs. {grand_total:,.0f}", 'color': STAT_COLORS['gold']},
+        {'label': 'ADV. DEDUCTED', 'value': f"Rs. {grand_adv_ded:,.0f}", 'color': STAT_COLORS['orange']},
+        {'label': 'PAYABLE', 'value': f"Rs. {grand_payable:,.0f}", 'color': STAT_COLORS['blue']},
+        {'label': 'TOTAL PAID', 'value': f"Rs. {grand_paid:,.0f}", 'color': STAT_COLORS['green']},
+        {'label': 'OUTSTANDING', 'value': f"Rs. {outstanding:,.0f}", 'color': STAT_COLORS['purple']},
+    ]
+    banner = get_pdf_summary_banner(summary_stats, total_width=sum([22, 70, 55, 75, 170, 60, 60, 60, 60, 60, 50]))
+    if banner:
+        elements.append(banner)
 
     doc.build(elements)
     buf.seek(0)
@@ -1224,19 +1207,17 @@ async def export_hemali_excel(
         style_excel_total_row(ws, row_n, ncols)
 
         # ===== Beautiful single-line summary banner (below totals) =====
-        sum_row_n = row_n + 2
+        from utils.export_helpers import add_excel_summary_banner
         outstanding = grand_payable - grand_paid
-        sum_text = (
-            f"📊  Total Entries: {len(payments)}   •   Paid: {paid_count}   •   Unpaid: {unpaid_count}"
-            f"   •   Gross Work: Rs.{grand_total:,.2f}   •   Total Paid: Rs.{grand_paid:,.2f}"
-            f"   •   Outstanding: Rs.{outstanding:,.2f}"
-        )
-        sum_cell = ws.cell(row=sum_row_n, column=1, value=sum_text)
-        sum_cell.font = Font(bold=True, size=11, color="FFFFFF")
-        sum_cell.fill = PatternFill(start_color="0F766E", end_color="0F766E", fill_type="solid")
-        sum_cell.alignment = Alignment(horizontal="center", vertical="center")
-        ws.merge_cells(start_row=sum_row_n, start_column=1, end_row=sum_row_n, end_column=ncols)
-        ws.row_dimensions[sum_row_n].height = 26
+        sum_stats = [
+            {'label': 'Total Entries', 'value': str(len(payments))},
+            {'label': 'Paid', 'value': str(paid_count)},
+            {'label': 'Unpaid', 'value': str(unpaid_count)},
+            {'label': 'Gross Work', 'value': f"Rs.{grand_total:,.2f}"},
+            {'label': 'Total Paid', 'value': f"Rs.{grand_paid:,.2f}"},
+            {'label': 'Outstanding', 'value': f"Rs.{outstanding:,.2f}"},
+        ]
+        add_excel_summary_banner(ws, row_n + 2, ncols, sum_stats)
 
     for w, col_letter in [(5, "A"), (14, "B"), (12, "C"), (18, "D"), (40, "E"), (14, "F"), (16, "G"), (14, "H"), (14, "I"), (16, "J"), (10, "K")]:
         ws.column_dimensions[col_letter].width = w
