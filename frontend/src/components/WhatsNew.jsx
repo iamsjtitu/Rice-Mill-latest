@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.12",
+    date: "Feb 2026",
+    title: "v104.28.12 — 🚨 CRITICAL: Hemali Items Data Loss on Update — ROOT FIX",
+    items: [
+      { type: "fix", text: "🚨 ROOT CAUSE FIX: Software update ke baad Hemali Items config vanish ho jaa raha tha. Reason — SQLite database mein 'hemali_items' collection registered hi nahi tha (ARRAY_COLLECTIONS list mein missing). Save successful dikhta tha lekin app restart pe load nahi hota tha (silent data loss)" },
+      { type: "fix", text: "🛠️ Fix 1 (Recovery): Startup pe automatic recovery — purani JSON backup file se hemali_items aur 15+ baki missing collections (byproduct_categories, opening_stock, telegram_logs, etc.) restore ho jayengi" },
+      { type: "fix", text: "🛠️ Fix 2 (Future-proof): Save/Load logic ab dynamic — koi bhi naya collection auto-detect ho jaata hai, hardcoded list pe depend nahi karta. Future updates pe ye bug repeat nahi hoga" },
+      { type: "fix", text: "🛡️ Defensive: Save par missing tables auto-create ho jaate hain. Agar koi developer nayi collection introduce kare, bina list update kiye bhi data persist hoga" },
+    ],
+  },
+  {
     version: "104.28.11",
     date: "Feb 2026",
     title: "v104.28.11 — Agent Ledger + Receipt + UX Fixes",

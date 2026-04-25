@@ -7,7 +7,10 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 
-// All known collections (arrays)
+// All known collections (arrays) — kept as initial seed list; we also auto-detect
+// any new collection that routes start using (see _persistedCollections() and _doSave()).
+// IMPORTANT: NEVER remove items from this list — we only add. Removing means SQLite
+// won't load existing rows back into memory → silent data loss after update.
 const ARRAY_COLLECTIONS = [
   'entries', 'mandi_targets', 'truck_payments', 'agent_payments',
   'milling_entries', 'bank_accounts', 'opening_balances',
@@ -19,13 +22,20 @@ const ARRAY_COLLECTIONS = [
   'frk_purchases', 'truck_leases', 'truck_lease_payments',
   'staff', 'mill_parts', 'mill_parts_stock', 'diesel_pumps',
   'msp_payments', 'staff_payments', 'staff_advances', 'staff_attendance',
-  'vehicle_weights', 'hemali_entries', 'hemali_payments',
+  'vehicle_weights', 'hemali_entries', 'hemali_payments', 'hemali_items',
   'private_payments', 'app_settings', 'party_ledger',
-  'audit_log', 'paddy_cutting'
+  'audit_log', 'paddy_cutting',
+  // v104.28.12 — added previously-missing collections (caused data loss on update):
+  'byproduct_categories', 'cmr_deliveries', 'frk_register',
+  'govt_gunny_bag_register', 'oil_premium', 'opening_stock', 'paddy_release',
+  'party_opening_balances', 'private_rice_sales', 'bp_sale_register',
+  'cash_book_categories', 'salebook', 'security_deposits', 'store_rooms',
+  'telegram_logs', 'verification_history',
 ];
 
 // KV items (non-array objects)
-const KV_KEYS = ['branding', 'users', 'gst_opening_balances', '_migrations', 'settings'];
+const KV_KEYS = ['branding', 'users', 'gst_opening_balances', '_migrations', 'settings',
+  'fy_settings', 'gst_company_settings', 'gst_settings'];
 
 class SqliteDatabase {
   constructor(dataFolder) {
@@ -86,6 +96,7 @@ class SqliteDatabase {
 
     this._initTables();
     this._migrateFromJsonIfNeeded();
+    this._recoverMissingCollectionsFromJson();
     this.data = this._loadAll();
 
     // Run data migration (same as JsonDatabase)
@@ -161,6 +172,53 @@ class SqliteDatabase {
     }
   }
 
+  /**
+   * RECOVERY: If SQLite was already populated but a particular collection is empty
+   * AND the legacy JSON file has rows for it, copy them in. This recovers data lost
+   * because earlier versions had collections missing from ARRAY_COLLECTIONS list
+   * (e.g. hemali_items in v<=104.28.11). Idempotent — runs only when SQLite empty
+   * for that specific collection.
+   */
+  _recoverMissingCollectionsFromJson() {
+    if (!fs.existsSync(this.jsonFile)) return;
+    let jsonData;
+    try {
+      jsonData = JSON.parse(fs.readFileSync(this.jsonFile, 'utf8'));
+    } catch (e) {
+      console.warn('[SQLite] Recovery: cannot parse JSON file:', e.message);
+      return;
+    }
+    let recovered = 0;
+    for (const col of ARRAY_COLLECTIONS) {
+      const jsonRows = Array.isArray(jsonData[col]) ? jsonData[col] : null;
+      if (!jsonRows || jsonRows.length === 0) continue;
+      let sqliteCount = 0;
+      try {
+        sqliteCount = this.sqlite.prepare(`SELECT COUNT(*) as c FROM "${col}"`).get().c;
+      } catch { sqliteCount = 0; }
+      if (sqliteCount > 0) continue; // already has data
+      // Copy JSON rows into SQLite
+      try {
+        const insert = this.sqlite.prepare(`INSERT OR REPLACE INTO "${col}" (id, doc) VALUES (?, ?)`);
+        const tx = this.sqlite.transaction(() => {
+          for (const item of jsonRows) {
+            const id = (item && item.id) || uuidv4();
+            if (item && !item.id) item.id = id;
+            insert.run(id, JSON.stringify(item));
+          }
+        });
+        tx();
+        recovered += jsonRows.length;
+        console.log(`[SQLite Recovery] Restored ${jsonRows.length} rows into '${col}' from JSON backup`);
+      } catch (e) {
+        console.warn(`[SQLite Recovery] Failed for '${col}':`, e.message);
+      }
+    }
+    if (recovered > 0) {
+      console.log(`[SQLite Recovery] Total: ${recovered} rows recovered from JSON backup`);
+    }
+  }
+
   _importData(jsonData) {
     const transaction = this.sqlite.transaction(() => {
       for (const [key, value] of Object.entries(jsonData)) {
@@ -190,8 +248,17 @@ class SqliteDatabase {
       try { data[kv.key] = JSON.parse(kv.value); } catch { data[kv.key] = null; }
     }
 
-    // Load collections
-    for (const col of ARRAY_COLLECTIONS) {
+    // Load collections — DYNAMIC: query SQLite for all user tables (excluding _kv)
+    // and load each one. Falls back to ARRAY_COLLECTIONS for tables not yet created.
+    let userTables = [];
+    try {
+      const rows = this.sqlite.prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != '_kv'"
+      ).all();
+      userTables = rows.map(r => r.name);
+    } catch { userTables = []; }
+    const allCols = new Set([...ARRAY_COLLECTIONS, ...userTables]);
+    for (const col of allCols) {
       try {
         const rows = this.sqlite.prepare(`SELECT doc FROM "${col}"`).all();
         data[col] = rows.map(r => {
@@ -295,18 +362,29 @@ class SqliteDatabase {
           }
         }
 
-        // Save array collections
-        for (const col of ARRAY_COLLECTIONS) {
+        // Save array collections — DYNAMIC: persist every array key in this.data,
+        // not just the hardcoded ARRAY_COLLECTIONS list. This prevents data loss when
+        // routes start using a new collection that's not in the list yet.
+        const allCols = new Set([
+          ...ARRAY_COLLECTIONS,
+          ...Object.keys(this.data).filter(k => Array.isArray(this.data[k]) && !KV_KEYS.includes(k))
+        ]);
+        for (const col of allCols) {
           if (!this.data[col]) continue;
           const items = this.data[col];
           if (!Array.isArray(items)) continue;
+
+          // Lazy-create table if missing (for collections not in initial CREATE list)
+          try {
+            this.sqlite.exec(`CREATE TABLE IF NOT EXISTS "${col}" (id TEXT PRIMARY KEY, doc TEXT NOT NULL)`);
+          } catch (e) { console.warn(`[SQLite] Cannot ensure table '${col}':`, e.message); continue; }
 
           // Full rewrite: DELETE all + INSERT all (within transaction = fast)
           this.sqlite.prepare(`DELETE FROM "${col}"`).run();
           if (items.length > 0) {
             const insert = this.sqlite.prepare(`INSERT INTO "${col}" (id, doc) VALUES (?, ?)`);
             for (const item of items) {
-              const id = item.id || uuidv4();
+              const id = (item && item.id) || uuidv4();
               insert.run(id, JSON.stringify(item));
             }
           }

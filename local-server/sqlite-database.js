@@ -7,25 +7,35 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 
-// All known collections (arrays)
+// All known collections (arrays) — kept as initial seed list; we also auto-detect
+// any new collection that routes start using (see _persistedCollections() and _doSave()).
+// IMPORTANT: NEVER remove items from this list — we only add. Removing means SQLite
+// won't load existing rows back into memory → silent data loss after update.
 const ARRAY_COLLECTIONS = [
   'entries', 'mandi_targets', 'truck_payments', 'agent_payments',
   'milling_entries', 'bank_accounts', 'opening_balances',
   'sale_vouchers', 'purchase_vouchers', 'local_party_accounts',
   'voucher_payments', 'stock_summary', 'cash_transactions',
-  'dc_entries', 'dc_deliveries', 'dc_msp_payments',
+  'dc_entries', 'dc_deliveries', 'dc_msp_payments', 'dc_stacks', 'dc_stack_lots',
   'gunny_bags', 'diesel_accounts', 'private_paddy',
   'truck_owner_payments', 'rice_sales', 'byproduct_sales',
   'frk_purchases', 'truck_leases', 'truck_lease_payments',
   'staff', 'mill_parts', 'mill_parts_stock', 'diesel_pumps',
   'msp_payments', 'staff_payments', 'staff_advances', 'staff_attendance',
-  'vehicle_weights', 'hemali_entries', 'hemali_payments',
+  'vehicle_weights', 'hemali_entries', 'hemali_payments', 'hemali_items',
   'private_payments', 'app_settings', 'party_ledger',
-  'audit_log', 'paddy_cutting'
+  'audit_log', 'paddy_cutting',
+  // v104.28.12 — added previously-missing collections (caused data loss on update):
+  'byproduct_categories', 'cmr_deliveries', 'frk_register',
+  'govt_gunny_bag_register', 'oil_premium', 'opening_stock', 'paddy_release',
+  'party_opening_balances', 'private_rice_sales', 'bp_sale_register',
+  'cash_book_categories', 'salebook', 'security_deposits', 'store_rooms',
+  'telegram_logs', 'verification_history',
 ];
 
 // KV items (non-array objects)
-const KV_KEYS = ['branding', 'users', 'gst_opening_balances', '_migrations', 'settings'];
+const KV_KEYS = ['branding', 'users', 'gst_opening_balances', '_migrations', 'settings',
+  'fy_settings', 'gst_company_settings', 'gst_settings'];
 
 class SqliteDatabase {
   constructor(dataFolder) {
@@ -51,7 +61,8 @@ class SqliteDatabase {
 
     // FIRST: Checkpoint any existing WAL data into main DB (prevent data loss)
     try {
-      const currentMode = this.sqlite.pragma('journal_mode', { simple: true });
+      const modeResult = this.sqlite.pragma('journal_mode');
+      const currentMode = Array.isArray(modeResult) ? modeResult[0]?.journal_mode : modeResult;
       if (currentMode === 'wal') {
         console.log('[SQLite] WAL mode detected, checkpointing data into main DB...');
         this.sqlite.pragma('wal_checkpoint(TRUNCATE)');
@@ -63,23 +74,29 @@ class SqliteDatabase {
 
     // ALWAYS use DELETE mode for cloud paths (no WAL/SHM = no Google Drive conflicts)
     if (isCloudPath) {
-      console.log('[SQLite] Cloud storage detected - FORCING DELETE journal mode');
+      console.log('[SQLite] Cloud storage detected (' + normalizedPath.substring(0, 50) + '...) - FORCING DELETE journal mode');
       this.sqlite.pragma('journal_mode = DELETE');
     } else {
       this.sqlite.pragma('journal_mode = WAL');
     }
     this.sqlite.pragma('synchronous = NORMAL');
-    this.sqlite.pragma('cache_size = -8000');
+    this.sqlite.pragma('cache_size = -8000'); // 8MB cache
 
     // Verify journal mode
-    const verifyMode = this.sqlite.pragma('journal_mode', { simple: true });
-    console.log('[SQLite] Active journal_mode:', verifyMode);
+    try {
+      const verifyResult = this.sqlite.pragma('journal_mode');
+      const verifyMode = Array.isArray(verifyResult) ? verifyResult[0]?.journal_mode : verifyResult;
+      console.log('[SQLite] Active journal_mode:', verifyMode);
+    } catch (e) {
+      console.log('[SQLite] pragma verify skipped:', e.message);
+    }
 
     // Clean up WAL/SHM files and Google Drive conflict copies AFTER checkpoint
     this._cleanupWalFiles();
 
     this._initTables();
     this._migrateFromJsonIfNeeded();
+    this._recoverMissingCollectionsFromJson();
     this.data = this._loadAll();
 
     // Run data migration (same as JsonDatabase)
@@ -92,13 +109,16 @@ class SqliteDatabase {
     const walFile = this.dbFile + '-wal';
     const shmFile = this.dbFile + '-shm';
     try {
+      // Remove main WAL/SHM (already checkpointed)
       if (fs.existsSync(walFile)) { fs.unlinkSync(walFile); console.log('[SQLite] Cleaned WAL file'); }
       if (fs.existsSync(shmFile)) { fs.unlinkSync(shmFile); console.log('[SQLite] Cleaned SHM file'); }
+      // Remove Google Drive conflict copies: "millentry-data (1).db-wal", "millentry-data (1).db-shm", etc.
       const dir = path.dirname(this.dbFile);
       const files = fs.readdirSync(dir);
       files.forEach(f => {
         if (f.match(/millentry-data\s*\(\d+\)\.db-(wal|shm)$/i) || f.match(/millentry-data\.db-(wal|shm)\s*\(\d+\)$/i)) {
-          fs.unlinkSync(path.join(dir, f));
+          const fp = path.join(dir, f);
+          fs.unlinkSync(fp);
           console.log(`[SQLite] Cleaned conflict file: ${f}`);
         }
       });
@@ -152,6 +172,53 @@ class SqliteDatabase {
     }
   }
 
+  /**
+   * RECOVERY: If SQLite was already populated but a particular collection is empty
+   * AND the legacy JSON file has rows for it, copy them in. This recovers data lost
+   * because earlier versions had collections missing from ARRAY_COLLECTIONS list
+   * (e.g. hemali_items in v<=104.28.11). Idempotent — runs only when SQLite empty
+   * for that specific collection.
+   */
+  _recoverMissingCollectionsFromJson() {
+    if (!fs.existsSync(this.jsonFile)) return;
+    let jsonData;
+    try {
+      jsonData = JSON.parse(fs.readFileSync(this.jsonFile, 'utf8'));
+    } catch (e) {
+      console.warn('[SQLite] Recovery: cannot parse JSON file:', e.message);
+      return;
+    }
+    let recovered = 0;
+    for (const col of ARRAY_COLLECTIONS) {
+      const jsonRows = Array.isArray(jsonData[col]) ? jsonData[col] : null;
+      if (!jsonRows || jsonRows.length === 0) continue;
+      let sqliteCount = 0;
+      try {
+        sqliteCount = this.sqlite.prepare(`SELECT COUNT(*) as c FROM "${col}"`).get().c;
+      } catch { sqliteCount = 0; }
+      if (sqliteCount > 0) continue; // already has data
+      // Copy JSON rows into SQLite
+      try {
+        const insert = this.sqlite.prepare(`INSERT OR REPLACE INTO "${col}" (id, doc) VALUES (?, ?)`);
+        const tx = this.sqlite.transaction(() => {
+          for (const item of jsonRows) {
+            const id = (item && item.id) || uuidv4();
+            if (item && !item.id) item.id = id;
+            insert.run(id, JSON.stringify(item));
+          }
+        });
+        tx();
+        recovered += jsonRows.length;
+        console.log(`[SQLite Recovery] Restored ${jsonRows.length} rows into '${col}' from JSON backup`);
+      } catch (e) {
+        console.warn(`[SQLite Recovery] Failed for '${col}':`, e.message);
+      }
+    }
+    if (recovered > 0) {
+      console.log(`[SQLite Recovery] Total: ${recovered} rows recovered from JSON backup`);
+    }
+  }
+
   _importData(jsonData) {
     const transaction = this.sqlite.transaction(() => {
       for (const [key, value] of Object.entries(jsonData)) {
@@ -181,8 +248,17 @@ class SqliteDatabase {
       try { data[kv.key] = JSON.parse(kv.value); } catch { data[kv.key] = null; }
     }
 
-    // Load collections
-    for (const col of ARRAY_COLLECTIONS) {
+    // Load collections — DYNAMIC: query SQLite for all user tables (excluding _kv)
+    // and load each one. Falls back to ARRAY_COLLECTIONS for tables not yet created.
+    let userTables = [];
+    try {
+      const rows = this.sqlite.prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != '_kv'"
+      ).all();
+      userTables = rows.map(r => r.name);
+    } catch { userTables = []; }
+    const allCols = new Set([...ARRAY_COLLECTIONS, ...userTables]);
+    for (const col of allCols) {
       try {
         const rows = this.sqlite.prepare(`SELECT doc FROM "${col}"`).all();
         data[col] = rows.map(r => {
@@ -274,6 +350,7 @@ class SqliteDatabase {
 
   _doSave() {
     this._pendingSave = false;
+    this.lastSaveTime = new Date().toISOString();
     this._lastOwnSaveTime = Date.now();
     try {
       const transaction = this.sqlite.transaction(() => {
@@ -285,26 +362,68 @@ class SqliteDatabase {
           }
         }
 
-        // Save array collections
-        for (const col of ARRAY_COLLECTIONS) {
+        // Save array collections — DYNAMIC: persist every array key in this.data,
+        // not just the hardcoded ARRAY_COLLECTIONS list. This prevents data loss when
+        // routes start using a new collection that's not in the list yet.
+        const allCols = new Set([
+          ...ARRAY_COLLECTIONS,
+          ...Object.keys(this.data).filter(k => Array.isArray(this.data[k]) && !KV_KEYS.includes(k))
+        ]);
+        for (const col of allCols) {
           if (!this.data[col]) continue;
           const items = this.data[col];
           if (!Array.isArray(items)) continue;
+
+          // Lazy-create table if missing (for collections not in initial CREATE list)
+          try {
+            this.sqlite.exec(`CREATE TABLE IF NOT EXISTS "${col}" (id TEXT PRIMARY KEY, doc TEXT NOT NULL)`);
+          } catch (e) { console.warn(`[SQLite] Cannot ensure table '${col}':`, e.message); continue; }
 
           // Full rewrite: DELETE all + INSERT all (within transaction = fast)
           this.sqlite.prepare(`DELETE FROM "${col}"`).run();
           if (items.length > 0) {
             const insert = this.sqlite.prepare(`INSERT INTO "${col}" (id, doc) VALUES (?, ?)`);
             for (const item of items) {
-              const id = item.id || uuidv4();
+              const id = (item && item.id) || uuidv4();
               insert.run(id, JSON.stringify(item));
             }
           }
         }
       });
       transaction();
+      
+      // After save: briefly release file lock so Google Drive can sync
+      if (this._isCloudPath) {
+        this._releaseLockBriefly();
+      }
     } catch (e) {
       console.error('[SQLite] Save error:', e.message);
+    }
+  }
+
+  // Release SQLite file lock briefly so Google Drive desktop app can sync
+  _releaseLockBriefly() {
+    try {
+      this.sqlite.close();
+      // Reopen immediately - the close itself is enough for GDrive to detect the file change
+      const Database = require('better-sqlite3');
+      this.sqlite = new Database(this.dbFile);
+      this.sqlite.pragma('journal_mode = DELETE');
+      this.sqlite.pragma('synchronous = NORMAL');
+      this.sqlite.pragma('cache_size = -8000');
+      this._cleanupWalFiles();
+      // Update our known mtime so we don't falsely detect our own save as external change
+      try {
+        const stat = fs.statSync(this.dbFile);
+        this._lastKnownMtime = stat.mtimeMs;
+        this._lastKnownSize = stat.size;
+      } catch (_) {}
+    } catch (e) {
+      console.error('[SQLite] Lock release error:', e.message);
+      try {
+        const Database = require('better-sqlite3');
+        this.sqlite = new Database(this.dbFile);
+      } catch (_) {}
     }
   }
 
@@ -321,18 +440,21 @@ class SqliteDatabase {
       this._lastKnownMtime = stat.mtimeMs;
       this._lastKnownSize = stat.size;
     } catch (_) {}
+    // Build a quick data fingerprint for change detection
     this._prevDataHash = this._getDataFingerprint();
 
-    const SYNC_WINDOW_INTERVAL = 30000;
-    const POLL_INTERVAL = 5000;
+    const SYNC_WINDOW_INTERVAL = 10000; // Every 10 sec, release file lock for Google Drive
+    const POLL_INTERVAL = 5000; // Check file every 5 sec
 
     this._fileWatcher = setInterval(async () => {
       try {
         const now = Date.now();
+        
+        // Check 1: File mtime/size changed (Google Drive downloaded new version)
         if (fs.existsSync(this.dbFile)) {
           const stat = fs.statSync(this.dbFile);
           if (stat.mtimeMs > this._lastKnownMtime && (stat.mtimeMs - (this._lastOwnSaveTime || 0)) > 2000) {
-            console.log('[AutoSync] File change detected, reloading...');
+            console.log('[AutoSync] External file change detected, reloading...');
             this._lastKnownMtime = stat.mtimeMs;
             this._lastKnownSize = stat.size;
             this._reloadFromDisk();
@@ -343,10 +465,15 @@ class SqliteDatabase {
           this._lastKnownMtime = stat.mtimeMs;
           this._lastKnownSize = stat.size;
         }
+
+        // Check 2: Periodic sync window - close DB to let Google Drive sync
         if (this._isCloudPath && (now - this._lastSyncWindowTime) >= SYNC_WINDOW_INTERVAL) {
           this._lastSyncWindowTime = now;
+          // Close connection to release Windows file lock
           try { this.sqlite.close(); } catch(_) {}
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          // Brief pause for Google Drive to read/write
+          await new Promise(resolve => setTimeout(resolve, 500));
+          // Reopen
           const Database = require('better-sqlite3');
           this.sqlite = new Database(this.dbFile);
           try { this.sqlite.pragma('wal_checkpoint(TRUNCATE)'); } catch(_) {}
@@ -354,6 +481,7 @@ class SqliteDatabase {
           this.sqlite.pragma('synchronous = NORMAL');
           this.sqlite.pragma('cache_size = -8000');
           this._cleanupWalFiles();
+          // Reload and check if data changed
           this.data = this._loadAll();
           this.migrateOldEntries(this.data);
           const newHash = this._getDataFingerprint();
@@ -363,6 +491,7 @@ class SqliteDatabase {
           }
         }
       } catch (e) {
+        // Recover connection if something broke
         try {
           const Database = require('better-sqlite3');
           this.sqlite = new Database(this.dbFile);
@@ -370,7 +499,7 @@ class SqliteDatabase {
         } catch(_) {}
       }
     }, POLL_INTERVAL);
-    console.log('[SQLite] Auto-sync file watcher started (cloud:', this._isCloudPath, ')');
+    console.log('[SQLite] Auto-sync started (cloud:', this._isCloudPath, ', interval:', POLL_INTERVAL, 'ms, sync window:', SYNC_WINDOW_INTERVAL, 'ms)');
   }
 
   _getDataFingerprint() {
@@ -388,12 +517,15 @@ class SqliteDatabase {
     if (this._fileWatcher) {
       clearInterval(this._fileWatcher);
       this._fileWatcher = null;
+      console.log('[SQLite] File watcher stopped');
     }
   }
 
   _reloadFromDisk() {
     try {
+      // Close current connection to release file lock
       try { this.sqlite.close(); } catch(_) {}
+      // Reopen fresh connection
       const Database = require('better-sqlite3');
       this.sqlite = new Database(this.dbFile);
       try { this.sqlite.pragma('wal_checkpoint(TRUNCATE)'); } catch(_) {}
@@ -418,6 +550,7 @@ class SqliteDatabase {
     }
   }
 
+  // Manual sync/reload
   manualReload() {
     this._reloadFromDisk();
     return { entries: (this.data.entries || []).length, vehicle_weights: (this.data.vehicle_weights || []).length };
@@ -800,9 +933,9 @@ class SqliteDatabase {
     const moisture = parseFloat(data.moisture) || 0;
     const disc_dust_poll = parseFloat(data.disc_dust_poll) || 0;
     const qntl = Math.round((kg / 100) * 100) / 100;
-    const mill_w = kg - gbw_cut;
-    const mill_w_qntl = mill_w / 100;
     const p_pkt_cut = Math.round(plastic_bag * 0.5 * 100) / 100;
+    const mill_w = kg - gbw_cut - p_pkt_cut;
+    const mill_w_qntl = mill_w / 100;
     const moisture_cut_percent = Math.max(0, moisture - 17);
     const moisture_cut_qntl = Math.round((mill_w_qntl * moisture_cut_percent / 100) * 100) / 100;
     const moisture_cut = Math.round(moisture_cut_qntl * 100 * 100) / 100;
@@ -810,7 +943,7 @@ class SqliteDatabase {
     const cutting = Math.round(cutting_qntl * 100 * 100) / 100;
     const p_pkt_cut_qntl = p_pkt_cut / 100;
     const disc_dust_poll_qntl = disc_dust_poll / 100;
-    const final_w_qntl = mill_w_qntl - p_pkt_cut_qntl - moisture_cut_qntl - cutting_qntl - disc_dust_poll_qntl;
+    const final_w_qntl = mill_w_qntl - moisture_cut_qntl - cutting_qntl - disc_dust_poll_qntl;
     const final_w = Math.round(final_w_qntl * 100 * 100) / 100;
     return { qntl, mill_w, p_pkt_cut, moisture_cut, moisture_cut_percent, moisture_cut_qntl, cutting, cutting_qntl, final_w };
   }
@@ -1123,6 +1256,8 @@ class SqliteDatabase {
       this._doSave();
     }
     try {
+      // Force WAL checkpoint before close (merges WAL into main DB file)
+      // This ensures Google Drive syncs a complete, self-contained .db file
       this.sqlite.pragma('wal_checkpoint(TRUNCATE)');
       this.sqlite.close();
     } catch {}
