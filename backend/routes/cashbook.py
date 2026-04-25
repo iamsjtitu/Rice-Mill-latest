@@ -1258,6 +1258,18 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
             c.alignment = Alignment(horizontal='right')
     style_excel_total_row(ws, row_num, ncols)
     
+    # ===== Beautiful single-line teal summary banner =====
+    from utils.export_helpers import add_excel_summary_banner, fmt_inr
+    net = totals["total_jama"] - totals["total_nikasi"]
+    sum_stats = [
+        {'label': 'Total Entries', 'value': str(len(rows))},
+        {'label': 'Total Jama', 'value': fmt_inr(totals["total_jama"])},
+        {'label': 'Total Nikasi', 'value': fmt_inr(totals["total_nikasi"])},
+        {'label': 'Net Movement', 'value': fmt_inr(net)},
+        {'label': 'Closing Balance', 'value': fmt_inr(totals["closing_balance"])},
+    ]
+    add_excel_summary_banner(ws, row_num + 2, ncols, sum_stats)
+
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
     
@@ -1399,6 +1411,23 @@ async def _generate_cash_book_pdf_bytes(kms_year=None, season=None, account=None
     tbl = RLTable(table_data, colWidths=col_widths, repeatRows=1)
     tbl.setStyle(TableStyle(style_cmds))
     elements.append(tbl)
+
+    # ===== Beautiful single-line summary banner =====
+    from utils.export_helpers import get_pdf_summary_banner, fmt_inr
+    net = tj - tn
+    page_inner_w = sum(col_widths)
+    summary_stats = [
+        {'label': 'TOTAL ENTRIES', 'value': str(len(rows)), 'color': '#ffffff'},
+        {'label': 'TOTAL JAMA', 'value': fmt_inr(tj), 'color': '#34d399'},
+        {'label': 'TOTAL NIKASI', 'value': fmt_inr(tn), 'color': '#f87171'},
+        {'label': 'NET MOVEMENT', 'value': fmt_inr(net), 'color': '#fbbf24' if net >= 0 else '#fb923c'},
+        {'label': 'CLOSING BALANCE', 'value': fmt_inr(run_bal), 'color': '#60a5fa' if run_bal >= 0 else '#f87171'},
+    ]
+    elements.append(Spacer(1, 8))
+    banner = get_pdf_summary_banner(summary_stats, total_width=page_inner_w)
+    if banner:
+        elements.append(banner)
+
     doc.build(elements); buffer.seek(0)
     return buffer.getvalue()
 

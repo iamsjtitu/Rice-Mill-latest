@@ -409,3 +409,105 @@ def get_pdf_company_header(branding=None):
     # Custom fields BELOW company name (default)
     elements.extend(_build_custom_fields_row(branding, "below"))
     return elements
+
+
+# ============================================================================
+# BEAUTIFUL SINGLE-LINE SUMMARY BANNER (PDF + Excel)
+# ============================================================================
+# Used at the bottom of export reports to show key statistics in a single
+# professional horizontal strip with colored stat columns.
+# Stat dict format: { 'label': 'TOTAL ENTRIES', 'value': '42', 'color': '#fbbf24' }
+# Colors: white='#fff', green='#22c55e', red='#f87171', gold='#fbbf24',
+#         orange='#fb923c', blue='#60a5fa', emerald='#34d399', purple='#c084fc'
+
+SUMMARY_BANNER_BG = '#1e293b'
+SUMMARY_ACCENT = '#f59e0b'
+SUMMARY_LABEL_COLOR = '#94a3b8'
+SUMMARY_DIVIDER = '#475569'
+
+
+def get_pdf_summary_banner(stats, total_width=None):
+    """Returns a ReportLab Table representing the dark-navy summary banner.
+    
+    Args:
+        stats: list of {'label': str, 'value': str, 'color': str} dicts
+        total_width: optional total width in points; if None, equal-width auto
+    Returns: ReportLab Table element
+    """
+    register_hindi_fonts()
+    from reportlab.platypus import Table as RTable, TableStyle
+    from reportlab.lib import colors as rl_colors
+
+    if not stats:
+        return None
+    # Build a single row of "LABEL\nVALUE" cells
+    row = [f"{s['label']}\n{s['value']}" for s in stats]
+    n = len(stats)
+    if total_width:
+        col_widths = [total_width / n] * n
+    else:
+        col_widths = [100] * n  # default 100pt per cell
+
+    t = RTable([row], colWidths=col_widths)
+
+    style_cmds = [
+        ('BACKGROUND', (0, 0), (-1, -1), rl_colors.HexColor(SUMMARY_BANNER_BG)),
+        ('LINEABOVE', (0, 0), (-1, 0), 2, rl_colors.HexColor(SUMMARY_ACCENT)),
+        # Default text color (label part); we'll override per-cell below
+        ('TEXTCOLOR', (0, 0), (-1, -1), rl_colors.HexColor(SUMMARY_LABEL_COLOR)),
+        ('FONTNAME', (0, 0), (-1, -1), 'FreeSansBold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+    ]
+    # Per-cell color override + dividers between cells
+    for i, s in enumerate(stats):
+        color_hex = s.get('color', '#ffffff')
+        style_cmds.append(('TEXTCOLOR', (i, 0), (i, 0), rl_colors.HexColor(color_hex)))
+        if i > 0:
+            style_cmds.append(('LINEBEFORE', (i, 0), (i, 0), 0.5, rl_colors.HexColor(SUMMARY_DIVIDER)))
+    t.setStyle(TableStyle(style_cmds))
+    return t
+
+
+def add_excel_summary_banner(ws, row_num, ncols, stats):
+    """Adds a teal single-line summary banner to an Excel worksheet at row_num.
+    
+    Args:
+        ws: openpyxl worksheet
+        row_num: row number to place the banner
+        ncols: number of columns to merge across
+        stats: list of {'label': str, 'value': str} dicts (color ignored - banner is uniform teal)
+    """
+    if not stats:
+        return
+    parts = []
+    for s in stats:
+        parts.append(f"{s['label']}: {s['value']}")
+    text = "  •  ".join(parts)
+    # Prepend chart emoji if there's room
+    text = f"📊  {text}"
+
+    cell = ws.cell(row=row_num, column=1, value=text)
+    cell.font = Font(bold=True, size=11, color="FFFFFF")
+    cell.fill = PatternFill(start_color="0F766E", end_color="0F766E", fill_type="solid")
+    cell.alignment = Alignment(horizontal='center', vertical='center')
+    ws.merge_cells(start_row=row_num, start_column=1, end_row=row_num, end_column=ncols)
+    ws.row_dimensions[row_num].height = 26
+
+
+def fmt_inr(amount, with_currency=True):
+    """Format a number as Indian Rupees with comma separators. e.g. 13892.0 -> 'Rs. 13,892'"""
+    try:
+        n = float(amount or 0)
+    except Exception:
+        n = 0.0
+    if abs(n - int(n)) < 0.005:
+        s = f"{int(n):,}"
+    else:
+        s = f"{n:,.2f}"
+    return f"Rs. {s}" if with_currency else s

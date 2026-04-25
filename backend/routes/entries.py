@@ -1118,6 +1118,21 @@ async def export_excel(
             ws.cell(row=row_num, column=col).alignment = right_align
     style_excel_total_row(ws, row_num, ncols)
     
+    # ===== Beautiful single-line teal summary banner (below totals) =====
+    if entries:
+        from utils.export_helpers import add_excel_summary_banner
+        sum_stats = [
+            {'label': 'Total Entries', 'value': str(len(entries))},
+            {'label': 'QNTL', 'value': f"{totals.total_qntl:,.2f}"},
+            {'label': 'Bags', 'value': f"{int(totals.total_bag):,}"},
+            {'label': 'TP Weight', 'value': f"{totals.total_tp_weight:,.2f}"},
+            {'label': 'Mill W', 'value': f"{totals.total_mill_w / 100:,.2f}"},
+            {'label': 'Final W', 'value': f"{totals.total_final_w / 100:,.2f}"},
+            {'label': 'G.Deposite', 'value': str(int(totals.total_g_deposite))},
+            {'label': 'G.Issued', 'value': str(int(totals.total_g_issued))},
+        ]
+        add_excel_summary_banner(ws, row_num + 2, ncols, sum_stats)
+    
     # Column widths - A4 optimized (19 cols)
     col_widths = [10, 12, 9, 9, 8, 10, 16, 9, 6, 6, 7, 6, 7, 8, 6, 7, 6, 6, 9, 7]
     for i, width in enumerate(col_widths, 1):
@@ -1325,6 +1340,24 @@ async def export_pdf(
     
     main_table.setStyle(TableStyle(style_commands))
     elements.append(main_table)
+    
+    # ===== Beautiful single-line summary banner =====
+    from utils.export_helpers import get_pdf_summary_banner, fmt_inr
+    page_inner_w = page_width - 16*mm
+    summary_stats = [
+        {'label': 'TOTAL ENTRIES', 'value': str(len(entries)), 'color': '#ffffff'},
+        {'label': 'QNTL', 'value': f"{totals.total_qntl:,.2f}", 'color': '#fbbf24'},
+        {'label': 'BAGS', 'value': str(int(totals.total_bag)), 'color': '#60a5fa'},
+        {'label': 'TP WEIGHT', 'value': f"{totals.total_tp_weight:,.2f}" if totals.total_tp_weight else "-", 'color': '#c084fc'},
+        {'label': 'MILL W', 'value': f"{totals.total_mill_w / 100:,.2f}", 'color': '#fb923c'},
+        {'label': 'FINAL W', 'value': f"{totals.total_final_w / 100:,.2f}", 'color': '#34d399'},
+        {'label': 'G.DEPOSITE', 'value': str(int(totals.total_g_deposite)), 'color': '#22c55e'},
+        {'label': 'G.ISSUED', 'value': str(int(totals.total_g_issued)), 'color': '#f87171'},
+    ]
+    elements.append(Spacer(1, 4*mm))
+    banner = get_pdf_summary_banner(summary_stats, total_width=page_inner_w)
+    if banner:
+        elements.append(banner)
     
     # Build PDF
     doc.build(elements)

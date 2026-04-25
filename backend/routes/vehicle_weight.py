@@ -1351,6 +1351,20 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
         cell.border = border
         if c >= 7: cell.alignment = Alignment(horizontal='right')
 
+    # ===== Beautiful single-line teal summary banner =====
+    if items:
+        from utils.export_helpers import add_excel_summary_banner, fmt_inr
+        sum_stats = [
+            {'label': 'Total Entries', 'value': str(len(items))},
+            {'label': 'Total Bags', 'value': f"{tot_bags:,}"},
+            {'label': '1st Wt', 'value': f"{tot_1st:,.0f} KG"},
+            {'label': '2nd Wt', 'value': f"{tot_2nd:,.0f} KG"},
+            {'label': 'Net Wt', 'value': f"{tot_net:,.0f} KG"},
+            {'label': 'Cash Paid', 'value': fmt_inr(tot_cash)},
+            {'label': 'Diesel', 'value': fmt_inr(tot_diesel)},
+        ]
+        add_excel_summary_banner(ws, tot_row + 2, 15, sum_stats)
+
     # Auto width
     from openpyxl.cell.cell import MergedCell
     for col in ws.columns:
@@ -1482,6 +1496,24 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
     
     t.setStyle(TableStyle(style_cmds))
     elements.append(t)
+
+    # ===== Beautiful single-line summary banner =====
+    from utils.export_helpers import get_pdf_summary_banner, fmt_inr
+    page_inner_w = sum(col_widths)
+    summary_stats = [
+        {'label': 'TOTAL ENTRIES', 'value': str(len(items)), 'color': '#ffffff'},
+        {'label': 'TOTAL BAGS', 'value': f"{tot_bags:,}", 'color': '#60a5fa'},
+        {'label': '1ST WT', 'value': f"{tot_1st:,.0f}", 'color': '#0ea5e9'},
+        {'label': '2ND WT', 'value': f"{tot_2nd:,.0f}", 'color': '#c084fc'},
+        {'label': 'NET WT', 'value': f"{tot_net:,.0f}", 'color': '#34d399'},
+        {'label': 'CASH PAID', 'value': fmt_inr(tot_cash), 'color': '#22c55e'},
+        {'label': 'DIESEL', 'value': fmt_inr(tot_diesel), 'color': '#fb923c'},
+    ]
+    elements.append(Spacer(1, 4*mm))
+    banner = get_pdf_summary_banner(summary_stats, total_width=page_inner_w)
+    if banner:
+        elements.append(banner)
+
     doc.build(elements)
     buf.seek(0)
     fname = f"vehicle_weight_{date_from or 'all'}_{date_to or 'all'}.pdf"
