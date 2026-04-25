@@ -31,9 +31,16 @@ module.exports = function(database, { getBackupsList, createBackup, restoreBacku
 
   router.delete('/api/backups/:filename', safeSync(async (req, res) => {
     const dir = getBackupDir();
-    const fp = path.join(dir, req.params.filename);
-    if (!fs.existsSync(fp)) return res.status(404).json({ detail: 'Not found' });
-    try { fs.unlinkSync(fp); res.json({ success: true }); } catch(e) { res.status(500).json({ detail: e.message }); }
+    const customDir = database.data?.settings?.custom_backup_dir;
+    let deleted = 0;
+    for (const folder of [dir, customDir].filter(Boolean)) {
+      const fp = path.join(folder, req.params.filename);
+      if (fs.existsSync(fp)) {
+        try { fs.unlinkSync(fp); deleted++; } catch (_) {}
+      }
+    }
+    if (deleted === 0) return res.status(404).json({ detail: 'Not found' });
+    res.json({ success: true, deleted });
   }));
 
   // Bulk delete by filenames OR by source category (logout/manual/auto)
@@ -54,16 +61,16 @@ module.exports = function(database, { getBackupsList, createBackup, restoreBacku
     } else if (source) {
       toDelete = allBackups.filter(b => classify(b.filename) === source).map(b => b.filename);
     }
+    // Dedup filenames + delete from BOTH dirs (a backup file may exist in both)
+    const uniqueFilenames = [...new Set(toDelete)];
     let deleted = 0;
-    for (const fname of toDelete) {
-      try {
-        const fp = path.join(dir, fname);
-        if (fs.existsSync(fp)) { fs.unlinkSync(fp); deleted++; continue; }
-        if (customDir) {
-          const cp = path.join(customDir, fname);
-          if (fs.existsSync(cp)) { fs.unlinkSync(cp); deleted++; }
-        }
-      } catch (_) {}
+    for (const fname of uniqueFilenames) {
+      for (const folder of [dir, customDir].filter(Boolean)) {
+        try {
+          const fp = path.join(folder, fname);
+          if (fs.existsSync(fp)) { fs.unlinkSync(fp); deleted++; }
+        } catch (_) {}
+      }
     }
     res.json({ success: true, deleted });
   }));

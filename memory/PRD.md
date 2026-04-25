@@ -1,6 +1,15 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.8
+## Current Version: v104.28.15
+
+## 🎨 USER UI PREFERENCE — IMPORTANT
+**User uses LIGHT/WHITE theme**. All new UI work must:
+- Use light backgrounds (white/slate-50/slate-100), NOT dark `bg-slate-800` / `bg-slate-900`
+- Use darker text colors (slate-700/slate-800/slate-900) for readability on light bg
+- Avoid light-on-light combinations (e.g. green-300 text on green-50 bg = invisible)
+- Test contrast: text on tinted backgrounds should be at least slate-700 / slate-800
+- Borders: slate-200 / slate-300 instead of slate-700
+- Hover: bg-slate-50 / bg-slate-100
 
 ## Recent Fixes (Feb 2026)
 
