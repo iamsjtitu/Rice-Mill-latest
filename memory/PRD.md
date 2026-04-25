@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.15
+## Current Version: v104.28.16
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -10,6 +10,29 @@
 - Test contrast: text on tinted backgrounds should be at least slate-700 / slate-800
 - Borders: slate-200 / slate-300 instead of slate-700
 - Hover: bg-slate-50 / bg-slate-100
+
+## Recent Fixes (Apr 2026) — v104.28.16
+
+### CRITICAL Security: Admin Password Reset Bug — FIXED
+- **Issue**: Every app/server restart was reverting admin password back to `admin123`.
+- **Root cause**: `auth.js` (Electron + local-server) and `auth.py` had a `DEFAULT_USERS` fallback in the login handler that ALWAYS accepted `admin/admin123` IF the admin record was missing from DB. Combined with the in-memory-only seeding in `_loadAll()`, this acted as a permanent backdoor — even after a successful password change, admin/admin123 could log in (if for any reason the DB user was missing on a particular restart, e.g. SQLite→JsonDatabase fallback or Google Drive sync conflict).
+- **Fix** (applied across all 3 backends — Python FastAPI + Electron + local-server Express):
+  1. **Removed DEFAULT_USERS fallback** in `/auth/login`. The fallback path is replaced with a one-time **DB seeding** step at the start of every login attempt: if `admin`/`staff` is not yet in `db.users`, insert them with the default password. After seeding, the login uses ONLY the DB record. This means once the user changes their password, the old `admin123` is rejected with 401.
+  2. **`updateUserPassword` now uses `saveImmediate()`** instead of debounced `save()` (100ms) — so the new password is flushed to disk synchronously before the response is sent. Prevents race-condition data loss if the app is closed quickly.
+- **Files**: `/app/backend/routes/auth.py` (login + password change), `/app/desktop-app/routes/auth.js`, `/app/local-server/routes/auth.js`, `/app/desktop-app/sqlite-database.js`, `/app/local-server/sqlite-database.js`, `/app/desktop-app/main.js` JsonDatabase, `/app/local-server/server.js` JsonDatabase.
+- **Verified by testing agent (iteration_200)**: 9/9 backend tests + full frontend UI test PASS. Login admin/admin123 → change to mySecret123 → login admin/admin123 returns 401 → login admin/mySecret123 succeeds.
+
+### DataTab White-Theme Redesign — DONE
+- **User directive (verbatim)**: *"jo b karna ab se white theme ke hisabs e set karna apne memory mai dalo… backup folder clear nahi dikh raha font ya kuch change karo single single table banao abhi tino backup option ek mai h upper uske baad midle uske baad niche aisa dalo chauda chauda"*
+- **Fix** (`/app/frontend/src/components/settings/DataTab.jsx` — full rewrite):
+  - All cards now use `bg-white` with 2px slate-200 borders (replaces dark `bg-slate-800` / `border-slate-700`).
+  - Three backup tables (Logout / Automatic / Manual) are now **stacked vertically full-width**, NOT a 3-column grid.
+  - Each table has a colored section header bar (red / blue / emerald) with bold heading + count badge + "Delete All" button.
+  - Proper HTML `<table>` with sticky header (File Name | Date/Time | Size | Actions) + alternating row stripes for clarity.
+  - Backup Folder, Auto-Delete, Backup Now, ZIP Download, Restore (ZIP/JSON) — all redesigned with white-theme styling, larger fonts (text-sm/text-base + font-bold for headings), high contrast text.
+
+### Backup "Delete All" double-click bug — FIXED (already in /app/desktop-app/routes/backups.js)
+- Iterates BOTH default + custom backup directories in a single pass; no `continue` skipping.
 
 ## Recent Fixes (Feb 2026)
 
