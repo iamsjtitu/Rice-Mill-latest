@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.13",
+    date: "Feb 2026",
+    title: "v104.28.13 — Agent Ledger Bugfix + Backfill",
+    items: [
+      { type: "fix", text: "🐛 Agent ledger entry kuch dikha hi nahi raha tha despite mill entries existing — kyunki calculation tp_weight pe based thi (jo bahut entries mein blank hota hai), lekin dashboard achievement final_w/100 use kar raha tha. Ab dono consistent — Agent ledger achieved QNTL × base_rate use karta hai (e.g. 556.87Q × Rs.10 = Rs.5,569)" },
+      { type: "fix", text: "🛠️ Auto Backfill: Startup pe purani mill entries scan ho jaati hain — agar koi entry ka mandi target set hai aur agent ledger missing hai, toh automatically create ho jaati hai. Cash Book > Party Ledgers tab mein 'Agent' type ke entries ab visible" },
+    ],
+  },
+  {
     version: "104.28.12",
     date: "Feb 2026",
     title: "v104.28.12 — 🚨 CRITICAL: Hemali Items Data Loss on Update — ROOT FIX",

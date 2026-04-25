@@ -225,10 +225,10 @@ class JsonDatabase {
       }
     }
 
-    // Auto Jama (Ledger) entry for AGENT — incremental tp_weight × base_rate of mandi_target
-    const tpWeight = parseFloat(newEntry.tp_weight) || finalQntl;
+    // Auto Jama (Ledger) entry for AGENT — incremental achieved QNTL × base_rate (= final_w/100)
+    const agentQntl = Math.round((parseFloat(newEntry.final_w) || 0) / 100 * 100) / 100;
     const mandiName = newEntry.mandi_name || '';
-    if (tpWeight > 0 && mandiName) {
+    if (agentQntl > 0 && mandiName) {
       const target = (this.data.mandi_targets || []).find(t =>
         t.mandi_name === mandiName &&
         (t.kms_year || '') === (newEntry.kms_year || '') &&
@@ -236,12 +236,12 @@ class JsonDatabase {
       );
       if (target) {
         const baseRate = Number(target.base_rate) || 10;
-        const agentAmount = Math.round(tpWeight * baseRate * 100) / 100;
+        const agentAmount = Math.round(agentQntl * baseRate * 100) / 100;
         if (agentAmount > 0) {
           this.data.cash_transactions.push({
             id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama',
             category: mandiName, party_type: 'Agent',
-            description: `Agent Entry: ${mandiName} - ${tpWeight}Q × Rs.${baseRate} = Rs.${agentAmount}`,
+            description: `Agent Entry: ${mandiName} - ${agentQntl}Q × Rs.${baseRate} = Rs.${agentAmount}`,
             amount: agentAmount, reference: `agent_entry:${newEntry.id.slice(0,8)}`,
             kms_year: newEntry.kms_year||'', season: newEntry.season||'',
             created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
@@ -375,10 +375,10 @@ class JsonDatabase {
       }
     }
 
-    // Recreate Agent Jama (Ledger) — incremental tp_weight × base_rate
-    const tpWeight = parseFloat(updated.tp_weight) || finalQntl;
+    // Recreate Agent Jama (Ledger) — incremental achieved QNTL × base_rate (= final_w/100)
+    const agentQntl = Math.round((parseFloat(updated.final_w) || 0) / 100 * 100) / 100;
     const mandiName = updated.mandi_name || '';
-    if (tpWeight > 0 && mandiName) {
+    if (agentQntl > 0 && mandiName) {
       const target = (this.data.mandi_targets || []).find(t =>
         t.mandi_name === mandiName &&
         (t.kms_year || '') === (updated.kms_year || '') &&
@@ -386,12 +386,12 @@ class JsonDatabase {
       );
       if (target) {
         const baseRate = Number(target.base_rate) || 10;
-        const agentAmount = Math.round(tpWeight * baseRate * 100) / 100;
+        const agentAmount = Math.round(agentQntl * baseRate * 100) / 100;
         if (agentAmount > 0) {
           this.data.cash_transactions.push({
             id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama',
             category: mandiName, party_type: 'Agent',
-            description: `Agent Entry: ${mandiName} - ${tpWeight}Q × Rs.${baseRate} = Rs.${agentAmount}`,
+            description: `Agent Entry: ${mandiName} - ${agentQntl}Q × Rs.${baseRate} = Rs.${agentAmount}`,
             amount: agentAmount, reference: `agent_entry:${id.slice(0,8)}`,
             kms_year: updated.kms_year||'', season: updated.season||'',
             created_by: updated.created_by||'system', linked_entry_id: id,

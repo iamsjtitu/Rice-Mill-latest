@@ -566,11 +566,11 @@ class JsonDatabase {
       }
     }
 
-    // Auto Jama (Ledger) entry for AGENT — accumulates incrementally based on TP weight × base_rate
-    // matching mandi_target. e.g. "Agent Entry: Santpur - 300Q × Rs.10 = Rs.3000"
-    const tpWeight = parseFloat(newEntry.tp_weight) || finalQntl;
+    // Auto Jama (Ledger) entry for AGENT — accumulates incrementally based on achieved QNTL × base_rate
+    // (achieved = final_w / 100, same formula as dashboard target progress)
+    const agentQntl = Math.round((parseFloat(newEntry.final_w) || 0) / 100 * 100) / 100;
     const mandiName = newEntry.mandi_name || '';
-    if (tpWeight > 0 && mandiName) {
+    if (agentQntl > 0 && mandiName) {
       const target = (this.data.mandi_targets || []).find(t =>
         t.mandi_name === mandiName &&
         (t.kms_year || '') === (newEntry.kms_year || '') &&
@@ -578,12 +578,12 @@ class JsonDatabase {
       );
       if (target) {
         const baseRate = Number(target.base_rate) || 10;
-        const agentAmount = Math.round(tpWeight * baseRate * 100) / 100;
+        const agentAmount = Math.round(agentQntl * baseRate * 100) / 100;
         if (agentAmount > 0) {
           this.data.cash_transactions.push({
             id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama',
             category: mandiName, party_type: 'Agent',
-            description: `Agent Entry: ${mandiName} - ${tpWeight}Q × Rs.${baseRate} = Rs.${agentAmount}`,
+            description: `Agent Entry: ${mandiName} - ${agentQntl}Q × Rs.${baseRate} = Rs.${agentAmount}`,
             amount: agentAmount, reference: `agent_entry:${newEntry.id.slice(0,8)}`,
             kms_year: newEntry.kms_year||'', season: newEntry.season||'',
             created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
@@ -735,10 +735,10 @@ class JsonDatabase {
         }
       }
 
-      // Recreate Agent Jama (Ledger) — incremental based on tp_weight × base_rate of mandi_target
-      const tpWeight = parseFloat(updated.tp_weight) || finalQntl;
+      // Recreate Agent Jama (Ledger) — incremental achieved QNTL × base_rate (= final_w/100)
+      const agentQntl = Math.round((parseFloat(updated.final_w) || 0) / 100 * 100) / 100;
       const mandiName = updated.mandi_name || '';
-      if (tpWeight > 0 && mandiName) {
+      if (agentQntl > 0 && mandiName) {
         const target = (this.data.mandi_targets || []).find(t =>
           t.mandi_name === mandiName &&
           (t.kms_year || '') === (updated.kms_year || '') &&
@@ -746,12 +746,12 @@ class JsonDatabase {
         );
         if (target) {
           const baseRate = Number(target.base_rate) || 10;
-          const agentAmount = Math.round(tpWeight * baseRate * 100) / 100;
+          const agentAmount = Math.round(agentQntl * baseRate * 100) / 100;
           if (agentAmount > 0) {
             this.data.cash_transactions.push({
               id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama',
               category: mandiName, party_type: 'Agent',
-              description: `Agent Entry: ${mandiName} - ${tpWeight}Q × Rs.${baseRate} = Rs.${agentAmount}`,
+              description: `Agent Entry: ${mandiName} - ${agentQntl}Q × Rs.${baseRate} = Rs.${agentAmount}`,
               amount: agentAmount, reference: `agent_entry:${id.slice(0,8)}`,
               kms_year: updated.kms_year||'', season: updated.season||'',
               created_by: updated.created_by||'system', linked_entry_id: id,
@@ -2894,6 +2894,52 @@ async function startApplication(folderPath) {
       if (removed > 0) {
         db.save();
         console.log(`[Migration] Removed ${removed} legacy 'agent_target:*' ledger jama entries`);
+      }
+    }
+
+    // Data migration: backfill missing agent_entry ledger jama for existing mill entries.
+    // Mill entries created before v104.28.11 didn't auto-create the agent ledger jama.
+    // For each entry whose mandi has a target, create the missing entry.
+    if (db && db.data && Array.isArray(db.data.entries) && Array.isArray(db.data.mandi_targets)) {
+      if (!db.data.cash_transactions) db.data.cash_transactions = [];
+      const existingRefs = new Set(
+        db.data.cash_transactions
+          .filter(t => (t.reference || '').startsWith('agent_entry:'))
+          .map(t => t.reference)
+      );
+      const targetMap = {};
+      db.data.mandi_targets.forEach(t => {
+        targetMap[`${t.mandi_name}|${t.kms_year || ''}|${t.season || ''}`] = t;
+      });
+      let assigned = 0;
+      const nowIso = new Date().toISOString();
+      db.data.entries.forEach(e => {
+        if (!e.id) return;
+        const ref = `agent_entry:${e.id.slice(0, 8)}`;
+        if (existingRefs.has(ref)) return;
+        const mandi = e.mandi_name || '';
+        const agentQntl = Math.round((parseFloat(e.final_w) || 0) / 100 * 100) / 100;
+        if (!mandi || agentQntl <= 0) return;
+        const target = targetMap[`${mandi}|${e.kms_year || ''}|${e.season || ''}`];
+        if (!target) return;
+        const baseRate = Number(target.base_rate) || 10;
+        const agentAmount = Math.round(agentQntl * baseRate * 100) / 100;
+        if (agentAmount <= 0) return;
+        db.data.cash_transactions.push({
+          id: uuidv4(), date: e.date || '', account: 'ledger', txn_type: 'jama',
+          category: mandi, party_type: 'Agent',
+          description: `Agent Entry: ${mandi} - ${agentQntl}Q × Rs.${baseRate} = Rs.${agentAmount}`,
+          amount: agentAmount, reference: ref,
+          kms_year: e.kms_year || '', season: e.season || '',
+          created_by: e.created_by || 'system', linked_entry_id: e.id,
+          linked_target_id: target.id || '',
+          created_at: e.created_at || nowIso, updated_at: nowIso,
+        });
+        assigned++;
+      });
+      if (assigned > 0) {
+        db.save();
+        console.log(`[Migration] Backfilled ${assigned} missing agent_entry ledger jama rows`);
       }
     }
   }, 3000);
