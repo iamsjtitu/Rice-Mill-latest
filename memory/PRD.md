@@ -217,8 +217,9 @@
 8. **WHITE THEME** — Desktop app uses white/light theme. All new UI elements (totals, highlights, badges) must use light colors (amber-50, green-700, etc.) NOT dark theme colors (slate-900, green-400, etc.)
 
 ## Prioritized Backlog
-- P3: Triple backend code deduplication
-*(Quality Test Report Register and Monthly Return Auto-generation REMOVED from backlog per user request)*
+*(All previously-listed P2-P4 items removed per user's explicit request on 25-Apr-2026 — E-Way Bill Govt Links, Triple-backend code dedup, Bulk WhatsApp from dashboard, Daily/Weekly admin summary alerts. Cloudflared auto-setup is already implemented.)*
+
+**Currently no active backlog items — awaiting user input for next feature.**
 
 ## Recent Changes (Feb 2026)
 - **Global KMS (Kharif Marketing Season) setting** (DONE):
