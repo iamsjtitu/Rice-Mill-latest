@@ -55,7 +55,7 @@ export const Dashboard = ({ filters, user }) => {
     target_qntl: "",
     cutting_percent: "5",
     base_rate: "10",
-    cutting_rate: "5",
+    cutting_rate: "0",
     kms_year: filters.kms_year || CURRENT_KMS_YEAR,
     season: filters.season || "Kharif"
   });
@@ -137,7 +137,7 @@ export const Dashboard = ({ filters, user }) => {
         target_qntl: "",
         cutting_percent: "5",
         base_rate: "10",
-        cutting_rate: "5",
+        cutting_rate: "0",
         kms_year: filters.kms_year || CURRENT_KMS_YEAR,
         season: filters.season || "Kharif"
       });
@@ -164,7 +164,7 @@ export const Dashboard = ({ filters, user }) => {
       target_qntl: target.target_qntl.toString(),
       cutting_percent: target.cutting_percent.toString(),
       base_rate: (target.base_rate ?? 10).toString(),
-      cutting_rate: (target.cutting_rate ?? 5).toString(),
+      cutting_rate: (target.cutting_rate ?? 0).toString(),
       kms_year: target.kms_year,
       season: target.season
     });
@@ -375,7 +375,7 @@ export const Dashboard = ({ filters, user }) => {
                     target_qntl: "",
                     cutting_percent: "5",
                     base_rate: "10",
-                    cutting_rate: "5",
+                    cutting_rate: "0",
                     kms_year: filters.kms_year || CURRENT_KMS_YEAR,
                     season: filters.season || "Kharif"
                   });
@@ -538,19 +538,13 @@ export const Dashboard = ({ filters, user }) => {
                     <div>
                       <h4 className="text-white font-semibold">{target.mandi_name}</h4>
                       <p className="text-slate-400 text-xs">
-                        Target: {target.target_qntl} QNTL + {target.cutting_percent}% = 
+                        Target: {target.target_qntl} QNTL + {target.cutting_percent}% =
                         <span className="text-amber-400 font-semibold ml-1">{target.expected_total} QNTL</span>
-                      </p>
-                      <p className="text-blue-400 text-xs">
-                        Agent Payment: ₹{target.total_agent_amount || 0} 
-                        <span className="text-slate-500 ml-1">
-                          ({target.target_qntl}×₹{target.base_rate ?? 10} + {target.cutting_qntl || 0}×₹{target.cutting_rate ?? 5})
-                        </span>
                       </p>
                     </div>
                     <div className="text-right">
                       <p className={`text-lg font-bold ${target.progress_percent >= 100 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                        {target.progress_percent}%
+                        {Number(target.progress_percent || 0).toFixed(2)}%
                       </p>
                       {user.role === 'admin' && (
                         <div className="flex gap-1 mt-1">
@@ -587,18 +581,18 @@ export const Dashboard = ({ filters, user }) => {
                     />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <span className="text-xs font-semibold text-white drop-shadow">
-                        {target.achieved_qntl} / {target.expected_total} QNTL
+                        {Number(target.achieved_qntl || 0).toFixed(2)} / {Number(target.expected_total || 0).toFixed(2)} QNTL
                       </span>
                     </div>
                   </div>
-                  
+
                   {/* Status */}
                   <div className="flex justify-between mt-2 text-xs">
                     <span className="text-emerald-400">
-                      Achieved: {target.achieved_qntl} QNTL
+                      Achieved: {Number(target.achieved_qntl || 0).toFixed(2)} QNTL
                     </span>
                     <span className={target.pending_qntl > 0 ? 'text-red-400' : 'text-emerald-400'}>
-                      {target.pending_qntl > 0 ? `Pending: ${target.pending_qntl} QNTL` : 'Target Complete! ✓'}
+                      {target.pending_qntl > 0 ? `Pending: ${Number(target.pending_qntl).toFixed(2)} QNTL` : 'Target Complete! ✓'}
                     </span>
                   </div>
                 </div>
