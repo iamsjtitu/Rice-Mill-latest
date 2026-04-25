@@ -280,7 +280,6 @@ module.exports = (database) => {
 
     // ═══════════ RECEIPT NO. + STATUS BANNER ═══════════
     const rcptBoxW = 200, statusBoxW = pageWidth - rcptBoxW;
-    const isPaid = p.status === 'paid';
     const statusBg = isPaid ? '#16a34a' : '#dc2626';
     const statusText = isPaid ? 'PAID' : 'UNPAID';
 
