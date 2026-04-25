@@ -161,23 +161,6 @@ async def data_refresh():
 # Include the api_router in the main app
 app.include_router(api_router)
 
-# Demo logo preview endpoint (temporary - for user to evaluate logo placement)
-from fastapi.responses import FileResponse
-import os as _os_demo
-@app.get("/api/demo/logo-style/{variant}")
-async def _demo_logo_style(variant: str):
-    base = "/app/backend/static_demo"
-    fmap = {
-        "1": "style1_logo_left.png",
-        "2": "style2_logo_centered.png",
-        "1pdf": "demo_style1_left.pdf",
-        "2pdf": "demo_style2_centered.pdf",
-    }
-    f = fmap.get(variant)
-    if f and _os_demo.path.exists(f"{base}/{f}"):
-        return FileResponse(f"{base}/{f}")
-    return {"error": "not found"}
-
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
