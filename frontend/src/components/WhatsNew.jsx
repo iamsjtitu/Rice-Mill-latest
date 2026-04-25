@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.22",
+    date: "Apr 2026",
+    title: "v104.28.22 — ⚡ License Auto-Recovery (No Key Re-entry Required)",
+    items: [
+      { type: "new", text: "⚡ AUTO-RECOVER button — License Settings page mein naya green button. Click karo aur server check karega ki kya aapki machine pehle se activated thi. Agar haan, license **automatically restore** ho jayegi. License key dalne ki bilkul zaroorat nahi" },
+      { type: "new", text: "🤖 Startup pe silent recovery — agar app start hote hi cache decrypt fail ho, toh app pehle khud server se 3 fingerprint candidates send karega aur try karega match karne. User ko notice tak nahi hoga" },
+      { type: "new", text: "🛡️ Server endpoint `/api/license/recover-by-fingerprint` — accepts fingerprint candidates, returns license key only if a matching active activation exists. Security maintained — kisi random user ko key nahi milegi" },
+      { type: "fix", text: "📝 Manual Repair flow improved — Auto-Recover try karne ke baad agar wo fail ho, toh user ko clear option milta hai 'Manual Repair (license key chahiye)' to enter key" },
+    ],
+  },
+  {
     version: "104.28.21",
     date: "Apr 2026",
     title: "v104.28.21 — 🔐 License Cache Auto-Recovery (Fingerprint Drift Fix)",

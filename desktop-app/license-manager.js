@@ -347,6 +347,37 @@ async function importMlic(filePath) {
 // ====== Public API ======
 
 /**
+ * Auto-recover license when local cache is unreadable.
+ * Asks the central server "do any of my candidate fingerprints match an active
+ * activation?" — if yes, server returns the license key and we silently re-activate.
+ * No user action required (no key re-entry, no Repair button click).
+ *
+ * @returns {Promise<Object|null>} cache object on success, null on failure
+ */
+async function attemptAutoRecoverFromServer() {
+  try {
+    const candidates = [
+      getMachineFingerprint(),
+      getMinimalFingerprint(),
+      getLegacyFingerprintV1(),
+    ].filter(Boolean);
+    const resp = await httpPost(
+      LICENSE_SERVER_URL + '/api/license/recover-by-fingerprint',
+      { fingerprints: candidates },
+      8000
+    );
+    if (!resp || !resp.success || !resp.key) return null;
+    console.warn(`[License] Auto-recovery succeeded — re-activating with key from server (matched fingerprint variant).`);
+    // Re-run the activation flow with the recovered key
+    const cache = await activateLicense(resp.key);
+    return cache;
+  } catch (e) {
+    console.warn('[License] Auto-recovery failed:', e.message);
+    return null;
+  }
+}
+
+/**
  * Lookup a license key (read-only preview) — returns mill name / customer / plan
  * without activating. Used by activation UI to show "Activating for: X" before commit.
  */
@@ -361,10 +392,17 @@ async function lookupLicense(key) {
  * Returns: { ok: true, cache } | { ok: false, reason, cache?, decrypt_failed? }
  */
 async function checkLicenseOnStartup() {
-  const { cache, reason: loadReason } = loadCacheWithReason();
+  const { cache: initialCache, reason: loadReason } = loadCacheWithReason();
+  let cache = initialCache;
   if (!cache || !cache.key) {
     // Differentiate genuine "never activated" vs "cache exists but can't decrypt"
     if (loadReason === 'decrypt_failed') {
+      // FIRST try server-based auto-recovery (fingerprint match) — silent, no user action
+      console.warn('[License] cache_decrypt_failed — attempting auto-recovery via server fingerprint match...');
+      const recovered = await attemptAutoRecoverFromServer();
+      if (recovered) {
+        return { ok: true, cache: recovered, auto_recovered: true };
+      }
       return { ok: false, reason: 'cache_decrypt_failed', decrypt_failed: true };
     }
     return { ok: false, reason: 'no_activation' };
@@ -537,5 +575,6 @@ module.exports = {
   clearCache,
   provisionCloudAccess,
   getCloudAccessStatus,
+  attemptAutoRecoverFromServer,
   LICENSE_SERVER_URL,
 };

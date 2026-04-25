@@ -78,5 +78,24 @@ module.exports = (database) => {
     }
   });
 
+  // POST /api/license/auto-recover — attempt automatic recovery WITHOUT user re-entering key.
+  // Server is asked: "do any of my candidate fingerprints match an existing activation?"
+  // If yes, server returns the key and we silently re-activate. No license key re-entry needed.
+  // Returns: { success: true, ...cache } on success, { success: false, error } on failure
+  router.post('/api/license/auto-recover', async (req, res) => {
+    try {
+      const cache = await licenseManager.attemptAutoRecoverFromServer();
+      if (!cache) {
+        return res.status(404).json({
+          success: false,
+          error: 'No matching activation found on server. Use the Repair button (license key required) instead.'
+        });
+      }
+      res.json({ success: true, ...cache });
+    } catch (e) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
   return router;
 };

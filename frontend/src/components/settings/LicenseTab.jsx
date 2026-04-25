@@ -86,7 +86,36 @@ export default function LicenseTab() {
             </p>
           )}
           {!isDecryptFailure && <div className="mb-4" />}
+
+          {/* Auto-Recover button — tries server fingerprint match first, no key required */}
+          <div className="max-w-sm mx-auto mb-4">
+            <Button
+              onClick={async () => {
+                setRefreshing(true);
+                try {
+                  const res = await axios.post(`${API}/license/auto-recover`);
+                  if (res.data?.success) { toast.success("License auto-recovered! Reloading..."); setTimeout(() => window.location.reload(), 1000); }
+                  else toast.error(res.data?.error || "Auto-recovery failed - try Repair below");
+                } catch (e) {
+                  toast.error(e.response?.data?.error || "Auto-recovery failed - use manual Repair below");
+                }
+                setRefreshing(false);
+              }}
+              disabled={refreshing}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 h-9 text-sm font-semibold"
+              data-testid="license-auto-recover-btn"
+            >
+              {refreshing ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : null}
+              ⚡ Auto-Recover (No Key Required)
+            </Button>
+            <p className="text-[10px] text-slate-500 mt-1.5 text-center">
+              Yeh button server pe check karta hai ki kya aapki machine pehle se activated hai.<br/>
+              Agar haan, toh license apne aap restore ho jayegi — license key nahi chahiye.
+            </p>
+          </div>
+
           <div className="max-w-sm mx-auto">
+            <p className="text-xs text-slate-500 mb-2 font-semibold">Manual Repair (license key chahiye):</p>
             <input
               type="text"
               placeholder="9X-XXXX-XXXX-XXXX-XXXX"

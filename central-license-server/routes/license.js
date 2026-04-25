@@ -30,6 +30,47 @@ router.get('/lookup/:key', (req, res) => {
   });
 });
 
+// POST /api/license/recover-by-fingerprint
+// Body: { fingerprints: [<current>, <minimal>, <legacy_v1>] }
+// Used by desktop apps when local cache decrypts fail (after machine fingerprint
+// shifted). The client sends ALL its candidate fingerprints; server checks if ANY
+// matches an existing active activation. If yes, returns the license key so the
+// client can re-activate WITHOUT requiring the user to remember & re-type their key.
+//
+// Security: only returns the key if the requesting machine ALREADY has an activation
+// recorded against one of these fingerprints (i.e., this isn't a brute-force attack —
+// you'd need to actually be on the machine that previously activated).
+router.post('/recover-by-fingerprint', (req, res) => {
+  const fingerprints = Array.isArray(req.body?.fingerprints) ? req.body.fingerprints : [];
+  if (fingerprints.length === 0) return res.status(400).json({ error: 'fingerprints array required' });
+
+  const data = db.getData();
+  // Find ANY active activation matching any of the candidate fingerprints
+  let match = null;
+  for (const fp of fingerprints) {
+    if (!fp || typeof fp !== 'string') continue;
+    const act = data.activations.find(a => a.active && a.machine_fingerprint === fp);
+    if (act) { match = act; break; }
+  }
+  if (!match) return res.status(404).json({ error: 'No active activation found for any of the provided fingerprints' });
+
+  const lic = data.licenses.find(l => l.id === match.license_id);
+  if (!lic) return res.status(404).json({ error: 'License record not found' });
+  if (lic.status !== 'active') return res.status(403).json({ error: `License is ${lic.status}` });
+  if (lic.expires_at && new Date(lic.expires_at) < new Date()) return res.status(403).json({ error: 'License expired' });
+
+  res.json({
+    success: true,
+    key: lic.key,
+    customer_name: lic.customer_name,
+    mill_name: lic.mill_name,
+    plan: lic.plan,
+    expires_at: lic.expires_at,
+    is_master: !!lic.is_master,
+    matched_fingerprint: match.machine_fingerprint,
+  });
+});
+
 // POST /api/license/activate
 // Body: { key, machine_fingerprint, pc_info }
 // Flow: Loose binding — any NEW fingerprint replaces the old active machine (previous PC gets kicked off)
