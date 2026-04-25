@@ -225,6 +225,33 @@ class JsonDatabase {
       }
     }
 
+    // Auto Jama (Ledger) entry for AGENT — incremental tp_weight × base_rate of mandi_target
+    const tpWeight = parseFloat(newEntry.tp_weight) || finalQntl;
+    const mandiName = newEntry.mandi_name || '';
+    if (tpWeight > 0 && mandiName) {
+      const target = (this.data.mandi_targets || []).find(t =>
+        t.mandi_name === mandiName &&
+        (t.kms_year || '') === (newEntry.kms_year || '') &&
+        (t.season || '') === (newEntry.season || '')
+      );
+      if (target) {
+        const baseRate = Number(target.base_rate) || 10;
+        const agentAmount = Math.round(tpWeight * baseRate * 100) / 100;
+        if (agentAmount > 0) {
+          this.data.cash_transactions.push({
+            id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama',
+            category: mandiName, party_type: 'Agent',
+            description: `Agent Entry: ${mandiName} - ${tpWeight}Q × Rs.${baseRate} = Rs.${agentAmount}`,
+            amount: agentAmount, reference: `agent_entry:${newEntry.id.slice(0,8)}`,
+            kms_year: newEntry.kms_year||'', season: newEntry.season||'',
+            created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
+            linked_target_id: target.id,
+            created_at: now, updated_at: now
+          });
+        }
+      }
+    }
+
     // Auto Cash Book Nikasi for cash_paid
     const cashPaid = parseFloat(newEntry.cash_paid) || 0;
     if (cashPaid > 0) {
@@ -345,6 +372,33 @@ class JsonDatabase {
           created_by: updated.created_by||'system', linked_entry_id: id,
           created_at: now, updated_at: now
         });
+      }
+    }
+
+    // Recreate Agent Jama (Ledger) — incremental tp_weight × base_rate
+    const tpWeight = parseFloat(updated.tp_weight) || finalQntl;
+    const mandiName = updated.mandi_name || '';
+    if (tpWeight > 0 && mandiName) {
+      const target = (this.data.mandi_targets || []).find(t =>
+        t.mandi_name === mandiName &&
+        (t.kms_year || '') === (updated.kms_year || '') &&
+        (t.season || '') === (updated.season || '')
+      );
+      if (target) {
+        const baseRate = Number(target.base_rate) || 10;
+        const agentAmount = Math.round(tpWeight * baseRate * 100) / 100;
+        if (agentAmount > 0) {
+          this.data.cash_transactions.push({
+            id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama',
+            category: mandiName, party_type: 'Agent',
+            description: `Agent Entry: ${mandiName} - ${tpWeight}Q × Rs.${baseRate} = Rs.${agentAmount}`,
+            amount: agentAmount, reference: `agent_entry:${id.slice(0,8)}`,
+            kms_year: updated.kms_year||'', season: updated.season||'',
+            created_by: updated.created_by||'system', linked_entry_id: id,
+            linked_target_id: target.id,
+            created_at: now, updated_at: now
+          });
+        }
       }
     }
 

@@ -11,6 +11,7 @@ const CHANGELOG = [
     date: "Feb 2026",
     title: "v104.28.10 — Hemali UNPAID Receipt Fix + Branded Reports",
     items: [
+      { type: "fix", text: "🐛 Mandi Target create/update karte hi Rs.<full target> ki upfront Ledger Jama entry ban jaati thi (e.g. 5000Q × ₹10 = Rs.50,000) — galat tha. Ab ledger entries TP weight ke saath incrementally accumulate hoti hain — har mill entry pe `tp_weight × base_rate` Jama (e.g. 300Q × ₹10 = Rs.3000). Update/Delete bhi sahi sync. Purani upfront entries startup pe auto cleanup ho jayengi" },
       { type: "fix", text: "🐛 Mandi Target vs Achieved cards mein floating-point junk hata diya — % aur QNTL values 2 decimals tak round, 13.199999 jaisa weird display gaya. 'Agent Payment' wali line bhi remove ho gayi (clutter kam)" },
       { type: "fix", text: "⚙️ Naya target add karte time Cutting Rate ab default 0 — pehle 5 set tha jo galat tha. Edit karte time bhi default 0" },
       { type: "fix", text: "🐛 UNPAID Hemali receipt mein 'AMOUNT PAID' aur 'BALANCE: SETTLED' galat dikh raha tha — bug fix. Ab UNPAID receipt mein Paid = Rs. 0 aur Balance = Net Payable (red colour mein) sahi dikhega" },

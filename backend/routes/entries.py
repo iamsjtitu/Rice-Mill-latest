@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse, Response
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
-from models import MillEntryCreate, TotalsResponse, MandiTargetCreate, MandiTarget, MandiTargetUpdate, MandiTargetSummary, round_amount
+from models import MillEntryCreate, MillEntry, TotalsResponse, MandiTargetCreate, MandiTarget, MandiTargetUpdate, MandiTargetSummary, round_amount, calculate_auto_fields, can_edit_entry
 from utils.optimistic_lock import optimistic_update, stamp_version
 from utils.audit import log_audit
 from utils.date_format import fmt_date
@@ -106,6 +106,36 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
             diesel_ded.pop("_id", None)
             await log_audit("cash_transactions", diesel_ded["id"], "create", username, new_data=diesel_ded)
     
+    # Auto Jama (Ledger) for AGENT — incremental tp_weight × base_rate of mandi_target
+    tp_weight = float(doc.get("tp_weight") or 0) or final_qntl
+    mandi_name = doc.get("mandi_name", "")
+    if tp_weight > 0 and mandi_name:
+        target = await db.mandi_targets.find_one({
+            "mandi_name": mandi_name,
+            "kms_year": doc.get("kms_year", ""),
+            "season": doc.get("season", ""),
+        }, {"_id": 0})
+        if target:
+            base_rate = float(target.get("base_rate") or 10)
+            agent_amount = round_amount(tp_weight * base_rate)
+            if agent_amount > 0:
+                agent_jama = {
+                    "id": str(uuid.uuid4()),
+                    "date": doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+                    "account": "ledger", "txn_type": "jama", "category": mandi_name,
+                    "party_type": "Agent",
+                    "description": f"Agent Entry: {mandi_name} - {tp_weight}Q × Rs.{base_rate} = Rs.{agent_amount}",
+                    "amount": agent_amount, "reference": f"agent_entry:{doc['id'][:8]}",
+                    "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
+                    "created_by": username or "system", "linked_entry_id": doc["id"],
+                    "linked_target_id": target.get("id", ""),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+                await db.cash_transactions.insert_one(agent_jama)
+                agent_jama.pop("_id", None)
+                await log_audit("cash_transactions", agent_jama["id"], "create", username, new_data=agent_jama)
+
     # Auto Cash Book entry for cash_paid
     cash_paid = float(doc.get("cash_paid", 0) or 0)
     if cash_paid > 0:
@@ -624,7 +654,37 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
             await db.cash_transactions.insert_one(diesel_ded)
             diesel_ded.pop("_id", None)
             await log_audit("cash_transactions", diesel_ded["id"], "create", username, new_data=diesel_ded)
-    
+
+    # Recreate Agent Jama (Ledger) — incremental tp_weight × base_rate of mandi_target
+    tp_weight_u = float(merged_data.get("tp_weight") or 0) or final_qntl
+    mandi_name_u = merged_data.get("mandi_name", "")
+    if tp_weight_u > 0 and mandi_name_u:
+        target_u = await db.mandi_targets.find_one({
+            "mandi_name": mandi_name_u,
+            "kms_year": merged_data.get("kms_year", ""),
+            "season": merged_data.get("season", ""),
+        }, {"_id": 0})
+        if target_u:
+            base_rate_u = float(target_u.get("base_rate") or 10)
+            agent_amount_u = round_amount(tp_weight_u * base_rate_u)
+            if agent_amount_u > 0:
+                agent_jama_u = {
+                    "id": str(uuid.uuid4()),
+                    "date": merged_data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+                    "account": "ledger", "txn_type": "jama", "category": mandi_name_u,
+                    "party_type": "Agent",
+                    "description": f"Agent Entry: {mandi_name_u} - {tp_weight_u}Q × Rs.{base_rate_u} = Rs.{agent_amount_u}",
+                    "amount": agent_amount_u, "reference": f"agent_entry:{entry_id[:8]}",
+                    "kms_year": merged_data.get("kms_year", ""), "season": merged_data.get("season", ""),
+                    "created_by": username or "system", "linked_entry_id": entry_id,
+                    "linked_target_id": target_u.get("id", ""),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+                await db.cash_transactions.insert_one(agent_jama_u)
+                agent_jama_u.pop("_id", None)
+                await log_audit("cash_transactions", agent_jama_u["id"], "create", username, new_data=agent_jama_u)
+
     # Recreate Cash Book Nikasi entry for cash_paid
     cash_paid = float(merged_data.get("cash_paid", 0) or 0)
     if cash_paid > 0:

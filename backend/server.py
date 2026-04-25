@@ -317,6 +317,20 @@ async def fix_empty_descriptions():
 
 
 @app.on_event("startup")
+async def cleanup_legacy_agent_target_ledger():
+    """Cleanup legacy upfront 'agent_target:*' ledger jama entries.
+    Old behaviour created Rs.<full target> jama on POST /mandi-targets which inflated
+    the agent ledger before TP weight came in. New behaviour: incremental jama per mill entry."""
+    try:
+        from database import db
+        result = await db.cash_transactions.delete_many({"reference": {"$regex": "^agent_target:"}})
+        if result.deleted_count > 0:
+            logger.info(f"Cleanup: removed {result.deleted_count} legacy 'agent_target:*' ledger entries")
+    except Exception as e:
+        logger.error(f"Legacy agent_target cleanup error: {e}")
+
+
+@app.on_event("startup")
 async def hemali_integrity_check():
     """Startup: reconcile hemali payments with cashbook entries"""
     try:
