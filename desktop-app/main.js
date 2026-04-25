@@ -2273,8 +2273,17 @@ async function createMainWindow(port) {
         const savePath = item.getSavePath();
         console.log('[Download] Complete:', savePath);
         if (savePath) {
-          shell.openPath(savePath).then((err) => {
-            if (err) console.log('[Download] Failed to open:', err);
+          // Auto-open with default system app. If shell.openPath returns a non-empty
+          // string (no app associated, e.g. .xlsx without Excel/LibreOffice), fall back
+          // to showing the file in its folder so user always gets a one-click path to it.
+          shell.openPath(savePath).then((openResult) => {
+            if (openResult && typeof openResult === 'string' && openResult.length > 0) {
+              console.warn('[Download] shell.openPath returned:', openResult, '— falling back to showItemInFolder');
+              try { shell.showItemInFolder(savePath); } catch (e) { console.error('[showItemInFolder]', e); }
+            }
+          }).catch((err) => {
+            console.error('[Download] openPath promise reject:', err);
+            try { shell.showItemInFolder(savePath); } catch (e) { console.error('[showItemInFolder]', e); }
           });
         }
       } else {
@@ -2554,8 +2563,21 @@ async function createMainWindow(port) {
 
       fs.writeFileSync(targetPath, data.buffer);
       console.log('[IPC download-and-save] Saved:', targetPath, 'Size:', data.buffer.length);
-      // Auto-open with default system application (Excel/PDF viewer/etc.)
-      shell.openPath(targetPath).catch(err => console.error('[shell.openPath]', err));
+      // Auto-open with default system application (Excel/PDF viewer/etc.). shell.openPath
+      // resolves to "" on success and an error message string on failure (e.g. no app
+      // associated with .xlsx). On failure we surface the file in its folder so the user
+      // can still get to it with one click — same UX as the PDF auto-open path.
+      shell.openPath(targetPath).then((openResult) => {
+        if (openResult && typeof openResult === 'string' && openResult.length > 0) {
+          console.warn('[IPC download-and-save] shell.openPath returned:', openResult, '— falling back to showItemInFolder');
+          try { shell.showItemInFolder(targetPath); } catch (e) { console.error('[showItemInFolder]', e); }
+        } else {
+          console.log('[IPC download-and-save] Opened with default app:', targetPath);
+        }
+      }).catch(err => {
+        console.error('[shell.openPath]', err);
+        try { shell.showItemInFolder(targetPath); } catch (e) { console.error('[showItemInFolder]', e); }
+      });
       return { success: true, path: targetPath };
     } catch (e) {
       console.error('[IPC download-and-save] Error:', e.message);

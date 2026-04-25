@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.25
+## Current Version: v104.28.26
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -10,6 +10,18 @@
 - Test contrast: text on tinted backgrounds should be at least slate-700 / slate-800
 - Borders: slate-200 / slate-300 instead of slate-700
 - Hover: bg-slate-50 / bg-slate-100
+
+## Recent Fixes (Apr 2026) — v104.28.26
+
+### Excel Auto-Open (Same UX as PDF)
+- **User directive**: *"Abhi jaise pdf download karte hai apne aap open ho jata hai waisa excel download karne pai b hona chahiye"*
+- **Browser path** (`/app/frontend/src/utils/download.js`):
+  - Previous behavior: `window.open(blobUrl)` was called for ALL file types after the anchor download. Browsers can render PDFs inline (good) but for `.xlsx` they trigger a SECOND download (the duplicate confused users into thinking auto-open didn't work).
+  - Fix: detect file type by content-type / extension. PDFs still get `window.open(blobUrl)` for inline view. Excel/non-PDF files now show a sonner toast `"Excel downloaded · Downloads folder mein hai"` instead of the duplicate window.open. Single download, clear UX.
+- **Electron path** (`/app/desktop-app/main.js`):
+  - `download-and-save` IPC handler (auto-save to Downloads): improved `shell.openPath` handling — checks the return value (which is empty string on success or an error message string on failure, e.g. "no application is associated"). On failure it falls back to `shell.showItemInFolder(targetPath)` so the user always gets a one-click path to the file.
+  - `will-download` event handler (window.open(URL) fallback path used by direct `window.open` calls in components like `GovtRegisters.jsx`, `MandiCustodyRegister.jsx`, etc.): same robustness — checks `shell.openPath` return value, falls back to `showItemInFolder` if no app associated.
+- **Net effect**: Desktop App users get genuine auto-open of Excel files (Excel/LibreOffice launches), with a graceful fallback to opening the folder if no app is associated. Browser users get clean single-download behavior with a clear toast hint (no duplicate downloads).
 
 ## Recent Fixes (Apr 2026) — v104.28.25
 

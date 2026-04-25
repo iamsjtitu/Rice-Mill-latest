@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { toast } from 'sonner';
 import logger from "./logger";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -74,7 +75,7 @@ function _saveBlobBrowser(blobData, contentType, filename) {
   const blob = new Blob([blobData], { type: contentType || 'application/octet-stream' });
   const blobUrl = window.URL.createObjectURL(blob);
 
-  // 1. Trigger download
+  // 1. Trigger download (saves to user's Downloads folder)
   const a = document.createElement('a');
   a.style.display = 'none';
   a.href = blobUrl;
@@ -82,11 +83,30 @@ function _saveBlobBrowser(blobData, contentType, filename) {
   document.body.appendChild(a);
   a.click();
 
-  // 2. Auto-open in new browser tab (user requested global behavior — jaise PDF hota hai)
-  //    Browser will preview PDFs inline; Excel/xlsx will prompt OS to open with default app.
-  setTimeout(() => {
-    try { window.open(blobUrl, '_blank'); } catch (e) { logger.error('Auto-open error:', e); }
-  }, 200);
+  // 2. Auto-open behavior — same UX as Electron (shell.openPath) but adapted for browsers.
+  //    Browsers ONLY have built-in viewers for PDF / image / text. For Excel/ZIP/etc.
+  //    a `window.open(blobUrl)` would trigger a SECOND download (xlsx duplicate). So we
+  //    open a tab only for PDFs (where the browser renders inline) and just download
+  //    other files. The browser's built-in download notification still gives the user a
+  //    one-click "Open" button on most platforms, so the file is always reachable.
+  const ct = (contentType || '').toLowerCase();
+  const fnLower = (filename || '').toLowerCase();
+  const isPdf = ct.includes('pdf') || fnLower.endsWith('.pdf');
+  if (isPdf) {
+    setTimeout(() => {
+      try { window.open(blobUrl, '_blank'); } catch (e) { logger.error('Auto-open error:', e); }
+    }, 200);
+  } else {
+    // Non-PDF: skip the second window.open (prevents duplicate xlsx downloads).
+    // Surface a toast hint so the user knows the file is in Downloads.
+    try {
+      const isExcel = ct.includes('spreadsheet') || ct.includes('excel') || fnLower.endsWith('.xlsx') || fnLower.endsWith('.xls');
+      toast.success(`${isExcel ? 'Excel' : 'File'} downloaded`, {
+        description: `${filename} ab Downloads folder mein hai — wahan se open karein.`,
+        duration: 5000,
+      });
+    } catch (_) { /* toast optional */ }
+  }
 
   setTimeout(() => {
     try { document.body.removeChild(a); } catch (e) { logger.error('Cleanup error:', e); }

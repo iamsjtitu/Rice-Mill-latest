@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.26",
+    date: "Apr 2026",
+    title: "v104.28.26 — 📂 Excel Auto-Open (Same UX as PDF)",
+    items: [
+      { type: "fix", text: "📂 **Excel files ab PDF ki tarah auto-open hote hain** — Desktop App mein .xlsx download hone ke baad system ke default app (Excel / LibreOffice / etc.) mein automatically open ho jaata hai. Pehle sirf PDF auto-open hoti thi" },
+      { type: "fix", text: "🛟 **Smart fallback** — agar user ke system mein .xlsx ka koi default app set nahi hai (jo silent fail karta tha), ab automatically file ka folder open ho jaata hai (showItemInFolder) so user ek-click mein file tak pohonch jaye" },
+      { type: "fix", text: "🌐 **Browser preview**: PDF download ke baad ab bhi inline tab mein open hota hai. Excel browser inline render nahi kar sakta — toast notification dikhta hai 'Excel downloaded · Downloads folder mein hai'. Pehle duplicate download issue tha (window.open xlsx blob ko render nahi kar paata tha aur dobara download trigger karta tha) — woh fix" },
+    ],
+  },
+  {
     version: "104.28.25",
     date: "Apr 2026",
     title: "v104.28.25 — 🔐 Backup Encryption (License-Key Derived AES-256-GCM)",
