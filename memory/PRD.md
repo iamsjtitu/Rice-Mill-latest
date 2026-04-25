@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.16
+## Current Version: v104.28.17
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -10,6 +10,52 @@
 - Test contrast: text on tinted backgrounds should be at least slate-700 / slate-800
 - Borders: slate-200 / slate-300 instead of slate-700
 - Hover: bg-slate-50 / bg-slate-100
+
+## Recent Fixes (Apr 2026) — v104.28.17
+
+### Password Recovery System — NEW (Forgot Password)
+**User concern**: "license key dalke koi b reset kar lega" — license key based reset is insecure since any customer's key would work. So we built a per-account recovery system with TWO options:
+
+1. **Recovery Code (one-time, 16 chars)**:
+   - Generated via Settings → Users → Account Recovery (admin only, requires current password).
+   - Format: `XXXX-XXXX-XXXX-XXXX` (uppercase alphanumeric, ambiguous chars excluded).
+   - Stored as SHA256 hash on user record (`recovery_code_hash`). Plaintext shown ONCE.
+   - On Forgot Password → Recovery Code tab: enter username + code + new password → password reset + code invalidated.
+   - User must regenerate a new code afterwards.
+
+2. **WhatsApp OTP (via existing 360Messenger integration)**:
+   - Admin sets `recovery_whatsapp` number in Settings → Users → Account Recovery (requires current password).
+   - On Forgot Password → WhatsApp OTP tab: enter username → OTP sent via 360Messenger to registered WhatsApp.
+   - 6-digit OTP, 10-min expiry, 5 attempts, 60s rate limit between sends.
+   - SHA256 hashed storage on user record (`reset_otp_hash`).
+
+3. **Password Strength Meter** (`/app/frontend/src/components/auth/PasswordStrengthMeter.jsx`):
+   - 4-segment visual bar with colors: red (Weak) → amber (Fair) → yellow (Good) → green (Strong).
+   - Rule checklist (6+ chars, lowercase, uppercase/number, special char).
+   - Embedded in: Password Change Dialog, Forgot Password Modal (both tabs).
+   - Backend now enforces minimum 6-character passwords.
+
+**Endpoints (mirrored across all 3 backends)**:
+- `POST /api/auth/recovery-code/generate` — admin-only, returns plaintext ONCE.
+- `GET /api/auth/recovery-code/status` — boolean + timestamp, no plaintext.
+- `PUT /api/auth/recovery-whatsapp` — set/update recovery WhatsApp number.
+- `GET /api/auth/recovery-whatsapp` — masked number display.
+- `POST /api/auth/forgot-password/send-otp` — sends 6-digit OTP via 360Messenger.
+- `POST /api/auth/forgot-password/verify-otp` — validates OTP and resets password.
+- `POST /api/auth/forgot-password/recovery-code` — validates code and resets password.
+
+**Files**:
+- `/app/backend/routes/auth.py` (Python FastAPI)
+- `/app/desktop-app/routes/auth.js` (Express)
+- `/app/local-server/routes/auth.js` (Express)
+- `/app/frontend/src/components/auth/PasswordStrengthMeter.jsx` (NEW)
+- `/app/frontend/src/components/auth/ForgotPasswordDialog.jsx` (NEW)
+- `/app/frontend/src/components/settings/AccountRecoveryCard.jsx` (NEW)
+- `/app/frontend/src/components/LoginPage.jsx` — Forgot Password link added.
+- `/app/frontend/src/components/entries/HeaderDialogs.jsx` — strength meter added to PasswordChangeDialog.
+- `/app/frontend/src/components/settings/UsersTab.jsx` — AccountRecoveryCard mounted at top.
+
+**Verified by testing agent (iteration_201)**: 22/23 backend tests + 100% frontend UI tests PASSED.
 
 ## Recent Fixes (Apr 2026) — v104.28.16
 
