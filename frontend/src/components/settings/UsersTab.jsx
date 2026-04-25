@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Trash2, Plus, Key, Eye, EyeOff, Users } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmProvider";
 import { API, ROLES, PERMISSION_DEFS, ROLE_DEFAULTS } from "./settingsConstants";
+import { AccountRecoveryCard } from "./AccountRecoveryCard";
 
 function UsersTab({ user, setUser }) {
   const showConfirm = useConfirm();
@@ -100,6 +101,9 @@ function UsersTab({ user, setUser }) {
 
   return (
     <div className="space-y-4" data-testid="users-tab">
+      {/* Account Recovery (Admin only) — Recovery Code + WhatsApp OTP for forgot-password */}
+      <AccountRecoveryCard user={user} />
+
       <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader className="py-3 px-4">
           <div className="flex items-center justify-between">

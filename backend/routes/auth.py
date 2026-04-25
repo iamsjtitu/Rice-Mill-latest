@@ -120,7 +120,11 @@ async def change_password(request: PasswordChangeRequest):
     username = request.username
     current_password = request.current_password
     new_password = request.new_password
-    
+
+    # Validate new password strength (min 6 chars)
+    if not new_password or len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Naya password kam se kam 6 characters ka hona chahiye")
+
     # Check from database first
     user_doc = await db.users.find_one({"username": username}, {"_id": 0})
     
@@ -149,6 +153,246 @@ async def change_password(request: PasswordChangeRequest):
         return {"success": True, "message": "Password changed successfully"}
     
     raise HTTPException(status_code=404, detail="User not found")
+
+
+# ============ PASSWORD RECOVERY: Recovery Code + WhatsApp OTP ============
+# Stored on user record:
+#   recovery_code_hash    -> SHA256 hex of the plaintext code
+#   recovery_code_set_at  -> ISO timestamp
+#   recovery_whatsapp     -> phone number for WhatsApp OTP
+#   reset_otp_hash        -> SHA256 of current 6-digit OTP
+#   reset_otp_expires_at  -> ISO timestamp (10 min)
+#   reset_otp_attempts    -> int (max 5)
+
+import hashlib
+import secrets
+
+def _hash_secret(s: str) -> str:
+    return hashlib.sha256(s.strip().encode("utf-8")).hexdigest()
+
+def _generate_recovery_code() -> str:
+    # 16 chars in 4-4-4-4 format, uppercase alphanumeric (excl. confusing chars)
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no I,O,0,1
+    chars = "".join(secrets.choice(alphabet) for _ in range(16))
+    return f"{chars[0:4]}-{chars[4:8]}-{chars[8:12]}-{chars[12:16]}"
+
+def _generate_otp() -> str:
+    return f"{secrets.randbelow(1000000):06d}"
+
+def _mask_phone(phone: str) -> str:
+    if not phone:
+        return ""
+    p = "".join(c for c in phone if c.isdigit())
+    if len(p) < 4:
+        return "*" * len(p)
+    return "*" * (len(p) - 4) + p[-4:]
+
+
+@router.post("/auth/recovery-code/generate")
+async def generate_recovery_code(data: dict):
+    """Admin-only. Generates a new recovery code, stores its hash, returns plaintext ONCE."""
+    username = (data.get("username") or "").strip()
+    current_password = data.get("current_password") or ""
+    if not username or not current_password:
+        raise HTTPException(status_code=400, detail="Username aur current password zaruri hai")
+
+    user_doc = await db.users.find_one({"username": username}, {"_id": 0})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user_doc.get("password") != current_password:
+        raise HTTPException(status_code=401, detail="Current password galat hai")
+    if user_doc.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin recovery code generate kar sakta hai")
+
+    code = _generate_recovery_code()
+    await db.users.update_one(
+        {"username": username},
+        {"$set": {
+            "recovery_code_hash": _hash_secret(code),
+            "recovery_code_set_at": datetime.now(timezone.utc).isoformat(),
+        }}
+    )
+    return {"success": True, "code": code, "message": "Recovery code generated. Save it safely — it will not be shown again."}
+
+
+@router.get("/auth/recovery-code/status")
+async def recovery_code_status(username: str = "", role: str = ""):
+    """Returns whether a recovery code exists and when it was set (no plaintext)."""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin")
+    user_doc = await db.users.find_one({"username": username}, {"_id": 0, "recovery_code_hash": 1, "recovery_code_set_at": 1})
+    if not user_doc:
+        return {"has_code": False, "set_at": ""}
+    return {
+        "has_code": bool(user_doc.get("recovery_code_hash")),
+        "set_at": user_doc.get("recovery_code_set_at", "") or "",
+    }
+
+
+@router.put("/auth/recovery-whatsapp")
+async def set_recovery_whatsapp(data: dict):
+    """Admin-only. Stores WhatsApp number for OTP-based password reset."""
+    username = (data.get("username") or "").strip()
+    current_password = data.get("current_password") or ""
+    whatsapp = (data.get("whatsapp") or "").strip()
+
+    if not username or not current_password:
+        raise HTTPException(status_code=400, detail="Username aur current password zaruri hai")
+
+    user_doc = await db.users.find_one({"username": username}, {"_id": 0})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user_doc.get("password") != current_password:
+        raise HTTPException(status_code=401, detail="Current password galat hai")
+    if user_doc.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin")
+
+    # Basic phone validation: 10 digits min after cleaning
+    cleaned = "".join(c for c in whatsapp if c.isdigit())
+    if whatsapp and len(cleaned) < 10:
+        raise HTTPException(status_code=400, detail="WhatsApp number invalid hai")
+
+    await db.users.update_one(
+        {"username": username},
+        {"$set": {"recovery_whatsapp": whatsapp}}
+    )
+    return {"success": True, "whatsapp": whatsapp, "masked": _mask_phone(whatsapp)}
+
+
+@router.get("/auth/recovery-whatsapp")
+async def get_recovery_whatsapp(username: str = "", role: str = ""):
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin")
+    user_doc = await db.users.find_one({"username": username}, {"_id": 0, "recovery_whatsapp": 1})
+    wa = (user_doc or {}).get("recovery_whatsapp", "") or ""
+    return {"whatsapp": wa, "masked": _mask_phone(wa), "has_number": bool(wa)}
+
+
+@router.post("/auth/forgot-password/send-otp")
+async def send_password_reset_otp(data: dict):
+    """Public endpoint. Sends a 6-digit OTP to the user's registered recovery WhatsApp."""
+    username = (data.get("username") or "").strip()
+    if not username:
+        raise HTTPException(status_code=400, detail="Username zaruri hai")
+
+    user_doc = await db.users.find_one({"username": username}, {"_id": 0})
+    if not user_doc:
+        # Don't leak which usernames exist
+        raise HTTPException(status_code=404, detail="Is username ke liye recovery WhatsApp set nahi hai")
+    wa_number = (user_doc.get("recovery_whatsapp") or "").strip()
+    if not wa_number:
+        raise HTTPException(status_code=404, detail="Is account ke liye recovery WhatsApp set nahi hai. Pehle Settings → Account Recovery se number add karein.")
+
+    # Rate limit: do not send another OTP within 60 sec
+    last_sent_iso = user_doc.get("reset_otp_sent_at") or ""
+    if last_sent_iso:
+        try:
+            last_sent = datetime.fromisoformat(last_sent_iso)
+            if (datetime.now(timezone.utc) - last_sent).total_seconds() < 60:
+                wait_s = 60 - int((datetime.now(timezone.utc) - last_sent).total_seconds())
+                raise HTTPException(status_code=429, detail=f"Thoda ruko - {wait_s}s baad dobara try karein")
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
+    otp = _generate_otp()
+    expires = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+    await db.users.update_one(
+        {"username": username},
+        {"$set": {
+            "reset_otp_hash": _hash_secret(otp),
+            "reset_otp_expires_at": expires,
+            "reset_otp_attempts": 0,
+            "reset_otp_sent_at": datetime.now(timezone.utc).isoformat(),
+        }}
+    )
+
+    # Send via 360Messenger (uses existing WhatsApp settings)
+    from routes.whatsapp import _send_wa_message
+    text = (
+        f"Mill Entry System - Password Reset OTP\n\n"
+        f"Aapka OTP hai: {otp}\n\n"
+        f"Ye OTP 10 minutes ke liye valid hai. Kisi ke saath share na karein.\n"
+        f"Agar aapne reset request nahi kiya hai toh is message ko ignore karein."
+    )
+    result = await _send_wa_message(wa_number, text)
+    if not result.get("success"):
+        # Don't reveal exact internals
+        raise HTTPException(status_code=500, detail=f"OTP bhejne mein error: {result.get('error', 'WhatsApp send failed')}")
+
+    return {"success": True, "masked_phone": _mask_phone(wa_number), "message": f"OTP bhej diya {_mask_phone(wa_number)} pe. 10 minutes ke andar enter karein."}
+
+
+@router.post("/auth/forgot-password/verify-otp")
+async def verify_password_reset_otp(data: dict):
+    """Public endpoint. Verifies OTP and resets password."""
+    username = (data.get("username") or "").strip()
+    otp = (data.get("otp") or "").strip()
+    new_password = data.get("new_password") or ""
+
+    if not username or not otp or not new_password:
+        raise HTTPException(status_code=400, detail="Username, OTP aur naya password zaruri hai")
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Naya password kam se kam 6 characters ka hona chahiye")
+
+    user_doc = await db.users.find_one({"username": username}, {"_id": 0})
+    if not user_doc or not user_doc.get("reset_otp_hash"):
+        raise HTTPException(status_code=400, detail="Is account ke liye OTP request nahi mila. Pehle 'Send OTP' karein.")
+
+    expires_iso = user_doc.get("reset_otp_expires_at") or ""
+    try:
+        expires = datetime.fromisoformat(expires_iso) if expires_iso else None
+    except Exception:
+        expires = None
+    if not expires or datetime.now(timezone.utc) > expires:
+        await db.users.update_one({"username": username}, {"$unset": {"reset_otp_hash": "", "reset_otp_expires_at": "", "reset_otp_attempts": ""}})
+        raise HTTPException(status_code=400, detail="OTP expire ho gaya. Naya OTP request karein.")
+
+    attempts = int(user_doc.get("reset_otp_attempts") or 0)
+    if attempts >= 5:
+        await db.users.update_one({"username": username}, {"$unset": {"reset_otp_hash": "", "reset_otp_expires_at": "", "reset_otp_attempts": ""}})
+        raise HTTPException(status_code=429, detail="Bahut zyada galat OTP attempts. Naya OTP request karein.")
+
+    if user_doc.get("reset_otp_hash") != _hash_secret(otp):
+        await db.users.update_one({"username": username}, {"$inc": {"reset_otp_attempts": 1}})
+        raise HTTPException(status_code=401, detail=f"OTP galat hai. {4 - attempts} attempts bache hain.")
+
+    # Success — reset password and clear OTP fields
+    await db.users.update_one(
+        {"username": username},
+        {"$set": {"password": new_password},
+         "$unset": {"reset_otp_hash": "", "reset_otp_expires_at": "", "reset_otp_attempts": "", "reset_otp_sent_at": ""}}
+    )
+    return {"success": True, "message": "Password reset ho gaya! Ab new password se login karein."}
+
+
+@router.post("/auth/forgot-password/recovery-code")
+async def reset_password_via_recovery_code(data: dict):
+    """Public endpoint. Resets password using one-time recovery code."""
+    username = (data.get("username") or "").strip()
+    code = (data.get("code") or "").strip().upper()
+    new_password = data.get("new_password") or ""
+
+    if not username or not code or not new_password:
+        raise HTTPException(status_code=400, detail="Username, recovery code aur naya password zaruri hai")
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Naya password kam se kam 6 characters ka hona chahiye")
+
+    user_doc = await db.users.find_one({"username": username}, {"_id": 0})
+    if not user_doc or not user_doc.get("recovery_code_hash"):
+        raise HTTPException(status_code=404, detail="Is account ke liye recovery code set nahi hai")
+
+    if user_doc.get("recovery_code_hash") != _hash_secret(code):
+        raise HTTPException(status_code=401, detail="Recovery code galat hai")
+
+    # Success — reset password and INVALIDATE the recovery code (one-time use)
+    await db.users.update_one(
+        {"username": username},
+        {"$set": {"password": new_password},
+         "$unset": {"recovery_code_hash": "", "recovery_code_set_at": ""}}
+    )
+    return {"success": True, "message": "Password reset ho gaya! Naya recovery code Settings se generate karein.", "code_invalidated": True}
 
 
 # ============ USER MANAGEMENT (CRUD) ============

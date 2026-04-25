@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Keyboard, Shield, HardDrive } from "lucide-react";
+import { PasswordStrengthMeter } from "@/components/auth/PasswordStrengthMeter";
 
 export function ShortcutsDialog({ open, onOpenChange }) {
   return (
@@ -130,10 +131,11 @@ export function PasswordChangeDialog({ open, onOpenChange, passwordData, setPass
               type="password"
               value={passwordData.newPassword}
               onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
-              placeholder="New password"
+              placeholder="New password (min 6 chars)"
               className="bg-slate-700 border-slate-600 text-white"
               data-testid="new-password"
             />
+            <PasswordStrengthMeter password={passwordData.newPassword} />
           </div>
           <div>
             <Label className="text-slate-300">Confirm New Password</Label>

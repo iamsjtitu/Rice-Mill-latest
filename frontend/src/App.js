@@ -915,8 +915,8 @@ function MainApp({ user, setUser, onLogout }) {
       toast.error("New password aur confirm password match nahi kar rahe");
       return;
     }
-    if (passwordData.newPassword.length < 4) {
-      toast.error("Password kam se kam 4 characters ka hona chahiye");
+    if (passwordData.newPassword.length < 6) {
+      toast.error("Password kam se kam 6 characters ka hona chahiye");
       return;
     }
     try {

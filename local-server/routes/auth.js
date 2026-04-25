@@ -1,5 +1,5 @@
 const express = require('express');
-const { safeSync } = require('./safe_handler');
+const { safeSync, safeAsync } = require('./safe_handler');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
@@ -86,12 +86,183 @@ module.exports = function(database) {
 
   router.post('/api/auth/change-password', safeSync(async (req, res) => {
     const { username, current_password, new_password } = req.body;
+    if (!new_password || String(new_password).length < 6) {
+      return res.status(400).json({ detail: 'Naya password kam se kam 6 characters ka hona chahiye' });
+    }
     const user = database.getUser(username);
     if (!user || user.password !== current_password) {
       return res.status(401).json({ detail: 'Current password galat hai' });
     }
     database.updateUserPassword(username, new_password);
     res.json({ success: true, message: 'Password change ho gaya' });
+  }));
+
+  // ============ PASSWORD RECOVERY: Recovery Code + WhatsApp OTP ============
+  const crypto = require('crypto');
+  const https = require('https');
+
+  const _hashSecret = (s) => crypto.createHash('sha256').update(String(s).trim(), 'utf8').digest('hex');
+  const _genRecoveryCode = () => {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let s = '';
+    for (let i = 0; i < 16; i++) s += alphabet[crypto.randomInt(alphabet.length)];
+    return `${s.slice(0,4)}-${s.slice(4,8)}-${s.slice(8,12)}-${s.slice(12,16)}`;
+  };
+  const _genOtp = () => String(crypto.randomInt(1000000)).padStart(6, '0');
+  const _maskPhone = (phone) => {
+    if (!phone) return '';
+    const p = String(phone).replace(/\D/g, '');
+    if (p.length < 4) return '*'.repeat(p.length);
+    return '*'.repeat(p.length - 4) + p.slice(-4);
+  };
+  const _getWaApiKey = () => {
+    const settings = (database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config');
+    return { apiKey: settings?.api_key || '', countryCode: settings?.country_code || '91' };
+  };
+  const _cleanPhone = (phone, cc = '91') => {
+    let p = String(phone).trim().replace(/[\s\-\+]/g, '');
+    if (p.startsWith('0')) p = p.substring(1);
+    if (!p.startsWith(cc)) p = cc + p;
+    return p;
+  };
+  const _sendWhatsApp = (phone, text) => new Promise((resolve) => {
+    const { apiKey, countryCode } = _getWaApiKey();
+    if (!apiKey) return resolve({ success: false, error: 'WhatsApp API key set nahi hai. Settings → Messaging mein set karein.' });
+    const cleaned = _cleanPhone(phone, countryCode);
+    const postData = `phonenumber=${encodeURIComponent(cleaned)}&text=${encodeURIComponent(text)}`;
+    const opts = {
+      hostname: 'api.360messenger.com', path: '/v2/sendMessage', method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(postData) }
+    };
+    const req2 = https.request(opts, (r) => {
+      let data = '';
+      r.on('data', c => data += c);
+      r.on('end', () => {
+        try { const result = JSON.parse(data || '{}'); resolve({ success: result.success || r.statusCode === 201, error: result.error || result.message || (r.statusCode >= 400 ? `HTTP ${r.statusCode}` : '') }); }
+        catch (e) { resolve({ success: false, error: 'Invalid response from WhatsApp' }); }
+      });
+    });
+    req2.on('error', (e) => resolve({ success: false, error: e.message }));
+    req2.setTimeout(20000, () => { req2.destroy(); resolve({ success: false, error: 'WhatsApp API timeout' }); });
+    req2.write(postData);
+    req2.end();
+  });
+
+  router.post('/api/auth/recovery-code/generate', safeSync(async (req, res) => {
+    const { username, current_password } = req.body || {};
+    if (!username || !current_password) return res.status(400).json({ detail: 'Username aur current password zaruri hai' });
+    const user = database.getUser(username);
+    if (!user) return res.status(404).json({ detail: 'User not found' });
+    if (user.password !== current_password) return res.status(401).json({ detail: 'Current password galat hai' });
+    if (user.role !== 'admin') return res.status(403).json({ detail: 'Sirf admin recovery code generate kar sakta hai' });
+
+    const code = _genRecoveryCode();
+    user.recovery_code_hash = _hashSecret(code);
+    user.recovery_code_set_at = new Date().toISOString();
+    if (database.saveImmediate) database.saveImmediate(); else database.save();
+    res.json({ success: true, code, message: 'Recovery code generated. Save it safely — it will not be shown again.' });
+  }));
+
+  router.get('/api/auth/recovery-code/status', safeSync(async (req, res) => {
+    if (req.query.role !== 'admin') return res.status(403).json({ detail: 'Sirf admin' });
+    const user = database.getUser(req.query.username);
+    if (!user) return res.json({ has_code: false, set_at: '' });
+    res.json({ has_code: !!user.recovery_code_hash, set_at: user.recovery_code_set_at || '' });
+  }));
+
+  router.put('/api/auth/recovery-whatsapp', safeSync(async (req, res) => {
+    const { username, current_password, whatsapp } = req.body || {};
+    if (!username || !current_password) return res.status(400).json({ detail: 'Username aur current password zaruri hai' });
+    const user = database.getUser(username);
+    if (!user) return res.status(404).json({ detail: 'User not found' });
+    if (user.password !== current_password) return res.status(401).json({ detail: 'Current password galat hai' });
+    if (user.role !== 'admin') return res.status(403).json({ detail: 'Sirf admin' });
+
+    const num = String(whatsapp || '').trim();
+    const cleaned = num.replace(/\D/g, '');
+    if (num && cleaned.length < 10) return res.status(400).json({ detail: 'WhatsApp number invalid hai' });
+
+    user.recovery_whatsapp = num;
+    if (database.saveImmediate) database.saveImmediate(); else database.save();
+    res.json({ success: true, whatsapp: num, masked: _maskPhone(num) });
+  }));
+
+  router.get('/api/auth/recovery-whatsapp', safeSync(async (req, res) => {
+    if (req.query.role !== 'admin') return res.status(403).json({ detail: 'Sirf admin' });
+    const user = database.getUser(req.query.username);
+    const wa = user?.recovery_whatsapp || '';
+    res.json({ whatsapp: wa, masked: _maskPhone(wa), has_number: !!wa });
+  }));
+
+  router.post('/api/auth/forgot-password/send-otp', safeAsync(async (req, res) => {
+    const { username } = req.body || {};
+    if (!username) return res.status(400).json({ detail: 'Username zaruri hai' });
+    const user = database.getUser(username);
+    if (!user || !user.recovery_whatsapp) {
+      return res.status(404).json({ detail: 'Is account ke liye recovery WhatsApp set nahi hai. Pehle Settings → Account Recovery se number add karein.' });
+    }
+    if (user.reset_otp_sent_at) {
+      const elapsed = (Date.now() - new Date(user.reset_otp_sent_at).getTime()) / 1000;
+      if (elapsed < 60) return res.status(429).json({ detail: `Thoda ruko - ${Math.ceil(60 - elapsed)}s baad dobara try karein` });
+    }
+    const otp = _genOtp();
+    user.reset_otp_hash = _hashSecret(otp);
+    user.reset_otp_expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    user.reset_otp_attempts = 0;
+    user.reset_otp_sent_at = new Date().toISOString();
+    if (database.saveImmediate) database.saveImmediate(); else database.save();
+
+    const text = `Mill Entry System - Password Reset OTP\n\nAapka OTP hai: ${otp}\n\nYe OTP 10 minutes ke liye valid hai. Kisi ke saath share na karein.\nAgar aapne reset request nahi kiya hai toh is message ko ignore karein.`;
+    const result = await _sendWhatsApp(user.recovery_whatsapp, text);
+    if (!result.success) return res.status(500).json({ detail: `OTP bhejne mein error: ${result.error || 'WhatsApp send failed'}` });
+    res.json({ success: true, masked_phone: _maskPhone(user.recovery_whatsapp), message: `OTP bhej diya ${_maskPhone(user.recovery_whatsapp)} pe. 10 minutes ke andar enter karein.` });
+  }));
+
+  router.post('/api/auth/forgot-password/verify-otp', safeSync(async (req, res) => {
+    const { username, otp, new_password } = req.body || {};
+    if (!username || !otp || !new_password) return res.status(400).json({ detail: 'Username, OTP aur naya password zaruri hai' });
+    if (String(new_password).length < 6) return res.status(400).json({ detail: 'Naya password kam se kam 6 characters ka hona chahiye' });
+
+    const user = database.getUser(username);
+    if (!user || !user.reset_otp_hash) return res.status(400).json({ detail: "Is account ke liye OTP request nahi mila. Pehle 'Send OTP' karein." });
+
+    const expires = user.reset_otp_expires_at ? new Date(user.reset_otp_expires_at).getTime() : 0;
+    if (Date.now() > expires) {
+      delete user.reset_otp_hash; delete user.reset_otp_expires_at; delete user.reset_otp_attempts;
+      database.save();
+      return res.status(400).json({ detail: 'OTP expire ho gaya. Naya OTP request karein.' });
+    }
+    const attempts = parseInt(user.reset_otp_attempts || 0, 10);
+    if (attempts >= 5) {
+      delete user.reset_otp_hash; delete user.reset_otp_expires_at; delete user.reset_otp_attempts;
+      database.save();
+      return res.status(429).json({ detail: 'Bahut zyada galat OTP attempts. Naya OTP request karein.' });
+    }
+    if (user.reset_otp_hash !== _hashSecret(otp)) {
+      user.reset_otp_attempts = attempts + 1;
+      database.save();
+      return res.status(401).json({ detail: `OTP galat hai. ${4 - attempts} attempts bache hain.` });
+    }
+    user.password = String(new_password);
+    delete user.reset_otp_hash; delete user.reset_otp_expires_at; delete user.reset_otp_attempts; delete user.reset_otp_sent_at;
+    if (database.saveImmediate) database.saveImmediate(); else database.save();
+    res.json({ success: true, message: 'Password reset ho gaya! Ab new password se login karein.' });
+  }));
+
+  router.post('/api/auth/forgot-password/recovery-code', safeSync(async (req, res) => {
+    const { username, code, new_password } = req.body || {};
+    if (!username || !code || !new_password) return res.status(400).json({ detail: 'Username, recovery code aur naya password zaruri hai' });
+    if (String(new_password).length < 6) return res.status(400).json({ detail: 'Naya password kam se kam 6 characters ka hona chahiye' });
+
+    const user = database.getUser(username);
+    if (!user || !user.recovery_code_hash) return res.status(404).json({ detail: 'Is account ke liye recovery code set nahi hai' });
+    if (user.recovery_code_hash !== _hashSecret(String(code).trim().toUpperCase())) {
+      return res.status(401).json({ detail: 'Recovery code galat hai' });
+    }
+    user.password = String(new_password);
+    delete user.recovery_code_hash; delete user.recovery_code_set_at;
+    if (database.saveImmediate) database.saveImmediate(); else database.save();
+    res.json({ success: true, message: 'Password reset ho gaya! Naya recovery code Settings se generate karein.', code_invalidated: true });
   }));
 
   router.get('/api/auth/verify', safeSync(async (req, res) => {

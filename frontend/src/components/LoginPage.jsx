@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { User, Lock, Sun, Moon } from "lucide-react";
+import { ForgotPasswordDialog } from "@/components/auth/ForgotPasswordDialog";
 import logger from "../utils/logger";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -22,6 +23,7 @@ const LoginPage = ({ onLogin }) => {
   const [error, setError] = useState("");
   const [branding, setBranding] = useState({ company_name: "Mill Entry System", tagline: "" });
   const [theme, setTheme] = useState(() => localStorage.getItem('mill_theme') || 'dark');
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
@@ -132,6 +134,16 @@ const LoginPage = ({ onLogin }) => {
             >
               {loading ? "Logging in..." : "Login"}
             </Button>
+            <div className="text-center pt-1">
+              <button
+                type="button"
+                onClick={() => setForgotOpen(true)}
+                className="text-sm text-amber-400 hover:text-amber-300 underline-offset-2 hover:underline font-medium"
+                data-testid="forgot-password-link"
+              >
+                Forgot Password? / पासवर्ड भूल गए?
+              </button>
+            </div>
           </form>
           {_isElectron && (
             <div className="mt-4 p-2 rounded bg-slate-900/50 border border-slate-700" data-testid="desktop-debug">
@@ -141,6 +153,7 @@ const LoginPage = ({ onLogin }) => {
           )}
         </CardContent>
       </Card>
+      <ForgotPasswordDialog open={forgotOpen} onOpenChange={setForgotOpen} />
     </div>
   );
 };
