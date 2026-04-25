@@ -251,8 +251,10 @@ module.exports = (database) => {
     const total = Number(p.total) || 0;
     const advance = Number(p.advance_deducted) || 0;
     const payable = Number(p.amount_payable) || 0;
-    const paid = Number(p.amount_paid) || 0;
-    const newAdv = Number(p.new_advance) || 0;
+    const isPaid = p.status === 'paid';
+    // For UNPAID payments, amount_paid is just a placeholder (= amount_payable). Display 0 until truly paid.
+    const paid = isPaid ? (Number(p.amount_paid) || 0) : 0;
+    const newAdv = isPaid ? (Number(p.new_advance) || 0) : 0;
     const items = Array.isArray(p.items) ? p.items : [];
     const balance = payable - paid;
 
@@ -379,10 +381,11 @@ module.exports = (database) => {
     drawTile(pageLeft + 2 * tileW, y, 'NET PAYABLE', `Rs. ${Math.round(payable).toLocaleString()}`, '#fef3c7', '#d97706', 12);
     y += tileH + 3;
 
-    // Row 2: Paid | New Advance | Balance
-    drawTile(pageLeft + 0 * tileW, y, 'AMOUNT PAID', `Rs. ${Math.round(paid).toLocaleString()}`, '#f0fdf4', '#16a34a', 12);
+    // Row 2: Paid | New Advance | Balance (only meaningful for PAID receipts)
+    drawTile(pageLeft + 0 * tileW, y, 'AMOUNT PAID', `Rs. ${Math.round(paid).toLocaleString()}`, '#f0fdf4', isPaid ? '#16a34a' : '#94a3b8', 12);
     drawTile(pageLeft + 1 * tileW, y, 'NEW ADVANCE', newAdv > 0 ? `Rs. ${Math.round(newAdv).toLocaleString()}` : '—', '#fefce8', newAdv > 0 ? '#d97706' : '#94a3b8');
-    drawTile(pageLeft + 2 * tileW, y, 'BALANCE', balance > 0 ? `Rs. ${Math.round(balance).toLocaleString()}` : 'SETTLED', '#f8fafc', balance > 0 ? '#dc2626' : '#16a34a');
+    const balLabel = (isPaid && balance <= 0) ? 'SETTLED' : `Rs. ${Math.round(balance).toLocaleString()}`;
+    drawTile(pageLeft + 2 * tileW, y, 'BALANCE', balLabel, '#f8fafc', (isPaid && balance <= 0) ? '#16a34a' : '#dc2626');
     y += tileH;
     // Outer border for summary tiles
     doc.lineWidth(0.5).strokeColor('#cbd5e1').rect(pageLeft, y - (tileH * 2 + 3), pageWidth, tileH * 2 + 3).stroke();

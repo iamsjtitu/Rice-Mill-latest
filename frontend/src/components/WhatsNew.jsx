@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.10",
+    date: "Feb 2026",
+    title: "v104.28.10 — Hemali UNPAID Receipt Fix + Branded Reports",
+    items: [
+      { type: "fix", text: "🐛 UNPAID Hemali receipt mein 'AMOUNT PAID' aur 'BALANCE: SETTLED' galat dikh raha tha — bug fix. Ab UNPAID receipt mein Paid = Rs. 0 aur Balance = Net Payable (red colour mein) sahi dikhega" },
+      { type: "new", text: "📊 Hemali Monthly Summary PDF/Excel ab fully branded — header mein Settings se company name, tagline aur custom fields, subtitle mein KMS Year/Season/Sardar context. Per-sardar orange band with current advance balance" },
+      { type: "new", text: "📄 Hemali Export PDF/Excel ab professional format mein — branded header, subtitle filter context, PAID/UNPAID status colour-coded (green/red), wider columns, UNPAID rows mein '—' dikhayega placeholders ke jagah" },
+    ],
+  },
+  {
     version: "104.28.9",
     date: "Feb 2026",
     title: "v104.28.9 — Keyboard-First UX & Smart Suggestions",

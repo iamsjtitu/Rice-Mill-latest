@@ -537,32 +537,86 @@ async def hemali_monthly_summary_pdf(kms_year: str = "", season: str = "", sarda
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib import colors
     from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
-    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
+    from utils.export_helpers import get_pdf_styles, get_pdf_table_style
+    from reportlab.lib.styles import ParagraphStyle
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=15, bottomMargin=15)
     styles = get_pdf_styles()
     elements = []
-    from utils.branding_helper import get_pdf_company_header_from_db
-    elements.extend(await get_pdf_company_header_from_db())
-    elements.append(Paragraph("Hemali Monthly Summary", ParagraphStyle("t", parent=styles["Title"], fontSize=14, textColor=colors.HexColor("#1a365d"))))
-    elements.append(Spacer(1, 8))
 
+    # Branded header (company name + tagline + custom fields from settings)
+    from utils.branding_helper import get_pdf_header_elements_from_db
+    subtitle_parts = []
+    if kms_year:
+        subtitle_parts.append(f"KMS Year: {kms_year}")
+    if season:
+        subtitle_parts.append(f"Season: {season.title()}")
+    if sardar_name:
+        subtitle_parts.append(f"Sardar: {sardar_name}")
+    subtitle = "  |  ".join(subtitle_parts) if subtitle_parts else "All Sardars"
+    elements.extend(await get_pdf_header_elements_from_db("Hemali Monthly Summary", subtitle))
+    elements.append(Spacer(1, 6))
+
+    if not data:
+        elements.append(Paragraph("Koi data nahi mila is filter ke liye",
+                                  ParagraphStyle("nd", parent=styles["Normal"], fontSize=11,
+                                                 textColor=colors.HexColor("#94a3b8"), alignment=1)))
+        doc.build(elements)
+        buf.seek(0)
+        return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=hemali_monthly_summary.pdf"})
+
+    # Per-sardar tables
     for sardar in data:
-        elements.append(Paragraph(f"Sardar: {sardar['sardar_name']}  |  Current Advance: Rs.{sardar['current_advance_balance']:,.2f}", ParagraphStyle("s", parent=styles["Heading3"], fontSize=10, textColor=colors.HexColor("#d97706"))))
-        headers = ["Month", "Payments", "Total Work", "Total Paid", "Adv Given", "Adv Deducted"]
+        # Sardar name pill + advance balance
+        sardar_hdr = RTable(
+            [[
+                Paragraph(f"<b>SARDAR:</b> {sardar['sardar_name']}",
+                          ParagraphStyle("sh", parent=styles["Normal"], fontSize=10,
+                                         textColor=colors.white, fontName="Helvetica-Bold")),
+                Paragraph(f"Current Advance Balance: <b>Rs. {sardar['current_advance_balance']:,.2f}</b>",
+                          ParagraphStyle("sa", parent=styles["Normal"], fontSize=9,
+                                         textColor=colors.white, alignment=2)),
+            ]],
+            colWidths=[400, 401]
+        )
+        sardar_hdr.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#d97706")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 12),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(sardar_hdr)
+        elements.append(Spacer(1, 2))
+
+        headers = ["Month", "Payments\n(Paid/Total)", "Total Work", "Total Paid", "Adv. Given", "Adv. Deducted"]
         rows = [headers]
         for m in sardar["months"]:
-            rows.append([m["month"], f"{m['paid_payments']}/{m['total_payments']}", f"Rs.{m['total_work']:,.2f}", f"Rs.{m['total_paid']:,.2f}", f"Rs.{m['advance_given']:,.2f}", f"Rs.{m['advance_deducted']:,.2f}"])
-        rows.append(["TOTAL", "", f"Rs.{sardar['grand_total_work']:,.2f}", f"Rs.{sardar['grand_total_paid']:,.2f}", f"Rs.{sardar['grand_total_advance_given']:,.2f}", f"Rs.{sardar['grand_total_advance_deducted']:,.2f}"])
-        from utils.export_helpers import get_pdf_table_style
-        t = RTable(rows, colWidths=[80, 60, 90, 90, 90, 90], repeatRows=1)
-        cols_info = [{'header': h} for h in headers]
+            rows.append([
+                m["month"],
+                f"{m['paid_payments']}/{m['total_payments']}",
+                f"Rs. {m['total_work']:,.2f}",
+                f"Rs. {m['total_paid']:,.2f}",
+                f"Rs. {m['advance_given']:,.2f}",
+                f"Rs. {m['advance_deducted']:,.2f}",
+            ])
+        rows.append([
+            "TOTAL", "",
+            f"Rs. {sardar['grand_total_work']:,.2f}",
+            f"Rs. {sardar['grand_total_paid']:,.2f}",
+            f"Rs. {sardar['grand_total_advance_given']:,.2f}",
+            f"Rs. {sardar['grand_total_advance_deducted']:,.2f}",
+        ])
+        cols_info = [{"header": h} for h in headers]
         style_cmds = get_pdf_table_style(len(rows), cols_info)
         style_cmds.append(("ALIGN", (1, 0), (-1, -1), "RIGHT"))
+        style_cmds.append(("ALIGN", (0, 0), (0, -1), "LEFT"))
+        t = RTable(rows, colWidths=[100, 100, 130, 130, 130, 130], repeatRows=1)
         t.setStyle(TableStyle(style_cmds))
         elements.append(t)
-        elements.append(Spacer(1, 12))
+        elements.append(Spacer(1, 14))
 
     doc.build(elements)
     buf.seek(0)
@@ -574,23 +628,53 @@ async def hemali_monthly_summary_excel(kms_year: str = "", season: str = "", sar
     data = await hemali_monthly_summary(kms_year=kms_year, season=season, sardar_name=sardar_name, month=month)
 
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.styles import Font, PatternFill, Alignment
 
     wb = Workbook()
     ws = wb.active
     ws.title = "Monthly Summary"
     from utils.export_helpers import (style_excel_title, style_excel_header_row,
-        style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
+        style_excel_data_rows, style_excel_total_row, COLORS)
+    from utils.branding_helper import get_excel_branding
 
+    branding = await get_excel_branding()
     ncols = 6
-    style_excel_title(ws, "Hemali Monthly Summary / हेमाली मासिक", ncols)
-    row_n = 4
+
+    subtitle_parts = []
+    if kms_year:
+        subtitle_parts.append(f"KMS Year: {kms_year}")
+    if season:
+        subtitle_parts.append(f"Season: {season.title()}")
+    if sardar_name:
+        subtitle_parts.append(f"Sardar: {sardar_name}")
+    subtitle = "  |  ".join(subtitle_parts) if subtitle_parts else "All Sardars"
+    style_excel_title(ws, "Hemali Monthly Summary / हेमाली मासिक सारांश", ncols,
+                      subtitle=subtitle, branding=branding)
+
+    # style_excel_title returns starting row; use a safe row 5 (header rows 1-4 used by branding)
+    row_n = ws.max_row + 2 if ws.max_row else 5
 
     for sardar in data:
-        ws.cell(row=row_n, column=1, value=f"Sardar: {sardar['sardar_name']}").font = Font(bold=True, size=10, color=COLORS['subtitle_text'])
-        ws.cell(row=row_n, column=5, value=f"Current Advance: Rs.{sardar['current_advance_balance']}").font = Font(bold=True, size=9)
+        # Sardar header band (orange)
+        cell = ws.cell(row=row_n, column=1, value=f"SARDAR: {sardar['sardar_name']}")
+        cell.font = Font(bold=True, size=11, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="D97706")
+        cell.alignment = Alignment(horizontal="left", vertical="center", indent=1)
+        adv_cell = ws.cell(row=row_n, column=5,
+                           value=f"Current Advance: Rs. {sardar['current_advance_balance']:,.2f}")
+        adv_cell.font = Font(bold=True, size=10, color="FFFFFF")
+        adv_cell.fill = PatternFill("solid", fgColor="D97706")
+        adv_cell.alignment = Alignment(horizontal="right", vertical="center", indent=1)
+        ws.cell(row=row_n, column=6).fill = PatternFill("solid", fgColor="D97706")
+        ws.cell(row=row_n, column=2).fill = PatternFill("solid", fgColor="D97706")
+        ws.cell(row=row_n, column=3).fill = PatternFill("solid", fgColor="D97706")
+        ws.cell(row=row_n, column=4).fill = PatternFill("solid", fgColor="D97706")
+        ws.merge_cells(start_row=row_n, start_column=1, end_row=row_n, end_column=4)
+        ws.merge_cells(start_row=row_n, start_column=5, end_row=row_n, end_column=6)
+        ws.row_dimensions[row_n].height = 22
         row_n += 1
-        headers_list = ["Month", "Payments", "Total Work", "Total Paid", "Adv Given", "Adv Deducted"]
+
+        headers_list = ["Month", "Payments (Paid/Total)", "Total Work", "Total Paid", "Adv. Given", "Adv. Deducted"]
         for ci, h in enumerate(headers_list, 1):
             ws.cell(row=row_n, column=ci, value=h)
         style_excel_header_row(ws, row_n, ncols)
@@ -606,10 +690,12 @@ async def hemali_monthly_summary_excel(kms_year: str = "", season: str = "", sar
         ws.cell(row=row_n, column=1, value="TOTAL")
         ws.cell(row=row_n, column=3, value=sardar["grand_total_work"])
         ws.cell(row=row_n, column=4, value=sardar["grand_total_paid"])
+        ws.cell(row=row_n, column=5, value=sardar["grand_total_advance_given"])
+        ws.cell(row=row_n, column=6, value=sardar["grand_total_advance_deducted"])
         style_excel_total_row(ws, row_n, ncols)
         row_n += 2
 
-    for w, col_letter in [(12, "A"), (10, "B"), (14, "C"), (14, "D"), (14, "E"), (14, "F")]:
+    for w, col_letter in [(14, "A"), (22, "B"), (16, "C"), (16, "D"), (16, "E"), (16, "F")]:
         ws.column_dimensions[col_letter].width = w
 
     buf = io.BytesIO()
@@ -767,8 +853,10 @@ async def print_hemali_receipt(payment_id: str):
     gross = float(p.get("total") or 0)
     adv_ded = float(p.get("advance_deducted") or 0)
     payable = float(p.get("amount_payable") or 0)
-    paid = float(p.get("amount_paid") or 0)
-    new_adv = float(p.get("new_advance") or 0)
+    is_paid = p.get("status") == "paid"
+    # For UNPAID payments, amount_paid is just a placeholder (= amount_payable). Display 0 until truly paid.
+    paid = float(p.get("amount_paid") or 0) if is_paid else 0.0
+    new_adv = float(p.get("new_advance") or 0) if is_paid else 0.0
 
     def money_tile(label, value, bg, fg, size=11):
         inner = [
@@ -804,15 +892,17 @@ async def print_hemali_receipt(payment_id: str):
     elements.append(row1)
     elements.append(Spacer(1, 4))
 
-    # Row 2: Amount Paid | New Advance | Balance
+    # Row 2: Amount Paid | New Advance | Balance (only meaningful for PAID receipts)
     bal = payable - paid
+    bal_label = "SETTLED" if (is_paid and bal <= 0) else f"Rs. {bal:,.0f}"
     row2 = RTable([[
         money_tile("AMOUNT PAID", f"Rs. {paid:,.0f}",
-                   colors.HexColor("#f0fdf4"), green_c, 12),
+                   colors.HexColor("#f0fdf4"), green_c if is_paid else grey_c, 12),
         money_tile("NEW ADVANCE", f"Rs. {new_adv:,.0f}" if new_adv else "—",
                    colors.HexColor("#fefce8"), orange if new_adv else grey_c),
-        money_tile("BALANCE", f"Rs. {bal:,.0f}" if bal else "SETTLED",
-                   colors.HexColor("#f8fafc"), red_c if bal > 0 else green_c),
+        money_tile("BALANCE", bal_label,
+                   colors.HexColor("#f8fafc"),
+                   green_c if (is_paid and bal <= 0) else red_c),
     ]], colWidths=[116.3, 116.3, 116.3])
     row2.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -892,42 +982,68 @@ async def export_hemali_pdf(
     styles = get_pdf_styles()
     elements = []
 
-    from utils.branding_helper import get_pdf_company_header_from_db
-    elements.extend(await get_pdf_company_header_from_db())
-    elements.append(Paragraph("Hemali Payment Report", ParagraphStyle("t", parent=styles["Title"], fontSize=14, textColor=colors.HexColor("#1a365d"))))
+    from utils.branding_helper import get_pdf_header_elements_from_db
     meta_parts = []
     if kms_year:
-        meta_parts.append(f"FY: {kms_year}")
+        meta_parts.append(f"KMS Year: {kms_year}")
+    if season:
+        meta_parts.append(f"Season: {season.title()}")
     if from_date or to_date:
-        meta_parts.append(f"{from_date or ''} to {to_date or ''}")
+        meta_parts.append(f"Period: {from_date or '-'} to {to_date or '-'}")
     if sardar_name:
         meta_parts.append(f"Sardar: {sardar_name}")
-    if meta_parts:
-        elements.append(Paragraph(" | ".join(meta_parts), ParagraphStyle("m", parent=styles["Normal"], fontSize=8, textColor=colors.grey)))
-    elements.append(Spacer(1, 8))
+    subtitle = "  |  ".join(meta_parts) if meta_parts else "All Records"
+    elements.extend(await get_pdf_header_elements_from_db("Hemali Payment Report", subtitle))
+    elements.append(Spacer(1, 6))
+
+    if not payments:
+        elements.append(Paragraph("Koi payments nahi mile is filter ke liye",
+                                  ParagraphStyle("nd", parent=styles["Normal"], fontSize=11,
+                                                 textColor=colors.HexColor("#94a3b8"), alignment=1)))
+        doc.build(elements)
+        buf.seek(0)
+        return StreamingResponse(buf, media_type="application/pdf",
+            headers={"Content-Disposition": "attachment; filename=hemali_payments.pdf"})
 
     headers = ["#", "Receipt No.", "Date", "Sardar", "Items", "Total", "Adv Deduct", "Payable", "Paid", "New Adv", "Status"]
     rows = [headers]
     grand_total = grand_paid = 0
     for idx, p in enumerate(payments, 1):
         items_str = ", ".join(f"{i.get('item_name','')} x{i.get('quantity',0)}" for i in p.get("items", []))
+        is_paid = p.get("status") == "paid"
+        # For UNPAID: paid is just placeholder; show "—"
+        paid_disp = f"Rs. {p.get('amount_paid', 0):,.0f}" if is_paid else "—"
+        new_adv_disp = f"Rs. {p.get('new_advance', 0):,.0f}" if is_paid and p.get("new_advance", 0) > 0 else "—"
         rows.append([
             str(idx), p.get("receipt_no", "-"), fmt_d(p.get("date", "")), p.get("sardar_name", ""), items_str,
-            f"Rs.{p.get('total',0):,.2f}", f"Rs.{p.get('advance_deducted',0):,.2f}",
-            f"Rs.{p.get('amount_payable',0):,.2f}", f"Rs.{p.get('amount_paid',0):,.2f}",
-            f"Rs.{p.get('new_advance',0):,.2f}",
-            "PAID" if p.get("status") == "paid" else "UNPAID",
+            f"Rs. {p.get('total',0):,.0f}",
+            f"Rs. {p.get('advance_deducted',0):,.0f}" if p.get("advance_deducted", 0) > 0 else "—",
+            f"Rs. {p.get('amount_payable',0):,.0f}",
+            paid_disp, new_adv_disp,
+            "PAID" if is_paid else "UNPAID",
         ])
         grand_total += p.get("total", 0)
-        if p.get("status") == "paid":
+        if is_paid:
             grand_paid += p.get("amount_paid", 0)
-    rows.append(["", "", "", "TOTAL", "", f"Rs.{grand_total:,.2f}", "", "", f"Rs.{grand_paid:,.2f}", "", ""])
+    rows.append(["", "", "", "TOTAL", "", f"Rs. {grand_total:,.0f}", "", "", f"Rs. {grand_paid:,.0f}", "", ""])
 
     from utils.export_helpers import get_pdf_table_style
 
-    t = RTable(rows, colWidths=[22, 70, 55, 65, 170, 60, 60, 60, 60, 60, 50], repeatRows=1)
+    t = RTable(rows, colWidths=[22, 70, 55, 75, 170, 60, 60, 60, 60, 60, 50], repeatRows=1)
     cols_info = [{'header': h} for h in headers]
     style_cmds = get_pdf_table_style(len(rows), cols_info)
+    # Right-align numeric columns
+    style_cmds.append(("ALIGN", (5, 0), (-2, -1), "RIGHT"))
+    # Center status column
+    style_cmds.append(("ALIGN", (-1, 0), (-1, -1), "CENTER"))
+    # Color status cells: PAID green, UNPAID red
+    for i, p in enumerate(payments, 1):
+        if p.get("status") == "paid":
+            style_cmds.append(("TEXTCOLOR", (-1, i), (-1, i), colors.HexColor("#16a34a")))
+            style_cmds.append(("FONTNAME", (-1, i), (-1, i), "Helvetica-Bold"))
+        else:
+            style_cmds.append(("TEXTCOLOR", (-1, i), (-1, i), colors.HexColor("#dc2626")))
+            style_cmds.append(("FONTNAME", (-1, i), (-1, i), "Helvetica-Bold"))
     style_cmds.extend([
         ("ALIGN", (4, 0), (-1, -1), "RIGHT"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -972,46 +1088,80 @@ async def export_hemali_excel(
     payments = await db.hemali_payments.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
 
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.styles import Font, PatternFill, Alignment
 
     wb = Workbook()
     ws = wb.active
     ws.title = "Hemali Payments"
     from utils.export_helpers import (style_excel_title, style_excel_header_row,
-        style_excel_data_rows, style_excel_total_row, COLORS)
+        style_excel_data_rows, style_excel_total_row)
+    from utils.branding_helper import get_excel_branding
 
+    branding = await get_excel_branding()
     ncols = 11
-    style_excel_title(ws, "Hemali Payment Report / हेमाली भुगतान", ncols)
 
+    subtitle_parts = []
+    if kms_year:
+        subtitle_parts.append(f"KMS Year: {kms_year}")
+    if season:
+        subtitle_parts.append(f"Season: {season.title()}")
+    if from_date or to_date:
+        subtitle_parts.append(f"Period: {from_date or '-'} to {to_date or '-'}")
+    if sardar_name:
+        subtitle_parts.append(f"Sardar: {sardar_name}")
+    subtitle = "  |  ".join(subtitle_parts) if subtitle_parts else "All Records"
+    style_excel_title(ws, "Hemali Payment Report / हेमाली भुगतान रिपोर्ट", ncols,
+                      subtitle=subtitle, branding=branding)
+
+    header_row_n = ws.max_row + 2 if ws.max_row else 5
     headers = ["#", "Receipt No.", "Date", "Sardar", "Items", "Total", "Adv Deducted", "Payable", "Paid", "New Advance", "Status"]
     for i, h in enumerate(headers, 1):
-        ws.cell(row=4, column=i, value=h)
-    style_excel_header_row(ws, 4, ncols)
+        ws.cell(row=header_row_n, column=i, value=h)
+    style_excel_header_row(ws, header_row_n, ncols)
 
-    data_start = 5; row_n = data_start
+    data_start = header_row_n + 1
+    row_n = data_start
     grand_total = grand_paid = 0
     for idx, p in enumerate(payments, 1):
         items_str = ", ".join(f"{i.get('item_name','')} x{i.get('quantity',0)}" for i in p.get("items", []))
-        status_txt = "PAID" if p.get("status") == "paid" else "UNPAID"
-        vals = [idx, p.get("receipt_no", "-"), fmt_date(p.get("date", "")), p.get("sardar_name", ""), items_str,
-                p.get("total", 0), p.get("advance_deducted", 0), p.get("amount_payable", 0),
-                p.get("amount_paid", 0), p.get("new_advance", 0), status_txt]
+        is_paid = p.get("status") == "paid"
+        status_txt = "PAID" if is_paid else "UNPAID"
+        # For UNPAID payments, paid/new_advance are placeholders → show 0
+        vals = [
+            idx, p.get("receipt_no", "-"), fmt_date(p.get("date", "")),
+            p.get("sardar_name", ""), items_str,
+            p.get("total", 0), p.get("advance_deducted", 0), p.get("amount_payable", 0),
+            p.get("amount_paid", 0) if is_paid else 0,
+            p.get("new_advance", 0) if is_paid else 0,
+            status_txt,
+        ]
         for ci, v in enumerate(vals, 1):
             ws.cell(row=row_n, column=ci, value=v)
+        # Color status cell
+        status_cell = ws.cell(row=row_n, column=ncols)
+        if is_paid:
+            status_cell.font = Font(bold=True, color="16A34A")
+        else:
+            status_cell.font = Font(bold=True, color="DC2626")
+        status_cell.alignment = Alignment(horizontal="center", vertical="center")
         grand_total += p.get("total", 0)
-        if p.get("status") == "paid":
+        if is_paid:
             grand_paid += p.get("amount_paid", 0)
         row_n += 1
 
     if payments:
         style_excel_data_rows(ws, data_start, row_n - 1, ncols, headers)
+    else:
+        ws.cell(row=data_start, column=1, value="Koi payments nahi mile is filter ke liye").font = Font(italic=True, color="94A3B8")
+        ws.merge_cells(start_row=data_start, start_column=1, end_row=data_start, end_column=ncols)
 
-    ws.cell(row=row_n, column=4, value="TOTAL")
-    ws.cell(row=row_n, column=6, value=grand_total)
-    ws.cell(row=row_n, column=9, value=grand_paid)
-    style_excel_total_row(ws, row_n, ncols)
+    if payments:
+        ws.cell(row=row_n, column=4, value="TOTAL")
+        ws.cell(row=row_n, column=6, value=grand_total)
+        ws.cell(row=row_n, column=9, value=grand_paid)
+        style_excel_total_row(ws, row_n, ncols)
 
-    for w, col_letter in [(5, "A"), (14, "B"), (12, "C"), (16, "D"), (35, "E"), (12, "F"), (14, "G"), (12, "H"), (12, "I"), (14, "J"), (10, "K")]:
+    for w, col_letter in [(5, "A"), (14, "B"), (12, "C"), (18, "D"), (40, "E"), (14, "F"), (16, "G"), (14, "H"), (14, "I"), (16, "J"), (10, "K")]:
         ws.column_dimensions[col_letter].width = w
 
     buf = io.BytesIO()
