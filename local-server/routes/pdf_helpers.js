@@ -410,4 +410,55 @@ function createPdfDoc(opts = {}, database = null) {
   return doc;
 }
 
-module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F, safePdfPipe, drawWatermark, createPdfDoc };
+// ============================================================================
+// LIGHT-THEME SUMMARY BANNER (PDFKit + ExcelJS)
+// ============================================================================
+const STAT_COLORS = {
+  primary: '#1E293B', green: '#15803D', red: '#B91C1C', gold: '#B45309',
+  orange: '#C2410C', blue: '#1D4ED8', emerald: '#047857', purple: '#7E22CE',
+  teal: '#0F766E', pink: '#BE185D',
+};
+
+function fmtInr(n) {
+  const num = Number(n) || 0;
+  if (Math.abs(num - Math.trunc(num)) < 0.005) {
+    return 'Rs. ' + Math.trunc(num).toLocaleString('en-IN');
+  }
+  return 'Rs. ' + num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function drawSummaryBanner(doc, stats, x, y, totalW) {
+  if (!stats || stats.length === 0) return y;
+  const summaryH = 30;
+  doc.rect(x, y, totalW, summaryH).fill('#FFFBEB');
+  doc.rect(x, y, totalW, 2).fill('#F59E0B');
+  doc.rect(x, y + 2, totalW, 1).fill('#FCD34D');
+  const cellW = totalW / stats.length;
+  stats.forEach((s, i) => {
+    const cx = x + i * cellW;
+    if (i > 0) doc.moveTo(cx, y + 8).lineTo(cx, y + summaryH - 4).strokeColor('#E5E7EB').lineWidth(0.5).stroke();
+    doc.fontSize(6).fillColor('#64748B').text(s.lbl, cx + 4, y + 7, { width: cellW - 8, align: 'center', characterSpacing: 0.4 });
+    doc.fontSize(9).fillColor(s.color || '#1E293B').text(s.val, cx + 4, y + 16, { width: cellW - 8, align: 'center' });
+  });
+  return y + summaryH;
+}
+
+function addExcelSummaryBanner(ws, rowNum, ncols, stats) {
+  if (!stats || stats.length === 0) return;
+  const text = '📊  ' + stats.map(s => `${s.lbl}: ${s.val}`).join('  •  ');
+  ws.mergeCells(rowNum, 1, rowNum, ncols);
+  const cell = ws.getCell(rowNum, 1);
+  cell.value = text;
+  cell.font = { bold: true, size: 11, color: { argb: 'FF1E293B' } };
+  cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+  cell.alignment = { horizontal: 'center', vertical: 'middle' };
+  cell.border = {
+    top: { style: 'medium', color: { argb: 'FFF59E0B' } },
+    bottom: { style: 'thin', color: { argb: 'FFFCD34D' } },
+    left: { style: 'thin', color: { argb: 'FFFDE68A' } },
+    right: { style: 'thin', color: { argb: 'FFFDE68A' } },
+  };
+  ws.getRow(rowNum).height = 28;
+}
+
+module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F, safePdfPipe, drawWatermark, createPdfDoc, drawSummaryBanner, addExcelSummaryBanner, STAT_COLORS, fmtInr };

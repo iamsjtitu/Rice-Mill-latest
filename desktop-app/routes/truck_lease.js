@@ -203,6 +203,25 @@ module.exports = function(database) {
     }
     addPdfTable(doc, headers, rows, colW);
     addTotalsRow(doc, ['', '', '', '', '', '', 'TOTAL', pFmt(grandTotal), pFmt(Math.round(grandPaid)), pFmt(Math.round(Math.max(0, grandTotal - grandPaid)))], colW);
+
+    // Light-themed summary banner
+    if (leases.length > 0) {
+      const { drawSummaryBanner, STAT_COLORS, fmtInr } = require('./pdf_helpers');
+      const tableW = colW.reduce((a, b) => a + b, 0);
+      const active = leases.filter(l => (l.status || '').toLowerCase() === 'active').length;
+      const closed = leases.length - active;
+      const balance = Math.max(0, grandTotal - grandPaid);
+      if (doc.y + 30 > doc.page.height - doc.page.margins.bottom) doc.addPage();
+      drawSummaryBanner(doc, [
+        { lbl: 'TOTAL LEASES', val: String(leases.length), color: STAT_COLORS.primary },
+        { lbl: 'ACTIVE', val: String(active), color: STAT_COLORS.emerald },
+        { lbl: 'CLOSED', val: String(closed), color: STAT_COLORS.orange },
+        { lbl: 'TOTAL DUE', val: fmtInr(grandTotal), color: STAT_COLORS.gold },
+        { lbl: 'PAID', val: fmtInr(grandPaid), color: STAT_COLORS.green },
+        { lbl: 'BALANCE', val: fmtInr(balance), color: STAT_COLORS.red },
+      ], doc.page.margins.left, doc.y + 6, tableW);
+    }
+
     await safePdfPipe(doc, res);
   }));
 
@@ -242,6 +261,27 @@ module.exports = function(database) {
     }
     styleExcelData(ws, 5);
     [15, 18, 15, 12, 12, 12, 10, 12, 15, 15, 15].forEach((w, i) => ws.getColumn(i + 1).width = w);
+
+    // Light-themed summary banner
+    if (leases.length > 0) {
+      const { addExcelSummaryBanner, fmtInr } = require('./pdf_helpers');
+      let gT = 0, gP = 0;
+      for (const lease of leases) {
+        const months = getMonthsBetween(lease.start_date, lease.end_date);
+        gT += months.length * (lease.monthly_rent || 0);
+        gP += allPayments.filter(p => p.lease_id === lease.id).reduce((s, p) => s + (p.amount || 0), 0);
+      }
+      const active = leases.filter(l => (l.status || '').toLowerCase() === 'active').length;
+      addExcelSummaryBanner(ws, r + 1, colCount, [
+        { lbl: 'Total Leases', val: String(leases.length) },
+        { lbl: 'Active', val: String(active) },
+        { lbl: 'Closed', val: String(leases.length - active) },
+        { lbl: 'Total Due', val: fmtInr(gT) },
+        { lbl: 'Paid', val: fmtInr(gP) },
+        { lbl: 'Balance', val: fmtInr(Math.max(0, gT - gP)) },
+      ]);
+    }
+
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=truck_lease_report.xlsx`);
     wb.xlsx.write(res).then(() => res.end());

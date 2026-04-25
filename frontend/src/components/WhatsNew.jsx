@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.20",
+    date: "Apr 2026",
+    title: "v104.28.20 — 🎨 Light-Theme Banner deployed to Desktop App + Local Server",
+    items: [
+      { type: "new", text: "🚀 Pichli release v104.28.19 mein sirf web/Python backend mein banner aaya tha — ab Desktop App (Electron) aur Local Network Server (Express) mein bhi same beautiful light-cream summary banner deploy ho gaya" },
+      { type: "new", text: "📊 9 reports cover: Mill Entries (Excel + PDF), Cash Book (Excel + PDF), Vehicle Weight (Excel + PDF), Sale Book (Excel + PDF), Purchase Book (Excel + PDF), Stock Summary (Excel + PDF), Truck Lease (Excel + PDF), Truck Payments (Excel + PDF), Agent Payments (Excel + PDF), Diesel Accounts (Excel + PDF), Hemali Payments (already)" },
+      { type: "new", text: "🛠️ Reusable `pdf_helpers.js` mein shared functions — `drawSummaryBanner`, `addExcelSummaryBanner`, `STAT_COLORS` palette, `fmtInr` helper. Future reports mein turant add ho sakta hai" },
+      { type: "fix", text: "✅ Triple-backend parity restore — sab teen backends (Python FastAPI, Electron, Local Express) ab identical light-theme banners generate karte hain" },
+    ],
+  },
+  {
     version: "104.28.19",
     date: "Apr 2026",
     title: "v104.28.19 — 🎨 Light-Theme Summary Banner on All Reports",

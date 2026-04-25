@@ -358,6 +358,24 @@ module.exports = function(database) {
     });
     addPdfTable(doc, headers, rows, colW, { fontSize: 6.5 });
     addTotalsRow(doc, [`TOTAL (${vouchers.length})`, '', '', '', '', '', '', pFmt(Math.round(g.total)), pFmt(Math.round(g.adv)), pFmt(Math.round(g.cash)), pFmt(Math.round(g.diesel)), pFmt(Math.round(g.bal))], colW, { fontSize: 6.5 });
+
+    // Light-themed summary banner
+    if (vouchers.length > 0) {
+      const { drawSummaryBanner, STAT_COLORS, fmtInr } = require('./pdf_helpers');
+      const tableW = colW.reduce((a, b) => a + b, 0);
+      const totalPaid = g.cash + g.diesel + g.adv;
+      if (doc.y + 30 > doc.page.height - doc.page.margins.bottom) doc.addPage();
+      drawSummaryBanner(doc, [
+        { lbl: 'TOTAL ENTRIES', val: String(vouchers.length), color: STAT_COLORS.primary },
+        { lbl: 'GROSS PURCHASE', val: fmtInr(g.total), color: STAT_COLORS.gold },
+        { lbl: 'ADVANCE', val: fmtInr(g.adv), color: STAT_COLORS.orange },
+        { lbl: 'CASH PAID', val: fmtInr(g.cash), color: STAT_COLORS.green },
+        { lbl: 'DIESEL', val: fmtInr(g.diesel), color: STAT_COLORS.purple },
+        { lbl: 'TOTAL PAID', val: fmtInr(totalPaid), color: STAT_COLORS.emerald },
+        { lbl: 'OUTSTANDING', val: fmtInr(g.bal), color: STAT_COLORS.red },
+      ], doc.page.margins.left, doc.y + 6, tableW);
+    }
+
     await safePdfPipe(doc, res);
   }));
 
@@ -402,6 +420,21 @@ module.exports = function(database) {
       cell.border = { top: { style: 'medium', color: { argb: 'FFF59E0B' } }, bottom: { style: 'medium', color: { argb: 'FFF59E0B' } } };
     }
     [10, 12, 12, 18, 20, 12, 14, 14, 12, 12, 12, 14].forEach((w, i) => ws.getColumn(i + 1).width = w);
+
+    // Light-themed summary banner
+    if (vouchers.length > 0) {
+      const { addExcelSummaryBanner, fmtInr } = require('./pdf_helpers');
+      addExcelSummaryBanner(ws, trow + 2, colCount, [
+        { lbl: 'Total Entries', val: String(vouchers.length) },
+        { lbl: 'Gross Purchase', val: fmtInr(g.total) },
+        { lbl: 'Advance', val: fmtInr(g.adv) },
+        { lbl: 'Cash Paid', val: fmtInr(g.cash) },
+        { lbl: 'Diesel', val: fmtInr(g.diesel) },
+        { lbl: 'Total Paid', val: fmtInr(g.cash + g.diesel + g.adv) },
+        { lbl: 'Outstanding', val: fmtInr(g.bal) },
+      ]);
+    }
+
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=purchase_book.xlsx`);

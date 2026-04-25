@@ -267,7 +267,7 @@ module.exports = function(database) {
   // PDF export
   router.get('/api/sale-book/export/pdf', safeHandler(async (req, res) => {
     ensure();
-    const { addPdfHeader, addPdfTable, addTotalsRow, fmtAmt, safePdfPipe, fmtDate } = require('./pdf_helpers');
+    const { addPdfHeader, addPdfTable, addTotalsRow, fmtAmt, safePdfPipe, fmtDate, drawSummaryBanner, STAT_COLORS, fmtInr } = require('./pdf_helpers');
     let vouchers = [...database.data.sale_vouchers];
     const { kms_year, season } = req.query;
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
@@ -313,6 +313,22 @@ module.exports = function(database) {
       fmtAmt(Math.round(g.diesel)), fmtAmt(Math.round(g.bal)), ''
     ], colW, { fontSize: 6.5 });
 
+    // Light-themed summary banner
+    if (vouchers.length > 0) {
+      const tableW = colW.reduce((a, b) => a + b, 0);
+      const totalPaid = g.cash + g.diesel + g.adv;
+      if (doc.y + 30 > doc.page.height - doc.page.margins.bottom) doc.addPage();
+      drawSummaryBanner(doc, [
+        { lbl: 'TOTAL ENTRIES', val: String(vouchers.length), color: STAT_COLORS.primary },
+        { lbl: 'GROSS SALE', val: fmtInr(g.total), color: STAT_COLORS.gold },
+        { lbl: 'ADVANCE', val: fmtInr(g.adv), color: STAT_COLORS.orange },
+        { lbl: 'CASH PAID', val: fmtInr(g.cash), color: STAT_COLORS.green },
+        { lbl: 'DIESEL', val: fmtInr(g.diesel), color: STAT_COLORS.purple },
+        { lbl: 'TOTAL PAID', val: fmtInr(totalPaid), color: STAT_COLORS.emerald },
+        { lbl: 'OUTSTANDING', val: fmtInr(g.bal), color: STAT_COLORS.red },
+      ], doc.page.margins.left, doc.y + 6, tableW);
+    }
+
     await safePdfPipe(doc, res, `sale_book_${Date.now()}.pdf`);
   }));
 
@@ -320,18 +336,36 @@ module.exports = function(database) {
   router.get('/api/sale-book/export/excel', safeHandler(async (req, res) => {
     ensure();
     const ExcelJS = require('exceljs');
+    const { addExcelSummaryBanner, fmtInr } = require('./pdf_helpers');
     let vouchers = [...database.data.sale_vouchers];
     const { kms_year, season } = req.query;
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
     if (season) vouchers = vouchers.filter(v => v.season === season);
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Sale Book');
     ws.addRow(['No.', 'Date', 'Inv No.', 'Party', 'Items', 'Truck/RST', 'E-Way Bill', 'Subtotal', 'GST', 'Total', 'Advance', 'Cash', 'Diesel', 'Balance']);
+    let gT = 0, gA = 0, gC = 0, gD = 0, gB = 0;
     for (const v of vouchers) {
       const itemsStr = (v.items || []).map(i => `${i.item_name}(${i.quantity}Q)`).join(', ');
       const gst = (v.cgst_amount || 0) + (v.sgst_amount || 0) + (v.igst_amount || 0);
       ws.addRow([v.voucher_no, fmtDate(v.date), v.invoice_no, v.party_name, itemsStr, `${v.truck_no||''}${v.rst_no?'/'+v.rst_no:''}`, v.eway_bill_no || '', v.subtotal||0, Math.round(gst), v.total||0, v.advance||0, v.cash_paid||0, v.diesel_paid||0, v.balance||0]);
+      gT += v.total || 0; gA += v.advance || 0; gC += v.cash_paid || 0; gD += v.diesel_paid || 0; gB += v.balance || 0;
     }
     ws.columns.forEach(c => c.width = 15);
+
+    // Light-themed summary banner
+    if (vouchers.length > 0) {
+      const lastRow = ws.lastRow.number;
+      addExcelSummaryBanner(ws, lastRow + 2, 14, [
+        { lbl: 'Total Entries', val: String(vouchers.length) },
+        { lbl: 'Gross Sale', val: fmtInr(gT) },
+        { lbl: 'Advance', val: fmtInr(gA) },
+        { lbl: 'Cash Paid', val: fmtInr(gC) },
+        { lbl: 'Diesel', val: fmtInr(gD) },
+        { lbl: 'Total Paid', val: fmtInr(gA + gC + gD) },
+        { lbl: 'Outstanding', val: fmtInr(gB) },
+      ]);
+    }
+
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=sale_book.xlsx`);
@@ -721,6 +755,24 @@ module.exports = function(database) {
     // Column widths
     [22, 14, 14, 18, 8, 50].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
+    // Light-themed summary banner (must come before footer)
+    if (items.length > 0) {
+      const { addExcelSummaryBanner } = require('./pdf_helpers');
+      const totalIn = items.reduce((s, it) => s + (it.in_qty || 0), 0);
+      const totalOut = items.reduce((s, it) => s + (it.out_qty || 0), 0);
+      const totalAvail = items.reduce((s, it) => s + (it.available || 0), 0);
+      const negStock = items.filter(it => (it.available || 0) < 0).length;
+      addExcelSummaryBanner(ws, row, 6, [
+        { lbl: 'Categories', val: String(Object.keys(grouped).length) },
+        { lbl: 'Total Items', val: String(items.length) },
+        { lbl: 'In Qntl', val: totalIn.toFixed(2) },
+        { lbl: 'Out Qntl', val: totalOut.toFixed(2) },
+        { lbl: 'Available', val: totalAvail.toFixed(2) },
+        { lbl: 'Neg. Stock', val: String(negStock) },
+      ]);
+      row += 2;
+    }
+
     // Footer
     ws.mergeCells(`A${row}:F${row}`);
     const footCell = ws.getCell(`A${row}`);
@@ -844,6 +896,27 @@ module.exports = function(database) {
 
     // Footer
     doc.moveDown(1);
+    
+    // Light-themed summary banner (before footer)
+    if (items.length > 0) {
+      const { drawSummaryBanner, STAT_COLORS } = require('./pdf_helpers');
+      const totalIn = items.reduce((s, it) => s + (it.in_qty || 0), 0);
+      const totalOut = items.reduce((s, it) => s + (it.out_qty || 0), 0);
+      const totalAvail = items.reduce((s, it) => s + (it.available || 0), 0);
+      const negStock = items.filter(it => (it.available || 0) < 0).length;
+      const tableW = doc.page.width - 60;
+      if (doc.y + 30 > doc.page.height - doc.page.margins.bottom) doc.addPage();
+      drawSummaryBanner(doc, [
+        { lbl: 'CATEGORIES', val: String(Object.keys(grouped).length), color: STAT_COLORS.primary },
+        { lbl: 'TOTAL ITEMS', val: String(items.length), color: STAT_COLORS.blue },
+        { lbl: 'IN QNTL', val: totalIn.toFixed(2), color: STAT_COLORS.emerald },
+        { lbl: 'OUT QNTL', val: totalOut.toFixed(2), color: STAT_COLORS.orange },
+        { lbl: 'AVAILABLE', val: totalAvail.toFixed(2), color: STAT_COLORS.gold },
+        { lbl: 'NEG. STOCK', val: String(negStock), color: STAT_COLORS.red },
+      ], 30, doc.y + 6, tableW);
+      doc.y += 38;
+    }
+
     doc.fontSize(7).font(F('normal')).fillColor('#999999')
       .text(`${company} - Stock Summary | Generated: ${new Date().toLocaleDateString('en-IN')}`, { align: 'center' });
 

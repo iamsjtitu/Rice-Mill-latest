@@ -4,7 +4,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate , safePdfPipe} = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate , safePdfPipe, drawSummaryBanner, addExcelSummaryBanner, STAT_COLORS, fmtInr} = require('./pdf_helpers');
 
 module.exports = function(database) {
 
@@ -186,6 +186,21 @@ module.exports = function(database) {
       row++;
     });
     ['A','B','C','D','E','F','G'].forEach(l => ws.getColumn(l).width = 18);
+
+    // Light-themed summary banner
+    if (txns.length > 0) {
+      const { addExcelSummaryBanner, fmtInr } = require('./pdf_helpers');
+      const totalD = pumpSummaries.reduce((s, p) => s + p.td, 0);
+      const totalP = pumpSummaries.reduce((s, p) => s + p.tp, 0);
+      addExcelSummaryBanner(ws, row + 1, 7, [
+        { lbl: 'Total Txns', val: String(txns.length) },
+        { lbl: 'Pumps', val: String(pumps.length) },
+        { lbl: 'Total Diesel', val: fmtInr(totalD) },
+        { lbl: 'Total Paid', val: fmtInr(totalP) },
+        { lbl: 'Balance', val: fmtInr(totalD - totalP) },
+      ]);
+    }
+
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=diesel_account.xlsx`);
     await wb.xlsx.write(res); res.end();
@@ -221,6 +236,27 @@ module.exports = function(database) {
       t.truck_no||'', (t.agent_name||'').substring(0,12), 'Rs.'+(t.amount||0), (t.description||'').substring(0,25)
     ]);
     addPdfTable(doc, tHeaders, tRows, [60, 90, 50, 70, 70, 60, 150]);
+
+    // Light-themed summary banner
+    if (txns.length > 0) {
+      const { drawSummaryBanner, STAT_COLORS, fmtInr } = require('./pdf_helpers');
+      const totalDiesel = pumps.reduce((sum, p) => {
+        return sum + txns.filter(t => t.pump_id === p.id && t.txn_type === 'debit').reduce((s, t) => s + t.amount, 0);
+      }, 0);
+      const totalPaid = pumps.reduce((sum, p) => {
+        return sum + allCashTxns.filter(t => t.account === 'ledger' && t.txn_type === 'nikasi' && t.category === p.name).reduce((s, t) => s + (t.amount || 0), 0);
+      }, 0);
+      const tableW = 480;
+      if (doc.y + 30 > doc.page.height - doc.page.margins.bottom) doc.addPage();
+      drawSummaryBanner(doc, [
+        { lbl: 'TOTAL TXNS', val: String(txns.length), color: STAT_COLORS.primary },
+        { lbl: 'PUMPS', val: String(pumps.length), color: STAT_COLORS.blue },
+        { lbl: 'TOTAL DIESEL', val: fmtInr(totalDiesel), color: STAT_COLORS.orange },
+        { lbl: 'TOTAL PAID', val: fmtInr(totalPaid), color: STAT_COLORS.green },
+        { lbl: 'BALANCE', val: fmtInr(totalDiesel - totalPaid), color: STAT_COLORS.red },
+      ], doc.page.margins.left, doc.y + 6, tableW);
+    }
+
     await safePdfPipe(doc, res);
   }));
 

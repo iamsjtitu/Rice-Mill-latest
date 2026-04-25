@@ -1407,6 +1407,28 @@ module.exports = function(database) {
     }
 
     ws.columns.forEach((c, i) => { c.width = i === 4 ? 22 : 15; }); // Mandi column (index 4) wider
+
+    // Light-themed summary banner
+    if (items.length > 0) {
+      const { addExcelSummaryBanner: addSB, fmtInr: fmtI } = require('./pdf_helpers');
+      const totBags2 = items.reduce((s, e) => s + (Number(e.bags) || 0), 0);
+      const tot1st2 = items.reduce((s, e) => s + (Number(e.first_weight) || 0), 0);
+      const tot2nd2 = items.reduce((s, e) => s + (Number(e.second_weight) || 0), 0);
+      const totNet2 = items.reduce((s, e) => { const f = Number(e.first_weight) || 0; const s2 = Number(e.second_weight) || 0; return s + (f && s2 ? Math.abs(f - s2) : 0); }, 0);
+      const totCash2 = items.reduce((s, e) => s + (Number(e.cash_paid) || 0), 0);
+      const totDiesel2 = items.reduce((s, e) => s + (Number(e.diesel_paid) || 0), 0);
+      const lastRow = ws.lastRow ? ws.lastRow.number : 5;
+      addSB(ws, lastRow + 2, 15, [
+        { lbl: 'Total Entries', val: String(items.length) },
+        { lbl: 'Total Bags', val: totBags2.toLocaleString() },
+        { lbl: '1st Wt', val: `${tot1st2.toLocaleString()} KG` },
+        { lbl: '2nd Wt', val: `${tot2nd2.toLocaleString()} KG` },
+        { lbl: 'Net Wt', val: `${totNet2.toLocaleString()} KG` },
+        { lbl: 'Cash Paid', val: fmtI(totCash2) },
+        { lbl: 'Diesel', val: fmtI(totDiesel2) },
+      ]);
+    }
+
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=vehicle_weight.xlsx`);
     await wb.xlsx.write(res);
@@ -1595,8 +1617,25 @@ module.exports = function(database) {
     });
     doc.lineWidth(1).strokeColor('#2e7d32').moveTo(LM, y + 16).lineTo(LM + TW, y + 16).stroke();
 
+    // ── Light-themed Summary Banner ──
+    if (items.length > 0) {
+      const { drawSummaryBanner: drawSB, STAT_COLORS: SC, fmtInr: fmtI } = require('./pdf_helpers');
+      y += 22;
+      if (y + 30 > doc.page.height - doc.page.margins.bottom) doc.addPage();
+      drawSB(doc, [
+        { lbl: 'TOTAL ENTRIES', val: String(items.length), color: SC.primary },
+        { lbl: 'TOTAL BAGS', val: totBags.toLocaleString(), color: SC.blue },
+        { lbl: '1ST WT', val: tot1st.toLocaleString(), color: SC.teal },
+        { lbl: '2ND WT', val: tot2nd.toLocaleString(), color: SC.purple },
+        { lbl: 'NET WT', val: totNet.toLocaleString(), color: SC.emerald },
+        { lbl: 'CASH PAID', val: fmtI(totCash), color: SC.green },
+        { lbl: 'DIESEL', val: fmtI(totDiesel), color: SC.orange },
+      ], LM, y, TW);
+      y += 32;
+    }
+
     // ── Footer ──
-    y += 26;
+    y += 14;
     doc.lineWidth(0.5).strokeColor('#b0bec5').moveTo(LM, y).lineTo(LM + TW, y).stroke();
     y += 4;
     doc.fontSize(7).font(efn).fillColor('#78909c').text(`${company}`, LM, y);

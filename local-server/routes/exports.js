@@ -3,7 +3,7 @@ const { safeAsync, safeSync, roundAmount } = require('./safe_handler');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, registerFonts, F , safePdfPipe, drawSummaryBanner, addExcelSummaryBanner, STAT_COLORS, fmtInr} = require('./pdf_helpers');
 const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
 
 module.exports = function(database) {
@@ -55,6 +55,17 @@ module.exports = function(database) {
         };
         const totalRow = ws.addRow(totals);
         totalRow.eachCell(c => { c.font = { bold: true, size: 10, color: { argb: 'FF92400E' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7ED' } }; });
+        // Light-themed summary banner
+        addExcelSummaryBanner(ws, totalRow.number + 2, 20, [
+          { lbl: 'Total Entries', val: String(entries.length) },
+          { lbl: 'QNTL', val: totals.qntl.toFixed(2) },
+          { lbl: 'Bags', val: String(totals.bag) },
+          { lbl: 'TP Wt', val: totals.tp_weight.toFixed(2) },
+          { lbl: 'Mill W', val: totals.mill_w.toFixed(2) },
+          { lbl: 'Final W', val: totals.final_w.toFixed(2) },
+          { lbl: 'G.Deposite', val: String(totals.g_deposite) },
+          { lbl: 'G.Issued', val: String(totals.g_issued) },
+        ]);
       }
 
       addExcelTitle(ws, req.query.report_title || 'Mill Entries Report', 20, database); styleExcelHeader(ws); styleExcelData(ws, 5);
@@ -94,6 +105,19 @@ module.exports = function(database) {
         const tGIss = entries.reduce((s,e) => s+(e.g_issued||0), 0);
         const tTpWt = entries.reduce((s,e) => s+(parseFloat(e.tp_weight||0)||0), 0);
         addTotalsRow(doc, ['TOTAL','','','',tTpWt > 0 ? tTpWt.toFixed(2) : '-','',`${entries.length} entries`,tQntl.toFixed(2),tBag,tGDep,tGbw.toFixed(2),tPPkt,tPCut.toFixed(2),tMillW.toFixed(2),'',tMCut.toFixed(2),'','',tFinalW.toFixed(2),tGIss], w);
+        // Light-themed summary banner
+        const tableW = w.reduce((a, b) => a + b, 0);
+        if (doc.y + 30 > doc.page.height - doc.page.margins.bottom) doc.addPage();
+        drawSummaryBanner(doc, [
+          { lbl: 'TOTAL ENTRIES', val: String(entries.length), color: STAT_COLORS.primary },
+          { lbl: 'QNTL', val: tQntl.toFixed(2), color: STAT_COLORS.gold },
+          { lbl: 'BAGS', val: String(tBag), color: STAT_COLORS.blue },
+          { lbl: 'TP WEIGHT', val: tTpWt > 0 ? tTpWt.toFixed(2) : '-', color: STAT_COLORS.purple },
+          { lbl: 'MILL W', val: tMillW.toFixed(2), color: STAT_COLORS.orange },
+          { lbl: 'FINAL W', val: tFinalW.toFixed(2), color: STAT_COLORS.emerald },
+          { lbl: 'G.DEPOSITE', val: String(tGDep), color: STAT_COLORS.green },
+          { lbl: 'G.ISSUED', val: String(tGIss), color: STAT_COLORS.red },
+        ], doc.page.margins.left, doc.y + 6, tableW);
       }
 
       await safePdfPipe(doc, res);
@@ -107,8 +131,21 @@ module.exports = function(database) {
       entries.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)) || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Truck Payments');
       ws.columns = [{header:'Date',key:'date',width:12},{header:'Truck No',key:'truck_no',width:14},{header:'Mandi',key:'mandi',width:22},{header:'Final QNTL',key:'fq',width:12},{header:'Rate',key:'rate',width:8},{header:'Gross',key:'gross',width:12},{header:'Cash',key:'cash',width:10},{header:'Diesel',key:'diesel',width:10},{header:'Deductions',key:'ded',width:12},{header:'Net',key:'net',width:12},{header:'Paid',key:'paid',width:10},{header:'Balance',key:'bal',width:12},{header:'Status',key:'status',width:10}];
-      entries.forEach(e => { const p=database.getTruckPayment(e.id); const fq=(e.qntl||0)-(e.bag||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); ws.addRow({date:fmtDate(e.date),truck_no:e.truck_no,mandi:e.mandi_name,fq:+fq.toFixed(2),rate:p.rate_per_qntl,gross:+g.toFixed(2),cash:e.cash_paid||0,diesel:e.diesel_paid||0,ded:+d.toFixed(2),net:+n.toFixed(2),paid:p.paid_amount,bal:+b.toFixed(2),status:b<0.10?'Paid':(p.paid_amount>0?'Partial':'Pending')}); });
+      let tg=0,tded=0,tn=0,tp=0,tb=0,paidCnt=0,partCnt=0,pendCnt=0;
+      entries.forEach(e => { const p=database.getTruckPayment(e.id); const fq=(e.qntl||0)-(e.bag||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); const st=b<0.10?'Paid':(p.paid_amount>0?'Partial':'Pending'); ws.addRow({date:fmtDate(e.date),truck_no:e.truck_no,mandi:e.mandi_name,fq:+fq.toFixed(2),rate:p.rate_per_qntl,gross:+g.toFixed(2),cash:e.cash_paid||0,diesel:e.diesel_paid||0,ded:+d.toFixed(2),net:+n.toFixed(2),paid:p.paid_amount,bal:+b.toFixed(2),status:st}); tg+=g;tded+=d;tn+=n;tp+=p.paid_amount;tb+=b; if(st==='Paid')paidCnt++;else if(st==='Partial')partCnt++;else pendCnt++; });
       addExcelTitle(ws, 'Truck Payments', 13, database); styleExcelHeader(ws); styleExcelData(ws, 5);
+      // Light-themed summary banner
+      if (entries.length > 0) {
+        addExcelSummaryBanner(ws, ws.lastRow.number + 2, 13, [
+          { lbl: 'Total Trucks', val: String(entries.length) },
+          { lbl: 'Paid', val: String(paidCnt) },
+          { lbl: 'Partial', val: String(partCnt) },
+          { lbl: 'Pending', val: String(pendCnt) },
+          { lbl: 'Gross', val: fmtInr(tg) },
+          { lbl: 'Total Paid', val: fmtInr(tp) },
+          { lbl: 'Outstanding', val: fmtInr(tb) },
+        ]);
+      }
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=truck_payments_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
@@ -123,11 +160,27 @@ module.exports = function(database) {
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=truck_payments_${Date.now()}.pdf`);
-      // PDF will be sent via safePdfPipe
       addPdfHeader(doc, 'Truck Payments Report');
       const h = ['Date','Truck','Mandi','Final QNTL','Rate','Gross','Ded','Net','Paid','Balance','Status'];
-      const rows = entries.map(e => { const p=database.getTruckPayment(e.id); const fq=(e.qntl||0)-(e.bag||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); return [fmtDate(e.date),e.truck_no,e.mandi_name,fq.toFixed(2),p.rate_per_qntl,g.toFixed(2),d.toFixed(2),n.toFixed(2),p.paid_amount,b.toFixed(2),b<0.10?'Paid':(p.paid_amount>0?'Partial':'Pending')]; });
-      addPdfTable(doc, h, rows, [50,55,55,45,35,50,50,50,45,50,40]); await safePdfPipe(doc, res);
+      let tg=0,tded=0,tn=0,tp=0,tb=0,paidCnt=0,partCnt=0,pendCnt=0;
+      const rows = entries.map(e => { const p=database.getTruckPayment(e.id); const fq=(e.qntl||0)-(e.bag||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); const st=b<0.10?'Paid':(p.paid_amount>0?'Partial':'Pending'); tg+=g;tded+=d;tn+=n;tp+=p.paid_amount;tb+=b; if(st==='Paid')paidCnt++;else if(st==='Partial')partCnt++;else pendCnt++; return [fmtDate(e.date),e.truck_no,e.mandi_name,fq.toFixed(2),p.rate_per_qntl,g.toFixed(2),d.toFixed(2),n.toFixed(2),p.paid_amount,b.toFixed(2),st]; });
+      const w = [50,55,55,45,35,50,50,50,45,50,40];
+      addPdfTable(doc, h, rows, w);
+      // Light-themed summary banner
+      if (entries.length > 0) {
+        const tableW = w.reduce((a, b) => a + b, 0);
+        if (doc.y + 30 > doc.page.height - doc.page.margins.bottom) doc.addPage();
+        drawSummaryBanner(doc, [
+          { lbl: 'TOTAL TRUCKS', val: String(entries.length), color: STAT_COLORS.primary },
+          { lbl: 'PAID', val: String(paidCnt), color: STAT_COLORS.emerald },
+          { lbl: 'PARTIAL', val: String(partCnt), color: STAT_COLORS.orange },
+          { lbl: 'PENDING', val: String(pendCnt), color: STAT_COLORS.red },
+          { lbl: 'GROSS', val: fmtInr(tg), color: STAT_COLORS.gold },
+          { lbl: 'TOTAL PAID', val: fmtInr(tp), color: STAT_COLORS.green },
+          { lbl: 'OUTSTANDING', val: fmtInr(tb), color: STAT_COLORS.blue },
+        ], doc.page.margins.left, doc.y + 6, tableW);
+      }
+      await safePdfPipe(doc, res);
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
 
@@ -137,8 +190,21 @@ module.exports = function(database) {
       const targets = database.getMandiTargets(req.query); const entries = database.getEntries(req.query);
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Agent Payments');
       ws.columns = [{header:'Mandi',key:'mandi',width:22},{header:'Agent',key:'agent',width:14},{header:'Target',key:'target',width:12},{header:'Cutting',key:'cutting',width:12},{header:'B.Rate',key:'br',width:10},{header:'C.Rate',key:'cr',width:10},{header:'Total',key:'total',width:12},{header:'TP Wt',key:'tpw',width:12},{header:'Achieved',key:'ach',width:12},{header:'Excess',key:'excess',width:12},{header:'Paid',key:'paid',width:10},{header:'Balance',key:'bal',width:12},{header:'Status',key:'status',width:10}];
-      targets.forEach(t => { const me=entries.filter(e=>e.mandi_name.toLowerCase()===t.mandi_name.toLowerCase()); const ach=me.reduce((s,e)=>s+(e.final_w||0)/100,0); const tpw=me.reduce((s,e)=>s+parseFloat(e.tp_weight||0),0); const cq=tpw*t.cutting_percent/100; const excess=+(ach-(t.target_qntl+t.target_qntl*t.cutting_percent/100)).toFixed(2); const tot=(tpw*(t.base_rate??10))+(cq*(t.cutting_rate??5)); const p=database.getAgentPayment(t.mandi_name,t.kms_year,t.season); const bal=Math.max(0,tot-p.paid_amount); const ae=me.find(e=>e.agent_name); ws.addRow({mandi:t.mandi_name,agent:ae?ae.agent_name:'',target:t.target_qntl,cutting:+cq.toFixed(2),br:t.base_rate??10,cr:t.cutting_rate??5,total:+tot.toFixed(2),tpw:+tpw.toFixed(2),ach:+ach.toFixed(2),excess:excess,paid:p.paid_amount,bal:+bal.toFixed(2),status:bal<0.01?'Paid':(p.paid_amount>0?'Partial':'Pending')}); });
+      let tt=0,tp=0,tb=0,paidCnt=0,partCnt=0,pendCnt=0;
+      targets.forEach(t => { const me=entries.filter(e=>e.mandi_name.toLowerCase()===t.mandi_name.toLowerCase()); const ach=me.reduce((s,e)=>s+(e.final_w||0)/100,0); const tpw=me.reduce((s,e)=>s+parseFloat(e.tp_weight||0),0); const cq=tpw*t.cutting_percent/100; const excess=+(ach-(t.target_qntl+t.target_qntl*t.cutting_percent/100)).toFixed(2); const tot=(tpw*(t.base_rate??10))+(cq*(t.cutting_rate??5)); const p=database.getAgentPayment(t.mandi_name,t.kms_year,t.season); const bal=Math.max(0,tot-p.paid_amount); const st=bal<0.01?'Paid':(p.paid_amount>0?'Partial':'Pending'); const ae=me.find(e=>e.agent_name); ws.addRow({mandi:t.mandi_name,agent:ae?ae.agent_name:'',target:t.target_qntl,cutting:+cq.toFixed(2),br:t.base_rate??10,cr:t.cutting_rate??5,total:+tot.toFixed(2),tpw:+tpw.toFixed(2),ach:+ach.toFixed(2),excess:excess,paid:p.paid_amount,bal:+bal.toFixed(2),status:st}); tt+=tot;tp+=p.paid_amount;tb+=bal; if(st==='Paid')paidCnt++;else if(st==='Partial')partCnt++;else pendCnt++; });
       addExcelTitle(ws, 'Agent Payments', 13, database); styleExcelHeader(ws); styleExcelData(ws, 5);
+      // Light-themed summary banner
+      if (targets.length > 0) {
+        addExcelSummaryBanner(ws, ws.lastRow.number + 2, 13, [
+          { lbl: 'Total Mandis', val: String(targets.length) },
+          { lbl: 'Paid', val: String(paidCnt) },
+          { lbl: 'Partial', val: String(partCnt) },
+          { lbl: 'Pending', val: String(pendCnt) },
+          { lbl: 'Total Amount', val: fmtInr(tt) },
+          { lbl: 'Paid Amount', val: fmtInr(tp) },
+          { lbl: 'Outstanding', val: fmtInr(tb) },
+        ]);
+      }
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=agent_payments_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
@@ -152,11 +218,27 @@ module.exports = function(database) {
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=agent_payments_${Date.now()}.pdf`);
-      // PDF will be sent via safePdfPipe
       addPdfHeader(doc, 'Agent Payments Report');
       const h = ['Mandi','Agent','Target','Cutting','B.Rate','C.Rate','Total','TP Wt','Achieved','Excess','Paid','Balance','Status'];
-      const rows = targets.map(t => { const me=entries.filter(e=>e.mandi_name.toLowerCase()===t.mandi_name.toLowerCase()); const ach=me.reduce((s,e)=>s+(e.final_w||0)/100,0); const tpw=me.reduce((s,e)=>s+parseFloat(e.tp_weight||0),0); const cq=tpw*t.cutting_percent/100; const excess=(ach-(t.target_qntl+t.target_qntl*t.cutting_percent/100)).toFixed(2); const tot=(tpw*(t.base_rate??10))+(cq*(t.cutting_rate??5)); const p=database.getAgentPayment(t.mandi_name,t.kms_year,t.season); const bal=Math.max(0,tot-p.paid_amount); const ae=me.find(e=>e.agent_name); return [t.mandi_name,ae?ae.agent_name:'',t.target_qntl,cq.toFixed(2),t.base_rate??10,t.cutting_rate??5,tot.toFixed(2),tpw.toFixed(2),ach.toFixed(2),excess,p.paid_amount,bal.toFixed(2),bal<0.01?'Paid':(p.paid_amount>0?'Partial':'Pending')]; });
-      addPdfTable(doc, h, rows, [50,45,35,35,30,30,45,40,40,40,40,45,35]); await safePdfPipe(doc, res);
+      let tt=0,tp=0,tb=0,paidCnt=0,partCnt=0,pendCnt=0;
+      const rows = targets.map(t => { const me=entries.filter(e=>e.mandi_name.toLowerCase()===t.mandi_name.toLowerCase()); const ach=me.reduce((s,e)=>s+(e.final_w||0)/100,0); const tpw=me.reduce((s,e)=>s+parseFloat(e.tp_weight||0),0); const cq=tpw*t.cutting_percent/100; const excess=(ach-(t.target_qntl+t.target_qntl*t.cutting_percent/100)).toFixed(2); const tot=(tpw*(t.base_rate??10))+(cq*(t.cutting_rate??5)); const p=database.getAgentPayment(t.mandi_name,t.kms_year,t.season); const bal=Math.max(0,tot-p.paid_amount); const st=bal<0.01?'Paid':(p.paid_amount>0?'Partial':'Pending'); tt+=tot;tp+=p.paid_amount;tb+=bal; if(st==='Paid')paidCnt++;else if(st==='Partial')partCnt++;else pendCnt++; const ae=me.find(e=>e.agent_name); return [t.mandi_name,ae?ae.agent_name:'',t.target_qntl,cq.toFixed(2),t.base_rate??10,t.cutting_rate??5,tot.toFixed(2),tpw.toFixed(2),ach.toFixed(2),excess,p.paid_amount,bal.toFixed(2),st]; });
+      const w = [50,45,35,35,30,30,45,40,40,40,40,45,35];
+      addPdfTable(doc, h, rows, w);
+      // Light-themed summary banner
+      if (targets.length > 0) {
+        const tableW = w.reduce((a, b) => a + b, 0);
+        if (doc.y + 30 > doc.page.height - doc.page.margins.bottom) doc.addPage();
+        drawSummaryBanner(doc, [
+          { lbl: 'TOTAL MANDIS', val: String(targets.length), color: STAT_COLORS.primary },
+          { lbl: 'PAID', val: String(paidCnt), color: STAT_COLORS.emerald },
+          { lbl: 'PARTIAL', val: String(partCnt), color: STAT_COLORS.orange },
+          { lbl: 'PENDING', val: String(pendCnt), color: STAT_COLORS.red },
+          { lbl: 'TOTAL AMT', val: fmtInr(tt), color: STAT_COLORS.gold },
+          { lbl: 'PAID AMT', val: fmtInr(tp), color: STAT_COLORS.green },
+          { lbl: 'OUTSTANDING', val: fmtInr(tb), color: STAT_COLORS.blue },
+        ], doc.page.margins.left, doc.y + 6, tableW);
+      }
+      await safePdfPipe(doc, res);
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
 
