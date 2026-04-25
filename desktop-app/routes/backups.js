@@ -36,6 +36,84 @@ module.exports = function(database, { getBackupsList, createBackup, restoreBacku
     try { fs.unlinkSync(fp); res.json({ success: true }); } catch(e) { res.status(500).json({ detail: e.message }); }
   }));
 
+  // Bulk delete by filenames OR by source category (logout/manual/auto)
+  router.post('/api/backups/bulk-delete', safeSync(async (req, res) => {
+    const { filenames, source } = req.body || {};
+    const dir = getBackupDir();
+    const customDir = database.data?.settings?.custom_backup_dir;
+    const allBackups = getBackupsList();
+    const classify = (fname) => {
+      if (fname.startsWith('backup_logout')) return 'logout';
+      if (fname.startsWith('backup_manual')) return 'manual';
+      if (fname.startsWith('backup_pre-')) return 'pre-restore';
+      return 'auto';
+    };
+    let toDelete = [];
+    if (Array.isArray(filenames) && filenames.length > 0) {
+      toDelete = filenames;
+    } else if (source) {
+      toDelete = allBackups.filter(b => classify(b.filename) === source).map(b => b.filename);
+    }
+    let deleted = 0;
+    for (const fname of toDelete) {
+      try {
+        const fp = path.join(dir, fname);
+        if (fs.existsSync(fp)) { fs.unlinkSync(fp); deleted++; continue; }
+        if (customDir) {
+          const cp = path.join(customDir, fname);
+          if (fs.existsSync(cp)) { fs.unlinkSync(cp); deleted++; }
+        }
+      } catch (_) {}
+    }
+    res.json({ success: true, deleted });
+  }));
+
+  // Auto-cleanup: delete backups older than N days (default 7)
+  router.post('/api/backups/cleanup-old', safeSync(async (req, res) => {
+    const days = Math.max(1, parseInt(req.body?.days, 10) || 7);
+    const cutoff = Date.now() - (days * 24 * 60 * 60 * 1000);
+    const dir = getBackupDir();
+    const customDir = database.data?.settings?.custom_backup_dir;
+    let deleted = 0;
+    const tryDelete = (folder) => {
+      if (!folder || !fs.existsSync(folder)) return;
+      try {
+        for (const f of fs.readdirSync(folder)) {
+          if (!(f.startsWith('backup_') && f.endsWith('.json'))) continue;
+          const fp = path.join(folder, f);
+          try {
+            const stat = fs.statSync(fp);
+            if (stat.mtime.getTime() < cutoff) {
+              fs.unlinkSync(fp); deleted++;
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+    };
+    tryDelete(dir);
+    if (customDir && customDir !== dir) tryDelete(customDir);
+    res.json({ success: true, deleted, days });
+  }));
+
+  // Auto-delete settings (toggle + days)
+  router.get('/api/backups/auto-delete', safeSync(async (req, res) => {
+    const s = database.data?.settings || {};
+    res.json({
+      enabled: !!s.backup_auto_delete_enabled,
+      days: parseInt(s.backup_auto_delete_days, 10) || 7,
+    });
+  }));
+  router.put('/api/backups/auto-delete', safeSync(async (req, res) => {
+    if (!database.data.settings) database.data.settings = {};
+    if (typeof req.body.enabled === 'boolean') database.data.settings.backup_auto_delete_enabled = req.body.enabled;
+    if (req.body.days !== undefined) database.data.settings.backup_auto_delete_days = Math.max(1, parseInt(req.body.days, 10) || 7);
+    database.save();
+    res.json({
+      enabled: !!database.data.settings.backup_auto_delete_enabled,
+      days: parseInt(database.data.settings.backup_auto_delete_days, 10) || 7,
+    });
+  }));
+
   router.get('/api/backups/status', safeSync(async (req, res) => {
     const backups = getBackupsList();
     const today = new Date().toISOString().substring(0, 10);

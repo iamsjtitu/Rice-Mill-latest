@@ -2946,6 +2946,31 @@ async function startApplication(folderPath) {
         console.log(`[Migration] Consolidated agent ledger: recomputed ${computed} mandi groups`);
       }
     }
+
+    // Backup auto-delete: cleanup backups older than configured days (if enabled)
+    try {
+      const s = (db && db.data && db.data.settings) || {};
+      if (s.backup_auto_delete_enabled) {
+        const days = Math.max(1, parseInt(s.backup_auto_delete_days, 10) || 7);
+        const cutoff = Date.now() - (days * 24 * 60 * 60 * 1000);
+        const folders = [getBackupDir(), s.custom_backup_dir].filter(Boolean);
+        let removed = 0;
+        for (const folder of new Set(folders)) {
+          if (!fs.existsSync(folder)) continue;
+          for (const f of fs.readdirSync(folder)) {
+            if (!(f.startsWith('backup_') && f.endsWith('.json'))) continue;
+            try {
+              const stat = fs.statSync(path.join(folder, f));
+              if (stat.mtime.getTime() < cutoff) {
+                fs.unlinkSync(path.join(folder, f));
+                removed++;
+              }
+            } catch (_) {}
+          }
+        }
+        if (removed > 0) console.log(`[Backup] Auto-deleted ${removed} backups older than ${days} days`);
+      }
+    } catch (e) { console.warn('[Backup] auto-delete cleanup error:', e.message); }
   }, 3000);
 
   // Daily backup check

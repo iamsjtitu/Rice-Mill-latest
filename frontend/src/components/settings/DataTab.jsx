@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { HardDrive, ShieldCheck } from "lucide-react";
+import { HardDrive, ShieldCheck, LogOut, Clock, Hand, Trash2 } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmProvider";
 import { API } from "./settingsConstants";
 import logger from "../../utils/logger";
@@ -15,6 +15,7 @@ function DataTab({ user }) {
   const [backups, setBackups] = useState([]);
   const [backupStatus, setBackupStatus] = useState(null);
   const [backupLoading, setBackupLoading] = useState(false);
+  const [autoDelete, setAutoDelete] = useState({ enabled: false, days: 7 });
 
   // Storage Engine state (read-only display)
   const [storageEngine, setStorageEngine] = useState('json');
@@ -27,9 +28,16 @@ function DataTab({ user }) {
     } catch (e) { setBackupStatus(null); }
   };
 
+  const fetchAutoDelete = async () => {
+    try {
+      const res = await axios.get(`${API}/backups/auto-delete`);
+      setAutoDelete({ enabled: !!res.data.enabled, days: res.data.days || 7 });
+    } catch (e) { /* endpoint optional */ }
+  };
+
   useEffect(() => {
     fetchBackups();
-    // Load storage engine status
+    fetchAutoDelete();
     axios.get(`${API}/settings/storage-engine`).then(r => {
       setStorageEngine(r.data.engine || 'json');
     }).catch(() => {});
@@ -66,6 +74,91 @@ function DataTab({ user }) {
       fetchBackups();
     } catch (e) { logger.error(e); toast.error("Delete mein error"); }
   };
+
+  const handleBulkDeleteSection = async (source, label) => {
+    const ok = await showConfirm(`Delete All ${label} Backups`, `Kya aap saari ${label} backups delete karna chahte hain?`);
+    if (!ok) return;
+    try {
+      const res = await axios.post(`${API}/backups/bulk-delete`, { source });
+      toast.success(`${res.data.deleted} ${label} backups delete ho gaye`);
+      fetchBackups();
+    } catch (e) { logger.error(e); toast.error("Bulk delete mein error"); }
+  };
+
+  const handleCleanupOld = async () => {
+    const ok = await showConfirm("Cleanup Old Backups", `${autoDelete.days} din se purani saari backups delete kar di jayengi. Kya aap sure hain?`);
+    if (!ok) return;
+    try {
+      const res = await axios.post(`${API}/backups/cleanup-old`, { days: autoDelete.days });
+      toast.success(`${res.data.deleted} purani backups delete ho gayi`);
+      fetchBackups();
+    } catch (e) { logger.error(e); toast.error("Cleanup error"); }
+  };
+
+  const updateAutoDelete = async (enabled, days) => {
+    try {
+      const res = await axios.put(`${API}/backups/auto-delete`, { enabled, days });
+      setAutoDelete({ enabled: !!res.data.enabled, days: res.data.days || 7 });
+      toast.success(`Auto-delete ${enabled ? 'enabled' : 'disabled'}`);
+    } catch (e) { logger.error(e); toast.error("Settings save error"); }
+  };
+
+  // Categorize backups by source (filename prefix) and filter to last 7 days
+  const categorized = useMemo(() => {
+    const cutoff = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    const recent = backups.filter(b => new Date(b.created_at).getTime() >= cutoff);
+    const groups = { logout: [], auto: [], manual: [] };
+    recent.forEach(b => {
+      const f = b.filename || '';
+      if (f.startsWith('backup_logout')) groups.logout.push(b);
+      else if (f.startsWith('backup_manual')) groups.manual.push(b);
+      else if (!f.startsWith('backup_pre-')) groups.auto.push(b); // skip pre-restore safety backups
+    });
+    return groups;
+  }, [backups]);
+
+  const renderBackupSection = (key, label, color, icon, items) => (
+    <div className={`border rounded-lg p-3 bg-slate-900/40 border-${color}-700/50`} data-testid={`backup-section-${key}`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className={`flex items-center gap-2 text-${color}-400 font-semibold text-sm`}>
+          {icon}
+          {label}
+          <span className="text-slate-500 text-xs font-normal">({items.length})</span>
+        </div>
+        {items.length > 0 && (
+          <Button
+            size="sm" variant="ghost"
+            className="text-red-400 hover:text-red-300 hover:bg-red-900/30 h-7 text-xs"
+            onClick={() => handleBulkDeleteSection(key, label)}
+            data-testid={`bulk-delete-${key}-btn`}
+          >
+            <Trash2 className="w-3 h-3 mr-1" /> Delete All
+          </Button>
+        )}
+      </div>
+      {items.length === 0 ? (
+        <p className="text-slate-500 text-xs py-3 text-center italic">Koi {label.toLowerCase()} backup nahi</p>
+      ) : (
+        <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1" data-testid={`backup-list-${key}`}>
+          {items.map((b) => (
+            <div key={b.filename} className="flex items-center justify-between bg-slate-800/60 px-2.5 py-1.5 rounded border border-slate-700 text-xs" data-testid={`backup-item-${b.filename}`}>
+              <div className="min-w-0 flex-1 mr-2">
+                <p className="text-slate-200 font-mono truncate">{b.filename}</p>
+                <p className="text-slate-500 text-[10px]">
+                  {new Date(b.created_at).toLocaleString('en-IN')} | {b.size_readable}
+                  {b.source === 'custom' && <span className="ml-1 text-amber-400">(Custom Drive)</span>}
+                </p>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <Button size="sm" variant="outline" onClick={() => handleRestoreBackup(b.filename, b.custom_dir)} disabled={backupLoading} className="text-blue-400 border-blue-700/50 hover:bg-blue-900/30 h-6 px-2 text-[11px]" data-testid={`restore-btn-${b.filename}`}>Restore</Button>
+                <Button size="sm" variant="outline" onClick={() => handleDeleteBackup(b.filename)} className="text-red-400 border-red-700/50 hover:bg-red-900/30 h-6 px-2 text-[11px]" data-testid={`delete-backup-btn-${b.filename}`}>Delete</Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -135,7 +228,7 @@ function DataTab({ user }) {
             Data Backup / डेटा बैकअप
           </CardTitle>
           <p className="text-slate-400 text-sm">
-            Backup Now se server folder mein save hoga. ZIP Download se apne computer mein download hoga. Auto backup har din hota hai.
+            Sirf last 7 din ki backups dikhayi gayi hain. Logout / Auto / Manual — alag alag sections mein.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -153,7 +246,7 @@ function DataTab({ user }) {
                     </p>
                   )}
                 </div>
-                <p className="text-slate-400 text-sm">{backups.length} / {backupStatus.max_backups} backups</p>
+                <p className="text-slate-400 text-sm">{backups.length} total / showing last 7 days</p>
               </div>
             </div>
           )}
@@ -172,7 +265,7 @@ function DataTab({ user }) {
                 )}
               </div>
               <div className="flex gap-2">
-                <Button 
+                <Button
                   onClick={async () => {
                     try {
                       const res = await axios.post(`${API}/backups/browse-folder`);
@@ -195,7 +288,7 @@ function DataTab({ user }) {
                   <HardDrive className="w-3.5 h-3.5 mr-1" /> Select Drive
                 </Button>
                 {backupStatus?.custom_backup_dir && (
-                  <Button 
+                  <Button
                     onClick={async () => {
                       await axios.put(`${API}/backups/custom-dir`, { dir: null });
                       toast.success("Default folder set");
@@ -209,7 +302,36 @@ function DataTab({ user }) {
                 )}
               </div>
             </div>
-            <p className="text-[10px] text-amber-400">Logout par auto backup + manual backup dono is folder mein save honge</p>
+          </div>
+
+          {/* Auto-Delete + Manual Cleanup */}
+          <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600 flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer" data-testid="auto-delete-toggle-label">
+              <input
+                type="checkbox"
+                checked={autoDelete.enabled}
+                onChange={e => updateAutoDelete(e.target.checked, autoDelete.days)}
+                className="w-4 h-4 accent-amber-500"
+                data-testid="auto-delete-toggle"
+              />
+              Auto-delete backups older than
+            </label>
+            <input
+              type="number" min="1" max="90"
+              value={autoDelete.days}
+              onChange={e => setAutoDelete(p => ({ ...p, days: parseInt(e.target.value, 10) || 7 }))}
+              onBlur={() => updateAutoDelete(autoDelete.enabled, autoDelete.days)}
+              className="bg-slate-900 border border-slate-600 text-white rounded h-7 px-2 text-sm w-16"
+              data-testid="auto-delete-days-input"
+            />
+            <span className="text-slate-400 text-sm">days</span>
+            <Button
+              onClick={handleCleanupOld} variant="outline" size="sm"
+              className="ml-auto text-red-400 border-red-700/50 hover:bg-red-900/30 h-7 text-xs"
+              data-testid="cleanup-old-btn"
+            >
+              <Trash2 className="w-3 h-3 mr-1" /> Run Cleanup Now
+            </Button>
           </div>
 
           {/* Backup Now */}
@@ -221,27 +343,12 @@ function DataTab({ user }) {
             {backupLoading ? 'Backup ho raha hai...' : 'Backup Now / अभी बैकअप लें'}
           </Button>
 
-          {/* Saved Backups */}
-          {backups.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-slate-300 text-sm font-semibold">Saved Backups (Last {backupStatus?.max_backups || 7}):</p>
-              {backups.map((b) => (
-                <div key={b.filename} className="flex items-center justify-between bg-slate-700/50 p-3 rounded-lg border border-slate-600" data-testid={`backup-item-${b.filename}`}>
-                  <div>
-                    <p className="text-white text-sm font-mono">{b.filename}</p>
-                    <p className="text-slate-400 text-xs">
-                      {new Date(b.created_at).toLocaleString('en-IN')} | {b.size_readable}
-                      {b.source === 'custom' && <span className="ml-1 text-amber-400">(Custom Drive)</span>}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => handleRestoreBackup(b.filename, b.custom_dir)} disabled={backupLoading} className="text-blue-400 border-blue-600 hover:bg-blue-900/30 text-xs" data-testid={`restore-btn-${b.filename}`}>Restore</Button>
-                    <Button size="sm" variant="outline" onClick={() => handleDeleteBackup(b.filename)} className="text-red-400 border-red-600 hover:bg-red-900/30 text-xs" data-testid={`delete-backup-btn-${b.filename}`}>Delete</Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* 3 Categorized Sections */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {renderBackupSection('logout', 'Logout', 'red', <LogOut className="w-4 h-4" />, categorized.logout)}
+            {renderBackupSection('auto', 'Automatic', 'blue', <Clock className="w-4 h-4" />, categorized.auto)}
+            {renderBackupSection('manual', 'Manual', 'green', <Hand className="w-4 h-4" />, categorized.manual)}
+          </div>
 
           {/* ZIP Download */}
           <div className="border border-slate-600 rounded-lg p-4 bg-slate-900/50">
@@ -341,7 +448,7 @@ function DataTab({ user }) {
           </div>
 
           <div className="text-center text-slate-500 text-xs">
-            <p>Auto Backup: Har din automatically hota hai | Max {backupStatus?.max_backups || 7} backups save hote hain | Location: data/backups/</p>
+            <p>Auto Backup: Har din automatically | Logout par bhi auto backup | Last 7 days dikhaye gaye hain</p>
           </div>
         </CardContent>
       </Card>
@@ -361,7 +468,7 @@ function DataTab({ user }) {
             </span>
           </p>
           <p className="text-slate-500 text-xs mt-1">
-            {storageEngine === 'sqlite' 
+            {storageEngine === 'sqlite'
               ? 'Crash-safe, fast saves, 1 Lakh+ entries support'
               : storageEngine === 'mongodb'
               ? 'Web version - Cloud database'

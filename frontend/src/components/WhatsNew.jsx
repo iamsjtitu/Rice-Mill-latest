@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.15",
+    date: "Feb 2026",
+    title: "v104.28.15 — Backup Section Redesign (3 Categories + Auto-Delete)",
+    items: [
+      { type: "new", text: "📦 Settings → Data → Backup ab 3 alag-alag sections mein organized: 🔴 Logout backup | 🔵 Automatic backup | 🟢 Manual backup. Har section mein scroll, count, aur 'Delete All' (bulk) button" },
+      { type: "new", text: "📅 Sirf last 7 din ki backups dikhayi jaati hain — page chhota aur clean rehta hai. Purani backups disk pe rahti hain (jab tak auto-delete na chal jaye)" },
+      { type: "new", text: "🗑️ Auto-Delete toggle + days input — checkbox enable karo, days set karo (default 7). Startup pe automatically purani backups delete ho jayengi. 'Run Cleanup Now' button manual trigger ke liye" },
+      { type: "new", text: "🛠️ Bulk-delete API endpoints (POST /api/backups/bulk-delete + cleanup-old) — frontend ke alawa script se bhi cleanup possible" },
+    ],
+  },
+  {
     version: "104.28.14",
     date: "Feb 2026",
     title: "v104.28.14 — Agent Ledger Consolidation (1 row per Mandi)",
