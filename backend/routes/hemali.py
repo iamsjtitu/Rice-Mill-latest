@@ -566,11 +566,15 @@ async def hemali_monthly_summary_pdf(kms_year: str = "", season: str = "", sarda
         buf.seek(0)
         return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=hemali_monthly_summary.pdf"})
 
+    # Page width calculation: A4 landscape = 842pt, minus 20pt margins each side = 802pt usable.
+    # Use this as base width so EVERYTHING (sardar header band, data table, banner) spans full page width.
+    PAGE_W = 802
+
     # Per-sardar tables — accumulate grand totals across all sardars
     grand_work = grand_paid = grand_adv_given = grand_adv_deducted = 0
     grand_payments_total = grand_payments_paid = 0
     for sardar in data:
-        # Sardar name pill + advance balance
+        # Sardar name pill + advance balance — full page width
         sardar_hdr = RTable(
             [[
                 Paragraph(f"<b>SARDAR:</b> {sardar['sardar_name']}",
@@ -580,9 +584,9 @@ async def hemali_monthly_summary_pdf(kms_year: str = "", season: str = "", sarda
                           ParagraphStyle("sa", parent=styles["Normal"], fontSize=9,
                                          textColor=colors.white, alignment=2)),
             ]],
-            colWidths=[400, 401]
+            colWidths=[PAGE_W * 0.5, PAGE_W * 0.5]
         )
-        sardar_hdr.hAlign = 'CENTER'
+        sardar_hdr.hAlign = 'LEFT'
         sardar_hdr.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#d97706")),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -618,8 +622,10 @@ async def hemali_monthly_summary_pdf(kms_year: str = "", season: str = "", sarda
         style_cmds = get_pdf_table_style(len(rows), cols_info)
         style_cmds.append(("ALIGN", (1, 0), (-1, -1), "RIGHT"))
         style_cmds.append(("ALIGN", (0, 0), (0, -1), "LEFT"))
-        t = RTable(rows, colWidths=[100, 100, 130, 130, 130, 130], repeatRows=1)
-        t.hAlign = 'CENTER'
+        # Distribute 802pt across 6 columns: Month gets ~12%, Payments ~14%, then 18.5% each for 4 amount cols
+        col_widths_table = [PAGE_W * 0.12, PAGE_W * 0.14, PAGE_W * 0.185, PAGE_W * 0.185, PAGE_W * 0.185, PAGE_W * 0.185]
+        t = RTable(rows, colWidths=col_widths_table, repeatRows=1)
+        t.hAlign = 'LEFT'
         t.setStyle(TableStyle(style_cmds))
         elements.append(t)
         elements.append(Spacer(1, 14))
@@ -641,9 +647,11 @@ async def hemali_monthly_summary_pdf(kms_year: str = "", season: str = "", sarda
         {'label': 'OUTSTANDING', 'value': fmt_inr(grand_work - grand_paid - grand_adv_deducted), 'color': STAT_COLORS['red']},
     ]
     elements.append(Spacer(1, 4))
-    banner = get_pdf_summary_banner(summary_stats, total_width=720)
+    # Banner narrower than data tables so it's visually centered on the page.
+    # (PAGE_W=802 - 80pt margin = 722pt banner, with 40pt margin on each side).
+    banner = get_pdf_summary_banner(summary_stats, total_width=PAGE_W - 80)
     if banner:
-        elements.append(banner)
+        elements.append(banner)  # helper sets hAlign='CENTER' by default → page-centered
 
     doc.build(elements)
     buf.seek(0)
