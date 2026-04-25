@@ -3,7 +3,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { HardDrive, ShieldCheck, LogOut, Clock, Hand, Trash2 } from "lucide-react";
+import { HardDrive, ShieldCheck, LogOut, Clock, Hand, Trash2, Download, Upload } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmProvider";
 import { API } from "./settingsConstants";
 import logger from "../../utils/logger";
@@ -16,8 +16,6 @@ function DataTab({ user }) {
   const [backupStatus, setBackupStatus] = useState(null);
   const [backupLoading, setBackupLoading] = useState(false);
   const [autoDelete, setAutoDelete] = useState({ enabled: false, days: 7 });
-
-  // Storage Engine state (read-only display)
   const [storageEngine, setStorageEngine] = useState('json');
 
   const fetchBackups = async () => {
@@ -117,44 +115,67 @@ function DataTab({ user }) {
     return groups;
   }, [backups]);
 
-  const renderBackupSection = (key, label, color, icon, items) => (
-    <div className={`border rounded-lg p-3 bg-slate-900/40 border-${color}-700/50`} data-testid={`backup-section-${key}`}>
-      <div className="flex items-center justify-between mb-2">
-        <div className={`flex items-center gap-2 text-${color}-400 font-semibold text-sm`}>
-          {icon}
-          {label}
-          <span className="text-slate-500 text-xs font-normal">({items.length})</span>
+  // White-theme stacked backup table — full width, clear fonts
+  const BackupTable = ({ sectionKey, label, accentColor, icon: Icon, items }) => (
+    <div className="bg-white border-2 border-slate-200 rounded-xl shadow-sm overflow-hidden" data-testid={`backup-section-${sectionKey}`}>
+      {/* Section header bar */}
+      <div className={`flex items-center justify-between px-5 py-3 border-b-2 ${accentColor.headerBg} ${accentColor.headerBorder}`}>
+        <div className={`flex items-center gap-2.5 ${accentColor.headerText} font-bold text-base`}>
+          <Icon className="w-5 h-5" />
+          <span>{label} Backups</span>
+          <span className="ml-2 px-2.5 py-0.5 bg-white border border-current rounded-full text-sm font-semibold">{items.length}</span>
         </div>
         {items.length > 0 && (
           <Button
-            size="sm" variant="ghost"
-            className="text-red-400 hover:text-red-300 hover:bg-red-900/30 h-7 text-xs"
-            onClick={() => handleBulkDeleteSection(key, label)}
-            data-testid={`bulk-delete-${key}-btn`}
+            size="sm" variant="outline"
+            className="h-8 border-2 border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400 font-semibold text-sm"
+            onClick={() => handleBulkDeleteSection(sectionKey, label)}
+            data-testid={`bulk-delete-${sectionKey}-btn`}
           >
-            <Trash2 className="w-3 h-3 mr-1" /> Delete All
+            <Trash2 className="w-4 h-4 mr-1.5" /> Delete All
           </Button>
         )}
       </div>
+
+      {/* Table body */}
       {items.length === 0 ? (
-        <p className="text-slate-500 text-xs py-3 text-center italic">Koi {label.toLowerCase()} backup nahi</p>
+        <div className="px-5 py-8 text-center">
+          <p className="text-slate-500 text-sm font-medium">Koi {label.toLowerCase()} backup nahi hai</p>
+        </div>
       ) : (
-        <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1" data-testid={`backup-list-${key}`}>
-          {items.map((b) => (
-            <div key={b.filename} className="flex items-center justify-between bg-slate-800/60 px-2.5 py-1.5 rounded border border-slate-700 text-xs" data-testid={`backup-item-${b.filename}`}>
-              <div className="min-w-0 flex-1 mr-2">
-                <p className="text-slate-200 font-mono truncate">{b.filename}</p>
-                <p className="text-slate-500 text-[10px]">
-                  {new Date(b.created_at).toLocaleString('en-IN')} | {b.size_readable}
-                  {b.source === 'custom' && <span className="ml-1 text-amber-400">(Custom Drive)</span>}
-                </p>
-              </div>
-              <div className="flex gap-1 shrink-0">
-                <Button size="sm" variant="outline" onClick={() => handleRestoreBackup(b.filename, b.custom_dir)} disabled={backupLoading} className="text-blue-400 border-blue-700/50 hover:bg-blue-900/30 h-6 px-2 text-[11px]" data-testid={`restore-btn-${b.filename}`}>Restore</Button>
-                <Button size="sm" variant="outline" onClick={() => handleDeleteBackup(b.filename)} className="text-red-400 border-red-700/50 hover:bg-red-900/30 h-6 px-2 text-[11px]" data-testid={`delete-backup-btn-${b.filename}`}>Delete</Button>
-              </div>
-            </div>
-          ))}
+        <div className="max-h-72 overflow-y-auto" data-testid={`backup-list-${sectionKey}`}>
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 sticky top-0 border-b border-slate-200">
+              <tr>
+                <th className="text-left px-5 py-2.5 font-semibold text-slate-700 text-xs uppercase tracking-wider">File Name</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-slate-700 text-xs uppercase tracking-wider">Date / Time</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-slate-700 text-xs uppercase tracking-wider">Size</th>
+                <th className="text-right px-5 py-2.5 font-semibold text-slate-700 text-xs uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((b, idx) => (
+                <tr
+                  key={b.filename}
+                  className={`border-b border-slate-100 hover:bg-slate-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
+                  data-testid={`backup-item-${b.filename}`}
+                >
+                  <td className="px-5 py-2.5 font-mono text-xs text-slate-800 max-w-md truncate">{b.filename}</td>
+                  <td className="px-3 py-2.5 text-slate-700 text-xs whitespace-nowrap">{new Date(b.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                  <td className="px-3 py-2.5 text-slate-700 text-xs whitespace-nowrap">
+                    {b.size_readable}
+                    {b.source === 'custom' && <span className="ml-1.5 px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-semibold">Custom Drive</span>}
+                  </td>
+                  <td className="px-5 py-2.5 text-right whitespace-nowrap">
+                    <div className="flex justify-end gap-1.5">
+                      <Button size="sm" variant="outline" onClick={() => handleRestoreBackup(b.filename, b.custom_dir)} disabled={backupLoading} className="h-7 px-2.5 text-xs border-blue-300 text-blue-700 hover:bg-blue-50" data-testid={`restore-btn-${b.filename}`}>Restore</Button>
+                      <Button size="sm" variant="outline" onClick={() => handleDeleteBackup(b.filename)} className="h-7 px-2.5 text-xs border-red-300 text-red-700 hover:bg-red-50" data-testid={`delete-backup-btn-${b.filename}`}>Delete</Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
@@ -162,25 +183,25 @@ function DataTab({ user }) {
 
   return (
     <div className="space-y-6">
-      {/* Data Health Check */}
-      <Card className="bg-slate-800 border-slate-700" data-testid="data-health-section">
-        <CardHeader>
-          <CardTitle className="text-emerald-400 flex items-center gap-2">
+      {/* ===== Data Health Check ===== */}
+      <Card className="bg-white border-2 border-slate-200 shadow-sm" data-testid="data-health-section">
+        <CardHeader className="border-b border-slate-200 bg-emerald-50/40">
+          <CardTitle className="text-emerald-700 flex items-center gap-2 text-lg font-bold">
             <ShieldCheck className="w-5 h-5" />
             Data Health Check / डेटा हेल्थ चेक
           </CardTitle>
-          <p className="text-slate-400 text-sm">
+          <p className="text-slate-600 text-sm">
             Auto-fix run karein - missing ledger entries, wrong accounts, orphan data sab automatically fix ho jayega.
           </p>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-4">
           {healthResult && (
-            <div className={`p-4 rounded-lg border ${healthResult.total_fixes > 0 ? 'bg-amber-900/30 border-amber-700' : 'bg-green-900/30 border-green-700'}`}>
-              <p className={`font-semibold text-sm ${healthResult.total_fixes > 0 ? 'text-amber-400' : 'text-green-400'}`}>
+            <div className={`p-4 rounded-lg border-2 ${healthResult.total_fixes > 0 ? 'bg-amber-50 border-amber-300' : 'bg-emerald-50 border-emerald-300'}`}>
+              <p className={`font-bold text-sm ${healthResult.total_fixes > 0 ? 'text-amber-800' : 'text-emerald-800'}`}>
                 {healthResult.total_fixes > 0 ? `${healthResult.total_fixes} issues fix kiye` : 'Sab theek hai - koi issue nahi!'}
               </p>
               {healthResult.details && Object.entries(healthResult.details).map(([k, v]) =>
-                v > 0 ? <p key={k} className="text-slate-400 text-xs mt-1">{k.replace(/_/g, ' ')}: {v}</p> : null
+                v > 0 ? <p key={k} className="text-slate-700 text-xs mt-1">{k.replace(/_/g, ' ')}: {v}</p> : null
               )}
               {healthResult.ran_at && <p className="text-slate-500 text-xs mt-2">Last run: {new Date(healthResult.ran_at).toLocaleString('en-IN')}</p>}
             </div>
@@ -220,48 +241,50 @@ function DataTab({ user }) {
         </CardContent>
       </Card>
 
-      {/* Backup Section */}
-      <Card className="bg-slate-800 border-slate-700" data-testid="backup-section">
-        <CardHeader>
-          <CardTitle className="text-green-400 flex items-center gap-2">
+      {/* ===== Data Backup Section ===== */}
+      <Card className="bg-white border-2 border-slate-200 shadow-sm" data-testid="backup-section">
+        <CardHeader className="border-b border-slate-200 bg-emerald-50/40">
+          <CardTitle className="text-emerald-700 flex items-center gap-2 text-lg font-bold">
             <HardDrive className="w-5 h-5" />
             Data Backup / डेटा बैकअप
           </CardTitle>
-          <p className="text-slate-400 text-sm">
-            Sirf last 7 din ki backups dikhayi gayi hain. Logout / Auto / Manual — alag alag sections mein.
+          <p className="text-slate-600 text-sm">
+            Last 7 din ki backups dikhayi gayi hain. Logout / Automatic / Manual — alag alag tables mein.
           </p>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Backup Status */}
+        <CardContent className="space-y-5 pt-5">
+          {/* === Backup Status Banner === */}
           {backupStatus && (
-            <div className={`p-3 rounded-lg border ${backupStatus.has_today_backup ? 'bg-green-900/30 border-green-700' : 'bg-amber-900/30 border-amber-700'}`}>
-              <div className="flex items-center justify-between">
+            <div className={`p-4 rounded-lg border-2 ${backupStatus.has_today_backup ? 'bg-emerald-50 border-emerald-300' : 'bg-amber-50 border-amber-300'}`}>
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
-                  <p className={`font-semibold text-sm ${backupStatus.has_today_backup ? 'text-green-400' : 'text-amber-400'}`}>
-                    {backupStatus.has_today_backup ? 'Aaj ka backup hai' : 'Aaj ka backup nahi liya!'}
+                  <p className={`font-bold text-base ${backupStatus.has_today_backup ? 'text-emerald-800' : 'text-amber-800'}`}>
+                    {backupStatus.has_today_backup ? '✓ Aaj ka backup hai' : '⚠ Aaj ka backup nahi liya!'}
                   </p>
                   {backups.length > 0 && (
-                    <p className="text-slate-400 text-xs mt-1">
-                      Last backup: {new Date(backups[0].created_at).toLocaleString('en-IN')} ({backups[0].size_readable})
+                    <p className="text-slate-700 text-xs mt-1">
+                      Last backup: <span className="font-semibold">{new Date(backups[0].created_at).toLocaleString('en-IN')}</span> ({backups[0].size_readable})
                     </p>
                   )}
                 </div>
-                <p className="text-slate-400 text-sm">{backups.length} total / showing last 7 days</p>
+                <p className="text-slate-700 text-sm font-medium">{backups.length} total / Last 7 days</p>
               </div>
             </div>
           )}
 
-          {/* Custom Backup Folder */}
-          <div className="p-3 bg-slate-700/40 rounded-lg space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex-1 mr-3">
-                <p className="text-sm text-white font-medium">Backup Folder / बैकअप फोल्डर</p>
+          {/* === Backup Folder === */}
+          <div className="bg-slate-50 border-2 border-slate-200 rounded-lg p-4">
+            <p className="text-slate-800 text-sm font-bold mb-2.5">Backup Folder / बैकअप फोल्डर</p>
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="flex-1 min-w-0">
                 {backupStatus?.custom_backup_dir ? (
-                  <div className="mt-1 p-1.5 bg-green-900/30 border border-green-700/50 rounded text-[11px] text-green-300 font-mono break-all">
+                  <div className="px-3 py-2 bg-emerald-50 border-2 border-emerald-200 rounded-md text-xs text-emerald-900 font-mono break-all">
                     {backupStatus.custom_backup_dir}
                   </div>
                 ) : (
-                  <p className="text-[10px] text-slate-400 mt-1">Default folder (data folder ke andar)</p>
+                  <div className="px-3 py-2 bg-white border border-slate-200 rounded-md text-xs text-slate-600">
+                    Default folder (Data folder ke andar)
+                  </div>
                 )}
               </div>
               <div className="flex gap-2">
@@ -282,10 +305,10 @@ function DataTab({ user }) {
                       }
                     }
                   }}
-                  variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700 h-7 text-xs"
+                  variant="outline" size="sm" className="border-2 border-slate-300 text-slate-700 hover:bg-white h-9 text-sm font-semibold"
                   data-testid="select-backup-folder-btn"
                 >
-                  <HardDrive className="w-3.5 h-3.5 mr-1" /> Select Drive
+                  <HardDrive className="w-4 h-4 mr-1.5" /> Select Drive
                 </Button>
                 {backupStatus?.custom_backup_dir && (
                   <Button
@@ -294,7 +317,7 @@ function DataTab({ user }) {
                       toast.success("Default folder set");
                       fetchBackups();
                     }}
-                    variant="ghost" size="sm" className="text-red-400 hover:text-red-300 h-7 text-xs"
+                    variant="outline" size="sm" className="border-2 border-red-300 text-red-700 hover:bg-red-50 h-9 text-sm font-semibold"
                     data-testid="reset-backup-folder-btn"
                   >
                     Reset
@@ -304,14 +327,14 @@ function DataTab({ user }) {
             </div>
           </div>
 
-          {/* Auto-Delete + Manual Cleanup */}
-          <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600 flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer" data-testid="auto-delete-toggle-label">
+          {/* === Auto-Delete Settings === */}
+          <div className="bg-slate-50 border-2 border-slate-200 rounded-lg p-4 flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-800 cursor-pointer" data-testid="auto-delete-toggle-label">
               <input
                 type="checkbox"
                 checked={autoDelete.enabled}
                 onChange={e => updateAutoDelete(e.target.checked, autoDelete.days)}
-                className="w-4 h-4 accent-amber-500"
+                className="w-4 h-4 accent-emerald-600"
                 data-testid="auto-delete-toggle"
               />
               Auto-delete backups older than
@@ -321,39 +344,60 @@ function DataTab({ user }) {
               value={autoDelete.days}
               onChange={e => setAutoDelete(p => ({ ...p, days: parseInt(e.target.value, 10) || 7 }))}
               onBlur={() => updateAutoDelete(autoDelete.enabled, autoDelete.days)}
-              className="bg-slate-900 border border-slate-600 text-white rounded h-7 px-2 text-sm w-16"
+              className="bg-white border-2 border-slate-300 text-slate-900 rounded-md h-8 px-2 text-sm w-16 font-semibold"
               data-testid="auto-delete-days-input"
             />
-            <span className="text-slate-400 text-sm">days</span>
+            <span className="text-slate-700 text-sm font-medium">days</span>
             <Button
               onClick={handleCleanupOld} variant="outline" size="sm"
-              className="ml-auto text-red-400 border-red-700/50 hover:bg-red-900/30 h-7 text-xs"
+              className="ml-auto border-2 border-red-300 text-red-700 hover:bg-red-50 h-8 text-xs font-semibold"
               data-testid="cleanup-old-btn"
             >
-              <Trash2 className="w-3 h-3 mr-1" /> Run Cleanup Now
+              <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Run Cleanup Now
             </Button>
           </div>
 
-          {/* Backup Now */}
+          {/* === Backup Now Button === */}
           <Button
             onClick={handleCreateBackup} disabled={backupLoading}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11 text-base shadow-sm"
             data-testid="create-backup-btn"
           >
             {backupLoading ? 'Backup ho raha hai...' : 'Backup Now / अभी बैकअप लें'}
           </Button>
 
-          {/* 3 Categorized Sections */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {renderBackupSection('logout', 'Logout', 'red', <LogOut className="w-4 h-4" />, categorized.logout)}
-            {renderBackupSection('auto', 'Automatic', 'blue', <Clock className="w-4 h-4" />, categorized.auto)}
-            {renderBackupSection('manual', 'Manual', 'green', <Hand className="w-4 h-4" />, categorized.manual)}
-          </div>
+          {/* ===== STACKED VERTICAL BACKUP TABLES ===== */}
+          {/* 1. Logout Backups (Top) */}
+          <BackupTable
+            sectionKey="logout"
+            label="Logout"
+            accentColor={{ headerBg: 'bg-red-50', headerBorder: 'border-red-200', headerText: 'text-red-800' }}
+            icon={LogOut}
+            items={categorized.logout}
+          />
 
-          {/* ZIP Download */}
-          <div className="border border-slate-600 rounded-lg p-4 bg-slate-900/50">
-            <p className="text-slate-300 text-sm font-semibold mb-2">ZIP Download / ज़िप डाउनलोड</p>
-            <p className="text-slate-500 text-xs mb-3">Computer mein ZIP file download hogi - email ya drive mein share kar sakte hain.</p>
+          {/* 2. Automatic Backups (Middle) */}
+          <BackupTable
+            sectionKey="auto"
+            label="Automatic"
+            accentColor={{ headerBg: 'bg-blue-50', headerBorder: 'border-blue-200', headerText: 'text-blue-800' }}
+            icon={Clock}
+            items={categorized.auto}
+          />
+
+          {/* 3. Manual Backups (Bottom) */}
+          <BackupTable
+            sectionKey="manual"
+            label="Manual"
+            accentColor={{ headerBg: 'bg-emerald-50', headerBorder: 'border-emerald-200', headerText: 'text-emerald-800' }}
+            icon={Hand}
+            items={categorized.manual}
+          />
+
+          {/* === ZIP Download === */}
+          <div className="bg-slate-50 border-2 border-slate-200 rounded-lg p-4">
+            <p className="text-slate-800 text-sm font-bold mb-1">ZIP Download / ज़िप डाउनलोड</p>
+            <p className="text-slate-600 text-xs mb-3">Computer mein ZIP file download hogi - email ya drive mein share kar sakte hain.</p>
             <Button
               onClick={async () => {
                 try {
@@ -374,19 +418,19 @@ function DataTab({ user }) {
                 finally { setBackupLoading(false); }
               }}
               disabled={backupLoading} variant="outline"
-              className="w-full border-green-600 text-green-400 hover:bg-green-900/30 font-semibold"
+              className="w-full border-2 border-emerald-400 text-emerald-700 hover:bg-emerald-50 font-semibold h-10"
               data-testid="download-backup-btn"
             >
+              <Download className="w-4 h-4 mr-2" />
               {backupLoading ? 'Downloading...' : 'Download ZIP / ज़िप डाउनलोड'}
             </Button>
           </div>
 
-          {/* ZIP Restore */}
-          <div className="border border-slate-600 rounded-lg p-4 bg-slate-900/50">
-            <p className="text-slate-300 text-sm font-semibold mb-2">Backup Upload & Restore</p>
-            <p className="text-red-400 text-xs mb-3">Warning: Current data replace ho jayega! Pehle backup le lein.</p>
-            <div className="flex gap-2">
-              {/* ZIP Upload */}
+          {/* === Restore (ZIP / JSON) === */}
+          <div className="bg-slate-50 border-2 border-slate-200 rounded-lg p-4">
+            <p className="text-slate-800 text-sm font-bold mb-1">Backup Upload & Restore</p>
+            <p className="text-red-700 text-xs mb-3 font-medium">⚠ Warning: Current data replace ho jayega! Pehle backup le lein.</p>
+            <div className="flex gap-2 flex-wrap">
               <input
                 type="file" accept=".zip" id="backup-restore-input" className="hidden"
                 data-testid="restore-file-input"
@@ -410,13 +454,13 @@ function DataTab({ user }) {
               <Button
                 onClick={() => document.getElementById('backup-restore-input')?.click()}
                 disabled={backupLoading} variant="outline"
-                className="flex-1 border-amber-600 text-amber-400 hover:bg-amber-900/30 text-xs"
+                className="flex-1 min-w-[180px] border-2 border-amber-400 text-amber-800 hover:bg-amber-50 text-sm font-semibold h-10"
                 data-testid="restore-backup-btn"
               >
+                <Upload className="w-4 h-4 mr-2" />
                 {backupLoading ? 'Restoring...' : 'ZIP Upload & Restore'}
               </Button>
 
-              {/* JSON Upload */}
               <input
                 type="file" accept=".json" id="backup-json-restore-input" className="hidden"
                 data-testid="restore-json-file-input"
@@ -439,31 +483,32 @@ function DataTab({ user }) {
               <Button
                 onClick={() => document.getElementById('backup-json-restore-input')?.click()}
                 disabled={backupLoading} variant="outline"
-                className="flex-1 border-blue-600 text-blue-400 hover:bg-blue-900/30 text-xs"
+                className="flex-1 min-w-[180px] border-2 border-blue-400 text-blue-800 hover:bg-blue-50 text-sm font-semibold h-10"
                 data-testid="restore-json-backup-btn"
               >
+                <Upload className="w-4 h-4 mr-2" />
                 {backupLoading ? 'Restoring...' : 'JSON Upload & Restore'}
               </Button>
             </div>
           </div>
 
-          <div className="text-center text-slate-500 text-xs">
+          <div className="text-center text-slate-500 text-xs pt-1">
             <p>Auto Backup: Har din automatically | Logout par bhi auto backup | Last 7 days dikhaye gaye hain</p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Storage Engine Card */}
-      <Card className="bg-slate-800/50 border-slate-700">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-amber-400 text-base flex items-center gap-2">
+      {/* ===== Storage Engine ===== */}
+      <Card className="bg-white border-2 border-slate-200 shadow-sm">
+        <CardHeader className="pb-3 border-b border-slate-200 bg-amber-50/40">
+          <CardTitle className="text-amber-700 text-base flex items-center gap-2 font-bold">
             <HardDrive className="w-4 h-4" />
             Storage Engine
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <p className="text-slate-300 text-sm font-medium">
-            Current: <span className={storageEngine === 'sqlite' ? 'text-green-400 font-bold' : storageEngine === 'mongodb' ? 'text-blue-400 font-bold' : 'text-amber-400 font-bold'}>
+        <CardContent className="pt-4">
+          <p className="text-slate-700 text-sm font-medium">
+            Current: <span className={storageEngine === 'sqlite' ? 'text-emerald-700 font-bold' : storageEngine === 'mongodb' ? 'text-blue-700 font-bold' : 'text-amber-700 font-bold'}>
               {storageEngine === 'sqlite' ? 'SQLite (WAL Mode)' : storageEngine === 'mongodb' ? 'MongoDB' : 'JSON (Fallback)'}
             </span>
           </p>

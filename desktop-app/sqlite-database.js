@@ -602,7 +602,8 @@ class SqliteDatabase {
     const user = this.data.users.find(u => u.username === username);
     if (user) {
       user.password = newPassword;
-      this.save();
+      // Critical security operation - persist immediately, no debounce
+      this.saveImmediate();
     }
     return user;
   }

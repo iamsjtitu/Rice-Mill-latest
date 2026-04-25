@@ -58,6 +58,20 @@ module.exports = function(database) {
 
   router.post('/api/auth/login', safeSync(async (req, res) => {
     const { username, password } = req.body;
+    // SECURITY: Ensure default users are seeded in DB on first ever login attempt.
+    // After seeding, login uses ONLY DB users — no DEFAULT_USERS backdoor that
+    // could revert custom passwords. This fixes the "admin password resets to admin123" bug.
+    if (!Array.isArray(database.data.users)) database.data.users = [];
+    let seeded = false;
+    for (const [uname, udata] of Object.entries(DEFAULT_USERS)) {
+      if (!database.data.users.find(u => u.username === uname)) {
+        database.data.users.push({ id: `default_${uname}`, username: uname, password: udata.password, role: udata.role,
+          display_name: uname, active: true, created_at: new Date().toISOString() });
+        seeded = true;
+      }
+    }
+    if (seeded && database.saveImmediate) database.saveImmediate(); else if (seeded) database.save();
+
     const user = database.getUser(username);
     if (user) {
       if (user.active === false) return res.status(401).json({ detail: 'Account deactivated hai. Admin se baat karo.' });
@@ -66,11 +80,6 @@ module.exports = function(database) {
           display_name: user.display_name || user.username, permissions: getPerms(user), message: 'Login successful' });
       }
       return res.status(401).json({ detail: 'Password galat hai' });
-    }
-    if (DEFAULT_USERS[username] && DEFAULT_USERS[username].password === password) {
-      const role = DEFAULT_USERS[username].role;
-      return res.json({ success: true, username, role, display_name: username,
-        permissions: { ...(ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.admin) }, message: 'Login successful' });
     }
     res.status(401).json({ detail: `User "${username}" nahi mila` });
   }));

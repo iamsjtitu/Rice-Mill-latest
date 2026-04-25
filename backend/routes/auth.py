@@ -66,7 +66,23 @@ async def login(request: LoginRequest):
     username = request.username
     password = request.password
     
-    # Check from database first
+    # SECURITY: Seed default users into DB on first login attempt.
+    # After seeding, login uses ONLY DB users — no USERS dict backdoor that
+    # could revert custom passwords. Fixes "admin password resets" bug.
+    for uname, udata in USERS.items():
+        existing = await db.users.find_one({"username": uname}, {"_id": 0, "password": 1})
+        if not existing:
+            await db.users.insert_one({
+                "id": f"default_{uname}",
+                "username": uname,
+                "password": udata["password"],
+                "role": udata["role"],
+                "display_name": uname,
+                "active": True,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            })
+
+    # Check from database
     user_doc = await db.users.find_one({"username": username}, {"_id": 0})
     
     if user_doc:
@@ -81,16 +97,6 @@ async def login(request: LoginRequest):
                 "permissions": perms, "message": "Login successful"
             }
         raise HTTPException(status_code=401, detail="Invalid username or password")
-    
-    # Fallback to default users
-    if username in USERS and USERS[username]["password"] == password:
-        role = USERS[username]["role"]
-        perms = ROLE_PERMISSIONS.get(role, ROLE_PERMISSIONS["admin"]).copy()
-        return {
-            "success": True, "username": username,
-            "role": role, "display_name": username,
-            "permissions": perms, "message": "Login successful"
-        }
     
     raise HTTPException(status_code=401, detail="Invalid username or password")
 
