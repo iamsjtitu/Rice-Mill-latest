@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.18",
+    date: "Apr 2026",
+    title: "v104.28.18 — 📊 Hemali Payment Export Redesigned (PDF + Excel)",
+    items: [
+      { type: "new", text: "📄 PDF export ka summary ab ek beautiful single-line banner mein — 8 stats ek line mein: Total Entries | Paid | Unpaid | Gross Work | Adv Deducted | Payable | Total Paid | Outstanding. Har stat alag color mein (gold/green/red/blue/etc.), gold accent stripe upar" },
+      { type: "new", text: "📊 Excel export bilkul professional ban gaya — Company name banner (NAVKAR AGRO), Address subtitle, Gold title bar 'HEMALI PAYMENT REPORT', Filter info row, Generated date row, ladder ke saath bold table headers" },
+      { type: "new", text: "✅ Excel mein PAID/UNPAID status ab green/red colored cells (white text + bold). Number columns proper currency formatting (#,##0.00). Frozen pane — scroll karo toh header rows top pe rahti hain" },
+      { type: "new", text: "📈 Comprehensive TOTAL row — sab 5 numeric columns (Total/Adv Ded/Payable/Paid/New Adv) ka grand sum. Plus niche ek teal single-line summary banner with all key stats" },
+    ],
+  },
+  {
     version: "104.28.17",
     date: "Apr 2026",
     title: "v104.28.17 — 🔐 Forgot Password (WhatsApp OTP + Recovery Code) + Strength Meter",

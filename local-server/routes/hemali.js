@@ -541,7 +541,8 @@ module.exports = (database) => {
     headers.forEach((h, i) => { doc.fontSize(7).fillColor('#fff').text(h, x + 2, y + 4, { width: colWidths[i] - 4, align: i >= 5 ? 'right' : 'left' }); x += colWidths[i]; });
     y += 18;
 
-    let grandTotal = 0, grandPaid = 0;
+    let grandTotal = 0, grandPaid = 0, grandPayable = 0, grandAdvDed = 0, grandNewAdv = 0;
+    let paidCount = 0, unpaidCount = 0;
     payments.forEach((p, idx) => {
       if (y > 540) { doc.addPage(); y = 30; }
       const bgColor = idx % 2 === 0 ? '#f8fafc' : '#fff';
@@ -559,15 +560,41 @@ module.exports = (database) => {
         x += colWidths[i];
       });
       grandTotal += p.total || 0;
-      if (p.status === 'paid') grandPaid += p.amount_paid || 0;
+      grandPayable += p.amount_payable || 0;
+      grandAdvDed += p.advance_deducted || 0;
+      grandNewAdv += p.new_advance || 0;
+      if (p.status === 'paid') { grandPaid += p.amount_paid || 0; paidCount++; } else { unpaidCount++; }
       y += 16;
     });
 
-    // Summary
+    // ===== Beautiful single-line summary footer =====
     y += 10;
-    doc.rect(startX, y, 300, 30).fill('#f1f5f9').stroke('#cbd5e1');
-    doc.fontSize(9).fillColor('#1e293b').text(`Total Payments: ${payments.length}`, startX + 8, y + 4);
-    doc.text(`Grand Total: Rs.${grandTotal.toFixed(2)}  |  Total Paid: Rs.${grandPaid.toFixed(2)}`, startX + 8, y + 16);
+    if (y > 540) { doc.addPage(); y = 30; }
+    const tableW = colWidths.reduce((a, b) => a + b, 0);
+    const summaryH = 26;
+    doc.rect(startX, y, tableW, summaryH).fill('#1e293b');
+    doc.rect(startX, y, tableW, 2).fill('#f59e0b');
+
+    const fmtRs = (n) => `Rs.${(n || 0).toFixed(2)}`;
+    const stats = [
+      { lbl: 'TOTAL ENTRIES', val: String(payments.length), color: '#fff' },
+      { lbl: 'PAID', val: String(paidCount), color: '#22c55e' },
+      { lbl: 'UNPAID', val: String(unpaidCount), color: '#f87171' },
+      { lbl: 'GROSS WORK', val: fmtRs(grandTotal), color: '#fbbf24' },
+      { lbl: 'ADV. DEDUCTED', val: fmtRs(grandAdvDed), color: '#fb923c' },
+      { lbl: 'PAYABLE', val: fmtRs(grandPayable), color: '#60a5fa' },
+      { lbl: 'TOTAL PAID', val: fmtRs(grandPaid), color: '#34d399' },
+      { lbl: 'NEW ADV.', val: fmtRs(grandNewAdv), color: '#c084fc' },
+    ];
+
+    const cellW = tableW / stats.length;
+    stats.forEach((s, i) => {
+      const cx = startX + i * cellW;
+      if (i > 0) doc.moveTo(cx, y + 6).lineTo(cx, y + summaryH - 4).strokeColor('#475569').lineWidth(0.5).stroke();
+      doc.fontSize(6).fillColor('#94a3b8').text(s.lbl, cx + 4, y + 5, { width: cellW - 8, align: 'center', characterSpacing: 0.4 });
+      doc.fontSize(9).fillColor(s.color).text(s.val, cx + 4, y + 13, { width: cellW - 8, align: 'center' });
+    });
+    y += summaryH;
 
     await safePdfPipe(doc, res);
   }));
@@ -581,20 +608,121 @@ module.exports = (database) => {
     if (sardar_name) payments = payments.filter(p => p.sardar_name === sardar_name);
     payments.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
 
+    const branding = (database.getBranding && database.getBranding()) || {};
+    const companyName = branding.company_name || 'NAVKAR AGRO';
+    const companyAddr = branding.company_address || branding.address || '';
+
     const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Hemali Payments');
+    wb.creator = companyName;
+    wb.created = new Date();
+    const ws = wb.addWorksheet('Hemali Payments', { views: [{ state: 'frozen', ySplit: 6 }] });
+
+    ws.mergeCells('A1:K1');
+    const c1 = ws.getCell('A1');
+    c1.value = companyName;
+    c1.font = { bold: true, size: 18, color: { argb: 'FFFFFFFF' }, name: 'Calibri' };
+    c1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    c1.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 28;
+
+    ws.mergeCells('A2:K2');
+    const c2 = ws.getCell('A2');
+    c2.value = companyAddr || 'Hemali Payment Report';
+    c2.font = { italic: true, size: 10, color: { argb: 'FFCBD5E1' } };
+    c2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    c2.alignment = { horizontal: 'center' };
+    ws.getRow(2).height = 16;
+
+    ws.mergeCells('A3:K3');
+    const c3 = ws.getCell('A3');
+    c3.value = 'HEMALI PAYMENT REPORT';
+    c3.font = { bold: true, size: 13, color: { argb: 'FFFFFFFF' } };
+    c3.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF59E0B' } };
+    c3.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(3).height = 22;
+
+    ws.mergeCells('A4:K4');
+    const filters = [];
+    if (kms_year) filters.push(`FY: ${kms_year}`);
+    if (season) filters.push(`Season: ${season}`);
+    if (from_date || to_date) filters.push(`Date: ${from_date || 'start'} to ${to_date || 'today'}`);
+    if (sardar_name) filters.push(`Sardar: ${sardar_name}`);
+    const c4 = ws.getCell('A4');
+    c4.value = filters.length ? filters.join('   |   ') : 'All payments';
+    c4.font = { size: 9, color: { argb: 'FF475569' } };
+    c4.alignment = { horizontal: 'center' };
+    c4.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+
+    ws.mergeCells('A5:K5');
+    const c5 = ws.getCell('A5');
+    c5.value = `Generated: ${new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}    |    Total Records: ${payments.length}`;
+    c5.font = { size: 9, italic: true, color: { argb: 'FF64748B' } };
+    c5.alignment = { horizontal: 'center' };
+    c5.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+
     const headers = ['#', 'Receipt No.', 'Date', 'Sardar', 'Items', 'Total', 'Adv Deducted', 'Payable', 'Paid', 'New Advance', 'Status'];
     const headerRow = ws.addRow(headers);
-    headerRow.eachCell((cell) => { cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } }; cell.alignment = { horizontal: 'center' }; });
-
-    payments.forEach((p, idx) => {
-      const itemsStr = (p.items || []).map(i => `${i.item_name} x${i.quantity}`).join(', ');
-      const statusTxt = p.status === 'paid' ? 'PAID' : 'UNPAID';
-      const row = ws.addRow([idx + 1, p.receipt_no || '-', fmtD(p.date), p.sardar_name, itemsStr, p.total, p.advance_deducted, p.amount_payable, p.amount_paid, p.new_advance, statusTxt]);
-      if (idx % 2 === 0) row.eachCell((cell) => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; });
+    headerRow.height = 22;
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = { top: { style: 'thin', color: { argb: 'FF334155' } }, bottom: { style: 'medium', color: { argb: 'FFF59E0B' } } };
     });
 
-    [5, 14, 12, 16, 35, 12, 14, 12, 12, 14, 10].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    let grandTotal = 0, grandPaid = 0, grandPayable = 0, grandAdvDed = 0, grandNewAdv = 0;
+    let paidCount = 0, unpaidCount = 0;
+    payments.forEach((p, idx) => {
+      const itemsStr = (p.items || []).map(i => `${i.item_name} x${i.quantity}`).join(', ');
+      const isPaid = p.status === 'paid';
+      const statusTxt = isPaid ? 'PAID' : 'UNPAID';
+      const row = ws.addRow([idx + 1, p.receipt_no || '-', fmtD(p.date), p.sardar_name, itemsStr, p.total || 0, p.advance_deducted || 0, p.amount_payable || 0, p.amount_paid || 0, p.new_advance || 0, statusTxt]);
+      row.height = 18;
+      const stripeBg = idx % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF';
+      row.eachCell((cell, colNum) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: stripeBg } };
+        cell.font = { size: 10, color: { argb: 'FF1E293B' } };
+        cell.alignment = { vertical: 'middle', wrapText: false };
+        cell.border = { bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
+        if (colNum >= 6 && colNum <= 10) {
+          cell.numFmt = '#,##0.00';
+          cell.alignment = { vertical: 'middle', horizontal: 'right' };
+        }
+        if (colNum === 1 || colNum === 3 || colNum === 11) cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        if (colNum === 9) cell.font = { size: 10, color: { argb: 'FF16A34A' }, bold: true };
+        if (colNum === 11) {
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 9 };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isPaid ? 'FF16A34A' : 'FFDC2626' } };
+        }
+      });
+      grandTotal += p.total || 0;
+      grandPayable += p.amount_payable || 0;
+      grandAdvDed += p.advance_deducted || 0;
+      grandNewAdv += p.new_advance || 0;
+      if (isPaid) { grandPaid += p.amount_paid || 0; paidCount++; } else { unpaidCount++; }
+    });
+
+    const totalRow = ws.addRow(['', '', '', '', 'TOTAL', grandTotal, grandAdvDed, grandPayable, grandPaid, grandNewAdv, `${paidCount} Paid / ${unpaidCount} Unpaid`]);
+    totalRow.height = 24;
+    totalRow.eachCell((cell, colNum) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      cell.alignment = { vertical: 'middle', horizontal: colNum >= 6 && colNum <= 10 ? 'right' : 'center' };
+      cell.border = { top: { style: 'medium', color: { argb: 'FFF59E0B' } } };
+      if (colNum >= 6 && colNum <= 10) cell.numFmt = '#,##0.00';
+      if (colNum === 11) cell.font = { bold: true, color: { argb: 'FFF59E0B' }, size: 10 };
+    });
+
+    const sumRowIdx = totalRow.number + 2;
+    ws.mergeCells(sumRowIdx, 1, sumRowIdx, 11);
+    const sumCell = ws.getCell(sumRowIdx, 1);
+    sumCell.value = `📊  Total Entries: ${payments.length}   •   Paid: ${paidCount}   •   Unpaid: ${unpaidCount}   •   Gross Work: Rs.${grandTotal.toFixed(2)}   •   Total Paid: Rs.${grandPaid.toFixed(2)}   •   Outstanding: Rs.${(grandPayable - grandPaid).toFixed(2)}`;
+    sumCell.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    sumCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } };
+    sumCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(sumRowIdx).height = 26;
+
+    [5, 14, 12, 16, 38, 13, 14, 13, 13, 13, 12].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

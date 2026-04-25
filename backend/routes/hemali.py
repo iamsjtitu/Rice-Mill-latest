@@ -1007,7 +1007,8 @@ async def export_hemali_pdf(
 
     headers = ["#", "Receipt No.", "Date", "Sardar", "Items", "Total", "Adv Deduct", "Payable", "Paid", "New Adv", "Status"]
     rows = [headers]
-    grand_total = grand_paid = 0
+    grand_total = grand_paid = grand_payable = grand_adv_ded = grand_new_adv = 0
+    paid_count = unpaid_count = 0
     for idx, p in enumerate(payments, 1):
         items_str = ", ".join(f"{i.get('item_name','')} x{i.get('quantity',0)}" for i in p.get("items", []))
         is_paid = p.get("status") == "paid"
@@ -1023,9 +1024,21 @@ async def export_hemali_pdf(
             "PAID" if is_paid else "UNPAID",
         ])
         grand_total += p.get("total", 0)
+        grand_payable += p.get("amount_payable", 0)
+        grand_adv_ded += p.get("advance_deducted", 0)
         if is_paid:
             grand_paid += p.get("amount_paid", 0)
-    rows.append(["", "", "", "TOTAL", "", f"Rs. {grand_total:,.0f}", "", "", f"Rs. {grand_paid:,.0f}", "", ""])
+            grand_new_adv += p.get("new_advance", 0)
+            paid_count += 1
+        else:
+            unpaid_count += 1
+    rows.append(["", "", "", "TOTAL", "",
+                 f"Rs. {grand_total:,.0f}",
+                 f"Rs. {grand_adv_ded:,.0f}" if grand_adv_ded > 0 else "—",
+                 f"Rs. {grand_payable:,.0f}",
+                 f"Rs. {grand_paid:,.0f}",
+                 f"Rs. {grand_new_adv:,.0f}" if grand_new_adv > 0 else "—",
+                 ""])
 
     from utils.export_helpers import get_pdf_table_style
 
@@ -1052,6 +1065,41 @@ async def export_hemali_pdf(
     ])
     t.setStyle(TableStyle(style_cmds))
     elements.append(t)
+
+    # ===== Beautiful single-line summary banner =====
+    elements.append(Spacer(1, 12))
+    outstanding = grand_payable - grand_paid
+    summary_data = [[
+        f"TOTAL ENTRIES\n{len(payments)}",
+        f"PAID\n{paid_count}",
+        f"UNPAID\n{unpaid_count}",
+        f"GROSS WORK\nRs. {grand_total:,.0f}",
+        f"ADV. DEDUCTED\nRs. {grand_adv_ded:,.0f}",
+        f"PAYABLE\nRs. {grand_payable:,.0f}",
+        f"TOTAL PAID\nRs. {grand_paid:,.0f}",
+        f"OUTSTANDING\nRs. {outstanding:,.0f}",
+    ]]
+    summary_t = RTable(summary_data, colWidths=[100] * 8)
+    summary_t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#1e293b")),
+        ("LINEABOVE", (0, 0), (-1, 0), 2, colors.HexColor("#f59e0b")),
+        ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#94a3b8")),
+        ("TEXTCOLOR", (0, 0), (0, 0), colors.white),
+        ("TEXTCOLOR", (1, 0), (1, 0), colors.HexColor("#22c55e")),
+        ("TEXTCOLOR", (2, 0), (2, 0), colors.HexColor("#f87171")),
+        ("TEXTCOLOR", (3, 0), (3, 0), colors.HexColor("#fbbf24")),
+        ("TEXTCOLOR", (4, 0), (4, 0), colors.HexColor("#fb923c")),
+        ("TEXTCOLOR", (5, 0), (5, 0), colors.HexColor("#60a5fa")),
+        ("TEXTCOLOR", (6, 0), (6, 0), colors.HexColor("#34d399")),
+        ("TEXTCOLOR", (7, 0), (7, 0), colors.HexColor("#c084fc")),
+        ("FONT", (0, 0), (-1, -1), "Helvetica-Bold", 10),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LINEAFTER", (0, 0), (-2, -1), 0.5, colors.HexColor("#475569")),
+    ]))
+    elements.append(summary_t)
 
     doc.build(elements)
     buf.seek(0)
@@ -1121,7 +1169,8 @@ async def export_hemali_excel(
 
     data_start = header_row_n + 1
     row_n = data_start
-    grand_total = grand_paid = 0
+    grand_total = grand_paid = grand_payable = grand_adv_ded = grand_new_adv = 0
+    paid_count = unpaid_count = 0
     for idx, p in enumerate(payments, 1):
         items_str = ", ".join(f"{i.get('item_name','')} x{i.get('quantity',0)}" for i in p.get("items", []))
         is_paid = p.get("status") == "paid"
@@ -1140,13 +1189,21 @@ async def export_hemali_excel(
         # Color status cell
         status_cell = ws.cell(row=row_n, column=ncols)
         if is_paid:
-            status_cell.font = Font(bold=True, color="16A34A")
+            status_cell.font = Font(bold=True, color="FFFFFF")
+            status_cell.fill = PatternFill(start_color="16A34A", end_color="16A34A", fill_type="solid")
         else:
-            status_cell.font = Font(bold=True, color="DC2626")
+            status_cell.font = Font(bold=True, color="FFFFFF")
+            status_cell.fill = PatternFill(start_color="DC2626", end_color="DC2626", fill_type="solid")
         status_cell.alignment = Alignment(horizontal="center", vertical="center")
         grand_total += p.get("total", 0)
+        grand_payable += p.get("amount_payable", 0)
+        grand_adv_ded += p.get("advance_deducted", 0)
         if is_paid:
             grand_paid += p.get("amount_paid", 0)
+            grand_new_adv += p.get("new_advance", 0)
+            paid_count += 1
+        else:
+            unpaid_count += 1
         row_n += 1
 
     if payments:
@@ -1156,10 +1213,30 @@ async def export_hemali_excel(
         ws.merge_cells(start_row=data_start, start_column=1, end_row=data_start, end_column=ncols)
 
     if payments:
-        ws.cell(row=row_n, column=4, value="TOTAL")
+        # Comprehensive totals row with all numeric columns
+        ws.cell(row=row_n, column=5, value="TOTAL")
         ws.cell(row=row_n, column=6, value=grand_total)
+        ws.cell(row=row_n, column=7, value=grand_adv_ded)
+        ws.cell(row=row_n, column=8, value=grand_payable)
         ws.cell(row=row_n, column=9, value=grand_paid)
+        ws.cell(row=row_n, column=10, value=grand_new_adv)
+        ws.cell(row=row_n, column=11, value=f"{paid_count} Paid / {unpaid_count} Unpaid")
         style_excel_total_row(ws, row_n, ncols)
+
+        # ===== Beautiful single-line summary banner (below totals) =====
+        sum_row_n = row_n + 2
+        outstanding = grand_payable - grand_paid
+        sum_text = (
+            f"📊  Total Entries: {len(payments)}   •   Paid: {paid_count}   •   Unpaid: {unpaid_count}"
+            f"   •   Gross Work: Rs.{grand_total:,.2f}   •   Total Paid: Rs.{grand_paid:,.2f}"
+            f"   •   Outstanding: Rs.{outstanding:,.2f}"
+        )
+        sum_cell = ws.cell(row=sum_row_n, column=1, value=sum_text)
+        sum_cell.font = Font(bold=True, size=11, color="FFFFFF")
+        sum_cell.fill = PatternFill(start_color="0F766E", end_color="0F766E", fill_type="solid")
+        sum_cell.alignment = Alignment(horizontal="center", vertical="center")
+        ws.merge_cells(start_row=sum_row_n, start_column=1, end_row=sum_row_n, end_column=ncols)
+        ws.row_dimensions[sum_row_n].height = 26
 
     for w, col_letter in [(5, "A"), (14, "B"), (12, "C"), (18, "D"), (40, "E"), (14, "F"), (16, "G"), (14, "H"), (14, "I"), (16, "J"), (10, "K")]:
         ws.column_dimensions[col_letter].width = w
