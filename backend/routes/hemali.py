@@ -541,7 +541,10 @@ async def hemali_monthly_summary_pdf(kms_year: str = "", season: str = "", sarda
     from reportlab.lib.styles import ParagraphStyle
 
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=15, bottomMargin=15)
+    # leftMargin=14 + rightMargin=14 compensates for ReportLab Frame's default 6pt internal
+    # padding on each side → effective content margin from page edge = 14+6 = 20pt both sides.
+    # With PAGE_W=802, content sits exactly centered (x=20..822) on the 842pt landscape A4 page.
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=14, rightMargin=14, topMargin=15, bottomMargin=15)
     styles = get_pdf_styles()
     elements = []
 
@@ -647,11 +650,14 @@ async def hemali_monthly_summary_pdf(kms_year: str = "", season: str = "", sarda
         {'label': 'OUTSTANDING', 'value': fmt_inr(grand_work - grand_paid - grand_adv_deducted), 'color': STAT_COLORS['red']},
     ]
     elements.append(Spacer(1, 4))
-    # Banner narrower than data tables so it's visually centered on the page.
-    # (PAGE_W=802 - 80pt margin = 722pt banner, with 40pt margin on each side).
-    banner = get_pdf_summary_banner(summary_stats, total_width=PAGE_W - 80)
+    # Banner spans EXACT same width as data tables (PAGE_W=802pt), edge-to-edge.
+    # Both data tables (hAlign='LEFT', full PAGE_W width) and banner share the same
+    # left/right edges — perfectly aligned, looks page-centered (since 802pt fills
+    # the entire frame between the 20pt margins).
+    banner = get_pdf_summary_banner(summary_stats, total_width=PAGE_W)
     if banner:
-        elements.append(banner)  # helper sets hAlign='CENTER' by default → page-centered
+        banner.hAlign = 'LEFT'  # match data tables exactly
+        elements.append(banner)
 
     doc.build(elements)
     buf.seek(0)
@@ -1036,7 +1042,10 @@ async def export_hemali_pdf(
     from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
 
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=15, bottomMargin=15)
+    # leftMargin=14 + rightMargin=14 compensates for ReportLab Frame's default 6pt internal
+    # padding on each side → effective content margin from page edge = 14+6 = 20pt both sides.
+    # With PAGE_W=802, content sits exactly centered (x=20..822) on the 842pt landscape A4 page.
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=14, rightMargin=14, topMargin=15, bottomMargin=15)
     styles = get_pdf_styles()
     elements = []
 

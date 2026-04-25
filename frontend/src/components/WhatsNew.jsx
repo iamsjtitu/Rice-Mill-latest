@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.24",
+    date: "Apr 2026",
+    title: "v104.28.24 — 🎯 Hemali PDF Page-Centered + 🛡️ Backup Management Polish",
+    items: [
+      { type: "fix", text: "🎯 Hemali Monthly Summary PDF mein content (Sardar bands + tables + summary banner) ab **page pe perfectly centered** dikh raha hai. Pehle entire content block left-shifted tha (left=26pt, right=14pt), banner alag-alag width pe aata tha — ab sab ek hi 802pt content block mein perfectly aligned" },
+      { type: "fix", text: "🔧 Root cause fix — ReportLab ka default Frame internal padding (6pt) leftMargin=20 ke saath effective offset 26pt bana raha tha, jisse 802pt content right side overflow karta tha. Margins ko 14pt set kiya (14+6=20 effective) — content ab x=20..822 pe sit hota hai (842pt page pe equal 20pt margin both sides)" },
+      { type: "new", text: "📊 Backup UI mein **Total Size display** add — har time pata chalega kitna disk space backups le rahi hain (status banner ke right side)" },
+      { type: "new", text: "⚠️ **100MB warning banner** — total backup folder size 100MB cross hote hi red alert dikhta hai jisme cleanup karne ki suggestion hoti hai. Disk space full hone se pehle hi awareness mil jaati hai" },
+      { type: "new", text: "🕐 **Daily Auto-Backup Time Picker** — pehle backup random time pe banta tha, ab user khud schedule kar sakta hai (00:00 to 23:00 dropdown). Schedule disable karne ka option bhi hai (sirf logout + manual backup chalegi). Saved setting Desktop App + LAN host dono mein respect hoti hai" },
+    ],
+  },
+  {
     version: "104.28.23",
     date: "Apr 2026",
     title: "v104.28.23 — 🎯 PDF Banner Centered + Hemali Monthly Summary Redesign + Branding Audit",

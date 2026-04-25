@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.17
+## Current Version: v104.28.24
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -11,7 +11,29 @@
 - Borders: slate-200 / slate-300 instead of slate-700
 - Hover: bg-slate-50 / bg-slate-100
 
-## Recent Fixes (Apr 2026) — v104.28.17
+## Recent Fixes (Apr 2026) — v104.28.24
+
+### Hemali Monthly Summary PDF — Page-Centered (Margin Fix)
+- **User complaint (verbatim)**: *"areh bhai kya chutiyapa hai kitne baar bolu ek hi cheez monthly sumarry ka pdf and excel proffesional banao... niche jo banner aaraha hai wo center mai ana chahiye abhi side mai aaraha hai"*
+- **Root cause**: ReportLab's `SimpleDocTemplate` Frame applies a **default 6pt internal padding** on each side. With `leftMargin=20`, the effective content drawing starts at x=26 (20+6), but tables sized 802pt (sum of percentages × PAGE_W) overflowed by 12pt on the right side, leaving asymmetric margins (left=26, right=14) → entire content block visually left-shifted.
+- **Fix** (`/app/backend/routes/hemali.py` lines 544 + 1042): changed `leftMargin=20, rightMargin=20` → `leftMargin=14, rightMargin=14`. Now: 14 + 6 (frame padding) = 20pt effective margin both sides → 802pt tables + banner sit at x=20..822 on the 842pt page, perfectly centered.
+- **Verification**: pdfplumber + PIL pixel measurements confirmed orange Sardar bands and gold banner stripe both span x=30..1233 (at 1.5x render = 20pt..822pt), with equal 20pt margins from page edges.
+
+### Backup Management UI Polish — DONE
+- **User directive (earlier)**: warning when backup folder size > 100MB, scheduled backup time picker (not just "daily"), show total backup size in UI.
+- **Frontend** (`/app/frontend/src/components/settings/DataTab.jsx`):
+  - Status banner now shows **Total size** with bytes-aware formatting (`KB`/`MB`).
+  - **Red 100MB warning banner** (with `AlertTriangle` icon) appears when `total_size_bytes >= 100 MB`, suggests cleanup actions.
+  - **"Daily auto-backup at" picker** — 24-hour dropdown (00:00 to 23:00, with AM/PM hint), enable/disable toggle, helper text describing behavior.
+- **Backend (Triple Parity)**:
+  - Desktop-app (`/app/desktop-app/routes/backups.js`): new `GET/PUT /api/backups/schedule` endpoints + `total_size_bytes`/`total_size_readable` added to `GET /api/backups` response.
+  - Desktop-app (`/app/desktop-app/main.js`): hourly auto-backup interval now respects `backup_schedule_hour` + `backup_schedule_enabled` settings — only triggers when `currentHour >= scheduledHour` AND no today backup yet.
+  - Local-server (`/app/local-server/routes/backups.js` + `server.js`): same parity — both endpoints + new hourly interval check.
+  - Python web backend: no backup endpoints (web version doesn't store local backups), frontend gracefully falls back via `try/catch`.
+
+## Recent Fixes (Apr 2026) — v104.28.23
+
+### PDF Banner Centering + Hemali Summary Redesign + Branding Audit (DONE)
 
 ### Password Recovery System — NEW (Forgot Password)
 **User concern**: "license key dalke koi b reset kar lega" — license key based reset is insecure since any customer's key would work. So we built a per-account recovery system with TWO options:

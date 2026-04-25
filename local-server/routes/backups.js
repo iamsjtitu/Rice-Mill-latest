@@ -14,7 +14,17 @@ module.exports = function(database, { getBackupsList, createBackup, restoreBacku
     const backups = getBackupsList();
     const today = new Date().toISOString().substring(0, 10);
     const customDir = database.data?.settings?.custom_backup_dir || null;
-    res.json({ backups, has_today_backup: backups.some(b => b.created_at.substring(0, 10) === today), max_backups: MAX_BACKUPS, custom_backup_dir: customDir });
+    const totalSize = backups.reduce((sum, b) => sum + (Number(b.size) || 0), 0);
+    res.json({
+      backups,
+      has_today_backup: backups.some(b => b.created_at.substring(0, 10) === today),
+      max_backups: MAX_BACKUPS,
+      custom_backup_dir: customDir,
+      total_size_bytes: totalSize,
+      total_size_readable: totalSize >= 1024*1024
+        ? (totalSize / (1024*1024)).toFixed(1) + ' MB'
+        : (totalSize / 1024).toFixed(1) + ' KB',
+    });
   }));
 
   router.post('/api/backups', safeSync(async (req, res) => {
@@ -118,6 +128,30 @@ module.exports = function(database, { getBackupsList, createBackup, restoreBacku
     res.json({
       enabled: !!database.data.settings.backup_auto_delete_enabled,
       days: parseInt(database.data.settings.backup_auto_delete_days, 10) || 7,
+    });
+  }));
+
+  // Backup schedule (hour-of-day for daily auto-backup) — parity with desktop-app
+  router.get('/api/backups/schedule', safeSync(async (req, res) => {
+    const s = database.data?.settings || {};
+    res.json({
+      hour: Number.isInteger(s.backup_schedule_hour) ? s.backup_schedule_hour : 0,
+      enabled: s.backup_schedule_enabled !== false,
+    });
+  }));
+  router.put('/api/backups/schedule', safeSync(async (req, res) => {
+    if (!database.data.settings) database.data.settings = {};
+    if (req.body.hour !== undefined) {
+      const h = parseInt(req.body.hour, 10);
+      database.data.settings.backup_schedule_hour = Math.max(0, Math.min(23, isNaN(h) ? 0 : h));
+    }
+    if (typeof req.body.enabled === 'boolean') {
+      database.data.settings.backup_schedule_enabled = req.body.enabled;
+    }
+    database.save();
+    res.json({
+      hour: database.data.settings.backup_schedule_hour ?? 0,
+      enabled: database.data.settings.backup_schedule_enabled !== false,
     });
   }));
 

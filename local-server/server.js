@@ -991,6 +991,21 @@ async function startServer() {
     createBackup('startup');
   }
 
+  // Hourly schedule check — runs daily backup at user's configured hour (parity with desktop-app)
+  setInterval(() => {
+    try {
+      if (hasTodayBackup()) return;
+      const settings = (database.data || {}).settings || {};
+      const enabled = settings.backup_schedule_enabled !== false;
+      if (!enabled) return;
+      const scheduledHour = Number.isInteger(settings.backup_schedule_hour) ? settings.backup_schedule_hour : 0;
+      const currentHour = new Date().getHours();
+      if (currentHour >= scheduledHour) {
+        createBackup('daily');
+      }
+    } catch (e) { console.warn('[AutoBackup] schedule check error:', e.message); }
+  }, 60 * 60 * 1000);
+
   // Setup routes
   try {
     const authRoutes = require('./routes/auth')(database);

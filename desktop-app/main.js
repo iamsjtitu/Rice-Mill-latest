@@ -2974,8 +2974,22 @@ async function startApplication(folderPath) {
     } catch (e) { console.warn('[Backup] auto-delete cleanup error:', e.message); }
   }, 3000);
 
-  // Daily backup check
-  setInterval(() => { if (!hasTodayBackup()) createBackup(db, 'daily'); }, 60 * 60 * 1000);
+  // Daily backup check — runs every hour, respects user's scheduled hour preference
+  setInterval(() => {
+    try {
+      if (hasTodayBackup()) return;
+      const settings = (db.data || {}).settings || {};
+      const enabled = settings.backup_schedule_enabled !== false; // default true
+      if (!enabled) return;
+      const scheduledHour = Number.isInteger(settings.backup_schedule_hour) ? settings.backup_schedule_hour : 0;
+      const currentHour = new Date().getHours();
+      // Trigger only when current hour is at or past the scheduled hour (so if user opens
+      // app late, daily backup still runs once that day; if early, wait until scheduled time).
+      if (currentHour >= scheduledHour) {
+        createBackup(db, 'daily');
+      }
+    } catch (e) { console.warn('[AutoBackup] schedule check error:', e.message); }
+  }, 60 * 60 * 1000);
 
   // Monitor server health - restart if it dies
   const http = require('http');

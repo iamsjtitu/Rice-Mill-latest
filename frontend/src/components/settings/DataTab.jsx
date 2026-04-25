@@ -3,7 +3,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { HardDrive, ShieldCheck, LogOut, Clock, Hand, Trash2, Download, Upload } from "lucide-react";
+import { HardDrive, ShieldCheck, LogOut, Clock, Hand, Trash2, Download, Upload, AlertTriangle, CalendarClock } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmProvider";
 import { API } from "./settingsConstants";
 import logger from "../../utils/logger";
@@ -16,6 +16,7 @@ function DataTab({ user }) {
   const [backupStatus, setBackupStatus] = useState(null);
   const [backupLoading, setBackupLoading] = useState(false);
   const [autoDelete, setAutoDelete] = useState({ enabled: false, days: 7 });
+  const [schedule, setSchedule] = useState({ hour: 0, enabled: true });
   const [storageEngine, setStorageEngine] = useState('json');
 
   const fetchBackups = async () => {
@@ -33,9 +34,20 @@ function DataTab({ user }) {
     } catch (e) { /* endpoint optional */ }
   };
 
+  const fetchSchedule = async () => {
+    try {
+      const res = await axios.get(`${API}/backups/schedule`);
+      setSchedule({
+        hour: Number.isInteger(res.data.hour) ? res.data.hour : 0,
+        enabled: res.data.enabled !== false,
+      });
+    } catch (e) { /* endpoint optional / web version */ }
+  };
+
   useEffect(() => {
     fetchBackups();
     fetchAutoDelete();
+    fetchSchedule();
     axios.get(`${API}/settings/storage-engine`).then(r => {
       setStorageEngine(r.data.engine || 'json');
     }).catch(() => {});
@@ -100,6 +112,29 @@ function DataTab({ user }) {
       toast.success(`Auto-delete ${enabled ? 'enabled' : 'disabled'}`);
     } catch (e) { logger.error(e); toast.error("Settings save error"); }
   };
+
+  const updateSchedule = async (hour, enabled) => {
+    try {
+      const res = await axios.put(`${API}/backups/schedule`, { hour, enabled });
+      setSchedule({
+        hour: Number.isInteger(res.data.hour) ? res.data.hour : 0,
+        enabled: res.data.enabled !== false,
+      });
+      toast.success(`Schedule saved · daily backup ${enabled ? `at ${String(hour).padStart(2, '0')}:00` : 'disabled'}`);
+    } catch (e) { logger.error(e); toast.error("Schedule save error (web version pe support nahi)"); }
+  };
+
+  // Total backup size + warning threshold (100MB)
+  const totalSizeBytes = useMemo(() => {
+    if (backupStatus?.total_size_bytes !== undefined) return backupStatus.total_size_bytes;
+    return backups.reduce((s, b) => s + (Number(b.size) || 0), 0);
+  }, [backups, backupStatus]);
+  const totalSizeReadable = useMemo(() => {
+    if (backupStatus?.total_size_readable) return backupStatus.total_size_readable;
+    if (totalSizeBytes >= 1024 * 1024) return (totalSizeBytes / (1024 * 1024)).toFixed(1) + ' MB';
+    return (totalSizeBytes / 1024).toFixed(1) + ' KB';
+  }, [totalSizeBytes, backupStatus]);
+  const isOverThreshold = totalSizeBytes >= 100 * 1024 * 1024; // 100 MB
 
   // Categorize backups by source (filename prefix) and filter to last 7 days
   const categorized = useMemo(() => {
@@ -267,7 +302,25 @@ function DataTab({ user }) {
                     </p>
                   )}
                 </div>
-                <p className="text-slate-700 text-sm font-medium">{backups.length} total / Last 7 days</p>
+                <div className="text-right">
+                  <p className="text-slate-700 text-sm font-medium">{backups.length} total / Last 7 days</p>
+                  <p className="text-slate-600 text-xs mt-0.5" data-testid="total-backup-size">
+                    Total size: <span className={`font-bold ${isOverThreshold ? 'text-red-700' : 'text-slate-800'}`}>{totalSizeReadable}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* === 100MB Warning Banner === */}
+          {isOverThreshold && (
+            <div className="p-4 rounded-lg border-2 bg-red-50 border-red-300 flex items-start gap-3" data-testid="size-warning-banner">
+              <AlertTriangle className="w-5 h-5 text-red-700 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 text-sm">
+                <p className="font-bold text-red-800">Backup folder 100 MB se zyada ho gaya hai ({totalSizeReadable})</p>
+                <p className="text-red-700 text-xs mt-1">
+                  Disk space bachane ke liye purani backups delete karein — niche "Run Cleanup Now" button ya kisi section ke "Delete All" ka use karein.
+                </p>
               </div>
             </div>
           )}
@@ -325,6 +378,39 @@ function DataTab({ user }) {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* === Backup Schedule Settings === */}
+          <div className="bg-slate-50 border-2 border-slate-200 rounded-lg p-4 flex flex-wrap items-center gap-3" data-testid="backup-schedule-section">
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-800 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={schedule.enabled}
+                onChange={e => updateSchedule(schedule.hour, e.target.checked)}
+                className="w-4 h-4 accent-emerald-600"
+                data-testid="schedule-enabled-toggle"
+              />
+              <CalendarClock className="w-4 h-4 text-slate-600" />
+              Daily auto-backup at
+            </label>
+            <select
+              value={schedule.hour}
+              onChange={e => updateSchedule(parseInt(e.target.value, 10), schedule.enabled)}
+              disabled={!schedule.enabled}
+              className="bg-white border-2 border-slate-300 text-slate-900 rounded-md h-8 px-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              data-testid="schedule-hour-select"
+            >
+              {Array.from({ length: 24 }, (_, h) => (
+                <option key={h} value={h}>
+                  {String(h).padStart(2, '0')}:00 ({h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`})
+                </option>
+              ))}
+            </select>
+            <span className="text-slate-500 text-xs italic">
+              {schedule.enabled
+                ? `Aaj ${String(schedule.hour).padStart(2, '0')}:00 ke baad backup automatic ban jayega (agar abhi tak nahi bana)`
+                : 'Scheduled backup disabled — sirf logout aur manual backup hi banenge'}
+            </span>
           </div>
 
           {/* === Auto-Delete Settings === */}
@@ -493,7 +579,7 @@ function DataTab({ user }) {
           </div>
 
           <div className="text-center text-slate-500 text-xs pt-1">
-            <p>Auto Backup: Har din automatically | Logout par bhi auto backup | Last 7 days dikhaye gaye hain</p>
+            <p>Auto Backup: Daily scheduled time pe | Logout par bhi auto backup | Last 7 days dikhaye gaye hain</p>
           </div>
         </CardContent>
       </Card>
