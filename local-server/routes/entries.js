@@ -188,21 +188,25 @@ module.exports = function(database) {
 
   router.post('/api/mandi-targets', safeSync(async (req, res) => {
     const target = database.addMandiTarget({ ...req.body, created_by: req.query.username || 'admin' });
-    // No upfront ledger jama — agent jama accumulates incrementally as mill entries arrive
-    // (see addEntry() in server.js — creates agent_entry:<id> ledger jama per entry).
+    database.recomputeAgentLedger(target.mandi_name, target.kms_year || '', target.season || '', req.query.username || 'admin');
     database.save();
     res.json(target);
   }));
 
   router.put('/api/mandi-targets/:id', safeSync(async (req, res) => {
+    const old = (database.data.mandi_targets || []).find(t => t.id === req.params.id);
     const target = database.updateMandiTarget(req.params.id, req.body);
     if (target) {
-      // Cleanup any legacy upfront 'agent_target:*' entry tied to this target
       if (database.data.cash_transactions) {
         const before = database.data.cash_transactions.length;
-        database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_target_id !== req.params.id);
+        database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_target_id !== req.params.id || (t.reference || '').startsWith('agent_mandi:'));
         if (database.data.cash_transactions.length !== before) database.save();
       }
+      if (old && (old.mandi_name !== target.mandi_name || (old.kms_year || '') !== (target.kms_year || '') || (old.season || '') !== (target.season || ''))) {
+        database.recomputeAgentLedger(old.mandi_name, old.kms_year || '', old.season || '', req.query.username || 'admin');
+      }
+      database.recomputeAgentLedger(target.mandi_name, target.kms_year || '', target.season || '', req.query.username || 'admin');
+      database.save();
       res.json(target);
     } else res.status(404).json({ detail: 'Target not found' });
   }));

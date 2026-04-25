@@ -23,6 +23,82 @@ async def get_company_name():
 
 # ============ MILL ENTRIES CRUD ============
 
+async def recompute_agent_ledger(mandi_name: str, kms_year: str, season: str, username: str = "system"):
+    """Recompute consolidated Agent ledger jama for (mandi, kms_year, season).
+    UPSERTS a single row that aggregates total achieved QNTL × base_rate across ALL
+    entries for that mandi+season+year. Replaces old per-entry rows for this mandi.
+    """
+    if not mandi_name:
+        return
+    target = await db.mandi_targets.find_one({
+        "mandi_name": mandi_name,
+        "kms_year": kms_year or "",
+        "season": season or "",
+    }, {"_id": 0})
+    if not target:
+        # No target → remove any orphaned agent ledger row for this mandi+year+season
+        await db.cash_transactions.delete_many({
+            "reference": f"agent_mandi:{mandi_name}|{kms_year or ''}|{season or ''}"
+        })
+        return
+
+    # Aggregate achieved QNTL across all entries for this mandi+year+season
+    pipeline = [
+        {"$match": {
+            "mandi_name": mandi_name,
+            "kms_year": kms_year or "",
+            "season": season or "",
+        }},
+        {"$group": {
+            "_id": None,
+            "total_final_w": {"$sum": "$final_w"},
+            "count": {"$sum": 1},
+            "latest_date": {"$max": "$date"},
+        }},
+    ]
+    result = await db.mill_entries.aggregate(pipeline).to_list(1)
+    ref_key = f"agent_mandi:{mandi_name}|{kms_year or ''}|{season or ''}"
+
+    if not result or result[0].get("count", 0) == 0:
+        # No entries left → remove the consolidated row
+        await db.cash_transactions.delete_many({"reference": ref_key})
+        return
+
+    total_qntl = round(float(result[0].get("total_final_w") or 0) / 100, 2)
+    count = int(result[0].get("count") or 0)
+    latest_date = result[0].get("latest_date") or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    base_rate = float(target.get("base_rate") or 10)
+    amount = round_amount(total_qntl * base_rate)
+
+    if total_qntl <= 0 or amount <= 0:
+        await db.cash_transactions.delete_many({"reference": ref_key})
+        return
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    description = (
+        f"Agent Entry: {mandi_name} - {total_qntl}Q × Rs.{base_rate} = Rs.{amount} "
+        f"({count} {'entry' if count == 1 else 'entries'})"
+    )
+    update_doc = {
+        "$set": {
+            "date": latest_date,
+            "account": "ledger", "txn_type": "jama",
+            "category": mandi_name, "party_type": "Agent",
+            "description": description, "amount": amount,
+            "reference": ref_key,
+            "kms_year": kms_year or "", "season": season or "",
+            "linked_target_id": target.get("id", ""),
+            "updated_at": now_iso,
+            "created_by": username or "system",
+        },
+        "$setOnInsert": {
+            "id": str(uuid.uuid4()),
+            "created_at": now_iso,
+        },
+    }
+    await db.cash_transactions.update_one({"reference": ref_key}, update_doc, upsert=True)
+
+
 @router.get("/")
 async def root():
     return {"message": "Mill Entry API - Navkar Agro"}
@@ -106,36 +182,14 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
             diesel_ded.pop("_id", None)
             await log_audit("cash_transactions", diesel_ded["id"], "create", username, new_data=diesel_ded)
     
-    # Auto Jama (Ledger) for AGENT — incremental based on achieved QNTL × base_rate
-    # (achieved = final_w / 100, same formula as dashboard target progress)
-    agent_qntl = round(float(doc.get("final_w") or 0) / 100, 2)
-    mandi_name = doc.get("mandi_name", "")
-    if agent_qntl > 0 and mandi_name:
-        target = await db.mandi_targets.find_one({
-            "mandi_name": mandi_name,
-            "kms_year": doc.get("kms_year", ""),
-            "season": doc.get("season", ""),
-        }, {"_id": 0})
-        if target:
-            base_rate = float(target.get("base_rate") or 10)
-            agent_amount = round_amount(agent_qntl * base_rate)
-            if agent_amount > 0:
-                agent_jama = {
-                    "id": str(uuid.uuid4()),
-                    "date": doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
-                    "account": "ledger", "txn_type": "jama", "category": mandi_name,
-                    "party_type": "Agent",
-                    "description": f"Agent Entry: {mandi_name} - {agent_qntl}Q × Rs.{base_rate} = Rs.{agent_amount}",
-                    "amount": agent_amount, "reference": f"agent_entry:{doc['id'][:8]}",
-                    "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
-                    "created_by": username or "system", "linked_entry_id": doc["id"],
-                    "linked_target_id": target.get("id", ""),
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                }
-                await db.cash_transactions.insert_one(agent_jama)
-                agent_jama.pop("_id", None)
-                await log_audit("cash_transactions", agent_jama["id"], "create", username, new_data=agent_jama)
+    # Auto Jama (Ledger) for AGENT — CONSOLIDATED per (mandi, kms_year, season).
+    # See recompute_agent_ledger() for the upsert logic.
+    await recompute_agent_ledger(
+        doc.get("mandi_name", ""),
+        doc.get("kms_year", ""),
+        doc.get("season", ""),
+        username or "system",
+    )
 
     # Auto Cash Book entry for cash_paid
     cash_paid = float(doc.get("cash_paid", 0) or 0)
@@ -656,35 +710,17 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
             diesel_ded.pop("_id", None)
             await log_audit("cash_transactions", diesel_ded["id"], "create", username, new_data=diesel_ded)
 
-    # Recreate Agent Jama (Ledger) — incremental achieved QNTL × base_rate (= final_w/100)
-    agent_qntl_u = round(float(merged_data.get("final_w") or 0) / 100, 2)
-    mandi_name_u = merged_data.get("mandi_name", "")
-    if agent_qntl_u > 0 and mandi_name_u:
-        target_u = await db.mandi_targets.find_one({
-            "mandi_name": mandi_name_u,
-            "kms_year": merged_data.get("kms_year", ""),
-            "season": merged_data.get("season", ""),
-        }, {"_id": 0})
-        if target_u:
-            base_rate_u = float(target_u.get("base_rate") or 10)
-            agent_amount_u = round_amount(agent_qntl_u * base_rate_u)
-            if agent_amount_u > 0:
-                agent_jama_u = {
-                    "id": str(uuid.uuid4()),
-                    "date": merged_data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
-                    "account": "ledger", "txn_type": "jama", "category": mandi_name_u,
-                    "party_type": "Agent",
-                    "description": f"Agent Entry: {mandi_name_u} - {agent_qntl_u}Q × Rs.{base_rate_u} = Rs.{agent_amount_u}",
-                    "amount": agent_amount_u, "reference": f"agent_entry:{entry_id[:8]}",
-                    "kms_year": merged_data.get("kms_year", ""), "season": merged_data.get("season", ""),
-                    "created_by": username or "system", "linked_entry_id": entry_id,
-                    "linked_target_id": target_u.get("id", ""),
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                }
-                await db.cash_transactions.insert_one(agent_jama_u)
-                agent_jama_u.pop("_id", None)
-                await log_audit("cash_transactions", agent_jama_u["id"], "create", username, new_data=agent_jama_u)
+    # Recreate Agent Jama (Ledger) — CONSOLIDATED per (mandi, kms_year, season).
+    # If user changed mandi/kms/season, also recompute the OLD group.
+    old_mandi = existing.get("mandi_name", "")
+    old_kms = existing.get("kms_year", "")
+    old_season = existing.get("season", "")
+    new_mandi = merged_data.get("mandi_name", "")
+    new_kms = merged_data.get("kms_year", "")
+    new_season = merged_data.get("season", "")
+    if (old_mandi, old_kms, old_season) != (new_mandi, new_kms, new_season) and old_mandi:
+        await recompute_agent_ledger(old_mandi, old_kms, old_season, username or "system")
+    await recompute_agent_ledger(new_mandi, new_kms, new_season, username or "system")
 
     # Recreate Cash Book Nikasi entry for cash_paid
     cash_paid = float(merged_data.get("cash_paid", 0) or 0)
@@ -802,7 +838,15 @@ async def delete_entry(entry_id: str, username: str = "", role: str = ""):
     await db.cash_transactions.delete_many({"linked_entry_id": entry_id})
     await db.diesel_accounts.delete_many({"linked_entry_id": entry_id})
     await db.gunny_bags.delete_many({"linked_entry_id": entry_id})
-    
+
+    # Recompute consolidated agent ledger for the (mandi, kms_year, season) of the deleted entry
+    await recompute_agent_ledger(
+        existing.get("mandi_name", ""),
+        existing.get("kms_year", ""),
+        existing.get("season", ""),
+        username or "system",
+    )
+
     return {"message": "Entry deleted successfully"}
 
 
@@ -1623,6 +1667,8 @@ async def create_mandi_target(input: MandiTargetCreate, username: str = "", role
     
     doc = target_obj.model_dump()
     await db.mandi_targets.insert_one(doc)
+    # Recompute agent ledger to capture any pre-existing entries for this mandi
+    await recompute_agent_ledger(input.mandi_name, input.kms_year, input.season, username or "system")
     return target_obj
 
 
@@ -1644,6 +1690,11 @@ async def update_mandi_target(target_id: str, input: MandiTargetUpdate, username
     
     await db.mandi_targets.update_one({"id": target_id}, {"$set": merged})
     updated = await db.mandi_targets.find_one({"id": target_id}, {"_id": 0})
+    # Recompute consolidated agent ledger (base_rate may have changed → amounts must update)
+    await recompute_agent_ledger(merged.get("mandi_name", ""), merged.get("kms_year", ""), merged.get("season", ""), username or "system")
+    # If mandi/kms/season changed, recompute old too
+    if (existing.get("mandi_name"), existing.get("kms_year"), existing.get("season")) != (merged.get("mandi_name"), merged.get("kms_year"), merged.get("season")):
+        await recompute_agent_ledger(existing.get("mandi_name", ""), existing.get("kms_year", ""), existing.get("season", ""), username or "system")
     return updated
 
 
@@ -1653,9 +1704,13 @@ async def delete_mandi_target(target_id: str, username: str = "", role: str = ""
     if role != "admin":
         raise HTTPException(status_code=403, detail="Sirf admin target delete kar sakta hai")
     
+    existing = await db.mandi_targets.find_one({"id": target_id}, {"_id": 0})
     result = await db.mandi_targets.delete_one({"id": target_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Target not found")
+    # Remove the consolidated agent ledger row for this group (no target → no jama)
+    if existing:
+        await recompute_agent_ledger(existing.get("mandi_name", ""), existing.get("kms_year", ""), existing.get("season", ""), username or "system")
     return {"message": "Target deleted successfully"}
 
 

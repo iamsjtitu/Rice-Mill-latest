@@ -543,68 +543,28 @@ async def hemali_work_ledger_backfill():
 
 @app.on_event("startup")
 async def agent_entry_ledger_backfill():
-    """Create missing agent_entry ledger jama for existing mill entries.
-    Agent ledger entries (tp_weight × base_rate) were not created for entries that existed
-    before the auto-ledger feature shipped (v104.28.11). This backfill fixes that for users
-    who had data before upgrade."""
+    """Migrate per-entry agent_entry: rows → consolidated agent_mandi: rows.
+    One row per (mandi, kms_year, season) accumulating total achieved × base_rate."""
     try:
         from database import db
-        from models import round_amount
-        import uuid as _uuid
+        from routes.entries import recompute_agent_ledger
 
-        # Cache existing agent_entry references in one query
-        existing_refs = set()
-        async for t in db.cash_transactions.find(
-            {"reference": {"$regex": "^agent_entry:"}},
-            {"_id": 0, "reference": 1}
-        ):
-            existing_refs.add(str(t.get("reference", "")))
+        # Step 1: Remove all legacy per-entry rows
+        old_result = await db.cash_transactions.delete_many({"reference": {"$regex": "^agent_entry:"}})
+        if old_result.deleted_count > 0:
+            logger.info(f"Cleanup: removed {old_result.deleted_count} legacy per-entry agent_entry rows")
 
-        # Cache mandi_targets indexed by (mandi_name, kms_year, season) for fast lookup
-        targets = await db.mandi_targets.find({}, {"_id": 0}).to_list(10000)
-        target_map = {
-            (t.get("mandi_name", ""), t.get("kms_year", ""), t.get("season", "")): t
-            for t in targets
-        }
-        if not target_map:
-            return
+        # Step 2: For each unique (mandi, kms_year, season), recompute the consolidated row
+        targets = await db.mandi_targets.find({}, {"_id": 0, "mandi_name": 1, "kms_year": 1, "season": 1}).to_list(10000)
+        seen = set()
+        for t in targets:
+            key = (t.get("mandi_name", ""), t.get("kms_year", ""), t.get("season", ""))
+            if key in seen:
+                continue
+            seen.add(key)
+            await recompute_agent_ledger(*key, "system")
 
-        # Stream entries (could be many) and create missing agent ledger jama
-        assigned = 0
-        async for e in db.mill_entries.find({}, {"_id": 0}):
-            eid = e.get("id")
-            if not eid:
-                continue
-            ref = f"agent_entry:{eid[:8]}"
-            if ref in existing_refs:
-                continue
-            mandi = e.get("mandi_name", "")
-            agent_qntl = round(float(e.get("final_w") or 0) / 100, 2)
-            if not mandi or agent_qntl <= 0:
-                continue
-            target = target_map.get((mandi, e.get("kms_year", ""), e.get("season", "")))
-            if not target:
-                continue
-            base_rate = float(target.get("base_rate") or 10)
-            agent_amount = round_amount(agent_qntl * base_rate)
-            if agent_amount <= 0:
-                continue
-            await db.cash_transactions.insert_one({
-                "id": str(_uuid.uuid4()),
-                "date": e.get("date", ""),
-                "account": "ledger", "txn_type": "jama",
-                "category": mandi, "party_type": "Agent",
-                "description": f"Agent Entry: {mandi} - {agent_qntl}Q × Rs.{base_rate} = Rs.{agent_amount}",
-                "amount": agent_amount, "reference": ref,
-                "kms_year": e.get("kms_year", ""), "season": e.get("season", ""),
-                "created_by": e.get("created_by", "system"),
-                "linked_entry_id": eid,
-                "linked_target_id": target.get("id", ""),
-                "created_at": e.get("created_at", datetime.now(timezone.utc).isoformat()),
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            })
-            assigned += 1
-        if assigned > 0:
-            logger.info(f"Agent ledger backfill: created {assigned} missing agent_entry rows")
+        if seen:
+            logger.info(f"Agent ledger consolidation: recomputed {len(seen)} mandi groups")
     except Exception as e:
-        logger.error(f"Agent ledger backfill error: {e}")
+        logger.error(f"Agent ledger consolidation error: {e}")

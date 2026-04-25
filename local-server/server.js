@@ -173,6 +173,65 @@ class JsonDatabase {
     return { entries: paged, total, page, page_size: pageSize, total_pages: pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1 };
   }
 
+  /**
+   * Recompute consolidated Agent ledger jama for (mandi, kms_year, season).
+   * Upserts a SINGLE row per group — total achieved QNTL × base_rate accumulates.
+   */
+  recomputeAgentLedger(mandiName, kmsYear, season, username) {
+    if (!mandiName) return;
+    if (!this.data.cash_transactions) this.data.cash_transactions = [];
+    const refKey = `agent_mandi:${mandiName}|${kmsYear || ''}|${season || ''}`;
+    const target = (this.data.mandi_targets || []).find(t =>
+      t.mandi_name === mandiName &&
+      (t.kms_year || '') === (kmsYear || '') &&
+      (t.season || '') === (season || '')
+    );
+    if (!target) {
+      this.data.cash_transactions = this.data.cash_transactions.filter(t => t.reference !== refKey);
+      return;
+    }
+    const entries = (this.data.entries || []).filter(e =>
+      e.mandi_name === mandiName &&
+      (e.kms_year || '') === (kmsYear || '') &&
+      (e.season || '') === (season || '')
+    );
+    if (entries.length === 0) {
+      this.data.cash_transactions = this.data.cash_transactions.filter(t => t.reference !== refKey);
+      return;
+    }
+    const totalFinalW = entries.reduce((s, e) => s + (parseFloat(e.final_w) || 0), 0);
+    const totalQntl = Math.round((totalFinalW / 100) * 100) / 100;
+    const baseRate = Number(target.base_rate) || 10;
+    const amount = Math.round(totalQntl * baseRate * 100) / 100;
+    const latestDate = entries.reduce((d, e) => (e.date && e.date > d) ? e.date : d, '');
+    if (totalQntl <= 0 || amount <= 0) {
+      this.data.cash_transactions = this.data.cash_transactions.filter(t => t.reference !== refKey);
+      return;
+    }
+    const description = `Agent Entry: ${mandiName} - ${totalQntl}Q × Rs.${baseRate} = Rs.${amount} (${entries.length} ${entries.length === 1 ? 'entry' : 'entries'})`;
+    const nowIso = new Date().toISOString();
+    const idx = this.data.cash_transactions.findIndex(t => t.reference === refKey);
+    if (idx === -1) {
+      this.data.cash_transactions.push({
+        id: uuidv4(),
+        date: latestDate, account: 'ledger', txn_type: 'jama',
+        category: mandiName, party_type: 'Agent',
+        description, amount, reference: refKey,
+        kms_year: kmsYear || '', season: season || '',
+        linked_target_id: target.id || '',
+        created_by: username || 'system',
+        created_at: nowIso, updated_at: nowIso,
+      });
+    } else {
+      Object.assign(this.data.cash_transactions[idx], {
+        date: latestDate, description, amount,
+        kms_year: kmsYear || '', season: season || '',
+        linked_target_id: target.id || '',
+        updated_at: nowIso,
+      });
+    }
+  }
+
   addEntry(entry) {
     const calculated = this.calculateFields(entry);
     const newEntry = {
@@ -225,32 +284,13 @@ class JsonDatabase {
       }
     }
 
-    // Auto Jama (Ledger) entry for AGENT — incremental achieved QNTL × base_rate (= final_w/100)
-    const agentQntl = Math.round((parseFloat(newEntry.final_w) || 0) / 100 * 100) / 100;
-    const mandiName = newEntry.mandi_name || '';
-    if (agentQntl > 0 && mandiName) {
-      const target = (this.data.mandi_targets || []).find(t =>
-        t.mandi_name === mandiName &&
-        (t.kms_year || '') === (newEntry.kms_year || '') &&
-        (t.season || '') === (newEntry.season || '')
-      );
-      if (target) {
-        const baseRate = Number(target.base_rate) || 10;
-        const agentAmount = Math.round(agentQntl * baseRate * 100) / 100;
-        if (agentAmount > 0) {
-          this.data.cash_transactions.push({
-            id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama',
-            category: mandiName, party_type: 'Agent',
-            description: `Agent Entry: ${mandiName} - ${agentQntl}Q × Rs.${baseRate} = Rs.${agentAmount}`,
-            amount: agentAmount, reference: `agent_entry:${newEntry.id.slice(0,8)}`,
-            kms_year: newEntry.kms_year||'', season: newEntry.season||'',
-            created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
-            linked_target_id: target.id,
-            created_at: now, updated_at: now
-          });
-        }
-      }
-    }
+    // Auto Jama (Ledger) entry for AGENT — CONSOLIDATED per (mandi, kms_year, season)
+    this.recomputeAgentLedger(
+      newEntry.mandi_name || '',
+      newEntry.kms_year || '',
+      newEntry.season || '',
+      newEntry.created_by || 'system',
+    );
 
     // Auto Cash Book Nikasi for cash_paid
     const cashPaid = parseFloat(newEntry.cash_paid) || 0;
@@ -329,6 +369,7 @@ class JsonDatabase {
   updateEntry(id, updates) {
     const index = this.data.entries.findIndex(e => e.id === id);
     if (index === -1) return null;
+    const existing = { ...this.data.entries[index] }; // snapshot before replacement (for old-group recompute)
     const merged = { ...this.data.entries[index], ...updates };
     const calculated = this.calculateFields(merged);
     this.data.entries[index] = { ...merged, ...calculated, updated_at: new Date().toISOString() };
@@ -375,32 +416,18 @@ class JsonDatabase {
       }
     }
 
-    // Recreate Agent Jama (Ledger) — incremental achieved QNTL × base_rate (= final_w/100)
-    const agentQntl = Math.round((parseFloat(updated.final_w) || 0) / 100 * 100) / 100;
-    const mandiName = updated.mandi_name || '';
-    if (agentQntl > 0 && mandiName) {
-      const target = (this.data.mandi_targets || []).find(t =>
-        t.mandi_name === mandiName &&
-        (t.kms_year || '') === (updated.kms_year || '') &&
-        (t.season || '') === (updated.season || '')
-      );
-      if (target) {
-        const baseRate = Number(target.base_rate) || 10;
-        const agentAmount = Math.round(agentQntl * baseRate * 100) / 100;
-        if (agentAmount > 0) {
-          this.data.cash_transactions.push({
-            id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama',
-            category: mandiName, party_type: 'Agent',
-            description: `Agent Entry: ${mandiName} - ${agentQntl}Q × Rs.${baseRate} = Rs.${agentAmount}`,
-            amount: agentAmount, reference: `agent_entry:${id.slice(0,8)}`,
-            kms_year: updated.kms_year||'', season: updated.season||'',
-            created_by: updated.created_by||'system', linked_entry_id: id,
-            linked_target_id: target.id,
-            created_at: now, updated_at: now
-          });
-        }
-      }
+    // Recreate Agent Jama (Ledger) — CONSOLIDATED per (mandi, kms_year, season).
+    // If user changed mandi/kms/season, also recompute the OLD group.
+    const oldMandi = existing.mandi_name || '';
+    const oldKms = existing.kms_year || '';
+    const oldSeason = existing.season || '';
+    const newMandi = updated.mandi_name || '';
+    const newKms = updated.kms_year || '';
+    const newSeason = updated.season || '';
+    if (oldMandi && (oldMandi !== newMandi || oldKms !== newKms || oldSeason !== newSeason)) {
+      this.recomputeAgentLedger(oldMandi, oldKms, oldSeason, updated.created_by || 'system');
     }
+    this.recomputeAgentLedger(newMandi, newKms, newSeason, updated.created_by || 'system');
 
     // Recreate Cash Book Nikasi for cash_paid
     const cashPaid = parseFloat(updated.cash_paid) || 0;
@@ -455,11 +482,15 @@ class JsonDatabase {
   }
 
   deleteEntry(id) {
+    const removed = this.data.entries.find(e => e.id === id);
     const len = this.data.entries.length;
     this.data.entries = this.data.entries.filter(e => e.id !== id);
     if (this.data.cash_transactions) this.data.cash_transactions = this.data.cash_transactions.filter(t => t.linked_entry_id !== id);
     if (this.data.diesel_accounts) this.data.diesel_accounts = this.data.diesel_accounts.filter(t => t.linked_entry_id !== id);
     if (this.data.gunny_bags) this.data.gunny_bags = this.data.gunny_bags.filter(g => g.linked_entry_id !== id);
+    if (removed) {
+      this.recomputeAgentLedger(removed.mandi_name || '', removed.kms_year || '', removed.season || '', removed.created_by || 'system');
+    }
     if (this.data.entries.length < len) { this.save(); return true; }
     return false;
   }

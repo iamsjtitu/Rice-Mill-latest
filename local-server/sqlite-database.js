@@ -640,6 +640,65 @@ class SqliteDatabase {
     return { entries: paged, total, page, page_size: pageSize, total_pages: pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1 };
   }
 
+  /**
+   * Recompute consolidated Agent ledger jama for (mandi, kms_year, season).
+   * Upserts ONE row per group — total achieved QNTL × base_rate accumulates.
+   */
+  recomputeAgentLedger(mandiName, kmsYear, season, username) {
+    if (!mandiName) return;
+    if (!this.data.cash_transactions) this.data.cash_transactions = [];
+    const refKey = `agent_mandi:${mandiName}|${kmsYear || ''}|${season || ''}`;
+    const target = (this.data.mandi_targets || []).find(t =>
+      t.mandi_name === mandiName &&
+      (t.kms_year || '') === (kmsYear || '') &&
+      (t.season || '') === (season || '')
+    );
+    if (!target) {
+      this.data.cash_transactions = this.data.cash_transactions.filter(t => t.reference !== refKey);
+      return;
+    }
+    const entries = (this.data.entries || []).filter(e =>
+      e.mandi_name === mandiName &&
+      (e.kms_year || '') === (kmsYear || '') &&
+      (e.season || '') === (season || '')
+    );
+    if (entries.length === 0) {
+      this.data.cash_transactions = this.data.cash_transactions.filter(t => t.reference !== refKey);
+      return;
+    }
+    const totalFinalW = entries.reduce((s, e) => s + (parseFloat(e.final_w) || 0), 0);
+    const totalQntl = Math.round((totalFinalW / 100) * 100) / 100;
+    const baseRate = Number(target.base_rate) || 10;
+    const amount = Math.round(totalQntl * baseRate * 100) / 100;
+    const latestDate = entries.reduce((d, e) => (e.date && e.date > d) ? e.date : d, '');
+    if (totalQntl <= 0 || amount <= 0) {
+      this.data.cash_transactions = this.data.cash_transactions.filter(t => t.reference !== refKey);
+      return;
+    }
+    const description = `Agent Entry: ${mandiName} - ${totalQntl}Q × Rs.${baseRate} = Rs.${amount} (${entries.length} ${entries.length === 1 ? 'entry' : 'entries'})`;
+    const nowIso = new Date().toISOString();
+    const idx = this.data.cash_transactions.findIndex(t => t.reference === refKey);
+    if (idx === -1) {
+      this.data.cash_transactions.push({
+        id: uuidv4(),
+        date: latestDate, account: 'ledger', txn_type: 'jama',
+        category: mandiName, party_type: 'Agent',
+        description, amount, reference: refKey,
+        kms_year: kmsYear || '', season: season || '',
+        linked_target_id: target.id || '',
+        created_by: username || 'system',
+        created_at: nowIso, updated_at: nowIso,
+      });
+    } else {
+      Object.assign(this.data.cash_transactions[idx], {
+        date: latestDate, description, amount,
+        kms_year: kmsYear || '', season: season || '',
+        linked_target_id: target.id || '',
+        updated_at: nowIso,
+      });
+    }
+  }
+
   addEntry(entry) {
     const newEntry = {
       id: uuidv4(), ...entry, ...this.calculateFields(entry),
@@ -749,6 +808,15 @@ class SqliteDatabase {
     }
 
     this._createGunnyEntriesForMill(newEntry);
+
+    // Auto Jama (Ledger) for AGENT — CONSOLIDATED per (mandi, kms_year, season)
+    this.recomputeAgentLedger(
+      newEntry.mandi_name || '',
+      newEntry.kms_year || '',
+      newEntry.season || '',
+      newEntry.created_by || 'system',
+    );
+
     this.save();
     return newEntry;
   }
@@ -779,6 +847,7 @@ class SqliteDatabase {
     const index = this.data.entries.findIndex(e => e.id === id);
     if (index !== -1) {
       const current = this.data.entries[index];
+      const oldSnapshot = { mandi_name: current.mandi_name, kms_year: current.kms_year, season: current.season };
       // Optimistic locking: check _v if provided
       if (entry._v !== undefined && entry._v !== null && current._v !== undefined) {
         if (parseInt(entry._v) !== current._v) {
@@ -900,6 +969,18 @@ class SqliteDatabase {
         }
       }
 
+      // Recompute consolidated agent ledger for new (and old, if changed) group
+      const oldM = oldSnapshot.mandi_name || '';
+      const oldK = oldSnapshot.kms_year || '';
+      const oldS = oldSnapshot.season || '';
+      const newM = updated.mandi_name || '';
+      const newK = updated.kms_year || '';
+      const newS = updated.season || '';
+      if (oldM && (oldM !== newM || oldK !== newK || oldS !== newS)) {
+        this.recomputeAgentLedger(oldM, oldK, oldS, updated.created_by || 'system');
+      }
+      this.recomputeAgentLedger(newM, newK, newS, updated.created_by || 'system');
+
       this.save();
       return updated;
     }
@@ -907,19 +988,31 @@ class SqliteDatabase {
   }
 
   deleteEntry(id) {
+    const removed = this.data.entries.find(e => e.id === id);
     this.data.entries = this.data.entries.filter(e => e.id !== id);
     if (this.data.cash_transactions) this.data.cash_transactions = this.data.cash_transactions.filter(t => t.linked_entry_id !== id);
     if (this.data.diesel_accounts) this.data.diesel_accounts = this.data.diesel_accounts.filter(t => t.linked_entry_id !== id);
     if (this.data.gunny_bags) this.data.gunny_bags = this.data.gunny_bags.filter(t => t.linked_entry_id !== id);
+    if (removed) {
+      this.recomputeAgentLedger(removed.mandi_name || '', removed.kms_year || '', removed.season || '', removed.created_by || 'system');
+    }
     this.save();
   }
 
   bulkDeleteEntries(ids) {
     const idSet = new Set(ids);
+    const removed = this.data.entries.filter(e => idSet.has(e.id));
     this.data.entries = this.data.entries.filter(e => !idSet.has(e.id));
     if (this.data.cash_transactions) this.data.cash_transactions = this.data.cash_transactions.filter(t => !idSet.has(t.linked_entry_id));
     if (this.data.diesel_accounts) this.data.diesel_accounts = this.data.diesel_accounts.filter(t => !idSet.has(t.linked_entry_id));
     if (this.data.gunny_bags) this.data.gunny_bags = this.data.gunny_bags.filter(t => !idSet.has(t.linked_entry_id));
+    // Recompute agent ledger for each unique (mandi, kms, season) group affected
+    const groups = new Set();
+    removed.forEach(e => groups.add(`${e.mandi_name || ''}|${e.kms_year || ''}|${e.season || ''}`));
+    groups.forEach(key => {
+      const [m, k, s] = key.split('|');
+      this.recomputeAgentLedger(m, k, s, 'system');
+    });
     this.save();
   }
 

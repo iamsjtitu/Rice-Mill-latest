@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.14",
+    date: "Feb 2026",
+    title: "v104.28.14 — Agent Ledger Consolidation (1 row per Mandi)",
+    items: [
+      { type: "fix", text: "🐛 Pehle har truck/entry pe alag-alag Agent ledger jama ban rahi thi (e.g. Maa Jogamaya - 150Q, fir 150Q, 100Q… 5 alag rows for 5 trucks). Ab ek hi consolidated row banti hai per (Mandi, KMS Year, Season). Jaise jaise nayi entries aati hain, total accumulate hota rehta hai" },
+      { type: "new", text: "📊 Description format: 'Agent Entry: Maa Jogamaya - 593.65Q × Rs.10 = Rs.5936.5 (5 entries)' — saaf saaf dikhta hai kitni entries milkar kitna ban gaya" },
+      { type: "new", text: "🔄 Auto sync: Mill entry add/update/delete + Mandi target update — har case mein consolidated row turant recompute hoti hai. Mandi/season change kiya to old group bhi update" },
+      { type: "fix", text: "🛠️ Startup pe migration — purani per-entry agent_entry: rows clean ho jayengi aur har Mandi ke liye ek consolidated row build ho jayegi" },
+    ],
+  },
+  {
     version: "104.28.13",
     date: "Feb 2026",
     title: "v104.28.13 — Agent Ledger Bugfix + Backfill",
