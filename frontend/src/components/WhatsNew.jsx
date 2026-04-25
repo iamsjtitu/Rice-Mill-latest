@@ -7,6 +7,29 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.17",
+    date: "Apr 2026",
+    title: "v104.28.17 — 🔐 Forgot Password (WhatsApp OTP + Recovery Code) + Strength Meter",
+    items: [
+      { type: "new", text: "🆘 Login screen pe 'Forgot Password?' link — agar admin password bhul jaye toh ab 2 tareeke se reset kar sakte ho: WhatsApp OTP ya Recovery Code" },
+      { type: "new", text: "📱 WhatsApp OTP — Settings → Users → Account Recovery se apna recovery WhatsApp number set karo. Forgot password pe 6-digit OTP us number pe aayega via 360Messenger (10 min validity, 5 attempts)" },
+      { type: "new", text: "🔑 Recovery Code — admin generate karega ek 16-char code (XXXX-XXXX-XXXX-XXXX). Sirf ek baar dikhega — screenshot/paper pe save karo. Bhulne par code daalo aur naya password set karo (one-time use, fir naya generate karna padega)" },
+      { type: "new", text: "📊 Password Strength Meter — change-password aur forgot-password screens pe ab visual strength bar dikhta hai (Weak/Fair/Good/Strong) + rule checklist. Min 6 characters enforced" },
+      { type: "fix", text: "🐛 Hashed storage — recovery code aur OTP dono SHA256 hashed save hote hain DB mein. Plain text kahin store nahi hota" },
+    ],
+  },
+  {
+    version: "104.28.16",
+    date: "Apr 2026",
+    title: "v104.28.16 — 🔒 Admin Password Reset Bug FIXED + DataTab White Theme",
+    items: [
+      { type: "fix", text: "🚨 CRITICAL SECURITY FIX: App restart hone par admin password roz 'admin123' pe reset ho jaata tha. Login route mein DEFAULT_USERS ka backdoor tha jo har baar admin/admin123 accept kar leta tha. Ab woh hata diya — change password ke baad purana admin123 reject ho jata hai (401)" },
+      { type: "fix", text: "💾 updateUserPassword ab saveImmediate() use karta hai (debounced save ki bajaye) — naya password turant disk pe flush ho jata hai, app jaldi band hone pe data loss nahi hoga" },
+      { type: "new", text: "🎨 Settings → Data → Backup section poori tarah white-theme mein redesigned. Logout / Automatic / Manual — teen alag tables vertically stacked, full-width, proper headers (File Name | Date | Size | Actions). Saaf font, high contrast" },
+      { type: "fix", text: "🐛 'Delete All' button ab single click mein kaam karta hai — pehle 2 click maangta tha kyunki custom backup folder skip ho raha tha" },
+    ],
+  },
+  {
     version: "104.28.15",
     date: "Feb 2026",
     title: "v104.28.15 — Backup Section Redesign (3 Categories + Auto-Delete)",
