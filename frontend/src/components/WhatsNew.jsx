@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.32",
+    date: "Apr 2026",
+    title: "v104.28.32 — 📊 Excel Auto-Open Fixed (4-Method Robust Cascade)",
+    items: [
+      { type: "fix", text: "📊 **Excel auto-open ab pakka kaam karega Windows pe**. Pehle `shell.openPath` use ho raha tha jo Windows ka ShellExecute call karta hai — yeh PDF ke liye theek tha but Excel ke liye silently fail ho jaata tha (DDE conflict ya Excel already-running issue)" },
+      { type: "fix", text: "🛡️ **4-method cascade** add kiya: (1) `shell.openPath` try karo first → (2) fail hua toh `shell.openExternal('file:///...')` try karo → (3) Windows pe `cmd /c start \"\" \"path\"` spawn karo (most reliable for Office files) → (4) last resort: file's folder open karke file ko select kar do, taaki user one-click pe khol sake" },
+      { type: "new", text: "🔍 **Detailed logging** — har attempt ka log Electron DevTools console mein dikhega. Agar future mein koi issue ho toh exact method aur error pinpoint kar sakte hain" },
+      { type: "fix", text: "Yeh same fix dono download paths pe apply hua: (a) IPC `download-and-save` (jab `window.electronAPI.downloadAndSave` use hota hai), aur (b) `will-download` event (jab `window.open` se download trigger hota hai). Helper module-scope pe hai so dono paths ek hi reliable code use karte hain" },
+    ],
+  },
+  {
     version: "104.28.31",
     date: "Apr 2026",
     title: "v104.28.31 — 🛟 Saare PDFs ka Bottom Banner Centering Fix + 📑 Section Bookmarks",

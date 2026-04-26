@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.31
+## Current Version: v104.28.32
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -16,6 +16,28 @@
 - `/app/backend/` — Python FastAPI (web preview, MongoDB)
 - `/app/desktop-app/` — Node.js Express (Electron desktop app, JSON/SQLite) — **THIS IS WHAT THE USER ACTUALLY USES IN PRODUCTION**
 - `/app/local-server/` — Node.js Express (LAN host, JSON/SQLite)
+
+## Recent Fixes (Apr 2026) — v104.28.32
+
+### Excel Auto-Open: 4-Method Robust Cascade (Critical Fix)
+- **User complaint**: *"excel download hone baad auto open hona chahiye wo b nahi ho raha"*
+- **Diagnosis confirmed by user**: PDF auto-open works, MS Excel installed, only Excel files fail to auto-open. Same `shell.openPath` is called for both — meaning `shell.openPath` succeeds for PDF but silently fails for Excel.
+- **Root cause**: On Windows, `shell.openPath` calls `ShellExecute("path")`. For Excel files (.xlsx), this can silently fail due to:
+  - Excel's "Ignore other applications that use Dynamic Data Exchange (DDE)" setting being enabled (user-side config)
+  - Excel already running and DDE conflict
+  - File association registry issue
+  PDF readers (Edge/Chrome built-in) don't have these quirks, hence PDF works fine.
+- **Fix**: New `openFileWithFallback(targetPath)` helper at module scope of `/app/desktop-app/main.js` — replaces direct `shell.openPath` calls in both download paths:
+  1. **Method 1**: `shell.openPath(path)` — fast, default for non-Office files
+  2. **Method 2**: `shell.openExternal('file:///path')` — alternate URL-based handler
+  3. **Method 3**: OS-specific spawn:
+     - Windows: `cmd.exe /c start "" "path"` — most reliable for Office files (uses cmd's `start` which handles DDE fallback better than ShellExecute)
+     - macOS: `open path`
+     - Linux: `xdg-open path`
+  4. **Method 4**: `shell.showItemInFolder(path)` — last resort, opens Downloads folder with file selected for one-click manual open.
+- Each method only triggers if previous fails; detailed logging at every step for future debugging.
+- Same helper used by IPC `download-and-save` (line 2548) and `will-download` event (line 2266) so both code paths benefit.
+- **Cascade verified** with simulated Excel DDE failure: openPath → openExternal → spawn (correct order).
 
 ## Recent Fixes (Apr 2026) — v104.28.31
 
