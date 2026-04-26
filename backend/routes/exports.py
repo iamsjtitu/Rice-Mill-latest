@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
 from models import round_amount
 from utils.date_format import fmt_date
+from utils.commission import capped_tp_for_commission
 import uuid, io, csv
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -165,8 +166,10 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
         cutting_pct = _rate(tg.get("cutting_percent"), 0)
         base_rate = _rate(tg.get("base_rate"), 10)
         cutting_rate = _rate(tg.get("cutting_rate"), 5)
-        cutting_q = round(tpw * cutting_pct / 100, 2)
-        agent_amt = round((tpw * base_rate) + (cutting_q * cutting_rate), 2)
+        # Cap TP weight at (target + cutting%) — extra goes to Pvt Purchase, no agent commission on it
+        capped_tp = capped_tp_for_commission(tpw, target_qntl_val, cutting_pct)
+        cutting_q = round(capped_tp * cutting_pct / 100, 2)
+        agent_amt = round((capped_tp * base_rate) + (cutting_q * cutting_rate), 2)
         # Total agent cutting for KPI banner = sum of (target_qntl * cutting%)
         cutting_target_q = round(target_qntl_val * cutting_pct / 100, 2)
         tot["target"] += target_qntl_val; tot["expected"] += expected

@@ -3,6 +3,7 @@ const { safeSync, roundAmount } = require('./safe_handler');
 const { fmtDate } = require('./pdf_helpers');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
+const { cappedTpForCommission } = require('../utils/commission');
 
 module.exports = function(database) {
 
@@ -309,9 +310,10 @@ module.exports = function(database) {
       const tp_weight_qntl = mandiEntries.reduce((sum, e) => sum + parseFloat(e.tp_weight || 0), 0);
       const excess_weight = Math.round((achieved_qntl - (target.target_qntl + target.target_qntl * target.cutting_percent / 100)) * 100) / 100;
       const agentName = (mandiEntries.length > 0 && mandiEntries[0].agent_name) ? mandiEntries[0].agent_name : (target.mandi_name || '');
-      // Payment based on TP Weight
-      const cutting_qntl = tp_weight_qntl * target.cutting_percent / 100;
-      const target_amount = tp_weight_qntl * (target.base_rate ?? 10);
+      // Payment based on TP Weight, capped at (target + cutting%) — extra is Pvt Purchase
+      const cappedTp = cappedTpForCommission(tp_weight_qntl, target.target_qntl, target.cutting_percent);
+      const cutting_qntl = cappedTp * target.cutting_percent / 100;
+      const target_amount = cappedTp * (target.base_rate ?? 10);
       const cutting_amount = cutting_qntl * (target.cutting_rate ?? 5);
       const total_amount = target_amount + cutting_amount;
       
@@ -360,17 +362,19 @@ module.exports = function(database) {
     if (req.body.amount > 0) {
       if (!database.data.cash_transactions) database.data.cash_transactions = [];
 
-      // Create/Update JAMA (Ledger) entry for agent commission
+      // Create/Update JAMA (Ledger) entry for agent commission — match agent_payments formula
       const target = database.getMandiTargets({ kms_year, season }).find(t => (t.mandi_name||'').toLowerCase() === mandiName.toLowerCase());
       if (target) {
         const entries = database.getEntries({ kms_year, season });
         const mandiEntries = entries.filter(e => (e.mandi_name||'').toLowerCase() === mandiName.toLowerCase());
-        const achievedQntl = Math.round(mandiEntries.reduce((sum, e) => sum + (e.final_w || 0) / 100, 0) * 100) / 100;
+        const tpw = mandiEntries.reduce((sum, e) => sum + parseFloat(e.tp_weight || 0), 0);
         const baseRate = target.base_rate ?? 10;
         const cuttingRate = target.cutting_rate ?? 5;
         const cuttingPercent = target.cutting_percent || 0;
-        const cuttingQntl = Math.round(achievedQntl * cuttingPercent / 100 * 100) / 100;
-        const totalAmount = Math.round(((target.target_qntl * baseRate) + (cuttingQntl * cuttingRate)) * 100) / 100;
+        // Cap TP at (target + cutting%) — extra goes to Pvt Purchase, no agent commission on it
+        const cappedTp = cappedTpForCommission(tpw, target.target_qntl, cuttingPercent);
+        const cuttingQntl = Math.round(cappedTp * cuttingPercent / 100 * 100) / 100;
+        const totalAmount = Math.round(((cappedTp * baseRate) + (cuttingQntl * cuttingRate)) * 100) / 100;
 
         const linkedId = `agent_jama:${mandiName}:${kms_year}:${season}`;
         const existingIdx = database.data.cash_transactions.findIndex(t => t.linked_payment_id === linkedId);
@@ -421,10 +425,15 @@ module.exports = function(database) {
     const mandiName = decodeURIComponent(req.params.mandiName);
     const target = database.getMandiTargets({ kms_year, season }).find(t => t.mandi_name === mandiName);
     if (!target) return res.status(404).json({ detail: 'Mandi target not found' });
-    const cutting_qntl = target.target_qntl * target.cutting_percent / 100;
+    // Use same capped TP weight formula as /api/agent-payments so balance settles to 0.
+    const entries = database.getEntries({ kms_year, season });
+    const mandiEntries = entries.filter(e => (e.mandi_name||'').toLowerCase() === mandiName.toLowerCase());
+    const tpw = mandiEntries.reduce((sum, e) => sum + parseFloat(e.tp_weight || 0), 0);
+    const cappedTp = cappedTpForCommission(tpw, target.target_qntl, target.cutting_percent);
+    const cutting_qntl = cappedTp * (target.cutting_percent || 0) / 100;
     const base_rate = target.base_rate ?? 10;
     const cutting_rate = target.cutting_rate ?? 5;
-    const total_amount = (target.target_qntl * base_rate) + (cutting_qntl * cutting_rate);
+    const total_amount = (cappedTp * base_rate) + (cutting_qntl * cutting_rate);
     const current = database.getAgentPayment(mandiName, kms_year, season);
     const hist = current.payment_history || [];
     hist.push({ amount: total_amount, date: new Date().toISOString(), note: 'Full payment - marked as paid', by: req.query.username || 'admin' });

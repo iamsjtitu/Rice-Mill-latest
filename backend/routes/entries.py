@@ -7,6 +7,7 @@ from models import MillEntryCreate, MillEntry, TotalsResponse, MandiTargetCreate
 from utils.optimistic_lock import optimistic_update, stamp_version
 from utils.audit import log_audit
 from utils.date_format import fmt_date
+from utils.commission import capped_tp_for_commission
 import uuid, io, csv
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -1782,13 +1783,14 @@ async def get_mandi_target_summary(kms_year: Optional[str] = None, season: Optio
         pending_qntl = round(max(0, expected_total - achieved_qntl), 2)
         progress_percent = round((achieved_qntl / expected_total * 100) if expected_total > 0 else 0, 1)
         
-        # Payment based on TP Weight
+        # Payment based on TP Weight, capped at (target + cutting%) — extra is Pvt Purchase
         target_qntl = target["target_qntl"]
         cutting_percent = target["cutting_percent"]
         base_rate = target.get("base_rate", 10)
         cutting_rate = target.get("cutting_rate", 5)
-        cutting_qntl = round(tp_weight_qntl * cutting_percent / 100, 2)
-        target_amount = round(tp_weight_qntl * base_rate, 2)
+        capped_tp = capped_tp_for_commission(tp_weight_qntl, target_qntl, cutting_percent)
+        cutting_qntl = round(capped_tp * cutting_percent / 100, 2)
+        target_amount = round(capped_tp * base_rate, 2)
         cutting_amount = round(cutting_qntl * cutting_rate, 2)
         total_agent_amount = round(target_amount + cutting_amount, 2)
         

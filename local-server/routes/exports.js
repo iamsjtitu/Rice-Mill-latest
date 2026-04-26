@@ -5,6 +5,7 @@ const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, registerFonts, F , safePdfPipe, drawSummaryBanner, drawSectionBand, ensureSpace, addExcelSummaryBanner, STAT_COLORS, fmtInr} = require('./pdf_helpers');
 const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
+const { cappedTpForCommission } = require('../utils/commission');
 
 module.exports = function(database) {
 
@@ -308,8 +309,10 @@ module.exports = function(database) {
         const cuttingPct = t.cutting_percent ?? 0;
         const baseRate = t.base_rate ?? 10;
         const cuttingRate = t.cutting_rate ?? 5;
-        const cuttingQ = Math.round(tpw * cuttingPct / 100 * 100) / 100;
-        const agentAmt = Math.round((tpw * baseRate) + (cuttingQ * cuttingRate));
+        // Cap TP weight at (target + cutting%) — extra goes to Pvt Purchase, no agent commission on it
+        const cappedTp = cappedTpForCommission(tpw, targetVal, cuttingPct);
+        const cuttingQ = Math.round(cappedTp * cuttingPct / 100 * 100) / 100;
+        const agentAmt = Math.round((cappedTp * baseRate) + (cuttingQ * cuttingRate));
         // Total agent cutting for KPI banner = sum of (target_qntl * cutting%)
         const cuttingTargetQ = Math.round(targetVal * cuttingPct / 100 * 100) / 100;
         totTarget += targetVal; totExpected += expected;
@@ -482,7 +485,7 @@ module.exports = function(database) {
         ]);
       }
 
-      // AGENT PAYMENTS — use TP weight (achieved procurement) + respect explicit 0 rates
+      // AGENT PAYMENTS — use TP weight (achieved procurement) capped at (target + cutting%)
       let agentAmt = 0, agentPaid = 0, agentBal = 0;
       const agentRowsData = [];
       for (const t of targets) {
@@ -492,8 +495,10 @@ module.exports = function(database) {
         const cuttingPct = t.cutting_percent ?? 0;
         const br = t.base_rate ?? 10;
         const cr = t.cutting_rate ?? 5;
-        const cq = Math.round(tpw * cuttingPct / 100 * 100) / 100;
-        const total_amt = Math.round(((tpw * br) + (cq * cr)) * 100) / 100;
+        // Cap TP at (target + cutting%) — extra goes to Pvt Purchase, no agent commission on it
+        const cappedTp = cappedTpForCommission(tpw, t.target_qntl, cuttingPct);
+        const cq = Math.round(cappedTp * cuttingPct / 100 * 100) / 100;
+        const total_amt = Math.round(((cappedTp * br) + (cq * cr)) * 100) / 100;
         let paid = 0;
         if (database.data.agent_payments) {
           const apDoc = database.data.agent_payments.find(a => a.mandi_name === t.mandi_name && a.kms_year === t.kms_year && a.season === t.season);

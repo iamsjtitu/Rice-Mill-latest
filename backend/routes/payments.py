@@ -4,6 +4,7 @@ from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
 from models import TruckPaymentStatus, AgentPaymentStatus, SetRateRequest, MakePaymentRequest, round_amount
+from utils.commission import capped_tp_for_commission
 import uuid, io, csv
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -901,9 +902,10 @@ async def get_agent_payments(kms_year: Optional[str] = None, season: Optional[st
         tp_weight_qntl = round(result[0]["total_tp_weight"], 2) if result else 0  # tp_weight already in QNTL
         agent_name = result[0]["agent_name"] if result else mandi_name
         
-        # Payment based on TP Weight (actual mandi weight)
-        cutting_qntl = round(tp_weight_qntl * cutting_percent / 100, 2)
-        target_amount = round(tp_weight_qntl * base_rate, 2)
+        # Payment based on TP Weight, capped at (target + cutting%) — extra is Pvt Purchase
+        capped_tp = capped_tp_for_commission(tp_weight_qntl, target_qntl, cutting_percent)
+        cutting_qntl = round(capped_tp * cutting_percent / 100, 2)
+        target_amount = round(capped_tp * base_rate, 2)
         cutting_amount = round(cutting_qntl * cutting_rate, 2)
         total_amount = round(target_amount + cutting_amount, 2)
         
@@ -988,20 +990,24 @@ async def make_agent_payment(mandi_name: str, request: MakePaymentRequest, kms_y
     # Auto-create Cash Book entries
     if request.amount > 0:
         # JAMA (Ledger) - Agent Commission (what we owe) - create once, update if needed
-        # Calculate total_amount from mandi_targets
+        # Calculate total_amount from mandi_targets — match agent_payments capped formula
         target = await db.mandi_targets.find_one({"mandi_name": mandi_name, "kms_year": kms_year, "season": season}, {"_id": 0})
         if target:
             base_rate = target.get("base_rate", 0)
             cutting_rate = target.get("cutting_rate", 5)
-            entries_for_mandi = await db.mill_entries.find(
-                {"mandi_name": {"$regex": f"^{mandi_name}$", "$options": "i"}, "kms_year": kms_year},
-                {"_id": 0, "qntl": 1, "bag": 1}
-            ).to_list(None)
-            achieved_qntl = round(sum(e.get("qntl", 0) - e.get("bag", 0) / 100 for e in entries_for_mandi), 2)
+            tpw_pipe = [
+                {"$match": {"mandi_name": {"$regex": f"^{mandi_name}$", "$options": "i"},
+                            "kms_year": kms_year, "season": season}},
+                {"$group": {"_id": None, "total": {"$sum": "$tp_weight"}}},
+            ]
+            tpw_res = await db.mill_entries.aggregate(tpw_pipe).to_list(1)
+            tp_weight_qntl = round(tpw_res[0]["total"] if tpw_res and tpw_res[0]["total"] else 0, 2)
             target_qntl = target.get("target_qntl", 0)
             cutting_percent = target.get("cutting_percent", 0)
-            cutting_qntl = round(achieved_qntl * cutting_percent / 100, 2) if cutting_percent > 0 else 0
-            total_amount = round((target_qntl * base_rate) + (cutting_qntl * cutting_rate), 2)
+            # Cap at (target + cutting%) — extra goes to Pvt Purchase, no agent commission on it
+            capped_tp = capped_tp_for_commission(tp_weight_qntl, target_qntl, cutting_percent)
+            cutting_qntl = round(capped_tp * cutting_percent / 100, 2)
+            total_amount = round((capped_tp * base_rate) + (cutting_qntl * cutting_rate), 2)
             
             linked_id = f"agent_jama:{mandi_name}:{kms_year}:{season}"
             existing_jama = await db.cash_transactions.find_one({"linked_payment_id": linked_id}, {"_id": 0})
@@ -1090,12 +1096,23 @@ async def mark_agent_paid(mandi_name: str, kms_year: str = "", season: str = "",
     if not target:
         raise HTTPException(status_code=404, detail="Mandi target not found")
     
-    # Calculate total amount based on target
+    # Calculate total amount based on TP weight (capped at target + cutting%) — must match
+    # the formula used in /api/agent-payments so balance settles cleanly to 0.
     target_qntl = target["target_qntl"]
-    cutting_qntl = target_qntl * target["cutting_percent"] / 100
+    cutting_percent = target.get("cutting_percent", 0)
     base_rate = target.get("base_rate", 10)
     cutting_rate = target.get("cutting_rate", 5)
-    total_amount = (target_qntl * base_rate) + (cutting_qntl * cutting_rate)
+    # Need actual TP weight from entries
+    tpw_pipe = [
+        {"$match": {"mandi_name": {"$regex": f"^{mandi_name}$", "$options": "i"},
+                    "kms_year": kms_year, "season": season}},
+        {"$group": {"_id": None, "total": {"$sum": "$tp_weight"}}},
+    ]
+    tpw_res = await db.mill_entries.aggregate(tpw_pipe).to_list(1)
+    tp_weight_qntl = round(tpw_res[0]["total"] if tpw_res and tpw_res[0]["total"] else 0, 2)
+    capped_tp = capped_tp_for_commission(tp_weight_qntl, target_qntl, cutting_percent)
+    cutting_qntl = capped_tp * cutting_percent / 100
+    total_amount = round((capped_tp * base_rate) + (cutting_qntl * cutting_rate), 2)
     
     payment_doc = await db.agent_payments.find_one({
         "mandi_name": mandi_name,
@@ -1804,9 +1821,10 @@ async def export_agent_payments_excel(kms_year: Optional[str] = None, season: Op
         tp_weight_qntl = round(result[0]["total_tp_weight"], 2) if result else 0
         agent_name = result[0]["agent_name"] if result else mandi_name
         
-        # Payment based on TP Weight
-        cutting_qntl = round(tp_weight_qntl * cutting_percent / 100, 2)
-        target_amount = round(tp_weight_qntl * base_rate, 2)
+        # Payment based on TP Weight, capped at (target + cutting%) — extra is Pvt Purchase
+        capped_tp = capped_tp_for_commission(tp_weight_qntl, target_qntl, cutting_percent)
+        cutting_qntl = round(capped_tp * cutting_percent / 100, 2)
+        target_amount = round(capped_tp * base_rate, 2)
         cutting_amount = round(cutting_qntl * cutting_rate, 2)
         total_amount = round(target_amount + cutting_amount, 2)
         excess_weight = round(achieved_qntl - (target_qntl + round(target_qntl * cutting_percent / 100, 2)), 2)
@@ -1956,9 +1974,10 @@ async def export_agent_payments_pdf(kms_year: Optional[str] = None, season: Opti
         achieved_qntl = round(result[0]["total_final_w"] / 100, 2) if result else 0
         tp_weight_qntl = round(result[0]["total_tp_weight"], 2) if result else 0
         
-        # Payment based on TP Weight
-        cutting_qntl = round(tp_weight_qntl * cutting_percent / 100, 2)
-        target_amount = round(tp_weight_qntl * base_rate, 2)
+        # Payment based on TP Weight, capped at (target + cutting%) — extra is Pvt Purchase
+        capped_tp = capped_tp_for_commission(tp_weight_qntl, target_qntl, cutting_percent)
+        cutting_qntl = round(capped_tp * cutting_percent / 100, 2)
+        target_amount = round(capped_tp * base_rate, 2)
         cutting_amount = round(cutting_qntl * cutting_rate, 2)
         total_amount = round(target_amount + cutting_amount, 2)
         excess_weight = round(achieved_qntl - (target_qntl + round(target_qntl * cutting_percent / 100, 2)), 2)

@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.37
+## Current Version: v104.28.38
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -19,6 +19,35 @@
 
 ## ⚠️ LESSON: Stay strictly within scope
 **v104.28.35**: User asked for "PDF and Summary report mein hi sirf changes" — but I went and changed the on-screen Dashboard endpoint + frontend JSX too. Reverted. ALWAYS confirm scope when user says "sirf X mein" — don't refactor adjacent code paths even if they share the same logic. PDF and screen are TWO different surfaces, treat them independently.
+
+## Recent Fixes (Apr 2026) — v104.28.38
+
+### Auto-Cap Agent Commission at (Target + Cutting%) — Excess goes to Pvt Purchase
+- **User scenario**: Agent ka contract = govt target + 5% cutting (e.g. 5000 + 250 = 5250 Q). Agar agent ne 5500 deliver kiya, extra 250 Q "Move to Pvt Purchase" hota hai. Lekin abhi tak agent commission unke pure 5500 par calculate ho raha tha. User: *"par jo 250 qntl paddy hai usmai 5% cutting nahi hoga kyuki wo agent se pvt purchase hua wo kaise karenge?"*
+- User chose **Auto-cap (option a)** + **Bilkul nahi** for extra Q (no base_rate, no cutting_rate on the excess).
+
+- **Solution**: New helper `capped_tp_for_commission(tpw, target_qntl, cutting_pct)` returns `min(tpw, target × (1 + cutting%/100))`. Used everywhere agent commission is computed.
+  - Helper files: `/app/backend/utils/commission.py`, `/app/desktop-app/utils/commission.js`, `/app/local-server/utils/commission.js`.
+  - Routes updated:
+    - **Python**: `payments.py` (`/api/agent-payments`, `/mark-paid`, agent excel export, agent pdf export, `/pay` jama entry); `entries.py` (`/api/mandi-targets/summary`); `exports.py` (Dashboard PDF + Summary PDF agent calc).
+    - **Node.js Desktop App** (`/app/desktop-app/routes/`): same 3 files updated.
+    - **LAN Local Server** (`/app/local-server/routes/`): same 3 files updated.
+
+- **Math** (user's exact scenario, target=5000, cut=5%, base=10/Q, cut_rate=5/Q):
+  - **Before** (uncapped, agent delivers 5500): `5500 × 10 + (5500 × 5%) × 5 = ₹56,375` (over-paid)
+  - **After** (capped at 5250): `5250 × 10 + (5250 × 5%) × 5 = ₹53,812.50` ✓
+  - **Saved**: ₹2,562.50 per cycle of over-delivery
+
+- **Verified**:
+  - Python helper: 8/8 pytest cases pass (`/app/backend/tests/test_commission_cap.py`)
+  - JS helper: 6/6 sanity checks pass via `node -e`
+  - All endpoints (200 OK): `/api/agent-payments`, `/api/mandi-targets/summary`, `/api/truck-payments`, `/api/export/summary-report-pdf`, `/api/export/dashboard-pdf`
+  - Lint: clean across all changed files.
+
+- **Edge cases handled**:
+  - `target=0` (no target set) → no cap applied, returns full TP
+  - `cutting=0` → cap = target itself
+  - Falsy/string inputs → gracefully coerced
 
 ## Recent Fixes (Apr 2026) — v104.28.37
 
