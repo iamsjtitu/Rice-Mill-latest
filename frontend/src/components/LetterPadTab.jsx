@@ -36,6 +36,12 @@ const LetterPadTab = () => {
   // Settings
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState({
+    gstin: "",
+    phone: "",
+    phone_secondary: "",
+    address: "",
+    email: "",
+    license_number: "",
     signature_name: "",
     signature_designation: "",
     ai_enabled: false,
@@ -66,8 +72,14 @@ const LetterPadTab = () => {
     setSavingSettings(true);
     try {
       const payload = {
-        signature_name: settings.signature_name,
-        signature_designation: settings.signature_designation,
+        gstin: settings.gstin || "",
+        phone: settings.phone || "",
+        phone_secondary: settings.phone_secondary || "",
+        address: settings.address || "",
+        email: settings.email || "",
+        license_number: settings.license_number || "",
+        signature_name: settings.signature_name || "",
+        signature_designation: settings.signature_designation || "",
         ai_enabled: settings.ai_enabled,
         ai_provider: settings.ai_provider,
       };
@@ -77,7 +89,7 @@ const LetterPadTab = () => {
       setSettings(res.data);
       setGeminiKey("");
       setOpenaiKey("");
-      toast.success("Settings save ho gayi");
+      toast.success("Letterhead settings save ho gayi");
       setSettingsOpen(false);
     } catch (e) {
       toast.error("Settings save nahi ho payi");
@@ -238,23 +250,73 @@ const LetterPadTab = () => {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+            {/* === Letterhead Fields === */}
             <div className="space-y-2 p-3 rounded bg-slate-900/50 border border-slate-700">
-              <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Signature Block</p>
-              <div>
-                <Label className="text-slate-400 text-xs">Signature Name</Label>
-                <Input value={settings.signature_name || ""} onChange={(e) => setSettings({ ...settings, signature_name: e.target.value })}
-                  placeholder="Aditya Jain" className="bg-slate-700 border-slate-600 text-white"
-                  data-testid="settings-signature-name" />
+              <p className="text-xs text-amber-400 uppercase tracking-wider font-semibold">Letterhead Details</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-slate-400 text-xs">GSTIN</Label>
+                  <Input value={settings.gstin || ""} onChange={(e) => setSettings({ ...settings, gstin: e.target.value })}
+                    placeholder="21AYUPJ8378A1Z9" className="bg-slate-700 border-slate-600 text-white"
+                    data-testid="settings-gstin" />
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-xs">License No.</Label>
+                  <Input value={settings.license_number || ""} onChange={(e) => setSettings({ ...settings, license_number: e.target.value })}
+                    placeholder="(Optional)" className="bg-slate-700 border-slate-600 text-white"
+                    data-testid="settings-license" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-slate-400 text-xs">Mobile 1</Label>
+                  <Input value={settings.phone || ""} onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
+                    placeholder="97693 53159" className="bg-slate-700 border-slate-600 text-white"
+                    data-testid="settings-phone" />
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-xs">Mobile 2</Label>
+                  <Input value={settings.phone_secondary || ""} onChange={(e) => setSettings({ ...settings, phone_secondary: e.target.value })}
+                    placeholder="72059 30002" className="bg-slate-700 border-slate-600 text-white"
+                    data-testid="settings-phone2" />
+                </div>
               </div>
               <div>
-                <Label className="text-slate-400 text-xs">Designation</Label>
-                <Input value={settings.signature_designation || ""} onChange={(e) => setSettings({ ...settings, signature_designation: e.target.value })}
-                  placeholder="Proprietor" className="bg-slate-700 border-slate-600 text-white"
-                  data-testid="settings-signature-designation" />
+                <Label className="text-slate-400 text-xs">Email</Label>
+                <Input value={settings.email || ""} onChange={(e) => setSettings({ ...settings, email: e.target.value })}
+                  placeholder="navkaragro2@gmail.com" className="bg-slate-700 border-slate-600 text-white"
+                  data-testid="settings-email" />
+              </div>
+              <div>
+                <Label className="text-slate-400 text-xs">Address (single line)</Label>
+                <Input value={settings.address || ""} onChange={(e) => setSettings({ ...settings, address: e.target.value })}
+                  placeholder="Laitara Road, Jolko - 766012, Dist. Kalahandi (Odisha)"
+                  className="bg-slate-700 border-slate-600 text-white"
+                  data-testid="settings-address" />
               </div>
             </div>
 
+            {/* === Signature Block === */}
+            <div className="space-y-2 p-3 rounded bg-slate-900/50 border border-slate-700">
+              <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Signature Block</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-slate-400 text-xs">Signature Name</Label>
+                  <Input value={settings.signature_name || ""} onChange={(e) => setSettings({ ...settings, signature_name: e.target.value })}
+                    placeholder="Aditya Jain" className="bg-slate-700 border-slate-600 text-white"
+                    data-testid="settings-signature-name" />
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-xs">Designation</Label>
+                  <Input value={settings.signature_designation || ""} onChange={(e) => setSettings({ ...settings, signature_designation: e.target.value })}
+                    placeholder="Proprietor" className="bg-slate-700 border-slate-600 text-white"
+                    data-testid="settings-signature-designation" />
+                </div>
+              </div>
+            </div>
+
+            {/* === AI Assistant === */}
             <div className="space-y-2 p-3 rounded bg-slate-900/50 border border-slate-700">
               <div className="flex items-center justify-between">
                 <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">AI Letter Assistant</p>

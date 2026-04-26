@@ -15,16 +15,18 @@ module.exports = (database) => {
   const loadCtx = () => {
     const settings = database.data.app_settings || {};
     const lp = (database.data.app_settings_extra || {}).letter_pad || {};
+    const pick = (...opts) => opts.find(o => o && String(o).trim()) || '';
     return {
-      company_name: settings.company_name || 'NAVKAR AGRO',
-      address: settings.address || 'Laitara Road, Jolko - 766012, Dist. Kalahandi (Odisha)',
-      email: settings.email || '',
-      phone: settings.phone || '',
-      phone_secondary: settings.phone_secondary || '',
-      gstin: settings.gstin || '',
+      company_name: pick(settings.company_name, 'NAVKAR AGRO'),
+      address: pick(lp.address, settings.address, 'Laitara Road, Jolko - 766012, Dist. Kalahandi (Odisha)'),
+      email: pick(lp.email, settings.email),
+      phone: pick(lp.phone, settings.phone),
+      phone_secondary: pick(lp.phone_secondary, settings.phone_secondary),
+      gstin: pick(lp.gstin, settings.gstin),
+      license_number: pick(lp.license_number, settings.mill_code),
       logo: settings.logo || '',
-      signature_name: lp.signature_name || 'Aditya Jain',
-      signature_designation: lp.signature_designation || 'Proprietor',
+      signature_name: pick(lp.signature_name, 'Aditya Jain'),
+      signature_designation: pick(lp.signature_designation, 'Proprietor'),
       ai_enabled: !!lp.ai_enabled,
       gemini_key: lp.gemini_key || '',
       openai_key: lp.openai_key || '',
@@ -32,17 +34,27 @@ module.exports = (database) => {
     };
   };
 
+  const settingsResponse = () => {
+    const lp = (database.data.app_settings_extra || {}).letter_pad || {};
+    return {
+      gstin: lp.gstin || '',
+      phone: lp.phone || '',
+      phone_secondary: lp.phone_secondary || '',
+      address: lp.address || '',
+      email: lp.email || '',
+      license_number: lp.license_number || '',
+      signature_name: lp.signature_name || '',
+      signature_designation: lp.signature_designation || '',
+      ai_enabled: !!lp.ai_enabled,
+      has_gemini_key: !!lp.gemini_key,
+      has_openai_key: !!lp.openai_key,
+      ai_provider: lp.ai_provider || 'gemini',
+    };
+  };
+
   // ========== Settings ==========
   router.get('/api/letter-pad/settings', safeSync(async (req, res) => {
-    const ctx = loadCtx();
-    res.json({
-      signature_name: ctx.signature_name,
-      signature_designation: ctx.signature_designation,
-      ai_enabled: ctx.ai_enabled,
-      has_gemini_key: !!ctx.gemini_key,
-      has_openai_key: !!ctx.openai_key,
-      ai_provider: ctx.ai_provider,
-    });
+    res.json(settingsResponse());
   }));
 
   router.put('/api/letter-pad/settings', safeSync(async (req, res) => {
@@ -50,9 +62,10 @@ module.exports = (database) => {
     if (!database.data.app_settings_extra.letter_pad) database.data.app_settings_extra.letter_pad = {};
     const lp = database.data.app_settings_extra.letter_pad;
     const b = req.body || {};
-    if (b.signature_name !== undefined) lp.signature_name = String(b.signature_name || '').trim();
-    if (b.signature_designation !== undefined) lp.signature_designation = String(b.signature_designation || '').trim();
-    if (b.ai_provider) lp.ai_provider = String(b.ai_provider).trim();
+    const textFields = ['gstin', 'phone', 'phone_secondary', 'address', 'email', 'license_number', 'signature_name', 'signature_designation', 'ai_provider'];
+    textFields.forEach(f => {
+      if (b[f] !== undefined) lp[f] = String(b[f] || '').trim();
+    });
     if (b.ai_enabled !== undefined) lp.ai_enabled = !!b.ai_enabled;
     if (b.gemini_key) lp.gemini_key = String(b.gemini_key).trim();
     if (b.openai_key) lp.openai_key = String(b.openai_key).trim();
@@ -60,22 +73,14 @@ module.exports = (database) => {
     if (b.clear_openai_key) lp.openai_key = '';
     lp.updated_at = new Date().toISOString();
     database.save();
-    const ctx = loadCtx();
-    res.json({
-      signature_name: ctx.signature_name,
-      signature_designation: ctx.signature_designation,
-      ai_enabled: ctx.ai_enabled,
-      has_gemini_key: !!ctx.gemini_key,
-      has_openai_key: !!ctx.openai_key,
-      ai_provider: ctx.ai_provider,
-    });
+    res.json(settingsResponse());
   }));
 
   // ========== AI proxy ==========
   const SYSTEM_PROMPTS = {
-    generate: 'You are a professional business letter writing assistant for an Indian rice mill. Write a formal, concise business letter body (NOT including company header, date, ref number or signature block — those are added separately by the letterhead). Match the language requested. Use 200-400 words, polite and direct.',
-    improve: "You are a business letter editor. Improve the user's draft for grammar, tone, professionalism, clarity. Return ONLY the improved letter body — no preamble. Preserve the user's intent.",
-    translate: "You are a translator for business letters between English, Hindi, and Odia. Translate the user's text to the target language. Preserve formal business tone. Return ONLY the translated text.",
+    generate: 'You are a professional business letter writer. Write ONLY the BODY of a formal Indian business letter — never include the letterhead, sender\'s company name/address (those are pre-printed on the letterhead), date, ref number, To/recipient block, or signature (those are added separately). STRICT RULES: 1) NO preamble like "Here is your letter:" or "Sure, here\'s a letter". 2) NO sender\'s company info — the letterhead already contains the company name and address. 3) NO placeholders like "[Your Name]", "[Date]", "[Recipient]", "[Account No]". 4) Start directly with "Respected Sir/Madam," (or appropriate greeting). 5) End with "Thanking you." (NO "Yours faithfully" / signature). 6) Write in first person plural (we/our) for company correspondence. 7) Match the language requested. 150-300 words. Polite, direct, formal. 8) Output ONLY the letter body — nothing else.',
+    improve: "You are a professional business letter editor. Rewrite the user's draft with improved grammar, tone, and professionalism. STRICT RULES: 1) Output ONLY the improved letter body — no preamble, no explanation. 2) NO placeholders like '[Your Name]'. 3) Preserve the user's intent and key facts (dates, amounts, names). 4) Don't add 'Yours faithfully' / signature — those are added separately. 5) Keep length similar. Same language as input.",
+    translate: "You are a professional translator for Indian business letters. Translate between English, Hindi (Devanagari), and Odia. STRICT RULES: 1) Output ONLY the translation — no preamble, no explanation. 2) Preserve formal business tone and all factual details (numbers, dates, names). 3) Use natural, professional phrasing in the target language.",
   };
 
   async function callGemini(apiKey, sys, user) {
@@ -83,7 +88,9 @@ module.exports = (database) => {
     const body = {
       system_instruction: { parts: [{ text: sys }] },
       contents: [{ role: 'user', parts: [{ text: user }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+      // Gemini 2.5 Flash: maxOutputTokens includes thinking tokens. Disable
+      // thinking so the full budget is available for the actual letter body.
+      generationConfig: { temperature: 0.7, maxOutputTokens: 2048, thinkingConfig: { thinkingBudget: 0 } },
     };
     const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!r.ok) throw new Error(`Gemini error: ${(await r.text()).slice(0, 300)}`);
@@ -127,23 +134,38 @@ module.exports = (database) => {
   }));
 
   // ========== PDF letterhead ==========
-  function drawLetterhead(doc, ctx, pageW, pageH) {
+  function drawLetterhead(doc, ctx, pageW) {
     const RED = '#C0392B';
     const DARK = '#1f2937';
     const MUTED = '#475569';
+    const top = 38;
     if (ctx.gstin) {
-      doc.font(pdfF('normal')).fontSize(9).fillColor(DARK).text(`GSTIN: ${ctx.gstin}`, 40, 40);
+      doc.font(pdfF('bold')).fontSize(9).fillColor(DARK).text(`GSTIN: ${ctx.gstin}`, 40, top);
     }
     const phones = [];
     if (ctx.phone) phones.push(ctx.phone);
     if (ctx.phone_secondary) phones.push(ctx.phone_secondary);
     phones.forEach((p, i) => {
-      doc.font(pdfF('normal')).fontSize(9).fillColor(DARK).text(`Mob. ${p}`, pageW - 200, 40 + i * 12, { width: 160, align: 'right' });
+      doc.font(pdfF('bold')).fontSize(9).fillColor(DARK).text(`Mob. ${p}`, pageW - 200, top + i * 11, { width: 160, align: 'right' });
     });
-    doc.font(pdfF('bold')).fontSize(28).fillColor(RED).text(`\u0950 ${ctx.company_name}`, 0, 55, { align: 'center', width: pageW });
-    if (ctx.address) doc.font(pdfF('normal')).fontSize(10).fillColor(MUTED).text(ctx.address, 0, 92, { align: 'center', width: pageW });
-    if (ctx.email) doc.font(pdfF('normal')).fontSize(10).fillColor(MUTED).text(`Email: ${ctx.email}`, 0, 106, { align: 'center', width: pageW });
-    doc.moveTo(40, 125).lineTo(pageW - 40, 125).strokeColor(RED).lineWidth(2).stroke();
+    doc.font(pdfF('bold')).fontSize(22).fillColor(RED).text(`\u0950 ${ctx.company_name}`, 0, top + 18, { align: 'center', width: pageW });
+    let y = top + 48;
+    if (ctx.address) {
+      doc.font(pdfF('normal')).fontSize(10).fillColor(MUTED).text(ctx.address, 0, y, { align: 'center', width: pageW });
+      y += 13;
+    }
+    if (ctx.email) {
+      doc.font(pdfF('normal')).fontSize(10).fillColor(MUTED).text(`Email: ${ctx.email}`, 0, y, { align: 'center', width: pageW });
+      y += 13;
+    }
+    y += 4;
+    doc.moveTo(40, y).lineTo(pageW - 40, y).strokeColor(RED).lineWidth(1.5).stroke();
+    y += 4;
+    if (ctx.license_number) {
+      doc.font(pdfF('normal')).fontSize(8).fillColor(MUTED).text(`License No: ${ctx.license_number}`, 0, y, { align: 'center', width: pageW });
+      y += 11;
+    }
+    return y + 8;
   }
 
   router.post('/api/letter-pad/pdf', safeSync(async (req, res) => {
@@ -157,8 +179,8 @@ module.exports = (database) => {
     doc.pipe(res);
     const pageW = doc.page.width;
     const pageH = doc.page.height;
-    drawLetterhead(doc, ctx, pageW, pageH);
-    let y = 145;
+    let y = drawLetterhead(doc, ctx, pageW);
+    y += 6;
     doc.font(pdfF('normal')).fontSize(10).fillColor('#1f2937')
       .text(`Ref. No.: ${ref_no || '_____________'}`, 40, y);
     doc.text(`Date: ${date || new Date().toLocaleDateString('en-GB').replace(/\//g, '-')}`, pageW - 200, y, { width: 160, align: 'right' });
@@ -185,13 +207,11 @@ module.exports = (database) => {
       });
       y += 6;
     }
-    // Body — let PDFKit auto-wrap & paginate
     if (body && String(body).trim()) {
       doc.font(pdfF('normal')).fontSize(11).fillColor('#1f2937')
         .text(String(body), 40, y, { width: pageW - 80, align: 'justify', lineGap: 3 });
       y = doc.y + 20;
     }
-    // Signature (right)
     const sigY = Math.max(y, pageH - 130);
     doc.font(pdfF('normal')).fontSize(11).fillColor('#1f2937')
       .text('Yours faithfully,', 0, sigY, { width: pageW - 40, align: 'right' });

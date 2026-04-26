@@ -29,25 +29,35 @@ router = APIRouter()
 
 @router.get("/letter-pad/settings")
 async def get_letter_pad_settings():
-    """Return signature + AI key presence (we never expose actual keys)."""
+    """Return signature + letterhead fields + AI key presence (never the actual keys)."""
     doc = await db.app_settings.find_one({"setting_id": "letter_pad"}, {"_id": 0}) or {}
     return {
-        "signature_name": doc.get("signature_name", "Aditya Jain"),
-        "signature_designation": doc.get("signature_designation", "Proprietor"),
+        "gstin": doc.get("gstin", ""),
+        "phone": doc.get("phone", ""),
+        "phone_secondary": doc.get("phone_secondary", ""),
+        "address": doc.get("address", ""),
+        "email": doc.get("email", ""),
+        "license_number": doc.get("license_number", ""),
+        "signature_name": doc.get("signature_name", ""),
+        "signature_designation": doc.get("signature_designation", ""),
         "ai_enabled": bool(doc.get("ai_enabled", False)),
         "has_gemini_key": bool(doc.get("gemini_key")),
         "has_openai_key": bool(doc.get("openai_key")),
-        "ai_provider": doc.get("ai_provider", "gemini"),  # gemini | openai
+        "ai_provider": doc.get("ai_provider", "gemini"),
     }
 
 
 @router.put("/letter-pad/settings")
 async def update_letter_pad_settings(payload: dict = Body(...)):
-    """Update signature + AI configuration. Empty key strings are ignored
-    (so users can update other fields without re-entering keys).
+    """Update letterhead + signature + AI configuration. Empty key strings are
+    ignored (so users can update other fields without re-entering keys).
     """
     update = {}
-    for f in ("signature_name", "signature_designation", "ai_provider"):
+    text_fields = (
+        "gstin", "phone", "phone_secondary", "address", "email", "license_number",
+        "signature_name", "signature_designation", "ai_provider",
+    )
+    for f in text_fields:
         if f in payload:
             update[f] = str(payload.get(f) or "").strip()
     if "ai_enabled" in payload:
@@ -73,22 +83,39 @@ async def update_letter_pad_settings(payload: dict = Body(...)):
 
 _AI_SYSTEM_PROMPTS = {
     "generate": (
-        "You are a professional business letter writing assistant for an Indian "
-        "rice mill (NAVKAR AGRO, Kalahandi, Odisha). Write a formal, concise "
-        "business letter body (NOT including company header, date, ref number "
-        "or signature block — those are added separately by the letterhead). "
-        "Match the language requested. Use 200-400 words, polite and direct."
+        "You are a professional business letter writer. Write ONLY the BODY of a "
+        "formal Indian business letter — never include the letterhead, sender's "
+        "company name/address (those are pre-printed on the letterhead), date, "
+        "ref number, To/recipient block, or signature (those are added separately). "
+        "STRICT RULES:\n"
+        "1. NO preamble like 'Here is your letter:' or 'Sure, here's a letter'.\n"
+        "2. NO sender's company info (NO 'I, [Company Name], am writing...') — "
+        "the letterhead already contains the company name and address.\n"
+        "3. NO placeholders like '[Your Name]', '[Date]', '[Recipient]', '[Account No]'.\n"
+        "4. Start directly with 'Respected Sir/Madam,' (or appropriate greeting).\n"
+        "5. End with 'Thanking you.' (NO 'Yours faithfully' / 'Sincerely' / signature).\n"
+        "6. Write in first person plural (we/our) for company correspondence.\n"
+        "7. Match the language requested (Hindi/English/Odia). 150-300 words. "
+        "Polite, direct, formal.\n"
+        "8. Output ONLY the letter body — nothing else."
     ),
     "improve": (
-        "You are a business letter editor. Improve the user's draft for grammar, "
-        "tone, professionalism, clarity. Return ONLY the improved letter body — "
-        "no greeting like 'Dear ...' if it isn't in the original; no signature; "
-        "no 'Here is your improved letter:' preamble. Preserve the user's intent."
+        "You are a professional business letter editor. Rewrite the user's draft "
+        "with improved grammar, tone, and professionalism. "
+        "STRICT RULES:\n"
+        "1. Output ONLY the improved letter body — no preamble, no explanation.\n"
+        "2. NO placeholders like '[Your Name]'.\n"
+        "3. Preserve the user's intent and key facts (dates, amounts, names).\n"
+        "4. Don't add 'Yours faithfully' / signature — those are added separately.\n"
+        "5. Keep length similar (don't pad or shorten drastically). Same language as input."
     ),
     "translate": (
-        "You are a translator for business letters between English, Hindi, and "
-        "Odia. Translate the user's text to the target language. Preserve "
-        "formal business tone. Return ONLY the translated text, no preamble."
+        "You are a professional translator for Indian business letters. Translate "
+        "between English, Hindi (Devanagari), and Odia. "
+        "STRICT RULES:\n"
+        "1. Output ONLY the translation — no preamble, no explanation.\n"
+        "2. Preserve formal business tone and all factual details (numbers, dates, names).\n"
+        "3. Use natural, professional phrasing in the target language."
     ),
 }
 
@@ -101,7 +128,14 @@ async def _call_gemini(api_key: str, system_prompt: str, user_prompt: str) -> st
     payload = {
         "system_instruction": {"parts": [{"text": system_prompt}]},
         "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
-        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1024},
+        # NOTE on Gemini 2.5 Flash: maxOutputTokens includes "thinking" tokens.
+        # Disable thinking (thinkingBudget=0) so all 2048 tokens are available
+        # for the actual letter body, otherwise Gemini truncates mid-sentence.
+        "generationConfig": {
+            "temperature": 0.7,
+            "maxOutputTokens": 2048,
+            "thinkingConfig": {"thinkingBudget": 0},
+        },
     }
     async with httpx.AsyncClient(timeout=60) as client:
         r = await client.post(url, json=payload)
@@ -179,24 +213,45 @@ async def letter_pad_ai(payload: dict = Body(...)):
 # ---------- PDF letterhead ----------
 
 async def _build_letter_context():
-    """Pull branding + signature + customs from DB."""
+    """Pull branding + letter pad customization from DB. Letter Pad's own
+    overrides (GSTIN, phone, email, address, license) take priority over the
+    global branding values."""
     branding = await get_branding_data()
     lp = await db.app_settings.find_one({"setting_id": "letter_pad"}, {"_id": 0}) or {}
+
+    def pick(*opts):
+        for o in opts:
+            if o:
+                return o
+        return ""
+
     return {
-        "company_name": branding.get("company_name", "NAVKAR AGRO"),
-        "address": branding.get("address", "Laitara Road, Jolko - 766012, Dist. Kalahandi (Odisha)"),
-        "email": branding.get("email", ""),
-        "phone": branding.get("phone", ""),
-        "phone_secondary": branding.get("phone_secondary", ""),
-        "gstin": branding.get("gstin", ""),
-        "logo": branding.get("logo", ""),
-        "signature_name": lp.get("signature_name", "Aditya Jain"),
-        "signature_designation": lp.get("signature_designation", "Proprietor"),
+        "company_name": pick(branding.get("company_name"), "NAVKAR AGRO"),
+        "tagline": pick(branding.get("tagline")),
+        "address": pick(lp.get("address"), branding.get("address"), "Laitara Road, Jolko - 766012, Dist. Kalahandi (Odisha)"),
+        "email": pick(lp.get("email"), branding.get("email")),
+        "phone": pick(lp.get("phone"), branding.get("phone")),
+        "phone_secondary": pick(lp.get("phone_secondary"), branding.get("phone_secondary")),
+        "gstin": pick(lp.get("gstin"), branding.get("gstin")),
+        "license_number": pick(lp.get("license_number"), branding.get("mill_code")),
+        "logo": pick(branding.get("logo")),
+        "signature_name": pick(lp.get("signature_name"), "Aditya Jain"),
+        "signature_designation": pick(lp.get("signature_designation"), "Proprietor"),
     }
 
 
 def _draw_letterhead_pdf(canvas, ctx, page_w, page_h):
-    """Draw the Navkar-style letterhead on the given canvas (top portion)."""
+    """Draw the Navkar-style letterhead on the given canvas (top portion).
+
+    Layout:
+      Row 1: GSTIN top-left  |  Mob phones top-right
+      Row 2: Centered ॐ + Company Name (red bold, 22pt)
+      Row 3: Address (centered, 10pt slate)
+      Row 4: Email (centered, 10pt slate)
+      Row 5: Red divider line
+      Row 6 (optional): License number centered below divider, 9pt
+    Returns the y position where body content can start.
+    """
     from reportlab.lib.colors import HexColor
 
     register_hindi_fonts()
@@ -204,42 +259,59 @@ def _draw_letterhead_pdf(canvas, ctx, page_w, page_h):
     DARK = HexColor("#1f2937")
     MUTED = HexColor("#475569")
 
+    top = page_h - 38
+
     # GSTIN top-left
     if ctx["gstin"]:
-        canvas.setFont("Inter", 9)
+        canvas.setFont("InterBold", 9)
         canvas.setFillColor(DARK)
-        canvas.drawString(40, page_h - 40, f"GSTIN: {ctx['gstin']}")
+        canvas.drawString(40, top, f"GSTIN: {ctx['gstin']}")
 
-    # Phone(s) top-right
-    canvas.setFont("Inter", 9)
+    # Phone(s) top-right (one per line)
+    canvas.setFont("InterBold", 9)
     canvas.setFillColor(DARK)
     phones = []
     if ctx["phone"]:
         phones.append(ctx["phone"])
     if ctx["phone_secondary"]:
         phones.append(ctx["phone_secondary"])
-    if phones:
-        for i, p in enumerate(phones):
-            canvas.drawRightString(page_w - 40, page_h - 40 - i * 12, f"Mob. {p}")
+    for i, p in enumerate(phones):
+        canvas.drawRightString(page_w - 40, top - i * 11, f"Mob. {p}")
 
-    # Center: ॐ + Company Name (red, bold, big)
-    canvas.setFont("InterBold", 28)
+    # Center: ॐ + Company Name (red, bold). Pulled down a bit so phone numbers fit.
+    canvas.setFont("InterBold", 22)
     canvas.setFillColor(BRAND_RED)
     name_text = f"\u0950 {ctx['company_name']}"
-    canvas.drawCentredString(page_w / 2, page_h - 70, name_text)
+    canvas.drawCentredString(page_w / 2, top - 28, name_text)
 
-    # Address (centered, 10pt slate)
+    # Address (centered)
+    addr_y = top - 46
     canvas.setFont("Inter", 10)
     canvas.setFillColor(MUTED)
     if ctx["address"]:
-        canvas.drawCentredString(page_w / 2, page_h - 88, ctx["address"])
+        canvas.drawCentredString(page_w / 2, addr_y, ctx["address"])
+        addr_y -= 13
+
+    # Email (centered)
     if ctx["email"]:
-        canvas.drawCentredString(page_w / 2, page_h - 102, f"Email: {ctx['email']}")
+        canvas.setFont("Inter", 10)
+        canvas.setFillColor(MUTED)
+        canvas.drawCentredString(page_w / 2, addr_y, f"Email: {ctx['email']}")
+        addr_y -= 13
 
     # Red divider line
+    divider_y = addr_y - 6
     canvas.setStrokeColor(BRAND_RED)
-    canvas.setLineWidth(2)
-    canvas.line(40, page_h - 115, page_w - 40, page_h - 115)
+    canvas.setLineWidth(1.5)
+    canvas.line(40, divider_y, page_w - 40, divider_y)
+
+    # License number (optional, below divider, centered, small)
+    if ctx.get("license_number"):
+        canvas.setFont("Inter", 8)
+        canvas.setFillColor(MUTED)
+        canvas.drawCentredString(page_w / 2, divider_y - 11, f"License No: {ctx['license_number']}")
+        return divider_y - 22
+    return divider_y - 8
 
 
 def _draw_footer_signature(canvas, ctx, page_w, y):
@@ -266,10 +338,10 @@ async def generate_letter_pdf(payload: dict = Body(...)):
     c = rl_canvas.Canvas(buf, pagesize=A4)
     page_w, page_h = A4
 
-    # === Top letterhead ===
-    _draw_letterhead_pdf(c, ctx, page_w, page_h)
+    # === Top letterhead — returns y where content starts ===
+    content_top_y = _draw_letterhead_pdf(c, ctx, page_w, page_h)
 
-    y = page_h - 145
+    y = content_top_y - 18
     c.setFillColor("#1f2937")
     c.setFont("Inter", 10)
     # Ref. No. (left) + Date (right)
@@ -332,8 +404,8 @@ async def generate_letter_pdf(payload: dict = Body(...)):
         if h > avail_h:
             # New page
             c.showPage()
-            _draw_letterhead_pdf(c, ctx, page_w, page_h)
-            y = page_h - 145
+            new_top = _draw_letterhead_pdf(c, ctx, page_w, page_h)
+            y = new_top - 18
             w, h = p.wrap(page_w - 80, page_h - 200)
         p.drawOn(c, 40, y - h)
         y -= h + 8

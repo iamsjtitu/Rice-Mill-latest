@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.29.0
+## Current Version: v104.29.1
 
 ## 🎨 GLOBAL TYPOGRAPHY (v104.28.42-44)
 **Two-font system applied across screen + PDF + Excel** — single CSS rule + monkey-patches, no per-component edits:
@@ -37,6 +37,27 @@ Result: Stripe/Plaid/Linear-grade premium typography across screen + PDF + Excel
 
 ## ⚠️ LESSON: Stay strictly within scope
 **v104.28.35**: User asked for "PDF and Summary report mein hi sirf changes" — but I went and changed the on-screen Dashboard endpoint + frontend JSX too. Reverted. ALWAYS confirm scope when user says "sirf X mein" — don't refactor adjacent code paths even if they share the same logic. PDF and screen are TWO different surfaces, treat them independently.
+
+## Recent Fixes (Apr 2026) — v104.29.1
+
+### Letter Pad fixes — Letterhead, GSTIN/Phone/Email, AI Quality
+- **User report**: "letterhead bahut ganda aaraha hai. GST number etc jaisa maine letter upload kiya tha waisa nai aaraha hai. AI improve aur generate bhi kaam nahi kar raha aachi se."
+
+**3 fixes shipped**:
+1. **Letterhead Settings expanded** — All letterhead fields (GSTIN, Mobile 1, Mobile 2, Email, Address, License No.) are now editable from the Letter Pad Settings dialog. Previously only signature_name + designation were configurable.
+2. **PDF layout improved** to exactly match user's reference image:
+   - Company name reduced from 28pt → 22pt (was too big)
+   - Tighter spacing between header rows
+   - License No. now centered below the red divider (matches reference)
+   - Letterhead returns dynamic content_top_y so body starts immediately below — no fixed gaps
+3. **AI prompts strengthened** for cleaner output:
+   - No preamble ("Here is your letter:" suppressed)
+   - No sender's company info hallucination (letterhead handles that)
+   - No "Yours faithfully" (signature is added separately)
+   - Fixed Gemini 2.5 Flash truncation: maxOutputTokens 1024 → 2048, `thinkingBudget: 0` (otherwise thinking tokens ate the budget mid-letter)
+   - Letters end with "Thanking you." consistently
+
+**Verified live**: AI Vision 100% confidence — all 16 letterhead fields visible in correct order (GSTIN, ॐ NAVKAR AGRO, Mob×2, address, email, red divider, License No, Ref/Date, To, Subject, body, Yours faithfully + Aditya Jain + Proprietor + M/s NAVKAR AGRO). AI generate produces clean 100-word letter, no truncation, no preamble. AI improve removes "Sir, I am writing to ask..." → "I am writing to request my account statement..." cleanly.
 
 ## Recent Fixes (Apr 2026) — v104.29.0
 
