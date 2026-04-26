@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.28
+## Current Version: v104.28.29
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -17,7 +17,28 @@
 - `/app/desktop-app/` — Node.js Express (Electron desktop app, JSON/SQLite) — **THIS IS WHAT THE USER ACTUALLY USES IN PRODUCTION**
 - `/app/local-server/` — Node.js Express (LAN host, JSON/SQLite)
 
-**Lesson from v104.28.27→104.28.28**: Redesigning Dashboard/Summary PDFs only in Python backend caused user frustration ("desktop software pai nahi aya jo b tumne kiya") because the Desktop App goes through `/app/desktop-app/routes/` (PDFKit), NOT through Python. The visual changes have to be ported to the Node.js helpers (`pdf_helpers.js`) and endpoints separately.
+**Lesson from v104.28.27→104.28.28**: Redesigning Dashboard/Summary PDFs only in Python backend caused user frustration. Always port via the helper functions (`drawSectionBand`, `drawSummaryBanner`, `addExcelSummaryBanner`, `addPdfTable`) which exist in both Python (`utils/export_helpers.py`) and Node.js (`routes/pdf_helpers.js`). Sync trick: use a Python regex-based extractor to copy endpoint blocks from desktop-app to local-server (faster + safer than manual line-by-line edits).
+
+## Recent Fixes (Apr 2026) — v104.28.29
+
+### Hemali Monthly Summary PDF + Excel — Desktop App Full Parity
+- **User directive**: *"Hemali Monthly Summary PDF ka Sardar Bands + Summary Banner sirf Python backend mein hai. Desktop App ka version structurally simpler hai (basic table). ... ise bhi Desktop App mein port kar dun. - kardo"*
+- **Code paths**:
+  - `/app/desktop-app/routes/hemali.js` (and synced to `/app/local-server/routes/hemali.js`).
+- **PDF redesign**:
+  - Branded header (`addPdfHeader` with company name + tagline + subtitle line containing KMS Year, Season, Sardar filter).
+  - Per-sardar **orange pill band** (full A4-landscape width = 792pt) with `SARDAR: <Name>` left-aligned + `Current Advance Balance: Rs.<X>` right-aligned (matches Python's `Sardar Band` design).
+  - Per-sardar data table using `addPdfTable` with percentage-based column widths (12/14/18.5/18.5/18.5/18.5%) + automatic TOTAL row highlight (amber bg, amber-700 text).
+  - **Grand totals across all sardars** computed in single pass.
+  - **Bottom KPI Summary Banner** via `drawSummaryBanner` with 7 stats: TOTAL SARDARS, PAYMENTS (paid/total), GROSS WORK, TOTAL PAID, ADV. GIVEN, ADV. DEDUCTED, OUTSTANDING — same as Python backend.
+- **Data bug fix**: previously desktop-app counted Work (`m.work`) only when `status === 'paid'`. Python counts work ALWAYS regardless of status. Now matches → correct semantics: "Work" = gross work done (paid + unpaid both), "Outstanding" = Work − Paid − Adv Deducted.
+- **Excel redesign** (same logic):
+  - Sardar pill row (full-width merged cell, orange bg, white bold text).
+  - Header row (navy bg, white bold).
+  - Data rows with currency format `"Rs."#,##0.00`.
+  - **TOTAL row in amber** (bg `#FEF3C7`, text `#92400E`, bold) per sardar.
+  - **Bottom KPI Summary Banner** via `addExcelSummaryBanner` with same 7 stats.
+- **Verified**: PDF tested locally with comprehensive sample data (3 sardars × multiple months × paid/unpaid mix) — generated output visually inspected, matches Python exactly.
 
 ## Recent Fixes (Apr 2026) — v104.28.28
 

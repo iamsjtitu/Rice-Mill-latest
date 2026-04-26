@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.29",
+    date: "Apr 2026",
+    title: "v104.28.29 — 🛠️ Hemali Monthly Summary PDF & Excel: Desktop App Parity (Sardar Bands + KPI Banner)",
+    items: [
+      { type: "fix", text: "🛠️ **Hemali Monthly Summary PDF (Desktop App)**: pehle basic version tha — sirf colored Sardar name text + plain table. Ab Python wala full version dikhega → Sardar pill bands (orange full-width with name + Current Advance Balance), per-sardar TOTAL row in amber highlight, aur **bottom mein 7-stat KPI Summary Banner** (TOTAL SARDARS / PAYMENTS / GROSS WORK / TOTAL PAID / ADV GIVEN / ADV DEDUCTED / OUTSTANDING)" },
+      { type: "fix", text: "🐛 **Data bug fix**: pehle desktop-app sirf 'paid' payments ka work count karta tha. Ab Python ki tarah work count hota hai REGARDLESS of payment status (unpaid bhi count). Iska matlab Total Work field ab actual gross work dikhata hai (jaise mahine ka actual workload), aur Outstanding (Work - Paid) calculation accurate ho gayi" },
+      { type: "fix", text: "🎨 **Hemali Monthly Summary Excel (Desktop App)**: same redesign — Sardar pill rows (orange), header row in navy, per-sardar TOTAL row in amber, aur bottom mein KPI summary banner. Ab Excel + PDF dono identical look denge" },
+      { type: "fix", text: "🔄 **LAN Local Server bhi sync** ho gaya — same Hemali Monthly Summary design. Triple-Backend Parity restored" },
+    ],
+  },
+  {
     version: "104.28.28",
     date: "Apr 2026",
     title: "v104.28.28 — 🛠️ Desktop App Dashboard & Summary Report PDFs Professional Redesign (Critical Fix)",
