@@ -664,21 +664,44 @@ async def set_truck_rate(entry_id: str, request: SetRateRequest, username: str =
                 {"$set": {"entry_id": m["id"], "rate_per_qntl": request.rate_per_qntl, "updated_at": datetime.now(timezone.utc).isoformat()}},
                 upsert=True
             )
-            # Update Jama ledger entry with new rate
+            # Sync Jama ledger entry — create/update/delete based on rate
             final_qntl = round(m.get("qntl", 0) - m.get("bag", 0) / 100, 2)
             if final_qntl > 0:
                 new_gross = round(final_qntl * request.rate_per_qntl, 2)
                 cash_taken = float(m.get("cash_paid", 0) or 0)
                 diesel_taken = float(m.get("diesel_paid", 0) or 0)
                 deductions = cash_taken + diesel_taken
-                await db.cash_transactions.update_one(
-                    {"linked_entry_id": m["id"], "reference": {"$regex": "^truck_entry:"}},
-                    {"$set": {
-                        "amount": new_gross,
-                        "description": f"Truck Entry: {truck_no} - {final_qntl}Q @ Rs.{request.rate_per_qntl}" + (f" (Ded: Rs.{deductions})" if deductions > 0 else ""),
-                        "updated_at": datetime.now(timezone.utc).isoformat()
-                    }}
-                )
+                description = f"Truck Entry: {truck_no} - {final_qntl}Q @ Rs.{request.rate_per_qntl}" + (f" (Ded: Rs.{deductions})" if deductions > 0 else "")
+                if request.rate_per_qntl > 0:
+                    # Upsert: update if exists, otherwise create the jama ledger entry
+                    existing_jama = await db.cash_transactions.find_one(
+                        {"linked_entry_id": m["id"], "reference": {"$regex": "^truck_entry:"}}, {"_id": 0}
+                    )
+                    if existing_jama:
+                        await db.cash_transactions.update_one(
+                            {"linked_entry_id": m["id"], "reference": {"$regex": "^truck_entry:"}},
+                            {"$set": {"amount": new_gross, "description": description,
+                                      "updated_at": datetime.now(timezone.utc).isoformat()}}
+                        )
+                    else:
+                        new_jama = {
+                            "id": str(uuid.uuid4()),
+                            "date": m.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+                            "account": "ledger", "txn_type": "jama", "category": truck_no,
+                            "party_type": "Truck",
+                            "description": description, "amount": new_gross,
+                            "reference": f"truck_entry:{m['id'][:8]}",
+                            "kms_year": m.get("kms_year", ""), "season": m.get("season", ""),
+                            "created_by": username or "system", "linked_entry_id": m["id"],
+                            "created_at": datetime.now(timezone.utc).isoformat(),
+                            "updated_at": datetime.now(timezone.utc).isoformat()
+                        }
+                        await db.cash_transactions.insert_one(new_jama)
+                else:
+                    # Rate cleared back to 0 — remove the stale ledger entry
+                    await db.cash_transactions.delete_many(
+                        {"linked_entry_id": m["id"], "reference": {"$regex": "^truck_entry:"}}
+                    )
         updated_count = len(matching)
     else:
         await db.truck_payments.update_one(
@@ -688,6 +711,25 @@ async def set_truck_rate(entry_id: str, request: SetRateRequest, username: str =
         )
     
     return {"success": True, "message": f"Rate ₹{request.rate_per_qntl}/QNTL set for {updated_count} entries", "updated_count": updated_count, "truck_no": truck_no, "mandi_name": mandi_name}
+
+
+@router.post("/truck-payments/reset-unpaid-rates")
+async def reset_unpaid_truck_rates(role: str = ""):
+    """CLEANUP: Reset all truck rates to 0 + remove their truck_entry ledger entries.
+    Use this to undo any unwanted bulk cascades (e.g., default bhada rate that
+    accidentally got applied to all trucks). Only resets entries with paid_amount=0.
+    """
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin reset kar sakta hai")
+    payments = await db.truck_payments.find({"paid_amount": {"$lte": 0}, "rate_per_qntl": {"$gt": 0}}, {"_id": 0}).to_list(None)
+    reset_count = 0
+    ledgers_removed = 0
+    for tp in payments:
+        await db.truck_payments.update_one({"entry_id": tp["entry_id"]}, {"$set": {"rate_per_qntl": 0, "updated_at": datetime.now(timezone.utc).isoformat()}})
+        reset_count += 1
+        result = await db.cash_transactions.delete_many({"linked_entry_id": tp["entry_id"], "reference": {"$regex": "^truck_entry:"}})
+        ledgers_removed += result.deleted_count
+    return {"success": True, "reset_count": reset_count, "ledgers_removed": ledgers_removed}
 
 
 @router.post("/truck-payments/{entry_id}/pay")
@@ -908,7 +950,9 @@ async def get_agent_payments(kms_year: Optional[str] = None, season: Optional[st
         target_amount = round(capped_tp * base_rate, 2)
         cutting_amount = round(cutting_qntl * cutting_rate, 2)
         total_amount = round(target_amount + cutting_amount, 2)
-        
+        # Transparency for the agent payment row UI:
+        cap_qntl = round(target_qntl * (1 + cutting_percent / 100), 2) if target_qntl > 0 else 0
+        is_capped = target_qntl > 0 and tp_weight_qntl > cap_qntl
         excess_weight = round(achieved_qntl - (target_qntl + round(target_qntl * cutting_percent / 100, 2)), 2)
         is_target_complete = achieved_qntl >= expected_total
         
@@ -940,6 +984,8 @@ async def get_agent_payments(kms_year: Optional[str] = None, season: Optional[st
             achieved_qntl=achieved_qntl,
             excess_weight=excess_weight,
             is_target_complete=is_target_complete,
+            cap_qntl=cap_qntl,
+            is_capped=is_capped,
             paid_amount=paid_amount,
             balance_amount=max(0, balance),
             status=status,

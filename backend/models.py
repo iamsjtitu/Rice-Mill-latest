@@ -336,6 +336,9 @@ class AgentPaymentStatus(BaseModel):
     achieved_qntl: float
     excess_weight: float = 0
     is_target_complete: bool
+    # Cap transparency (v104.28.39+): excess delivery beyond target+cutting% earns no commission.
+    cap_qntl: float = 0  # target_qntl × (1 + cutting%/100) — the cap on TP weight for commission
+    is_capped: bool = False  # true iff actual TP weight > cap_qntl
     paid_amount: float
     balance_amount: float
     status: str

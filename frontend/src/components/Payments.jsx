@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import {
-  Truck, Users, IndianRupee, CheckCircle, Clock, AlertCircle, Undo2, History,
+  Truck, Users, IndianRupee, CheckCircle, Clock, AlertCircle, AlertTriangle, ArrowRightCircle, Undo2, History,
   Target, Download, FileText, FileSpreadsheet, Printer, X, Edit, Fuel, Trash2, RefreshCw, Handshake, Package, Send,
 } from "lucide-react";
 import LocalPartyAccount from "./payments/LocalPartyAccount";
@@ -77,6 +77,9 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [groupText, setGroupText] = useState("");
   const [groupPdfUrl, setGroupPdfUrl] = useState("");
+  // Move-to-Pvt (excess agent delivery → pvt purchase)
+  const [movePvtDialog, setMovePvtDialog] = useState({ open: false, payment: null });
+  const [movePvtRate, setMovePvtRate] = useState("");
 
   const fetchPayments = useCallback(async () => {
     try {
@@ -146,6 +149,30 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
     
     const { downloadFile } = await import('../utils/download');
     downloadFile(`/api/export/agent-payments-pdf?${params.toString()}`, 'agent_payments.pdf');
+  };
+
+  // Move excess agent delivery (TP > target+cutting%) to Pvt Paddy Purchase ledger
+  const handleMoveToPvt = async () => {
+    const rate = parseFloat(movePvtRate);
+    if (!rate || rate <= 0) { toast.error("Pvt rate (Rs./Q) daalein"); return; }
+    const p = movePvtDialog.payment;
+    if (!p || !p.excess_weight || p.excess_weight <= 0) { toast.error("Koi extra QNTL nahi"); return; }
+    try {
+      const res = await axios.post(`${API}/reports/agent-mandi-wise/move-to-pvt`, {
+        mandi_name: p.mandi_name, agent_name: p.agent_name,
+        extra_qntl: p.excess_weight, rate,
+        kms_year: p.kms_year || filters.kms_year, season: p.season || "Kharif",
+        username: user.username || "admin",
+      });
+      if (res.data.success) {
+        toast.success(res.data.message || `${p.excess_weight}Q moved to Pvt Purchase`);
+        setMovePvtDialog({ open: false, payment: null });
+        setMovePvtRate("");
+        fetchPayments();
+      } else {
+        toast.error(res.data.detail || "Move failed");
+      }
+    } catch (e) { toast.error(e.response?.data?.detail || "Move failed"); }
   };
 
   // Export Truck Owner Consolidated
@@ -1423,7 +1450,19 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                   <TableBody>
                     {agentPayments.map((payment, idx) => (
                       <TableRow key={`${payment.mandi_name}-${payment.agent_name}-${idx}`} className="border-slate-700 hover:bg-slate-700/50">
-                        <TableCell className="text-white font-semibold">{payment.mandi_name}</TableCell>
+                        <TableCell className="text-white font-semibold">
+                          {payment.mandi_name}
+                          {payment.is_capped && (
+                            <div
+                              className="text-[10px] mt-0.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-900/30 border border-amber-700/40 text-amber-300"
+                              title={`Capped: TP weight ${payment.tp_weight_qntl}Q exceeded contracted scope ${payment.cap_qntl}Q (target + cutting%). Extra ${(payment.tp_weight_qntl - payment.cap_qntl).toFixed(1)}Q earns no commission — move to Pvt Purchase.`}
+                              data-testid={`capped-badge-${idx}`}
+                            >
+                              <AlertTriangle className="w-3 h-3" />
+                              Capped @ {payment.cap_qntl}Q
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="text-slate-300 text-xs">{payment.agent_name}</TableCell>
                         <TableCell className="text-amber-400 text-right">{payment.target_qntl} QNTL</TableCell>
                         <TableCell className="text-right text-xs">
@@ -1505,6 +1544,18 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                               >
                                 <Printer className="w-3 h-3" />
                               </Button>
+                              {payment.excess_weight > 0 && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => { setMovePvtDialog({ open: true, payment }); setMovePvtRate(""); }}
+                                  className="h-7 px-2 text-orange-400 hover:bg-orange-900/30"
+                                  title={`Move ${payment.excess_weight}Q extra delivery to Pvt Paddy Purchase`}
+                                  data-testid={`move-to-pvt-btn-${idx}`}
+                                >
+                                  <ArrowRightCircle className="w-3 h-3" />
+                                </Button>
+                              )}
                             </div>
                           </TableCell>
                         )}
@@ -1678,6 +1729,56 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Move-to-Pvt (excess agent delivery → Pvt Paddy Purchase) */}
+      <Dialog open={movePvtDialog.open} onOpenChange={(o) => { if (!o) { setMovePvtDialog({ open: false, payment: null }); setMovePvtRate(""); } }}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md" data-testid="move-to-pvt-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-orange-400 flex items-center gap-2">
+              <ArrowRightCircle className="w-5 h-5" /> Move to Pvt Paddy Purchase
+            </DialogTitle>
+          </DialogHeader>
+          {movePvtDialog.payment && (
+            <div className="space-y-3">
+              <div className="rounded border border-amber-700/40 bg-amber-900/20 p-3 text-sm">
+                <div className="text-amber-300 font-semibold mb-1">{movePvtDialog.payment.mandi_name} — {movePvtDialog.payment.agent_name}</div>
+                <div className="text-slate-300 text-xs space-y-0.5">
+                  <div>Govt Target: <span className="text-white">{movePvtDialog.payment.target_qntl} Q</span></div>
+                  <div>Cap (Target + {movePvtDialog.payment.cutting_percent}%): <span className="text-white">{movePvtDialog.payment.cap_qntl} Q</span></div>
+                  <div>Agent Delivered (TP): <span className="text-cyan-400">{movePvtDialog.payment.tp_weight_qntl} Q</span></div>
+                  <div className="pt-1 border-t border-amber-700/30">
+                    <span className="text-orange-300 font-bold">Extra to move: {movePvtDialog.payment.excess_weight} Q</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs">Pvt Rate (Rs./QNTL) <span className="text-red-400">*</span></Label>
+                <Input
+                  type="number" inputMode="decimal" value={movePvtRate}
+                  onChange={(e) => setMovePvtRate(e.target.value)}
+                  placeholder="e.g. 1850"
+                  className="bg-slate-700 border-slate-600 text-white mt-1"
+                  data-testid="move-to-pvt-rate"
+                />
+                {movePvtRate && parseFloat(movePvtRate) > 0 && (
+                  <div className="text-xs text-emerald-400 mt-1">
+                    Total amount: ₹{(parseFloat(movePvtRate) * (movePvtDialog.payment.excess_weight || 0)).toLocaleString('en-IN')}
+                  </div>
+                )}
+              </div>
+              <Button
+                onClick={handleMoveToPvt}
+                disabled={!movePvtRate || parseFloat(movePvtRate) <= 0}
+                className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                data-testid="move-to-pvt-submit"
+              >
+                Move {movePvtDialog.payment.excess_weight}Q to Pvt Purchase
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
 
       {/* Truck Owner Pay Dialog */}
       <Dialog open={showOwnerPayDialog} onOpenChange={setShowOwnerPayDialog}>

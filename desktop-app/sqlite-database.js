@@ -719,22 +719,26 @@ class SqliteDatabase {
         return !!e;
       });
       const rate = existingRateDoc ? (existingRateDoc.rate_per_qntl ?? 0) : 0;
-      const grossAmount = Math.round(finalQntl * rate * 100) / 100;
       const cashTaken = parseFloat(newEntry.cash_paid) || 0;
       const dieselTaken = parseFloat(newEntry.diesel_paid) || 0;
       const deductions = cashTaken + dieselTaken;
 
-      const jamaEntry = {
-        id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama', category: truckNo,
-        party_type: 'Truck',
-        description: `Truck Entry: ${truckNo} - ${finalQntl}Q @ Rs.${rate}` + (deductions > 0 ? ` (Ded: Rs.${deductions})` : ''),
-        amount: Math.round(grossAmount * 100) / 100, reference: `truck_entry:${newEntry.id.slice(0,8)}`,
-        kms_year: newEntry.kms_year||'', season: newEntry.season||'',
-        created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
-        created_at: now, updated_at: now
-      };
-      this.data.cash_transactions.push(jamaEntry);
-      this.logAudit('cash_transactions', jamaEntry.id, 'create', newEntry.created_by || '', null, jamaEntry);
+      // Only create the truck-entry Jama ledger if rate > 0. Otherwise it will be
+      // created later when user sets the rate via /api/truck-payments/:entryId/rate.
+      if (rate > 0) {
+        const grossAmount = Math.round(finalQntl * rate * 100) / 100;
+        const jamaEntry = {
+          id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama', category: truckNo,
+          party_type: 'Truck',
+          description: `Truck Entry: ${truckNo} - ${finalQntl}Q @ Rs.${rate}` + (deductions > 0 ? ` (Ded: Rs.${deductions})` : ''),
+          amount: Math.round(grossAmount * 100) / 100, reference: `truck_entry:${newEntry.id.slice(0,8)}`,
+          kms_year: newEntry.kms_year||'', season: newEntry.season||'',
+          created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
+          created_at: now, updated_at: now
+        };
+        this.data.cash_transactions.push(jamaEntry);
+        this.logAudit('cash_transactions', jamaEntry.id, 'create', newEntry.created_by || '', null, jamaEntry);
+      }
 
       if (dieselTaken > 0) {
         const dieselDed = {
@@ -876,20 +880,24 @@ class SqliteDatabase {
       if (finalQntl > 0 && truckNo) {
         const paymentDoc = this.data.truck_payments.find(p => p.entry_id === id);
         const rate = paymentDoc ? (paymentDoc.rate_per_qntl ?? 0) : 0;
-        const grossAmount = Math.round(finalQntl * rate * 100) / 100;
         const cashTaken = parseFloat(updated.cash_paid) || 0;
         const dieselTaken = parseFloat(updated.diesel_paid) || 0;
         const deductions = cashTaken + dieselTaken;
 
-        this.data.cash_transactions.push({
-          id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama', category: truckNo,
-          party_type: 'Truck',
-          description: `Truck Entry: ${truckNo} - ${finalQntl}Q @ Rs.${rate}` + (deductions > 0 ? ` (Ded: Rs.${deductions})` : ''),
-          amount: Math.round(grossAmount * 100) / 100, reference: `truck_entry:${id.slice(0,8)}`,
-          kms_year: updated.kms_year||'', season: updated.season||'',
-          created_by: updated.created_by||'system', linked_entry_id: id,
-          created_at: now, updated_at: now
-        });
+        // Only create the truck-entry Jama ledger if rate > 0. Otherwise it will be
+        // created later when user sets the rate via /api/truck-payments/:entryId/rate.
+        if (rate > 0) {
+          const grossAmount = Math.round(finalQntl * rate * 100) / 100;
+          this.data.cash_transactions.push({
+            id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama', category: truckNo,
+            party_type: 'Truck',
+            description: `Truck Entry: ${truckNo} - ${finalQntl}Q @ Rs.${rate}` + (deductions > 0 ? ` (Ded: Rs.${deductions})` : ''),
+            amount: Math.round(grossAmount * 100) / 100, reference: `truck_entry:${id.slice(0,8)}`,
+            kms_year: updated.kms_year||'', season: updated.season||'',
+            created_by: updated.created_by||'system', linked_entry_id: id,
+            created_at: now, updated_at: now
+          });
+        }
 
         if (dieselTaken > 0) {
           this.data.cash_transactions.push({

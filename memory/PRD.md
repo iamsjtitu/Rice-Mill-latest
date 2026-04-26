@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.38
+## Current Version: v104.28.39
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -19,6 +19,37 @@
 
 ## ⚠️ LESSON: Stay strictly within scope
 **v104.28.35**: User asked for "PDF and Summary report mein hi sirf changes" — but I went and changed the on-screen Dashboard endpoint + frontend JSX too. Reverted. ALWAYS confirm scope when user says "sirf X mein" — don't refactor adjacent code paths even if they share the same logic. PDF and screen are TWO different surfaces, treat them independently.
+
+## Recent Fixes (Apr 2026) — v104.28.39
+
+### 3 changes — Cap Transparency + Move-to-Pvt Quick Action + Truck Ledger Lifecycle Fix
+
+**1. Cap Transparency Badge + Move-to-Pvt button (Agent Payments table)**
+- When `tp_weight > target × (1 + cutting%/100)`, the row now shows a **"Capped @ X Q"** amber badge with tooltip explaining the cap
+- New orange **ArrowRightCircle** action button shown only when `excess_weight > 0` — opens a one-click "Move to Pvt Paddy Purchase" dialog pre-filled with mandi/agent/extra_qntl
+- Backend fields added to `AgentPaymentStatus` model: `cap_qntl` (the cap value) + `is_capped` (bool)
+- Files: `Payments.jsx`, `models.py`, `payments.py` (Python), `payments.js` (×2 Node.js)
+
+**2. Truck Ledger Lifecycle Fix — rate=0 means NO ledger**
+- **User report**: *"jiska 0 hai wo ledger nahi banna chahiye, after amount set hi ledger banega apne aap"*
+- New rule: `truck_entry:` jama ledger is created **iff** rate_per_qntl > 0
+  - On **mill_entry create/update**: skip ledger creation if rate=0 (was creating ₹0 ledger before)
+  - On **set-rate from 0 to >0**: auto-CREATE the ledger (was only updating existing)
+  - On **set-rate from >0 to 0**: auto-DELETE the ledger (was leaving stale 0-amount entry)
+- Files: `entries.py`, `payments.py` (Python), `sqlite-database.js`, `payments.js` (×2 Node.js)
+
+**3. Cleanup endpoint for accidentally cascaded rates**
+- **User report**: *"sabka by default 32rs ke hisab se ledger ban gaya hai wo thik karo"*
+- New endpoint: `POST /api/truck-payments/reset-unpaid-rates` (admin only)
+- Resets rate_per_qntl=0 for all truck_payments where paid_amount=0, and removes their `truck_entry:` ledger entries
+- Safely skips trucks that have any payment trail (preserves user's actual data)
+- Mirrored across all 3 backends
+
+### Verified
+- **Live curl test**: set rate=15 → ledger auto-created ₹735 (49Q × ₹15) ✓; set rate=0 → ledger deleted ✓; set rate=25 → ledger re-created ₹1225 ✓
+- **Lint**: clean across all changed files
+- **8/8 commission cap regression tests** pass
+- **Screenshot**: agent payments tab shows orange "Move to Pvt" button when excess_weight > 0; capped badge shown only when cap is active
 
 ## Recent Fixes (Apr 2026) — v104.28.38
 

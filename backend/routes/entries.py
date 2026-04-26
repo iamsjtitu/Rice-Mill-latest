@@ -155,19 +155,22 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
         diesel_taken = float(doc.get("diesel_paid", 0) or 0)
         deductions = cash_taken + diesel_taken
         
-        jama_entry = {
-            "id": str(uuid.uuid4()), "date": doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
-            "account": "ledger", "txn_type": "jama", "category": truck_no,
-            "party_type": "Truck",
-            "description": f"Truck Entry: {truck_no} - {final_qntl}Q @ Rs.{rate}" + (f" (Ded: Rs.{deductions})" if deductions > 0 else ""),
-            "amount": round_amount(gross_amount), "reference": f"truck_entry:{doc['id'][:8]}",
-            "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
-            "created_by": username or "system", "linked_entry_id": doc["id"],
-            "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
-        }
-        await db.cash_transactions.insert_one(jama_entry)
-        jama_entry.pop("_id", None)
-        await log_audit("cash_transactions", jama_entry["id"], "create", username, new_data=jama_entry)
+        # Only create the truck-entry Jama ledger if rate > 0. Otherwise it will be
+        # created later when user sets the rate via /api/truck-payments/{id}/rate.
+        if rate > 0:
+            jama_entry = {
+                "id": str(uuid.uuid4()), "date": doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+                "account": "ledger", "txn_type": "jama", "category": truck_no,
+                "party_type": "Truck",
+                "description": f"Truck Entry: {truck_no} - {final_qntl}Q @ Rs.{rate}" + (f" (Ded: Rs.{deductions})" if deductions > 0 else ""),
+                "amount": round_amount(gross_amount), "reference": f"truck_entry:{doc['id'][:8]}",
+                "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
+                "created_by": username or "system", "linked_entry_id": doc["id"],
+                "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.cash_transactions.insert_one(jama_entry)
+            jama_entry.pop("_id", None)
+            await log_audit("cash_transactions", jama_entry["id"], "create", username, new_data=jama_entry)
         if diesel_taken > 0:
             diesel_ded = {
                 "id": str(uuid.uuid4()), "date": doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
@@ -682,19 +685,22 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
         diesel_taken = float(merged_data.get("diesel_paid", 0) or 0)
         deductions = cash_taken + diesel_taken
         
-        jama_entry = {
-            "id": str(uuid.uuid4()), "date": merged_data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
-            "account": "ledger", "txn_type": "jama", "category": truck_no,
-            "party_type": "Truck",
-            "description": f"Truck Entry: {truck_no} - {final_qntl}Q @ Rs.{rate}" + (f" (Ded: Rs.{deductions})" if deductions > 0 else ""),
-            "amount": round_amount(gross_amount), "reference": f"truck_entry:{entry_id[:8]}",
-            "kms_year": merged_data.get("kms_year", ""), "season": merged_data.get("season", ""),
-            "created_by": username or "system", "linked_entry_id": entry_id,
-            "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
-        }
-        await db.cash_transactions.insert_one(jama_entry)
-        jama_entry.pop("_id", None)
-        await log_audit("cash_transactions", jama_entry["id"], "create", username, new_data=jama_entry)
+        # Only create the truck-entry Jama ledger if rate > 0. Otherwise it will be
+        # created later when user sets the rate via /api/truck-payments/{id}/rate.
+        if rate > 0:
+            jama_entry = {
+                "id": str(uuid.uuid4()), "date": merged_data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+                "account": "ledger", "txn_type": "jama", "category": truck_no,
+                "party_type": "Truck",
+                "description": f"Truck Entry: {truck_no} - {final_qntl}Q @ Rs.{rate}" + (f" (Ded: Rs.{deductions})" if deductions > 0 else ""),
+                "amount": round_amount(gross_amount), "reference": f"truck_entry:{entry_id[:8]}",
+                "kms_year": merged_data.get("kms_year", ""), "season": merged_data.get("season", ""),
+                "created_by": username or "system", "linked_entry_id": entry_id,
+                "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.cash_transactions.insert_one(jama_entry)
+            jama_entry.pop("_id", None)
+            await log_audit("cash_transactions", jama_entry["id"], "create", username, new_data=jama_entry)
         
         if diesel_taken > 0:
             diesel_ded = {

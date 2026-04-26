@@ -115,33 +115,77 @@ module.exports = function(database) {
 
   router.put('/api/truck-payments/:entryId/rate', safeSync(async (req, res) => {
     const entry = database.data.entries.find(e => e.id === req.params.entryId);
+    const newRate = parseFloat(req.body.rate_per_qntl) || 0;
     let updatedCount = 1;
     if (entry && entry.truck_no && entry.mandi_name) {
       const matching = database.data.entries.filter(e => e.truck_no === entry.truck_no && e.mandi_name === entry.mandi_name);
       matching.forEach(m => {
-        database.updateTruckPayment(m.id, { rate_per_qntl: req.body.rate_per_qntl });
-        // Update Jama ledger entry with new rate
+        database.updateTruckPayment(m.id, { rate_per_qntl: newRate });
+        // Sync Jama ledger entry — create/update/delete based on rate
         const finalQntl = Math.round(((m.qntl || 0) - (m.bag || 0) / 100) * 100) / 100;
         if (finalQntl > 0 && database.data.cash_transactions) {
           const cashTaken = parseFloat(m.cash_paid) || 0;
           const dieselTaken = parseFloat(m.diesel_paid) || 0;
           const deductions = cashTaken + dieselTaken;
-          const newGross = Math.round(finalQntl * req.body.rate_per_qntl * 100) / 100;
+          const newGross = Math.round(finalQntl * newRate * 100) / 100;
           const jamaIdx = database.data.cash_transactions.findIndex(t => t.linked_entry_id === m.id && (t.reference||'').startsWith('truck_entry:'));
-          if (jamaIdx !== -1) {
-            database.data.cash_transactions[jamaIdx].amount = newGross;
-            database.data.cash_transactions[jamaIdx].description = `Truck Entry: ${m.truck_no} - ${finalQntl}Q @ Rs.${req.body.rate_per_qntl}` + (deductions > 0 ? ` (Ded: Rs.${deductions})` : '');
-            database.data.cash_transactions[jamaIdx].updated_at = new Date().toISOString();
+          if (newRate > 0) {
+            const description = `Truck Entry: ${m.truck_no} - ${finalQntl}Q @ Rs.${newRate}` + (deductions > 0 ? ` (Ded: Rs.${deductions})` : '');
+            if (jamaIdx !== -1) {
+              database.data.cash_transactions[jamaIdx].amount = newGross;
+              database.data.cash_transactions[jamaIdx].description = description;
+              database.data.cash_transactions[jamaIdx].updated_at = new Date().toISOString();
+            } else {
+              // Auto-create the jama ledger entry now that rate is set
+              const now = new Date().toISOString();
+              database.data.cash_transactions.push({
+                id: require('uuid').v4(), date: m.date || now.split('T')[0],
+                account: 'ledger', txn_type: 'jama', category: m.truck_no || '',
+                party_type: 'Truck',
+                description, amount: newGross,
+                reference: `truck_entry:${m.id.slice(0, 8)}`,
+                kms_year: m.kms_year || '', season: m.season || '',
+                created_by: req.query.username || 'system', linked_entry_id: m.id,
+                created_at: now, updated_at: now
+              });
+            }
+          } else if (jamaIdx !== -1) {
+            // Rate cleared back to 0 — remove the stale ledger entry
+            database.data.cash_transactions.splice(jamaIdx, 1);
           }
         }
       });
       updatedCount = matching.length;
     } else {
-      database.updateTruckPayment(req.params.entryId, { rate_per_qntl: req.body.rate_per_qntl });
+      database.updateTruckPayment(req.params.entryId, { rate_per_qntl: newRate });
     }
     database.save();
     const payment = database.getTruckPayment(req.params.entryId);
     res.json({ success: true, payment, updated_count: updatedCount, truck_no: entry?.truck_no, mandi_name: entry?.mandi_name });
+  }));
+
+  // CLEANUP: Reset all truck rates to 0 + remove their truck_entry ledger entries.
+  // Use this to undo any unwanted bulk cascades (e.g., default bhada rate that
+  // accidentally got applied to all trucks). Only resets entries with paid_amount=0
+  // (so we never wipe rates for trucks that are already partially/fully paid).
+  router.post('/api/truck-payments/reset-unpaid-rates', safeSync(async (req, res) => {
+    const before = (database.data.truck_payments || []).length;
+    let resetCount = 0;
+    let ledgersRemoved = 0;
+    for (const tp of (database.data.truck_payments || [])) {
+      const paid = Number(tp.paid_amount) || 0;
+      if (paid > 0) continue; // Don't touch rates where there's already a payment trail
+      if (!tp.rate_per_qntl || tp.rate_per_qntl <= 0) continue;
+      tp.rate_per_qntl = 0;
+      resetCount++;
+      // Remove the corresponding truck_entry ledger
+      const before2 = (database.data.cash_transactions || []).length;
+      database.data.cash_transactions = (database.data.cash_transactions || [])
+        .filter(t => !(t.linked_entry_id === tp.entry_id && (t.reference || '').startsWith('truck_entry:')));
+      ledgersRemoved += before2 - database.data.cash_transactions.length;
+    }
+    database.save();
+    res.json({ success: true, reset_count: resetCount, ledgers_removed: ledgersRemoved, total_payments: before });
   }));
 
   router.post('/api/truck-payments/:entryId/pay', safeSync(async (req, res) => {
@@ -316,6 +360,11 @@ module.exports = function(database) {
       const target_amount = cappedTp * (target.base_rate ?? 10);
       const cutting_amount = cutting_qntl * (target.cutting_rate ?? 5);
       const total_amount = target_amount + cutting_amount;
+      // Transparency: cap value & whether cap is active
+      const cap_qntl = (target.target_qntl > 0)
+        ? Math.round(target.target_qntl * (1 + (target.cutting_percent || 0) / 100) * 100) / 100
+        : 0;
+      const is_capped = (target.target_qntl > 0) && (tp_weight_qntl > cap_qntl);
       
       // Use ledger as source of truth for paid_amount
       const ledgerPaid = allCashTxns.filter(t =>
@@ -342,6 +391,7 @@ module.exports = function(database) {
         achieved_qntl: Math.round(achieved_qntl * 100) / 100,
         excess_weight: excess_weight,
         is_target_complete: achieved_qntl >= target.expected_total,
+        cap_qntl, is_capped,
         paid_amount: paidAmount,
         balance_amount, status, kms_year: target.kms_year, season: target.season
       };
