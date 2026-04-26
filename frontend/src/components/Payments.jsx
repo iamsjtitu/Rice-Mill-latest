@@ -1729,28 +1729,71 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
 
       {/* Truck Owner History Dialog */}
       <Dialog open={showOwnerHistoryDialog} onOpenChange={setShowOwnerHistoryDialog}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg">
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-xl">
           <DialogHeader>
             <DialogTitle className="text-purple-400">Payment History - {selectedOwnerTruck?.truck_no}</DialogTitle>
           </DialogHeader>
-          <div className="max-h-80 overflow-y-auto space-y-2">
-            {ownerHistory.length === 0 ? (
-              <p className="text-slate-400 text-center py-4">Koi payment history nahi hai</p>
-            ) : ownerHistory.map((h, idx) => (
-              <div key={h.id || h.date || `oh-${idx}`} className={`p-2 rounded border text-sm ${h.amount >= 0 ? 'bg-emerald-900/20 border-emerald-700/30' : 'bg-red-900/20 border-red-700/30'}`}>
-                <div className="flex justify-between items-center">
-                  <span className={`font-bold ${h.amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {h.amount >= 0 ? '+' : ''}₹{Math.abs(h.amount).toLocaleString()}
-                  </span>
-                  <span className="text-slate-500 text-xs">
-                    {h.source === 'owner' ? 'Owner' : 'Trip'} | {h.payment_mode || 'cash'}
-                  </span>
+          {(() => {
+            const totals = ownerHistory.reduce((acc, h) => {
+              if (h.kind === 'cash') acc.cash += Number(h.amount) || 0;
+              else if (h.kind === 'diesel') acc.diesel += Number(h.amount) || 0;
+              else acc.payment += Number(h.amount) || 0;
+              return acc;
+            }, { cash: 0, diesel: 0, payment: 0 });
+            return (
+              <div className="grid grid-cols-3 gap-2 mb-3" data-testid="owner-history-totals">
+                <div className="bg-amber-900/20 border border-amber-700/40 rounded p-2 text-center">
+                  <div className="text-amber-300 text-[10px] uppercase tracking-wide">Cash Advance</div>
+                  <div className="text-amber-400 font-bold">₹{totals.cash.toLocaleString()}</div>
                 </div>
-                <div className="text-slate-400 text-xs mt-1">
-                  {h.note} {h.by ? `| by ${h.by}` : ''} | {h.date ? new Date(h.date).toLocaleDateString('en-IN') : ''}
+                <div className="bg-blue-900/20 border border-blue-700/40 rounded p-2 text-center">
+                  <div className="text-blue-300 text-[10px] uppercase tracking-wide">Diesel Advance</div>
+                  <div className="text-blue-400 font-bold">₹{totals.diesel.toLocaleString()}</div>
+                </div>
+                <div className="bg-emerald-900/20 border border-emerald-700/40 rounded p-2 text-center">
+                  <div className="text-emerald-300 text-[10px] uppercase tracking-wide">Payments Paid</div>
+                  <div className="text-emerald-400 font-bold">₹{totals.payment.toLocaleString()}</div>
                 </div>
               </div>
-            ))}
+            );
+          })()}
+          <div className="max-h-96 overflow-y-auto space-y-2">
+            {ownerHistory.length === 0 ? (
+              <p className="text-slate-400 text-center py-4" data-testid="owner-history-empty">Koi payment history nahi hai</p>
+            ) : ownerHistory.map((h, idx) => {
+              const kind = h.kind || 'payment';
+              const styles = kind === 'cash'
+                ? { bg: 'bg-amber-900/20', border: 'border-amber-700/40', text: 'text-amber-400', label: 'CASH', Icon: IndianRupee }
+                : kind === 'diesel'
+                ? { bg: 'bg-blue-900/20', border: 'border-blue-700/40', text: 'text-blue-400', label: 'DIESEL', Icon: Fuel }
+                : { bg: 'bg-emerald-900/20', border: 'border-emerald-700/40', text: 'text-emerald-400', label: 'PAYMENT', Icon: CheckCircle };
+              const Icon = styles.Icon;
+              return (
+                <div
+                  key={h.id || `${h.date}-${idx}`}
+                  className={`p-2.5 rounded border text-sm ${styles.bg} ${styles.border}`}
+                  data-testid={`owner-history-row-${idx}`}
+                >
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <Icon className={`w-4 h-4 ${styles.text}`} />
+                      <span className={`font-bold ${styles.text}`}>
+                        ₹{Math.abs(Number(h.amount) || 0).toLocaleString()}
+                      </span>
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${styles.text} bg-slate-900/60 border ${styles.border}`}>
+                        {styles.label}
+                      </span>
+                    </div>
+                    <span className="text-slate-500 text-xs">
+                      {h.date ? new Date(h.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '—'}
+                    </span>
+                  </div>
+                  <div className="text-slate-400 text-xs mt-1">
+                    {h.note || '—'} {h.by ? <span className="text-slate-500">| by {h.by}</span> : null}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </DialogContent>
       </Dialog>

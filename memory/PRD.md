@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.35
+## Current Version: v104.28.36
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -19,6 +19,27 @@
 
 ## ⚠️ LESSON: Stay strictly within scope
 **v104.28.35**: User asked for "PDF and Summary report mein hi sirf changes" — but I went and changed the on-screen Dashboard endpoint + frontend JSX too. Reverted. ALWAYS confirm scope when user says "sirf X mein" — don't refactor adjacent code paths even if they share the same logic. PDF and screen are TWO different surfaces, treat them independently.
+
+## Recent Fixes (Apr 2026) — v104.28.36
+
+### Truck Owner Consolidated: Compact Icons + Cash/Diesel History + Per-truck WhatsApp PDF
+- **User directive**: *"Ye make payment, mark paid print, whatsapp, group sabke icons dalo sirf kyuki page chauda ho gaya h aacha nahi dikh raha hai. History mai click karne pai koi payment history nahi hai dikh raha hai uska history dikhna chahiye kab kitna cash liya diesel liya. WhatsApp pai ya group pai jab hum koi report bhejta hai sirf usi related truck owner ke truck ke report jana chahiye abhi saare truck ka jaaraha hai."*
+
+- **3 changes shipped**:
+  1. **Action buttons → icon-only** with tooltips (Make Pay ₹, Mark Paid ✓, Undo, History ⏱, Print 🖨, WhatsApp 📨, Group 👥). Page width restored.
+  2. **History modal redesigned** — now shows Cash Advance + Diesel Advance + Payment Paid as colored chronological rows with totals strip on top. Cash = amber, Diesel = blue, Payment = emerald. Each row shows trip reference (RST/DC), amount, date, and `by`.
+  3. **WhatsApp/Group PDF filtered** — when sharing from a truck row, only that truck's data goes into the PDF. Frontend appends `truck_no` query param to `/api/export/truck-owner-pdf`. All 3 backends updated to honor the filter.
+
+- **Files changed**:
+  - Frontend: `/app/frontend/src/components/Payments.jsx` (HistoryModal redesign, icon-only action row, `truck_no` param in WhatsApp/Group share).
+  - Python: `/app/backend/routes/payments.py` (history endpoint pulls cash/diesel from `mill_entries` + `dc_deliveries`, dedupes ledger auto-deductions). `/app/backend/routes/exports.py` (truck_owner_pdf accepts `truck_no` filter).
+  - Node.js Desktop App + LAN: `/app/desktop-app/routes/payments.js`, `/app/desktop-app/routes/exports.js`, mirror in `/app/local-server/routes/`.
+
+- **Verified**:
+  - `GET /api/truck-owner/MP%2009%20XY%204444/history` → returns 2 rows: cash ₹4,000 + diesel ₹1,800 sorted by date.
+  - `GET /api/export/truck-owner-pdf?truck_no=MP%2009%20XY%204444` → PDF contains exactly 1 truck (MP 09 XY 4444).
+  - `GET /api/export/truck-owner-pdf` (no filter) → PDF contains all 11 trucks (regression OK).
+  - Frontend screenshot: icons row clean, history modal shows colored Cash/Diesel/Payment rows with totals.
 
 ## Recent Fixes (Apr 2026) — v104.28.35
 
