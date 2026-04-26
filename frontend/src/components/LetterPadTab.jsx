@@ -7,7 +7,7 @@ import { Label } from "../components/ui/label";
 import { Textarea } from "../components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "../components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -15,6 +15,8 @@ import {
 import { Switch } from "../components/ui/switch";
 import {
   FileText, Download, Sparkles, Languages, Wand2, Settings as SettingsIcon, Save, KeyRound,
+  FolderOpen, BookTemplate, MessageCircle, Users, Trash2, Send, Loader2, FileWarning,
+  Banknote, AlertCircle, Building2, Truck, AlertTriangle, FileCheck, Receipt,
 } from "lucide-react";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -22,6 +24,11 @@ const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')
 const API = `${BACKEND_URL}/api`;
 
 const LANGS = ["English", "Hindi", "Odia"];
+
+// Map template icon names → lucide components
+const TEMPLATE_ICONS = {
+  Banknote, AlertCircle, FileWarning, Building2, Truck, AlertTriangle, FileCheck, Receipt, FileText,
+};
 
 const LetterPadTab = () => {
   const today = new Date().toISOString().slice(0, 10).split('-').reverse().join('-');
@@ -32,6 +39,10 @@ const LetterPadTab = () => {
   const [references, setReferences] = useState("");
   const [body, setBody] = useState("");
   const [downloading, setDownloading] = useState(false);
+
+  // Active draft tracking — if loaded from a draft, Save updates it; else creates new
+  const [activeDraftId, setActiveDraftId] = useState(null);
+  const [draftTitle, setDraftTitle] = useState("");
 
   // Settings
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -59,6 +70,22 @@ const LetterPadTab = () => {
   const [aiTargetLang, setAiTargetLang] = useState("English");
   const [aiBusy, setAiBusy] = useState(false);
 
+  // Drafts
+  const [draftsOpen, setDraftsOpen] = useState(false);
+  const [drafts, setDrafts] = useState([]);
+  const [savingDraft, setSavingDraft] = useState(false);
+
+  // Templates
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [templates, setTemplates] = useState([]);
+
+  // WhatsApp
+  const [waOpen, setWaOpen] = useState({ open: false, mode: "phone" });
+  const [waPhone, setWaPhone] = useState("");
+  const [waGroupId, setWaGroupId] = useState("");
+  const [waCaption, setWaCaption] = useState("");
+  const [waBusy, setWaBusy] = useState(false);
+
   const loadSettings = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/letter-pad/settings`);
@@ -66,7 +93,21 @@ const LetterPadTab = () => {
     } catch (e) { /* ignore */ }
   }, []);
 
-  useEffect(() => { loadSettings(); }, [loadSettings]);
+  const loadDrafts = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/letter-pad/drafts`);
+      setDrafts(res.data || []);
+    } catch (e) { /* ignore */ }
+  }, []);
+
+  const loadTemplates = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/letter-pad/templates`);
+      setTemplates(res.data || []);
+    } catch (e) { /* ignore */ }
+  }, []);
+
+  useEffect(() => { loadSettings(); loadTemplates(); }, [loadSettings, loadTemplates]);
 
   const saveSettings = async () => {
     setSavingSettings(true);
@@ -153,17 +194,160 @@ const LetterPadTab = () => {
     }
   };
 
+  // ====================== DRAFTS ======================
+  const newLetter = () => {
+    setActiveDraftId(null);
+    setDraftTitle("");
+    setRefNo("");
+    setDate(today);
+    setToAddress("");
+    setSubject("");
+    setReferences("");
+    setBody("");
+  };
+
+  const saveDraft = async () => {
+    if (!body.trim() && !subject.trim()) {
+      toast.error("Khaali draft save nahi ho sakti — kuch text type karein");
+      return;
+    }
+    setSavingDraft(true);
+    try {
+      const payload = {
+        title: draftTitle || subject || "Untitled Draft",
+        ref_no: refNo, date, to_address: toAddress, subject, references, body,
+      };
+      let res;
+      if (activeDraftId) {
+        res = await axios.put(`${API}/letter-pad/drafts/${activeDraftId}`, payload);
+        toast.success("Draft update ho gaya");
+      } else {
+        res = await axios.post(`${API}/letter-pad/drafts`, payload);
+        setActiveDraftId(res.data.id);
+        toast.success("Draft save ho gaya");
+      }
+      setDraftTitle(res.data.title);
+      loadDrafts();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Draft save fail");
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  const loadDraft = (d) => {
+    setActiveDraftId(d.id);
+    setDraftTitle(d.title || "");
+    setRefNo(d.ref_no || "");
+    setDate(d.date || today);
+    setToAddress(d.to_address || "");
+    setSubject(d.subject || "");
+    setReferences(d.references || "");
+    setBody(d.body || "");
+    setDraftsOpen(false);
+    toast.success(`Draft "${d.title}" load ho gaya`);
+  };
+
+  const deleteDraft = async (d, e) => {
+    e?.stopPropagation();
+    if (!window.confirm(`Draft "${d.title}" delete karna hai?`)) return;
+    try {
+      await axios.delete(`${API}/letter-pad/drafts/${d.id}`);
+      toast.success("Draft delete ho gaya");
+      if (activeDraftId === d.id) {
+        setActiveDraftId(null);
+        setDraftTitle("");
+      }
+      loadDrafts();
+    } catch (e) {
+      toast.error("Delete fail");
+    }
+  };
+
+  // ====================== TEMPLATES ======================
+  const applyTemplate = async (t) => {
+    try {
+      const res = await axios.get(`${API}/letter-pad/templates/${t.id}`);
+      const tmpl = res.data;
+      setActiveDraftId(null);
+      setDraftTitle("");
+      setToAddress(tmpl.to_address || "");
+      setSubject(tmpl.subject || "");
+      setReferences(tmpl.references || "");
+      setBody(tmpl.body || "");
+      setTemplatesOpen(false);
+      toast.success(`Template "${t.name}" apply ho gaya`);
+    } catch (e) {
+      toast.error("Template load fail");
+    }
+  };
+
+  // ====================== WHATSAPP ======================
+  const openWhatsApp = (mode) => {
+    if (!body.trim()) { toast.error("Pehle body type karein, fir share karein"); return; }
+    setWaPhone("");
+    setWaGroupId("");
+    setWaCaption("");
+    setWaOpen({ open: true, mode });
+  };
+
+  const sendWhatsApp = async () => {
+    setWaBusy(true);
+    try {
+      const payload = {
+        letter: { ref_no: refNo, date, to_address: toAddress, subject, references, body },
+        mode: waOpen.mode,
+        phone: waPhone,
+        group_id: waGroupId,
+        caption: waCaption,
+      };
+      const res = await axios.post(`${API}/letter-pad/whatsapp`, payload);
+      if (res.data.success) {
+        toast.success(res.data.message || "WhatsApp pe bhej diya!");
+        setWaOpen({ open: false, mode: "phone" });
+      } else {
+        toast.error(res.data.error || res.data.message || "Send fail");
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "WhatsApp send fail");
+    } finally {
+      setWaBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-4" data-testid="letter-pad-tab">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="text-amber-400 text-xl font-bold">Company Letter Pad</h2>
-          <p className="text-slate-400 text-xs">Professional letterhead — PDF / Word download. {aiAvailable ? <span className="text-emerald-400">AI Assistant active</span> : <span className="text-slate-500">AI off</span>}</p>
+          <p className="text-slate-400 text-xs">
+            Professional letterhead — PDF / Word / WhatsApp.{' '}
+            {aiAvailable
+              ? <span className="text-emerald-400">AI Assistant active</span>
+              : <span className="text-slate-500">AI off</span>}
+            {activeDraftId && draftTitle && (
+              <span className="ml-2 text-amber-400">· Editing: {draftTitle}</span>
+            )}
+          </p>
         </div>
-        <Button onClick={() => setSettingsOpen(true)} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="letter-pad-settings-btn">
-          <SettingsIcon className="w-4 h-4 mr-1" /> Settings
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={newLetter} variant="outline" size="sm"
+            className="border-slate-600 text-slate-300" data-testid="letter-new-btn">
+            <FileText className="w-4 h-4 mr-1" /> New
+          </Button>
+          <Button onClick={() => { loadDrafts(); setDraftsOpen(true); }} variant="outline" size="sm"
+            className="border-amber-700 text-amber-400 hover:bg-amber-900/30" data-testid="letter-drafts-btn">
+            <FolderOpen className="w-4 h-4 mr-1" /> Drafts
+          </Button>
+          <Button onClick={() => setTemplatesOpen(true)} variant="outline" size="sm"
+            className="border-emerald-700 text-emerald-400 hover:bg-emerald-900/30" data-testid="letter-templates-btn">
+            <BookTemplate className="w-4 h-4 mr-1" /> Templates
+          </Button>
+          <Button onClick={() => setSettingsOpen(true)} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="letter-pad-settings-btn">
+            <SettingsIcon className="w-4 h-4 mr-1" /> Settings
+          </Button>
+        </div>
       </div>
 
       {/* Form Card */}
@@ -228,7 +412,12 @@ const LetterPadTab = () => {
             <p className="text-[10px] text-slate-500 mt-1">{body.length} characters · ~{Math.round(body.split(/\s+/).filter(Boolean).length)} words</p>
           </div>
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-2 flex-wrap">
+            <Button onClick={saveDraft} disabled={savingDraft || (!body.trim() && !subject.trim())}
+              className="bg-amber-600 hover:bg-amber-700 text-white" data-testid="save-draft-btn">
+              {savingDraft ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+              {activeDraftId ? "Update Draft" : "Save Draft"}
+            </Button>
             <Button onClick={() => downloadFile("pdf")} disabled={downloading || !body.trim()}
               className="bg-rose-600 hover:bg-rose-700 text-white" data-testid="download-pdf-btn">
               <Download className="w-4 h-4 mr-1" /> Download PDF
@@ -237,9 +426,156 @@ const LetterPadTab = () => {
               className="bg-blue-600 hover:bg-blue-700 text-white" data-testid="download-docx-btn">
               <Download className="w-4 h-4 mr-1" /> Download Word (.docx)
             </Button>
+            <div className="ml-auto flex gap-1">
+              <Button onClick={() => openWhatsApp("phone")} disabled={!body.trim()}
+                title="WhatsApp Phone"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="wa-phone-btn">
+                <MessageCircle className="w-4 h-4 mr-1" /> Phone
+              </Button>
+              <Button onClick={() => openWhatsApp("group")} disabled={!body.trim()}
+                title="WhatsApp Group"
+                className="bg-emerald-700 hover:bg-emerald-800 text-white" data-testid="wa-group-btn">
+                <Users className="w-4 h-4 mr-1" /> Group
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Drafts Dialog */}
+      <Dialog open={draftsOpen} onOpenChange={setDraftsOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg" data-testid="drafts-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-amber-400 flex items-center gap-2">
+              <FolderOpen className="w-5 h-5" /> Saved Drafts
+            </DialogTitle>
+            <DialogDescription className="text-slate-400 text-xs">
+              Click on a draft to load it. Bookmark icon dabake delete kar sakte hain.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
+            {drafts.length === 0 && (
+              <p className="text-slate-500 text-sm text-center py-8">Koi draft save nahi hai. Letter likh kar "Save Draft" dabaye.</p>
+            )}
+            {drafts.map(d => (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => loadDraft(d)}
+                className="w-full text-left p-3 rounded bg-slate-900/60 border border-slate-700 hover:border-amber-600 hover:bg-slate-900 transition group flex items-start gap-3"
+                data-testid={`draft-item-${d.id}`}
+              >
+                <FileText className="w-4 h-4 mt-1 text-amber-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">{d.title || 'Untitled'}</p>
+                  <p className="text-[11px] text-slate-400 truncate">{d.subject || '(no subject)'}</p>
+                  <p className="text-[10px] text-slate-500">
+                    {d.updated_at ? new Date(d.updated_at).toLocaleString('en-GB') : ''}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => deleteDraft(d, e)}
+                  className="p-1 text-slate-500 hover:text-rose-400 opacity-60 group-hover:opacity-100"
+                  data-testid={`draft-delete-${d.id}`}
+                  aria-label="Delete draft"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDraftsOpen(false)} className="text-slate-300">Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Templates Dialog */}
+      <Dialog open={templatesOpen} onOpenChange={setTemplatesOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl" data-testid="templates-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-emerald-400 flex items-center gap-2">
+              <BookTemplate className="w-5 h-5" /> Letter Templates Library
+            </DialogTitle>
+            <DialogDescription className="text-slate-400 text-xs">
+              Pre-written letters rice millers ke common scenarios ke liye. Apply karne ke baad edit kar sakte hain.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[60vh] overflow-y-auto pr-2">
+            {templates.map(t => {
+              const Icon = TEMPLATE_ICONS[t.icon] || FileText;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => applyTemplate(t)}
+                  className="text-left p-3 rounded bg-slate-900/60 border border-slate-700 hover:border-emerald-600 hover:bg-slate-900 transition flex items-start gap-3"
+                  data-testid={`template-item-${t.id}`}
+                >
+                  <div className="p-2 rounded bg-emerald-900/40 shrink-0">
+                    <Icon className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white">{t.name}</p>
+                    <p className="text-[11px] text-emerald-400 uppercase tracking-wider">{t.category}</p>
+                    <p className="text-[11px] text-slate-400 truncate mt-0.5">{t.preview}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setTemplatesOpen(false)} className="text-slate-300">Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* WhatsApp Share Dialog */}
+      <Dialog open={waOpen.open} onOpenChange={(o) => !o && setWaOpen({ open: false, mode: "phone" })}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md" data-testid="wa-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-emerald-400 flex items-center gap-2">
+              {waOpen.mode === 'phone' ? <MessageCircle className="w-5 h-5" /> : <Users className="w-5 h-5" />}
+              WhatsApp Share — {waOpen.mode === 'phone' ? 'Phone Number' : 'Group'}
+            </DialogTitle>
+            <DialogDescription className="text-slate-400 text-xs">
+              Letter PDF generate ho ke 360Messenger ke through WhatsApp pe bhej diya jayega.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {waOpen.mode === 'phone' ? (
+              <div>
+                <Label className="text-slate-400 text-xs">Phone Number (10 digit, country code optional)</Label>
+                <Input value={waPhone} onChange={(e) => setWaPhone(e.target.value)}
+                  placeholder="9876543210" className="bg-slate-700 border-slate-600 text-white"
+                  data-testid="wa-phone-input" />
+              </div>
+            ) : (
+              <div>
+                <Label className="text-slate-400 text-xs">Group ID (blank = default group from Settings)</Label>
+                <Input value={waGroupId} onChange={(e) => setWaGroupId(e.target.value)}
+                  placeholder="120363xxxx@g.us" className="bg-slate-700 border-slate-600 text-white font-mono text-xs"
+                  data-testid="wa-group-input" />
+              </div>
+            )}
+            <div>
+              <Label className="text-slate-400 text-xs">Optional Custom Message (default: "Please find attached letter")</Label>
+              <Textarea value={waCaption} onChange={(e) => setWaCaption(e.target.value)} rows={3}
+                placeholder="(Optional) Add a personal note above the PDF" className="bg-slate-700 border-slate-600 text-white"
+                data-testid="wa-caption-input" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setWaOpen({ open: false, mode: "phone" })} className="text-slate-300">Cancel</Button>
+            <Button onClick={sendWhatsApp} disabled={waBusy || (waOpen.mode === 'phone' && !waPhone.trim())}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="wa-send-btn">
+              {waBusy ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Send className="w-4 h-4 mr-1" />}
+              {waBusy ? "Sending..." : "Send via WhatsApp"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Settings Dialog */}
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>

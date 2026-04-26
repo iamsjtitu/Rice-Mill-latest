@@ -31,6 +31,8 @@ const ARRAY_COLLECTIONS = [
   'party_opening_balances', 'private_rice_sales', 'bp_sale_register',
   'cash_book_categories', 'salebook', 'security_deposits', 'store_rooms',
   'telegram_logs', 'verification_history',
+  // v104.30.0 — Letter Pad drafts (Save Draft feature):
+  'letter_drafts',
 ];
 
 // KV items (non-array objects)

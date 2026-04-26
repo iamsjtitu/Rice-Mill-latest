@@ -15,15 +15,23 @@ Features:
 """
 from fastapi import APIRouter, HTTPException, Body
 from fastapi.responses import StreamingResponse
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO
+import uuid
+import logging
 import httpx
 
 from database import db
 from utils.branding_helper import get_branding_data
 from utils.export_helpers import register_hindi_fonts
+from utils.letter_pad_templates import (
+    LETTER_PAD_TEMPLATES,
+    get_templates,
+    get_template_by_id,
+)
 
 router = APIRouter()
+logger = logging.getLogger("letter_pad")
 
 # ---------- Settings (signature + AI keys) ----------
 
@@ -330,10 +338,20 @@ def _draw_footer_signature(canvas, ctx, page_w, y):
 @router.post("/letter-pad/pdf")
 async def generate_letter_pdf(payload: dict = Body(...)):
     """payload = { ref_no, date, to_address, subject, body, references }"""
+    ctx = await _build_letter_context()
+    pdf_bytes = _build_letter_pdf_bytes(payload, ctx)
+    fname = f"letter_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    return StreamingResponse(
+        BytesIO(pdf_bytes), media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+def _build_letter_pdf_bytes(payload: dict, ctx: dict) -> bytes:
+    """Render letter to PDF bytes (used by both /pdf endpoint and WhatsApp share)."""
     from reportlab.pdfgen import canvas as rl_canvas
     from reportlab.lib.pagesizes import A4
 
-    ctx = await _build_letter_context()
     buf = BytesIO()
     c = rl_canvas.Canvas(buf, pagesize=A4)
     page_w, page_h = A4
@@ -393,16 +411,13 @@ async def generate_letter_pdf(payload: dict = Body(...)):
         "Body", fontName="Inter", fontSize=11, leading=15,
         alignment=TA_JUSTIFY, textColor=_HexColor("#1f2937"),
     )
-    # Render each paragraph via a Paragraph (auto-wrap)
-    from reportlab.platypus import KeepInFrame
     for para in body.split("\n\n"):
         if not para.strip():
             continue
         p = Paragraph(para.replace("\n", "<br/>"), body_style)
-        avail_h = y - 150  # reserve 150pt for signature block
+        avail_h = y - 150
         w, h = p.wrap(page_w - 80, avail_h)
         if h > avail_h:
-            # New page
             c.showPage()
             new_top = _draw_letterhead_pdf(c, ctx, page_w, page_h)
             y = new_top - 18
@@ -415,12 +430,8 @@ async def generate_letter_pdf(payload: dict = Body(...)):
     _draw_footer_signature(c, ctx, page_w, sig_y)
 
     c.save()
-    buf.seek(0)
-    fname = f"letter_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-    return StreamingResponse(
-        buf, media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
-    )
+    return buf.getvalue()
+
 
 
 # ---------- Word (.docx) letterhead ----------
@@ -581,3 +592,176 @@ async def generate_letter_docx(payload: dict = Body(...)):
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'},
     )
+
+
+
+# ====================== DRAFTS (CRUD) ======================
+
+def _draft_doc(d: dict) -> dict:
+    """Strip MongoDB internals."""
+    d.pop("_id", None)
+    return d
+
+
+@router.get("/letter-pad/drafts")
+async def list_drafts():
+    """List saved drafts (newest first)."""
+    cursor = db.letter_drafts.find({}, {"_id": 0}).sort("updated_at", -1)
+    drafts = []
+    async for d in cursor:
+        drafts.append(d)
+    return drafts
+
+
+@router.post("/letter-pad/drafts")
+async def create_draft(payload: dict = Body(...)):
+    """Create a new draft. payload = {title?, ref_no, date, to_address, subject,
+    references, body}."""
+    body = (payload.get("body") or "").strip()
+    if not body and not (payload.get("subject") or "").strip():
+        raise HTTPException(status_code=400, detail="Khaali draft save nahi ho sakti — kuch text type karein")
+    now = datetime.now(timezone.utc).isoformat()
+    title = (payload.get("title") or "").strip() or (payload.get("subject") or "").strip()[:60] or "Untitled Draft"
+    doc = {
+        "id": str(uuid.uuid4()),
+        "title": title,
+        "ref_no": payload.get("ref_no", ""),
+        "date": payload.get("date", ""),
+        "to_address": payload.get("to_address", ""),
+        "subject": payload.get("subject", ""),
+        "references": payload.get("references", ""),
+        "body": payload.get("body", ""),
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.letter_drafts.insert_one(doc.copy())
+    return _draft_doc(doc)
+
+
+@router.put("/letter-pad/drafts/{draft_id}")
+async def update_draft(draft_id: str, payload: dict = Body(...)):
+    existing = await db.letter_drafts.find_one({"id": draft_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    update_fields = {}
+    for f in ("title", "ref_no", "date", "to_address", "subject", "references", "body"):
+        if f in payload:
+            update_fields[f] = payload[f] or ""
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.letter_drafts.update_one({"id": draft_id}, {"$set": update_fields})
+    return await db.letter_drafts.find_one({"id": draft_id}, {"_id": 0})
+
+
+@router.delete("/letter-pad/drafts/{draft_id}")
+async def delete_draft(draft_id: str):
+    res = await db.letter_drafts.delete_one({"id": draft_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    return {"success": True}
+
+
+# ====================== TEMPLATES ======================
+
+@router.get("/letter-pad/templates")
+async def list_templates():
+    """Lightweight list (id, name, category) for picker UI."""
+    return get_templates()
+
+
+@router.get("/letter-pad/templates/{template_id}")
+async def get_template(template_id: str):
+    t = get_template_by_id(template_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return t
+
+
+# ====================== WHATSAPP SHARE ======================
+
+@router.post("/letter-pad/whatsapp")
+async def share_letter_via_whatsapp(payload: dict = Body(...)):
+    """Generate letter PDF, upload to tmpfiles.org, send via 360Messenger.
+
+    payload = {
+      letter: {ref_no, date, to_address, subject, references, body},
+      mode: 'phone' | 'group' | 'default',
+      phone?: '9876543210',
+      group_id?: '...',
+      caption?: 'Custom message'
+    }
+    """
+    from routes.whatsapp import _get_wa_settings, _send_wa_message, _send_wa_to_group
+
+    letter = payload.get("letter") or {}
+    if not (letter.get("body") or "").strip():
+        raise HTTPException(status_code=400, detail="Letter body khaali hai")
+    mode = (payload.get("mode") or "default").lower()
+
+    wa_settings = await _get_wa_settings()
+    if not wa_settings.get("api_key"):
+        raise HTTPException(status_code=400, detail="WhatsApp API key set nahi hai. Settings → WhatsApp mein 360Messenger key dale.")
+
+    # Build PDF in memory
+    ctx = await _build_letter_context()
+    pdf_bytes = _build_letter_pdf_bytes(letter, ctx)
+    if len(pdf_bytes) < 100:
+        raise HTTPException(status_code=500, detail="PDF generation fail")
+
+    # Upload to tmpfiles.org
+    public_pdf_url = ""
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            files = {"file": (f"letter_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf", pdf_bytes, "application/pdf")}
+            up = await client.post("https://tmpfiles.org/api/v1/upload", files=files)
+            if up.status_code == 200:
+                tmp_url = up.json().get("data", {}).get("url", "")
+                if tmp_url:
+                    public_pdf_url = tmp_url.replace("http://tmpfiles.org/", "https://tmpfiles.org/dl/")
+    except Exception as e:
+        logger.error(f"Letter PDF upload error: {e}")
+    if not public_pdf_url:
+        raise HTTPException(status_code=502, detail="PDF upload (tmpfiles.org) fail hua. Internet check karein.")
+
+    # Caption: company name + subject + custom note
+    company = ctx.get("company_name") or "Mill Entry System"
+    subject = (letter.get("subject") or "").strip()
+    note = (payload.get("caption") or "").strip()
+    caption = f"*{company}*"
+    if subject:
+        caption += f"\nSubject: {subject}"
+    if note:
+        caption += f"\n{note}"
+    else:
+        caption += "\nPlease find attached letter."
+    caption += f"\n\n— {company}"
+
+    results = []
+    if mode == "phone":
+        phone = (payload.get("phone") or "").strip()
+        if not phone:
+            raise HTTPException(status_code=400, detail="Phone number daalein")
+        r = await _send_wa_message(phone, caption, public_pdf_url)
+        results.append({"target": phone, "success": r.get("success", False), "error": r.get("error", "")})
+    elif mode == "group":
+        gid = (payload.get("group_id") or "").strip() or wa_settings.get("default_group_id", "") or wa_settings.get("group_id", "")
+        if not gid:
+            raise HTTPException(status_code=400, detail="Group ID daalein ya default group set karein")
+        r = await _send_wa_to_group(gid, caption, public_pdf_url)
+        results.append({"target": "group", "success": r.get("success", False), "error": r.get("error", "")})
+    else:  # default — send to all default numbers
+        nums = wa_settings.get("default_numbers", [])
+        if isinstance(nums, str):
+            nums = [n.strip() for n in nums.split(",") if n.strip()]
+        if not nums:
+            raise HTTPException(status_code=400, detail="Default numbers set nahi hai. Settings → WhatsApp mein numbers SAVE karein, ya phone/group choose karein.")
+        for num in nums:
+            r = await _send_wa_message(num, caption, public_pdf_url)
+            results.append({"target": num, "success": r.get("success", False), "error": r.get("error", "")})
+
+    success_count = sum(1 for r in results if r["success"])
+    return {
+        "success": success_count > 0,
+        "message": f"Letter {success_count}/{len(results)} target(s) pe bhej diya!",
+        "details": results,
+        "pdf_url": public_pdf_url,
+    }

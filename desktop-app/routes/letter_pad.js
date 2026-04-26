@@ -3,10 +3,14 @@
  * Mirrors /app/backend/routes/letter_pad.py (triple-backend parity).
  */
 const express = require('express');
+const https = require('https');
+const http = require('http');
+const { v4: uuidv4 } = require('uuid');
 const { safeSync } = require('./safe_handler');
 const { F: pdfF, registerFonts } = require('./pdf_helpers');
 const PDFDocument = require('pdfkit');
 const docx = require('docx');
+const { LETTER_PAD_TEMPLATES, getTemplates, getTemplateById } = require('./letter_pad_templates');
 
 module.exports = (database) => {
   const router = express.Router();
@@ -170,13 +174,20 @@ module.exports = (database) => {
 
   router.post('/api/letter-pad/pdf', safeSync(async (req, res) => {
     const ctx = loadCtx();
-    const { ref_no, date, to_address, subject, references, body } = req.body || {};
-    const doc = new PDFDocument({ size: 'A4', margin: 0 });
-    registerFonts(doc);
-    const fname = `letter_${(date || new Date().toISOString().slice(0, 10)).replace(/-/g, '')}.pdf`;
+    const dateStr = (req.body || {}).date || new Date().toISOString().slice(0, 10);
+    const fname = `letter_${dateStr.replace(/-/g, '')}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
+    const doc = renderLetterPdf(ctx, req.body || {});
     doc.pipe(res);
+    doc.end();
+  }));
+
+  // Render letter into a PDFDocument stream (re-used by /pdf and /whatsapp).
+  function renderLetterPdf(ctx, payload) {
+    const { ref_no, date, to_address, subject, references, body } = payload;
+    const doc = new PDFDocument({ size: 'A4', margin: 0 });
+    registerFonts(doc);
     const pageW = doc.page.width;
     const pageH = doc.page.height;
     let y = drawLetterhead(doc, ctx, pageW);
@@ -220,8 +231,20 @@ module.exports = (database) => {
     doc.font(pdfF('normal')).fontSize(10).fillColor('#475569')
       .text(ctx.signature_designation, 0, sigY + 64, { width: pageW - 40, align: 'right' });
     doc.text(`M/s ${ctx.company_name}`, 0, sigY + 78, { width: pageW - 40, align: 'right' });
-    doc.end();
-  }));
+    return doc;
+  }
+
+  // Render to Buffer (for uploads/WhatsApp).
+  function renderLetterPdfBuffer(ctx, payload) {
+    return new Promise((resolve, reject) => {
+      const doc = renderLetterPdf(ctx, payload);
+      const chunks = [];
+      doc.on('data', c => chunks.push(c));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+      doc.end();
+    });
+  }
 
   // ========== DOCX letterhead ==========
   router.post('/api/letter-pad/docx', safeSync(async (req, res) => {
@@ -323,6 +346,222 @@ module.exports = (database) => {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
     res.send(buffer);
+  }));
+
+  // ========== DRAFTS (CRUD) ==========
+  function draftsCol() {
+    if (!Array.isArray(database.data.letter_drafts)) database.data.letter_drafts = [];
+    return database.data.letter_drafts;
+  }
+
+  router.get('/api/letter-pad/drafts', safeSync(async (req, res) => {
+    const list = draftsCol().slice().sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
+    res.json(list);
+  }));
+
+  router.post('/api/letter-pad/drafts', safeSync(async (req, res) => {
+    const b = req.body || {};
+    const body = String(b.body || '').trim();
+    const subject = String(b.subject || '').trim();
+    if (!body && !subject) return res.status(400).json({ detail: 'Khaali draft save nahi ho sakti — kuch text type karein' });
+    const now = new Date().toISOString();
+    const title = (String(b.title || '').trim() || subject.slice(0, 60) || 'Untitled Draft');
+    const doc = {
+      id: uuidv4(),
+      title,
+      ref_no: b.ref_no || '',
+      date: b.date || '',
+      to_address: b.to_address || '',
+      subject: b.subject || '',
+      references: b.references || '',
+      body: b.body || '',
+      created_at: now,
+      updated_at: now,
+    };
+    draftsCol().push(doc);
+    if (database.saveImmediate) database.saveImmediate(); else database.save();
+    res.json(doc);
+  }));
+
+  router.put('/api/letter-pad/drafts/:id', safeSync(async (req, res) => {
+    const list = draftsCol();
+    const idx = list.findIndex(d => d.id === req.params.id);
+    if (idx < 0) return res.status(404).json({ detail: 'Draft not found' });
+    const cur = list[idx];
+    const b = req.body || {};
+    ['title', 'ref_no', 'date', 'to_address', 'subject', 'references', 'body'].forEach(f => {
+      if (b[f] !== undefined) cur[f] = b[f] || '';
+    });
+    cur.updated_at = new Date().toISOString();
+    list[idx] = cur;
+    if (database.saveImmediate) database.saveImmediate(); else database.save();
+    res.json(cur);
+  }));
+
+  router.delete('/api/letter-pad/drafts/:id', safeSync(async (req, res) => {
+    const list = draftsCol();
+    const idx = list.findIndex(d => d.id === req.params.id);
+    if (idx < 0) return res.status(404).json({ detail: 'Draft not found' });
+    list.splice(idx, 1);
+    if (database.saveImmediate) database.saveImmediate(); else database.save();
+    res.json({ success: true });
+  }));
+
+  // ========== TEMPLATES ==========
+  router.get('/api/letter-pad/templates', safeSync(async (req, res) => {
+    res.json(getTemplates());
+  }));
+
+  router.get('/api/letter-pad/templates/:id', safeSync(async (req, res) => {
+    const t = getTemplateById(req.params.id);
+    if (!t) return res.status(404).json({ detail: 'Template not found' });
+    res.json(t);
+  }));
+
+  // ========== WHATSAPP SHARE ==========
+  function getWaSettings() {
+    const s = (database.data.app_settings || []).find(x => x.setting_id === 'whatsapp_config');
+    return s || { api_key: '', country_code: '91', default_numbers: [], group_id: '', default_group_id: '' };
+  }
+
+  function cleanPhone(phone, countryCode = '91') {
+    phone = String(phone || '').trim().replace(/[\s\-+]/g, '');
+    if (phone.startsWith('0')) phone = phone.substring(1);
+    if (!phone.startsWith(countryCode)) phone = countryCode + phone;
+    return phone;
+  }
+
+  function uploadPdfBufferToTmpFiles(pdfBuffer, fileName) {
+    return new Promise((resolve) => {
+      if (!pdfBuffer || pdfBuffer.length < 100) return resolve('');
+      const boundary = '----FormBoundary' + Date.now();
+      const header = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: application/pdf\r\n\r\n`;
+      const footer = `\r\n--${boundary}--\r\n`;
+      const body = Buffer.concat([Buffer.from(header), pdfBuffer, Buffer.from(footer)]);
+      const opts = {
+        hostname: 'tmpfiles.org', path: '/api/v1/upload', method: 'POST',
+        headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length },
+      };
+      const r = https.request(opts, (rr) => {
+        let data = '';
+        rr.on('data', c => data += c);
+        rr.on('end', () => {
+          try {
+            const result = JSON.parse(data);
+            if (result.status === 'success' && result.data && result.data.url) {
+              resolve(result.data.url.replace('http://tmpfiles.org/', 'https://tmpfiles.org/dl/'));
+            } else resolve('');
+          } catch (_) { resolve(''); }
+        });
+      });
+      r.on('error', () => resolve(''));
+      r.write(body);
+      r.end();
+    });
+  }
+
+  function sendWaMessage(apiKey, phone, text, mediaUrl) {
+    return new Promise((resolve) => {
+      const postData = `phonenumber=${encodeURIComponent(phone)}&text=${encodeURIComponent(text)}${mediaUrl ? '&url=' + encodeURIComponent(mediaUrl) : ''}`;
+      const options = {
+        hostname: 'api.360messenger.com', path: '/v2/sendMessage', method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(postData) },
+      };
+      const r = https.request(options, (rr) => {
+        let data = '';
+        rr.on('data', c => data += c);
+        rr.on('end', () => {
+          try {
+            const result = JSON.parse(data);
+            const ok = result.success || rr.statusCode === 201;
+            resolve({ success: ok, error: ok ? '' : (result.error || result.message || `HTTP ${rr.statusCode}`) });
+          } catch (e) { resolve({ success: false, error: data || e.message }); }
+        });
+      });
+      r.on('error', e => resolve({ success: false, error: e.message }));
+      r.write(postData);
+      r.end();
+    });
+  }
+
+  function sendWaGroup(apiKey, groupId, text, mediaUrl) {
+    return new Promise((resolve) => {
+      const postData = JSON.stringify({ groupId, text, url: mediaUrl || undefined });
+      const options = {
+        hostname: 'api.360messenger.com', path: '/v2/sendGroup', method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) },
+      };
+      const r = https.request(options, (rr) => {
+        let data = '';
+        rr.on('data', c => data += c);
+        rr.on('end', () => {
+          try {
+            const result = JSON.parse(data);
+            const ok = result.success || rr.statusCode === 201;
+            resolve({ success: ok, error: ok ? '' : (result.error || result.message || `HTTP ${rr.statusCode}`) });
+          } catch (e) { resolve({ success: false, error: data || e.message }); }
+        });
+      });
+      r.on('error', e => resolve({ success: false, error: e.message }));
+      r.write(postData);
+      r.end();
+    });
+  }
+
+  router.post('/api/letter-pad/whatsapp', safeSync(async (req, res) => {
+    const { letter, mode, phone, group_id, caption } = req.body || {};
+    if (!letter || !String(letter.body || '').trim()) {
+      return res.status(400).json({ detail: 'Letter body khaali hai' });
+    }
+    const wa = getWaSettings();
+    if (!wa.api_key) return res.status(400).json({ detail: 'WhatsApp API key set nahi hai. Settings → WhatsApp mein 360Messenger key dale.' });
+
+    const ctx = loadCtx();
+    let pdfBuf;
+    try {
+      pdfBuf = await renderLetterPdfBuffer(ctx, letter);
+    } catch (e) {
+      return res.status(500).json({ detail: 'PDF generation fail: ' + e.message });
+    }
+    const fname = `letter_${(letter.date || new Date().toISOString().slice(0, 10)).replace(/-/g, '')}.pdf`;
+    const publicPdfUrl = await uploadPdfBufferToTmpFiles(pdfBuf, fname);
+    if (!publicPdfUrl) return res.status(502).json({ detail: 'PDF upload (tmpfiles.org) fail. Internet check karein.' });
+
+    const company = ctx.company_name || 'Mill Entry System';
+    const subject = String(letter.subject || '').trim();
+    const note = String(caption || '').trim();
+    let cap = `*${company}*`;
+    if (subject) cap += `\nSubject: ${subject}`;
+    cap += note ? `\n${note}` : '\nPlease find attached letter.';
+    cap += `\n\n— ${company}`;
+
+    const m = String(mode || 'default').toLowerCase();
+    const results = [];
+    if (m === 'phone') {
+      if (!phone) return res.status(400).json({ detail: 'Phone number daalein' });
+      const r = await sendWaMessage(wa.api_key, cleanPhone(phone, wa.country_code || '91'), cap, publicPdfUrl);
+      results.push({ target: phone, success: r.success, error: r.error });
+    } else if (m === 'group') {
+      const gid = String(group_id || '').trim() || wa.default_group_id || wa.group_id;
+      if (!gid) return res.status(400).json({ detail: 'Group ID daalein ya default group set karein' });
+      const r = await sendWaGroup(wa.api_key, gid, cap, publicPdfUrl);
+      results.push({ target: 'group', success: r.success, error: r.error });
+    } else {
+      let nums = wa.default_numbers || [];
+      if (typeof nums === 'string') nums = nums.split(',').map(n => n.trim()).filter(Boolean);
+      if (!Array.isArray(nums) || !nums.length) return res.status(400).json({ detail: 'Default numbers set nahi hai. Settings → WhatsApp mein numbers SAVE karein, ya phone/group choose karein.' });
+      for (const n of nums) {
+        const r = await sendWaMessage(wa.api_key, cleanPhone(n, wa.country_code || '91'), cap, publicPdfUrl);
+        results.push({ target: n, success: r.success, error: r.error });
+      }
+    }
+    const ok = results.filter(r => r.success).length;
+    res.json({
+      success: ok > 0,
+      message: `Letter ${ok}/${results.length} target(s) pe bhej diya!`,
+      details: results,
+      pdf_url: publicPdfUrl,
+    });
   }));
 
   return router;
