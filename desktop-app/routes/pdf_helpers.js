@@ -544,4 +544,16 @@ function drawSectionBand(doc, title, opts = {}) {
   return doc.y;
 }
 
-module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F, safePdfPipe, drawWatermark, createPdfDoc, drawSummaryBanner, drawSectionBand, addExcelSummaryBanner, STAT_COLORS, fmtInr };
+/**
+ * Reserve vertical space — start a new page if the current one doesn't have at least `needed` pts left.
+ * Used to prevent orphan section bands (band on one page, table on the next).
+ */
+function ensureSpace(doc, needed) {
+  const margin = 25;
+  if (doc.y + needed > doc.page.height - margin) {
+    doc.addPage();
+    doc.y = margin;
+  }
+}
+
+module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F, safePdfPipe, drawWatermark, createPdfDoc, drawSummaryBanner, drawSectionBand, ensureSpace, addExcelSummaryBanner, STAT_COLORS, fmtInr };

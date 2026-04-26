@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.30",
+    date: "Apr 2026",
+    title: "v104.28.30 — 🐛 Agent / Mandi Payments Calculation Fix + Section Gap Fix",
+    items: [
+      { type: "fix", text: "🐛 **Agent commission ab TP Weight pe calculate hota hai** (achieved procurement), pehle target_qntl pe hota tha — galat tha. Formula: `Total = TP_Weight × base_rate + (TP_Weight × cutting% / 100) × cutting_rate`. User example: Kesinga ka target 5000 Q tha but actual TP weight 278 Q hua → ab Total = 278 × 10 = Rs.2,780 (sahi), pehle Rs.51,250 dikha raha tha (galat — target × rate)" },
+      { type: "fix", text: "🐛 **Cutting rate 0 set karne pe ab 0 hi count hota hai** (pehle JavaScript `||` operator 0 ko falsy mantа thaa aur fallback Rs.5 le leta tha). Ab `??` (nullish coalescing) use karke explicit 0 respect hota hai. Test verified: `cutting_rate=0` → Rates column 'Rs.10/Rs.0' dikhta hai aur cutting commission Rs.0 hi count hoti hai" },
+      { type: "fix", text: "🛟 **Section header GAP fix** — pehle agar previous section ka table page ke end pe khatam hota tha aur agle section ka banner page ke neeche fit nahi hota tha, toh banner aur uska table alag-alag pages pe chale jaate the (orphan banner). Ab **`ensureSpace` helper** pre-check karta hai ki banner + at least 3 rows fit ho rahe hain ya nahi — agar nahi, toh full new page se start hota hai" },
+      { type: "fix", text: "🔄 **Triple-Backend Parity** — Python (web) + Desktop App + LAN Local Server teeno mein same fix apply. Auto-sync via Python regex extractor + `pdf_helpers.js` shared helpers" },
+      { type: "fix", text: "📋 **Agent table column** ab 'Target' ki jagah 'TP Weight' label dikhata hai — clarity ke liye" },
+    ],
+  },
+  {
     version: "104.28.29",
     date: "Apr 2026",
     title: "v104.28.29 — 🛠️ Hemali Monthly Summary PDF & Excel: Desktop App Parity (Sardar Bands + KPI Banner)",

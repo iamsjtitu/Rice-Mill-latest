@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.29
+## Current Version: v104.28.30
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -17,7 +17,34 @@
 - `/app/desktop-app/` — Node.js Express (Electron desktop app, JSON/SQLite) — **THIS IS WHAT THE USER ACTUALLY USES IN PRODUCTION**
 - `/app/local-server/` — Node.js Express (LAN host, JSON/SQLite)
 
-**Lesson from v104.28.27→104.28.28**: Redesigning Dashboard/Summary PDFs only in Python backend caused user frustration. Always port via the helper functions (`drawSectionBand`, `drawSummaryBanner`, `addExcelSummaryBanner`, `addPdfTable`) which exist in both Python (`utils/export_helpers.py`) and Node.js (`routes/pdf_helpers.js`). Sync trick: use a Python regex-based extractor to copy endpoint blocks from desktop-app to local-server (faster + safer than manual line-by-line edits).
+## Recent Fixes (Apr 2026) — v104.28.30
+
+### Agent / Mandi Payments Calculation Fix + Section Gap Fix
+- **User complaints (verbatim)**:
+  - *"AGENT / MANDI PAYMENTS ye galat hai · ismai jitna tp weight aya hai uske hisab se 10rs ke hisab se add hona chahiye"*
+  - *"and cutting and cutting rates humne 0 rakha taha par ismai amount kyu add hua"*
+  - *"jo GAP hai usko thik karo dono ke bich mai"*
+
+- **Bug 1: Wrong basis for agent commission (target_qntl instead of TP weight)**
+  - **Old formula** (Python + Desktop + LAN): `total_amt = target_qntl × base_rate + (target_qntl × cutting% / 100) × cutting_rate`
+  - **New formula**: `total_amt = tp_weight × base_rate + (tp_weight × cutting% / 100) × cutting_rate`
+  - Matches the **existing agent_payments page** logic in `entries.js` and `payments.js` (which has always used `tp_weight`).
+  - Files: `/app/backend/routes/exports.py` (Python summary + dashboard), `/app/desktop-app/routes/exports.js` (Node summary + dashboard), `/app/local-server/routes/exports.js` (synced).
+
+- **Bug 2: Falsy bug — `cutting_rate = 0` was being defaulted to 5**
+  - Old JS: `t.cutting_rate || 5` → JavaScript treats `0` as falsy → returns `5`. So even when user set `cutting_rate = 0`, the report calculated commission at Rs.5/qntl.
+  - **Fix (JS)**: changed to `t.cutting_rate ?? 5` (nullish coalescing — only `null`/`undefined` triggers fallback, `0` is respected).
+  - **Fix (Python)**: added `_rate(val, fallback)` helper using explicit `is not None` check (Python's `dict.get(k, default)` already respects `0` for present keys, but the helper makes the intent explicit and handles `None`).
+  - Same change applied to `base_rate`, `cutting_rate`, AND `cutting_percent` — all 3 now respect explicit `0`.
+
+- **Bug 3: Orphan section banner (large vertical gap)**
+  - **Symptom**: previous section's table ended near page bottom → next section's coloured banner rendered on the same page → but its table didn't fit → banner stayed on Page N while table moved to Page N+1, creating a huge empty gap on Page N below the orphaned banner.
+  - **Fix (Python)**: imported `CondPageBreak` from `reportlab.platypus` and added `elements.append(CondPageBreak(60*mm))` before each `get_pdf_section_band(...)` call. ReportLab now forces a page break if remaining vertical space < 60mm so banner+table stay together.
+  - **Fix (Node.js)**: added `ensureSpace(doc, needed)` helper to `/app/desktop-app/routes/pdf_helpers.js` (and synced to local-server). Helper calls `doc.addPage()` if `doc.y + needed > doc.page.height - margin`. Called before every `drawSectionBand()` invocation with section-specific minimum needed space (130-170pt).
+
+- **Other**: Agent payments table column header changed from "Target" to "TP Weight" for clarity (label now matches the value).
+
+- **Verified**: smoke-tested Desktop App PDF with realistic 5-mandi scenario including Kesinga(cutting_rate=0). Output validated: `Rates: Rs.10/Rs.0`, `Total: Rs.4,750 = 475 × 10` (no cutting commission added), section banners + tables stay together on same page.
 
 ## Recent Fixes (Apr 2026) — v104.28.29
 

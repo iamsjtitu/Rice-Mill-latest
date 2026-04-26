@@ -3,7 +3,7 @@ const { safeAsync, safeSync, roundAmount } = require('./safe_handler');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, registerFonts, F , safePdfPipe, drawSummaryBanner, drawSectionBand, addExcelSummaryBanner, STAT_COLORS, fmtInr} = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, registerFonts, F , safePdfPipe, drawSummaryBanner, drawSectionBand, ensureSpace, addExcelSummaryBanner, STAT_COLORS, fmtInr} = require('./pdf_helpers');
 const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
 
 module.exports = function(database) {
@@ -299,11 +299,17 @@ module.exports = function(database) {
       for (const t of targets) {
         const mandiEntries = entries.filter(e => (e.mandi_name || '').toLowerCase() === (t.mandi_name || '').toLowerCase());
         const achieved = Math.round(mandiEntries.reduce((s, e) => s + (e.final_w || 0) / 100, 0) * 100) / 100;
+        // TP weight (sum of tp_weight column) — used for agent commission, NOT target_qntl
+        const tpw = mandiEntries.reduce((s, e) => s + parseFloat(e.tp_weight || 0), 0);
         const expected = t.expected_total || t.target_qntl;
         const pending = Math.round(Math.max(0, expected - achieved) * 100) / 100;
         const progress = expected > 0 ? Math.round(achieved / expected * 1000) / 10 : 0;
-        const cuttingQ = Math.round(t.target_qntl * t.cutting_percent / 100 * 100) / 100;
-        const agentAmt = Math.round((t.target_qntl * (t.base_rate || 10)) + (cuttingQ * (t.cutting_rate || 5)));
+        // Use ?? (not ||) so explicit 0 rates are respected. cutting_percent on TP weight.
+        const cuttingPct = t.cutting_percent ?? 0;
+        const baseRate = t.base_rate ?? 10;
+        const cuttingRate = t.cutting_rate ?? 5;
+        const cuttingQ = Math.round(tpw * cuttingPct / 100 * 100) / 100;
+        const agentAmt = Math.round((tpw * baseRate) + (cuttingQ * cuttingRate));
         totTarget += t.target_qntl; totExpected += expected;
         totAchieved += achieved; totPending += pending; totAgent += agentAmt;
         targetRows.push({ t, achieved, expected, pending, progress, agentAmt });
@@ -336,6 +342,7 @@ module.exports = function(database) {
 
       // ---- STOCK SECTION ----
       if (showStock) {
+        ensureSpace(doc, 170);
         drawSectionBand(doc, 'Stock Overview', {
           subtitle: `FY ${req.query.kms_year || 'All'} · ${req.query.season || 'All'}`,
           preset: 'orange',
@@ -361,6 +368,7 @@ module.exports = function(database) {
 
       // ---- TARGETS SECTION ----
       if (showTargets) {
+        ensureSpace(doc, 130);
         drawSectionBand(doc, targetMandi ? `Mandi Targets · ${targetMandi}` : 'Mandi Targets', {
           subtitle: targets.length ? `Overall: ${overallProgress}% achieved` : null,
           preset: 'teal',
@@ -459,13 +467,18 @@ module.exports = function(database) {
         ]);
       }
 
-      // AGENT PAYMENTS
+      // AGENT PAYMENTS — use TP weight (achieved procurement) + respect explicit 0 rates
       let agentAmt = 0, agentPaid = 0, agentBal = 0;
       const agentRowsData = [];
       for (const t of targets) {
-        const cq = Math.round(t.target_qntl * t.cutting_percent / 100 * 100) / 100;
-        const br = t.base_rate || 10; const cr = t.cutting_rate || 5;
-        const total_amt = Math.round(((t.target_qntl * br) + (cq * cr)) * 100) / 100;
+        // TP weight from mill entries for this mandi
+        const mandiEntries = entries.filter(e => (e.mandi_name || '').toLowerCase() === (t.mandi_name || '').toLowerCase());
+        const tpw = mandiEntries.reduce((s, e) => s + parseFloat(e.tp_weight || 0), 0);
+        const cuttingPct = t.cutting_percent ?? 0;
+        const br = t.base_rate ?? 10;
+        const cr = t.cutting_rate ?? 5;
+        const cq = Math.round(tpw * cuttingPct / 100 * 100) / 100;
+        const total_amt = Math.round(((tpw * br) + (cq * cr)) * 100) / 100;
         let paid = 0;
         if (database.data.agent_payments) {
           const apDoc = database.data.agent_payments.find(a => a.mandi_name === t.mandi_name && a.kms_year === t.kms_year && a.season === t.season);
@@ -474,7 +487,7 @@ module.exports = function(database) {
         const bal = Math.round(Math.max(0, total_amt - paid) * 100) / 100;
         agentAmt += total_amt; agentPaid += paid; agentBal += bal;
         agentRowsData.push([
-          t.mandi_name, t.target_qntl.toFixed(1), cq.toFixed(1), `Rs.${br}/Rs.${cr}`,
+          t.mandi_name, tpw.toFixed(1), cq.toFixed(1), `Rs.${br}/Rs.${cr}`,
           `Rs.${fmtAmt(total_amt)}`, `Rs.${fmtAmt(paid)}`, `Rs.${fmtAmt(bal)}`,
           bal <= 0 ? 'Paid' : 'Pending',
         ]);
@@ -520,6 +533,7 @@ module.exports = function(database) {
       const pageW = doc.page.width - 50;
 
       // SECTION 1: STOCK
+      ensureSpace(doc, 170);  // band (22) + ~6 rows (130) + spacing (18)
       drawSectionBand(doc, '1 · Stock Overview', {
         subtitle: `Available: ${paddyAvail.toFixed(1)} Q · Rice: ${(riceRaw + riceUsna).toFixed(1)} Q`,
         preset: 'orange',
@@ -539,6 +553,7 @@ module.exports = function(database) {
       doc.moveDown(0.4);
 
       // SECTION 2: TARGETS
+      ensureSpace(doc, 130);  // band + header + ~3 rows minimum
       drawSectionBand(doc, '2 · Mandi Targets', {
         subtitle: targets.length ? `Overall: ${overallProgress}% achieved` : null,
         preset: 'teal',
@@ -558,6 +573,7 @@ module.exports = function(database) {
       doc.moveDown(0.4);
 
       // SECTION 3: TRUCK PAYMENTS
+      ensureSpace(doc, 130);
       drawSectionBand(doc, '3 · Truck Payments', {
         subtitle: `Balance: Rs.${fmtAmt(Math.round(truckBal))}`,
         preset: 'purple',
@@ -574,12 +590,13 @@ module.exports = function(database) {
       doc.moveDown(0.4);
 
       // SECTION 4: AGENT/MANDI PAYMENTS
+      ensureSpace(doc, 130);
       drawSectionBand(doc, '4 · Agent / Mandi Payments', {
         subtitle: `Balance: Rs.${fmtAmt(Math.round(agentBal))}`,
         preset: 'rose',
       });
       if (agentRowsData.length > 0) {
-        const aHeaders = ['Mandi', 'Target', 'Cutting', 'Rates', 'Total', 'Paid', 'Balance', 'Status'];
+        const aHeaders = ['Mandi', 'TP Weight', 'Cutting', 'Rates', 'Total', 'Paid', 'Balance', 'Status'];
         const aRows = [...agentRowsData];
         aRows.push(['TOTAL', '', '', '', `Rs.${fmtAmt(Math.round(agentAmt))}`, `Rs.${fmtAmt(Math.round(agentPaid))}`, `Rs.${fmtAmt(Math.round(agentBal))}`, '']);
         const aw = [0.16, 0.10, 0.10, 0.16, 0.13, 0.12, 0.13, 0.10].map(w => Math.floor(pageW * w));
@@ -590,6 +607,7 @@ module.exports = function(database) {
       doc.moveDown(0.4);
 
       // SECTION 5: GRAND TOTAL
+      ensureSpace(doc, 160);  // band + header + 2 rows + grand total emphasis row
       drawSectionBand(doc, '5 · Grand Total', {
         subtitle: `Outstanding: Rs.${fmtAmt(Math.round(gb))} (${(100 - paidPct).toFixed(1)}%)`,
         preset: 'amber',

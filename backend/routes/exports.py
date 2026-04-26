@@ -76,7 +76,7 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
     )
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import mm
-    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer, CondPageBreak
     from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
     query = {}
@@ -138,21 +138,32 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
         if target_mandi: tq2["mandi_name"] = target_mandi
         targets = await db.mandi_targets.find(tq2, {"_id": 0}).to_list(100)
 
-    # Compute target totals upfront
+    # Compute target totals upfront — agent commission MUST use TP weight (achieved procurement)
+    # not the abstract target_qntl. Rates default ONLY if missing/None — explicit 0 must be respected.
+    def _rate(val, fallback):
+        return val if val is not None else fallback
     tot = {"target": 0, "expected": 0, "achieved": 0, "pending": 0, "agent": 0}
     target_rows = []
     for tg in targets:
         eq = {"mandi_name": tg["mandi_name"]}
         if kms_year: eq["kms_year"] = kms_year
         if season: eq["season"] = season
+        # Achieved (final_w / 100) — used for the Targets section's progress %
         pipe2 = [{"$match": eq}, {"$group": {"_id": None, "total": {"$sum": "$final_w"}}}]
         res = await db.mill_entries.aggregate(pipe2).to_list(1)
         achieved = round(res[0]["total"] / 100, 2) if res else 0
+        # TP weight (sum of tp_weight column) — used for agent commission
+        tpw_pipe = [{"$match": eq}, {"$group": {"_id": None, "total": {"$sum": "$tp_weight"}}}]
+        tpw_res = await db.mill_entries.aggregate(tpw_pipe).to_list(1)
+        tpw = round(tpw_res[0]["total"] if tpw_res and tpw_res[0]["total"] else 0, 2)
         expected = tg.get("expected_total", tg["target_qntl"])
         pending = round(max(0, expected - achieved), 2)
         progress = round((achieved / expected * 100) if expected > 0 else 0, 1)
-        cutting_q = round(tg["target_qntl"] * tg["cutting_percent"] / 100, 2)
-        agent_amt = round((tg["target_qntl"] * tg.get("base_rate", 10)) + (cutting_q * tg.get("cutting_rate", 5)), 2)
+        cutting_pct = _rate(tg.get("cutting_percent"), 0)
+        base_rate = _rate(tg.get("base_rate"), 10)
+        cutting_rate = _rate(tg.get("cutting_rate"), 5)
+        cutting_q = round(tpw * cutting_pct / 100, 2)
+        agent_amt = round((tpw * base_rate) + (cutting_q * cutting_rate), 2)
         tot["target"] += tg["target_qntl"]; tot["expected"] += expected
         tot["achieved"] += achieved; tot["pending"] += pending; tot["agent"] += agent_amt
         target_rows.append((tg, achieved, expected, pending, progress, agent_amt))
@@ -189,6 +200,7 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
 
     # ---- STOCK SECTION ----
     if show_stock:
+        elements.append(CondPageBreak(60*mm))
         elements.append(get_pdf_section_band("STOCK OVERVIEW", subtitle=f"FY {kms_year or 'All'} · {season or 'All'}", preset='orange', total_width=PAGE_W))
         elements.append(Spacer(1, 2*mm))
 
@@ -236,6 +248,7 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
 
     # ---- TARGETS SECTION ----
     if show_targets:
+        elements.append(CondPageBreak(60*mm))
         elements.append(get_pdf_section_band(
             f"MANDI TARGETS{' · ' + target_mandi if target_mandi else ''}",
             subtitle=f"Overall: {overall_progress}% achieved" if targets else None,
@@ -313,7 +326,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     )
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import mm
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, CondPageBreak, KeepTogether
     from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
     query = {}
@@ -409,19 +422,30 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
             f"{fq:,.2f}", f"Rs.{net:,.0f}", f"Rs.{paid:,.0f}", f"Rs.{bal:,.0f}",
             "Paid" if bal < 0.10 else "Pending"])
 
-    # Section 4: Agent Payments
+    # Section 4: Agent Payments — use TP weight (actual procurement) + respect explicit 0 rates
+    def _rate(val, fallback):
+        return val if val is not None else fallback
     agent_total_amt = agent_total_paid = agent_total_balance = 0
     agent_rows = []
     for tg in targets:
         mandi = tg["mandi_name"]
-        cq = round(tg["target_qntl"] * tg["cutting_percent"] / 100, 2)
-        br = tg.get("base_rate", 10); cr = tg.get("cutting_rate", 5)
-        total_amt = round((tg["target_qntl"] * br) + (cq * cr), 2)
+        # TP weight from mill entries
+        tpw_eq = {"mandi_name": mandi}
+        if kms_year: tpw_eq["kms_year"] = kms_year
+        if season: tpw_eq["season"] = season
+        tpw_pipe = [{"$match": tpw_eq}, {"$group": {"_id": None, "total": {"$sum": "$tp_weight"}}}]
+        tpw_res = await db.mill_entries.aggregate(tpw_pipe).to_list(1)
+        tpw = round(tpw_res[0]["total"] if tpw_res and tpw_res[0]["total"] else 0, 2)
+        cutting_pct = _rate(tg.get("cutting_percent"), 0)
+        br = _rate(tg.get("base_rate"), 10)
+        cr = _rate(tg.get("cutting_rate"), 5)
+        cq = round(tpw * cutting_pct / 100, 2)
+        total_amt = round((tpw * br) + (cq * cr), 2)
         pdoc = await db.agent_payments.find_one({"mandi_name": mandi, "kms_year": tg["kms_year"], "season": tg["season"]}, {"_id": 0})
         paid = pdoc.get("paid_amount", 0) if pdoc else 0
         bal = round(max(0, total_amt - paid), 2)
         agent_total_amt += total_amt; agent_total_paid += paid; agent_total_balance += bal
-        agent_rows.append([mandi, f"{tg['target_qntl']:,.1f}", f"{cq:,.1f}", f"Rs.{br}/Rs.{cr}", f"Rs.{total_amt:,.0f}", f"Rs.{paid:,.0f}", f"Rs.{bal:,.0f}",
+        agent_rows.append([mandi, f"{tpw:,.1f}", f"{cq:,.1f}", f"Rs.{br}/Rs.{cr}", f"Rs.{total_amt:,.0f}", f"Rs.{paid:,.0f}", f"Rs.{bal:,.0f}",
             "Paid" if bal <= 0 else "Pending"])
 
     # Grand totals
@@ -453,6 +477,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     # ============================================================
     # SECTION 1: STOCK
     # ============================================================
+    elements.append(CondPageBreak(60*mm))  # ensure band + at least 5 rows fit on page
     elements.append(get_pdf_section_band("1 · STOCK OVERVIEW", subtitle=f"Available: {paddy_avail:,.1f} Q · Rice: {(rice_raw + rice_usna):,.1f} Q", preset='orange', total_width=PAGE_W))
     elements.append(Spacer(1, 2*mm))
 
@@ -491,6 +516,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     # ============================================================
     # SECTION 2: TARGETS
     # ============================================================
+    elements.append(CondPageBreak(60*mm))
     elements.append(get_pdf_section_band("2 · MANDI TARGETS", subtitle=f"Overall: {overall_progress}% achieved" if targets else None, preset='teal', total_width=PAGE_W))
     elements.append(Spacer(1, 2*mm))
 
@@ -534,6 +560,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     # ============================================================
     # SECTION 3: TRUCK PAYMENTS
     # ============================================================
+    elements.append(CondPageBreak(60*mm))
     elements.append(get_pdf_section_band("3 · TRUCK PAYMENTS", subtitle=f"Balance: Rs.{truck_total_balance:,.0f}", preset='purple', total_width=PAGE_W))
     elements.append(Spacer(1, 2*mm))
 
@@ -572,11 +599,12 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     # ============================================================
     # SECTION 4: AGENT PAYMENTS
     # ============================================================
+    elements.append(CondPageBreak(60*mm))
     elements.append(get_pdf_section_band("4 · AGENT / MANDI PAYMENTS", subtitle=f"Balance: Rs.{agent_total_balance:,.0f}", preset='rose', total_width=PAGE_W))
     elements.append(Spacer(1, 2*mm))
 
     if agent_rows:
-        adata = [["Mandi", "Target", "Cutting", "Rates", "Total", "Paid", "Balance", "Status"]] + agent_rows
+        adata = [["Mandi", "TP Weight", "Cutting", "Rates", "Total", "Paid", "Balance", "Status"]] + agent_rows
         adata.append(["TOTAL", "", "", "", f"Rs.{round(agent_total_amt):,}", f"Rs.{round(agent_total_paid):,}", f"Rs.{round(agent_total_balance):,}", ""])
         aw = [PAGE_W * w for w in (0.16, 0.10, 0.10, 0.16, 0.13, 0.12, 0.13, 0.10)]
         at = Table(adata, colWidths=aw, repeatRows=1)
@@ -608,6 +636,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     # ============================================================
     # SECTION 5: GRAND TOTAL
     # ============================================================
+    elements.append(CondPageBreak(70*mm))  # band + 4-row table all together
     elements.append(get_pdf_section_band("5 · GRAND TOTAL", subtitle=f"Outstanding: Rs.{gb:,.0f} ({100 - paid_pct:.1f}%)", preset='amber', total_width=PAGE_W))
     elements.append(Spacer(1, 2*mm))
 
