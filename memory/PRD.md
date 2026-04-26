@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.40
+## Current Version: v104.28.41
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -19,6 +19,22 @@
 
 ## ⚠️ LESSON: Stay strictly within scope
 **v104.28.35**: User asked for "PDF and Summary report mein hi sirf changes" — but I went and changed the on-screen Dashboard endpoint + frontend JSX too. Reverted. ALWAYS confirm scope when user says "sirf X mein" — don't refactor adjacent code paths even if they share the same logic. PDF and screen are TWO different surfaces, treat them independently.
+
+## Recent Fixes (Apr 2026) — v104.28.41
+
+### Recalculate Entries: Now syncs Pvt Purchase + Sale + BP Sale + DC Delivery ledgers too
+- Building on v104.28.40, recalc now ALSO sanity-syncs ledger amounts for:
+  - **Pvt Purchase** (`purchase_vouchers`): `purchase_voucher:` (=total), `purchase_voucher_adv:`, `purchase_voucher_adv_cash:` (=advance), `purchase_voucher_cash:`, `purchase_truck_cash:` (=cash_paid), `purchase_voucher_diesel:`, `purchase_truck_diesel:` (=diesel_paid)
+  - **Sale Truck** (`sale_vouchers`): `sale_voucher:` (=total), `sale_voucher_adv:`, `sale_voucher_adv_cash:` (=advance), `sale_voucher_cash:`, `sale_truck_cash:` (=cash_paid), `sale_voucher_diesel:`, `sale_truck_diesel:` (=diesel_paid)
+  - **BP Sale** (`bp_sale_register`): `bp_sale:` (=total), `bp_sale_adv:`, `bp_sale_adv_cash:` (=advance), `bp_sale_cash:` (=cash_paid), `bp_sale_diesel:` (=diesel_paid)
+  - **DC Delivery** (`dc_deliveries`): `delivery:`, `delivery_tcash:` (=cash_paid), `delivery_tdiesel:`, `delivery_jama:` (=diesel_paid), `delivery_depot:` (=depot_expenses)
+- Logic: For each existing ledger, if its amount differs from the source document's value → **update** to correct value. If source value is 0 → **delete** the stale ledger. Does NOT auto-create missing ledgers (safe — only re-syncs amounts).
+- Files: `/app/backend/routes/entries.py`, `/app/desktop-app/routes/entries.js`, `/app/local-server/routes/entries.js`
+
+### Verified
+- Live test: corrupted purchase_voucher ledger to ₹99,999 → recalc fixed to ₹5,000 ✓
+- Live test: corrupted sale_voucher ledger to ₹99,999 → recalc fixed to ₹35,000 ✓
+- All 3 backends synced; lint clean
 
 ## Recent Fixes (Apr 2026) — v104.28.40
 

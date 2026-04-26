@@ -251,6 +251,7 @@ module.exports = function(database) {
     if (role !== 'admin') return res.status(403).json({ error: 'Admin only' });
     const { v4: uuidv4 } = require('uuid');
     const entries = database.data.entries || [];
+    const txns = database.data.cash_transactions = database.data.cash_transactions || [];
 
     // === Step 1: Recalculate entry-level fields (mill_w, p_pkt_cut, moisture, cutting, final_w) ===
     let entriesUpdated = 0;
@@ -263,10 +264,27 @@ module.exports = function(database) {
       }
     }
 
-    // === Step 2: Sync truck_entry: ledger (jama) for every mill entry based on rate ===
-    // Rule: rate=0 → no ledger; rate>0 → ledger amount = final_qntl × rate
-    if (!database.data.cash_transactions) database.data.cash_transactions = [];
     let ledgersCreated = 0, ledgersUpdated = 0, ledgersRemoved = 0;
+
+    // Helper: sync amount of an EXISTING ledger entry, or remove if expected ≤ 0.
+    // (Does NOT auto-create — we only re-sync amounts where the original creation logic put them.)
+    const syncRefAmount = (refExact, expectedAmount) => {
+      const idx = txns.findIndex(t => (t.reference || '') === refExact);
+      if (idx === -1) return;
+      const exp = Number(expectedAmount) || 0;
+      if (exp > 0) {
+        if (Math.abs((txns[idx].amount || 0) - exp) > 0.01) {
+          txns[idx].amount = Math.round(exp * 100) / 100;
+          txns[idx].updated_at = new Date().toISOString();
+          ledgersUpdated++;
+        }
+      } else {
+        txns.splice(idx, 1);
+        ledgersRemoved++;
+      }
+    };
+
+    // === Step 2: Sync truck_entry: ledger (mill entry × truck rate) — full lifecycle ===
     for (const e of entries) {
       const truckNo = e.truck_no || '';
       const finalQntl = Math.round(((e.qntl || 0) - (e.bag || 0) / 100) * 100) / 100;
@@ -275,13 +293,13 @@ module.exports = function(database) {
       const cashTaken = parseFloat(e.cash_paid) || 0;
       const dieselTaken = parseFloat(e.diesel_paid) || 0;
       const deductions = cashTaken + dieselTaken;
-      const jamaIdx = database.data.cash_transactions.findIndex(t => t.linked_entry_id === e.id && (t.reference || '').startsWith('truck_entry:'));
+      const jamaIdx = txns.findIndex(t => t.linked_entry_id === e.id && (t.reference || '').startsWith('truck_entry:'));
 
       if (finalQntl > 0 && truckNo && rate > 0) {
         const newGross = Math.round(finalQntl * rate * 100) / 100;
         const description = `Truck Entry: ${truckNo} - ${finalQntl}Q @ Rs.${rate}` + (deductions > 0 ? ` (Ded: Rs.${deductions})` : '');
         if (jamaIdx !== -1) {
-          const existing = database.data.cash_transactions[jamaIdx];
+          const existing = txns[jamaIdx];
           if (Math.abs((existing.amount || 0) - newGross) > 0.01 || existing.description !== description) {
             existing.amount = newGross;
             existing.description = description;
@@ -290,7 +308,7 @@ module.exports = function(database) {
           }
         } else {
           const now = new Date().toISOString();
-          database.data.cash_transactions.push({
+          txns.push({
             id: uuidv4(), date: e.date || now.split('T')[0],
             account: 'ledger', txn_type: 'jama', category: truckNo, party_type: 'Truck',
             description, amount: newGross,
@@ -302,10 +320,53 @@ module.exports = function(database) {
           ledgersCreated++;
         }
       } else if (jamaIdx !== -1) {
-        // Stale ledger (rate=0 or entry has no truck/qntl) — delete it
-        database.data.cash_transactions.splice(jamaIdx, 1);
+        txns.splice(jamaIdx, 1);
         ledgersRemoved++;
       }
+    }
+
+    // === Step 3: Sync Purchase Voucher (Pvt Purchase) ledgers ===
+    for (const d of (database.data.purchase_vouchers || [])) {
+      const id = d.id;
+      syncRefAmount(`purchase_voucher:${id}`, d.total);
+      syncRefAmount(`purchase_voucher_adv:${id}`, d.advance);
+      syncRefAmount(`purchase_voucher_adv_cash:${id}`, d.advance);
+      syncRefAmount(`purchase_voucher_cash:${id}`, d.cash_paid);
+      syncRefAmount(`purchase_voucher_diesel:${id}`, d.diesel_paid);
+      syncRefAmount(`purchase_truck_cash:${id}`, d.cash_paid);
+      syncRefAmount(`purchase_truck_diesel:${id}`, d.diesel_paid);
+    }
+
+    // === Step 4: Sync Sale Voucher (Sale truck) ledgers ===
+    for (const d of (database.data.sale_vouchers || [])) {
+      const id = d.id;
+      syncRefAmount(`sale_voucher:${id}`, d.total);
+      syncRefAmount(`sale_voucher_adv:${id}`, d.advance);
+      syncRefAmount(`sale_voucher_adv_cash:${id}`, d.advance);
+      syncRefAmount(`sale_voucher_cash:${id}`, d.cash_paid);
+      syncRefAmount(`sale_voucher_diesel:${id}`, d.diesel_paid);
+      syncRefAmount(`sale_truck_cash:${id}`, d.cash_paid);
+      syncRefAmount(`sale_truck_diesel:${id}`, d.diesel_paid);
+    }
+
+    // === Step 5: Sync BP Sale ledgers ===
+    for (const d of (database.data.bp_sale_register || [])) {
+      const id = d.id;
+      syncRefAmount(`bp_sale:${id}`, d.total);
+      syncRefAmount(`bp_sale_adv:${id}`, d.advance);
+      syncRefAmount(`bp_sale_adv_cash:${id}`, d.advance);
+      syncRefAmount(`bp_sale_cash:${id}`, d.cash_paid);
+      syncRefAmount(`bp_sale_diesel:${id}`, d.diesel_paid);
+    }
+
+    // === Step 6: Sync DC Delivery ledgers (uses .slice(0,8) ID prefix) ===
+    for (const del of (database.data.dc_deliveries || [])) {
+      const idShort = (del.id || '').slice(0, 8);
+      syncRefAmount(`delivery:${idShort}`, del.cash_paid);
+      syncRefAmount(`delivery_tcash:${idShort}`, del.cash_paid);
+      syncRefAmount(`delivery_tdiesel:${idShort}`, del.diesel_paid);
+      syncRefAmount(`delivery_jama:${idShort}`, del.diesel_paid);
+      syncRefAmount(`delivery_depot:${idShort}`, del.depot_expenses);
     }
 
     if (entriesUpdated > 0 || ledgersCreated > 0 || ledgersUpdated > 0 || ledgersRemoved > 0) database.save();

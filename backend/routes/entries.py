@@ -2005,8 +2005,76 @@ async def recalculate_all_entries(username: str = "", role: str = ""):
                 {"linked_entry_id": eid, "reference": {"$regex": "^truck_entry:"}}
             )
             ledgers_removed += result.deleted_count
+
+    # Helper: sync the amount of a SINGLE ledger entry that already exists, or remove it if expected ≤ 0.
+    nonlocal_state = {"ledgers_updated": ledgers_updated, "ledgers_removed": ledgers_removed}
+    async def sync_ref_amount(ref_exact: str, expected: float):
+        existing_doc = await db.cash_transactions.find_one({"reference": ref_exact}, {"_id": 0})
+        if not existing_doc:
+            return
+        exp = float(expected or 0)
+        if exp > 0:
+            if abs((existing_doc.get("amount", 0) or 0) - exp) > 0.01:
+                await db.cash_transactions.update_one(
+                    {"reference": ref_exact},
+                    {"$set": {"amount": round_amount(exp), "updated_at": now_iso}},
+                )
+                nonlocal_state["ledgers_updated"] += 1
+        else:
+            res = await db.cash_transactions.delete_many({"reference": ref_exact})
+            nonlocal_state["ledgers_removed"] += res.deleted_count
+
+    # === Step 3: Purchase Voucher (Pvt Purchase) ledgers ===
+    async for d in db.purchase_vouchers.find({}, {"_id": 0}):
+        did = d.get("id")
+        if not did:
+            continue
+        await sync_ref_amount(f"purchase_voucher:{did}", d.get("total"))
+        await sync_ref_amount(f"purchase_voucher_adv:{did}", d.get("advance"))
+        await sync_ref_amount(f"purchase_voucher_adv_cash:{did}", d.get("advance"))
+        await sync_ref_amount(f"purchase_voucher_cash:{did}", d.get("cash_paid"))
+        await sync_ref_amount(f"purchase_voucher_diesel:{did}", d.get("diesel_paid"))
+        await sync_ref_amount(f"purchase_truck_cash:{did}", d.get("cash_paid"))
+        await sync_ref_amount(f"purchase_truck_diesel:{did}", d.get("diesel_paid"))
+
+    # === Step 4: Sale Voucher (Sale truck) ledgers ===
+    async for d in db.sale_vouchers.find({}, {"_id": 0}):
+        did = d.get("id")
+        if not did:
+            continue
+        await sync_ref_amount(f"sale_voucher:{did}", d.get("total"))
+        await sync_ref_amount(f"sale_voucher_adv:{did}", d.get("advance"))
+        await sync_ref_amount(f"sale_voucher_adv_cash:{did}", d.get("advance"))
+        await sync_ref_amount(f"sale_voucher_cash:{did}", d.get("cash_paid"))
+        await sync_ref_amount(f"sale_voucher_diesel:{did}", d.get("diesel_paid"))
+        await sync_ref_amount(f"sale_truck_cash:{did}", d.get("cash_paid"))
+        await sync_ref_amount(f"sale_truck_diesel:{did}", d.get("diesel_paid"))
+
+    # === Step 5: BP Sale ledgers ===
+    async for d in db.bp_sale_register.find({}, {"_id": 0}):
+        did = d.get("id")
+        if not did:
+            continue
+        await sync_ref_amount(f"bp_sale:{did}", d.get("total"))
+        await sync_ref_amount(f"bp_sale_adv:{did}", d.get("advance"))
+        await sync_ref_amount(f"bp_sale_adv_cash:{did}", d.get("advance"))
+        await sync_ref_amount(f"bp_sale_cash:{did}", d.get("cash_paid"))
+        await sync_ref_amount(f"bp_sale_diesel:{did}", d.get("diesel_paid"))
+
+    # === Step 6: DC Delivery ledgers (uses .slice(0,8) ID prefix) ===
+    async for delv in db.dc_deliveries.find({}, {"_id": 0}):
+        did_short = (delv.get("id", "") or "")[:8]
+        if not did_short:
+            continue
+        await sync_ref_amount(f"delivery:{did_short}", delv.get("cash_paid"))
+        await sync_ref_amount(f"delivery_tcash:{did_short}", delv.get("cash_paid"))
+        await sync_ref_amount(f"delivery_tdiesel:{did_short}", delv.get("diesel_paid"))
+        await sync_ref_amount(f"delivery_jama:{did_short}", delv.get("diesel_paid"))
+        await sync_ref_amount(f"delivery_depot:{did_short}", delv.get("depot_expenses"))
+
     return {
         "success": True, "total": len(entries), "updated": updated,
-        "ledgers_created": ledgers_created, "ledgers_updated": ledgers_updated,
-        "ledgers_removed": ledgers_removed,
+        "ledgers_created": ledgers_created,
+        "ledgers_updated": nonlocal_state["ledgers_updated"],
+        "ledgers_removed": nonlocal_state["ledgers_removed"],
     }
