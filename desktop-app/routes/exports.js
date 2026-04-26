@@ -302,19 +302,21 @@ module.exports = function(database) {
         // TP weight (sum of tp_weight column) — used for agent commission, NOT target_qntl
         const tpw = mandiEntries.reduce((s, e) => s + parseFloat(e.tp_weight || 0), 0);
         const expected = t.expected_total || t.target_qntl;
-        const pending = Math.round(Math.max(0, expected - achieved) * 100) / 100;
-        const progress = expected > 0 ? Math.round(achieved / expected * 1000) / 10 : 0;
+        // Pending & Progress against govt TARGET (cutting% is agent's extra, not procurement target)
+        const targetVal = t.target_qntl;
+        const pending = Math.round(Math.max(0, targetVal - achieved) * 100) / 100;
+        const progress = targetVal > 0 ? Math.round(achieved / targetVal * 1000) / 10 : 0;
         // Use ?? (not ||) so explicit 0 rates are respected. cutting_percent on TP weight.
         const cuttingPct = t.cutting_percent ?? 0;
         const baseRate = t.base_rate ?? 10;
         const cuttingRate = t.cutting_rate ?? 5;
         const cuttingQ = Math.round(tpw * cuttingPct / 100 * 100) / 100;
         const agentAmt = Math.round((tpw * baseRate) + (cuttingQ * cuttingRate));
-        totTarget += t.target_qntl; totExpected += expected;
+        totTarget += targetVal; totExpected += expected;
         totAchieved += achieved; totPending += pending; totAgent += agentAmt;
         targetRows.push({ t, achieved, expected, pending, progress, agentAmt });
       }
-      const overallProgress = totExpected > 0 ? Math.round(totAchieved / totExpected * 1000) / 10 : 0;
+      const overallProgress = totTarget > 0 ? Math.round(totAchieved / totTarget * 1000) / 10 : 0;
       const progressColor = overallProgress >= 100 ? STAT_COLORS.green : (overallProgress >= 50 ? STAT_COLORS.gold : STAT_COLORS.red);
       const availColor = paddyAvail >= 0 ? STAT_COLORS.emerald : STAT_COLORS.red;
 
@@ -329,7 +331,7 @@ module.exports = function(database) {
         kpis.push({ lbl: 'RICE PRODUCED', val: `${(riceRaw + riceUsna).toFixed(1)} Q`, color: STAT_COLORS.purple });
       }
       if (showTargets && targets.length) {
-        kpis.push({ lbl: 'TARGETS', val: `${Math.round(totExpected)} Q`, color: STAT_COLORS.gold });
+        kpis.push({ lbl: 'TARGETS', val: `${Math.round(totTarget)} Q`, color: STAT_COLORS.gold });
         kpis.push({ lbl: 'ACHIEVED', val: `${Math.round(totAchieved)} Q (${overallProgress}%)`, color: progressColor });
         kpis.push({ lbl: 'PENDING', val: `${Math.round(totPending)} Q`, color: STAT_COLORS.red });
       }
@@ -379,13 +381,16 @@ module.exports = function(database) {
         });
 
         if (targetRows.length > 0) {
-          const tgtHeaders = ['Mandi', 'Target (Q)', 'Cut %', 'Expected (Q)', 'Achieved (Q)', 'Pending (Q)', 'Progress', 'Agent Amt'];
-          const tgtRowsData = targetRows.map(({ t, achieved, expected, pending, progress, agentAmt }) =>
-            [t.mandi_name, t.target_qntl.toFixed(1), `${t.cutting_percent}%`,
-              expected.toFixed(1), achieved.toFixed(1), pending.toFixed(1),
-              `${progress}%`, `Rs.${fmtAmt(agentAmt)}`]
-          );
-          tgtRowsData.push(['TOTAL', totTarget.toFixed(1), '—', totExpected.toFixed(1),
+          const tgtHeaders = ['Mandi', 'Govt Target (Q)', 'Cut %', 'Agent Cutting (Q)', 'Achieved (Q)', 'Pending (Q)', 'Progress', 'Agent Amt'];
+          let totCutting = 0;
+          const tgtRowsData = targetRows.map(({ t, achieved, expected, pending, progress, agentAmt }) => {
+            const cuttingQ = Math.round(t.target_qntl * (t.cutting_percent ?? 0) / 100 * 100) / 100;
+            totCutting += cuttingQ;
+            return [t.mandi_name, t.target_qntl.toFixed(1), `${t.cutting_percent}%`,
+              cuttingQ.toFixed(1), achieved.toFixed(1), pending.toFixed(1),
+              `${progress}%`, `Rs.${fmtAmt(agentAmt)}`];
+          });
+          tgtRowsData.push(['TOTAL', totTarget.toFixed(1), '—', totCutting.toFixed(1),
             totAchieved.toFixed(1), totPending.toFixed(1), `${overallProgress}%`, `Rs.${fmtAmt(totAgent)}`]);
 
           const pageW = doc.page.width - 50;
@@ -445,12 +450,14 @@ module.exports = function(database) {
         const mEntries = entries.filter(e => (e.mandi_name || '').toLowerCase() === (t.mandi_name || '').toLowerCase());
         const achieved = Math.round(mEntries.reduce((s, e) => s + (e.final_w || 0) / 100, 0) * 100) / 100;
         const expected = t.expected_total || t.target_qntl;
-        const pending = Math.round(Math.max(0, expected - achieved) * 100) / 100;
-        const pr = expected > 0 ? Math.round(achieved / expected * 1000) / 10 : 0;
-        totT += t.target_qntl; totE += expected; totA += achieved; totP += pending;
+        // Pending & Progress against govt TARGET (cutting% is agent's extra, not procurement target)
+        const targetVal = t.target_qntl;
+        const pending = Math.round(Math.max(0, targetVal - achieved) * 100) / 100;
+        const pr = targetVal > 0 ? Math.round(achieved / targetVal * 1000) / 10 : 0;
+        totT += targetVal; totE += expected; totA += achieved; totP += pending;
         targetCalc.push({ t, achieved, expected, pending, pr });
       }
-      const overallProgress = totE > 0 ? Math.round(totA / totE * 1000) / 10 : 0;
+      const overallProgress = totT > 0 ? Math.round(totA / totT * 1000) / 10 : 0;
 
       // TRUCK PAYMENTS
       let truckNet = 0, truckPaid = 0, truckBal = 0;
@@ -524,7 +531,7 @@ module.exports = function(database) {
       const kpis = [
         { lbl: 'PADDY IN', val: `${Math.round(totalPaddyIn)} Q`, color: STAT_COLORS.blue },
         { lbl: 'PADDY USED', val: `${Math.round(paddyUsed)} Q`, color: STAT_COLORS.orange },
-        { lbl: 'TARGETS', val: `${Math.round(totE)} Q`, color: STAT_COLORS.gold },
+        { lbl: 'TARGETS', val: `${Math.round(totT)} Q`, color: STAT_COLORS.gold },
         { lbl: 'ACHIEVED', val: `${overallProgress}%`, color: progressColor },
         { lbl: 'GRAND TOTAL', val: `Rs.${fmtAmt(Math.round(ga))}`, color: STAT_COLORS.purple },
         { lbl: 'PAID', val: `Rs.${fmtAmt(Math.round(gp))} (${paidPct}%)`, color: paidPctColor },
@@ -566,12 +573,15 @@ module.exports = function(database) {
         preset: 'teal',
       });
       if (targetCalc.length > 0) {
-        const tgtHeaders = ['Mandi', 'Target (Q)', 'Cut %', 'Expected (Q)', 'Achieved (Q)', 'Pending (Q)', 'Progress'];
-        const tgtRows = targetCalc.map(({ t, achieved, expected, pending, pr }) =>
-          [t.mandi_name, t.target_qntl.toFixed(1), `${t.cutting_percent}%`,
-            expected.toFixed(1), achieved.toFixed(1), pending.toFixed(1), `${pr}%`]
-        );
-        tgtRows.push(['TOTAL', totT.toFixed(1), '—', totE.toFixed(1), totA.toFixed(1), totP.toFixed(1), `${overallProgress}%`]);
+        const tgtHeaders = ['Mandi', 'Govt Target (Q)', 'Cut %', 'Agent Cutting (Q)', 'Achieved (Q)', 'Pending (Q)', 'Progress'];
+        let totCutting = 0;
+        const tgtRows = targetCalc.map(({ t, achieved, expected, pending, pr }) => {
+          const cuttingQ = Math.round(t.target_qntl * (t.cutting_percent ?? 0) / 100 * 100) / 100;
+          totCutting += cuttingQ;
+          return [t.mandi_name, t.target_qntl.toFixed(1), `${t.cutting_percent}%`,
+            cuttingQ.toFixed(1), achieved.toFixed(1), pending.toFixed(1), `${pr}%`];
+        });
+        tgtRows.push(['TOTAL', totT.toFixed(1), '—', totCutting.toFixed(1), totA.toFixed(1), totP.toFixed(1), `${overallProgress}%`]);
         const tw = [0.20, 0.13, 0.10, 0.15, 0.15, 0.15, 0.12].map(w => Math.floor(pageW * w));
         addPdfTable(doc, tgtHeaders, tgtRows, tw, { fontSize: 8 });
       } else {

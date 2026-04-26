@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.34
+## Current Version: v104.28.35
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -16,6 +16,30 @@
 - `/app/backend/` — Python FastAPI (web preview, MongoDB)
 - `/app/desktop-app/` — Node.js Express (Electron desktop app, JSON/SQLite) — **THIS IS WHAT THE USER ACTUALLY USES IN PRODUCTION**
 - `/app/local-server/` — Node.js Express (LAN host, JSON/SQLite)
+
+## ⚠️ LESSON: Stay strictly within scope
+**v104.28.35**: User asked for "PDF and Summary report mein hi sirf changes" — but I went and changed the on-screen Dashboard endpoint + frontend JSX too. Reverted. ALWAYS confirm scope when user says "sirf X mein" — don't refactor adjacent code paths even if they share the same logic. PDF and screen are TWO different surfaces, treat them independently.
+
+## Recent Fixes (Apr 2026) — v104.28.35
+
+### Dashboard & Summary PDFs: Govt Target vs Agent Cutting Clarity
+- **User directive**: *"Target hi sirf count karo +5% jo hai wo humko agent extra deta hai cutting govt nahi govt ka jo target hai wahi target hai"* and *"bhai mera bas bolna ye tha pdf and summary report mai hi sirf changes honge ki Govt target - 5000qntl, Agent Cutting - 250 Qntl"*
+
+- **PDF column changes** (Dashboard PDF + Summary Report PDF, both Python + Node.js):
+  - Header `Target (Q)` → `Govt Target (Q)` — clarifies this is the actual govt procurement target (e.g., 5000)
+  - Header `Expected (Q)` → `Agent Cutting (Q)` — and the value changed from `target + cutting` (e.g., 5250) to JUST the cutting amount (e.g., 250 = 5% of 5000)
+  - **Pending = Govt Target − Achieved** (was: Expected − Achieved)
+  - **Progress = Achieved / Govt Target × 100** (was: Achieved / Expected × 100)
+  - **TOTAL row** Govt Target column shows sum of `target_qntl`, Agent Cutting column shows sum of cutting amounts
+  - **KPI hero banner** "TARGETS" stat shows `tot['target']` (was `tot['expected']`)
+
+- **Files changed**:
+  - Python: `/app/backend/routes/exports.py` only — Dashboard PDF + Summary Report PDF endpoints
+  - Node.js Desktop App: `/app/desktop-app/routes/exports.js` — same endpoints
+  - LAN Local Server: `/app/local-server/routes/exports.js` — synced
+  - **NOT touched**: `/api/mandi-targets/progress` endpoint (`entries.py`) and Dashboard.jsx — these power the on-screen Mandi Target view, which user wanted unchanged. (Initially modified by mistake, reverted.)
+
+- **Verified**: Curl-tested Python preview — Kesinga shows Govt Target 500.0, Agent Cutting 25.0 (= 5% of 500), Achieved 49.0, Pending 451.0 (= 500−49), Progress 9.8%. ✓
 
 ## Recent Fixes (Apr 2026) — v104.28.34
 

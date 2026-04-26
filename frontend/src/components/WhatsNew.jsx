@@ -7,6 +7,19 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.35",
+    date: "Apr 2026",
+    title: "v104.28.35 — 📋 Dashboard & Summary PDFs: Govt Target vs Agent Cutting Clarity",
+    items: [
+      { type: "fix", text: "📋 **Mandi Targets table mein columns rename ho gaye** taaki Govt target aur Agent ka extra cutting clearly distinguish ho jaye:" },
+      { type: "fix", text: "   • **Target (Q)** → **Govt Target (Q)** (5000 — yeh govt ka actual target)" },
+      { type: "fix", text: "   • **Expected (Q)** → **Agent Cutting (Q)** (250 — yeh sirf cutting amount, NOT target+cutting). Pehle 5250 dikhata tha (combined), ab 250 alag dikhega" },
+      { type: "fix", text: "🎯 **Pending aur Progress ab Govt Target ke against count hote hain** (pehle Expected ke against count hote the). Cutting% agent ki extra commission hai, govt ka procurement target nahi — isliye yeh formula sahi hai" },
+      { type: "fix", text: "📊 **TOTAL row** + **KPI hero banner** ka 'TARGETS' stat bhi Govt Target dikhata hai (pehle Expected dikhata tha)" },
+      { type: "fix", text: "🔄 **Triple-Backend Parity**: Python web + Desktop App + LAN Local Server teeno mein same change. ON-SCREEN Dashboard table aur backend `/api/mandi-targets/progress` endpoint untouched (sirf PDF + Summary Report mein change). User ki dashboard view experience pehle jaisi hi hai" },
+    ],
+  },
+  {
     version: "104.28.34",
     date: "Apr 2026",
     title: "v104.28.34 — 💸 Per-Mandi Default Bhada Rate (Auto-Fill Truck Payments)",
