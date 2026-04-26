@@ -458,11 +458,13 @@ const LetterPadTab = () => {
               <p className="text-slate-500 text-sm text-center py-8">Koi draft save nahi hai. Letter likh kar "Save Draft" dabaye.</p>
             )}
             {drafts.map(d => (
-              <button
+              <div
                 key={d.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => loadDraft(d)}
-                className="w-full text-left p-3 rounded bg-slate-900/60 border border-slate-700 hover:border-amber-600 hover:bg-slate-900 transition group flex items-start gap-3"
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); loadDraft(d); } }}
+                className="w-full text-left p-3 rounded bg-slate-900/60 border border-slate-700 hover:border-amber-600 hover:bg-slate-900 transition group flex items-start gap-3 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-600"
                 data-testid={`draft-item-${d.id}`}
               >
                 <FileText className="w-4 h-4 mt-1 text-amber-400 shrink-0" />
@@ -482,7 +484,7 @@ const LetterPadTab = () => {
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
-              </button>
+              </div>
             ))}
           </div>
           <DialogFooter>

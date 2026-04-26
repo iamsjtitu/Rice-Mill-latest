@@ -1,6 +1,40 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.29.1
+## Current Version: v104.30.0
+
+## 🆕 v104.30.0 — Letter Pad Productivity Suite (3 features)
+**Build date:** 2026-04-26
+
+### Save Drafts (CRUD)
+- New endpoints: `GET/POST/PUT/DELETE /api/letter-pad/drafts`
+- Storage: Python → `db.letter_drafts` (MongoDB); Node → `database.data.letter_drafts` array (JSON+SQLite). Added `letter_drafts` to `ARRAY_COLLECTIONS` in both Node `sqlite-database.js` files.
+- Each draft = `{id (uuid), title, ref_no, date, to_address, subject, references, body, created_at, updated_at}`
+- Validation: empty body+empty subject → 400 "Khaali draft save nahi ho sakti"
+- PUT preserves the original title when title not in payload (regression-tested)
+- Frontend: "Save Draft / Update Draft" button (changes label based on `activeDraftId`), "Drafts" sidebar dialog with click-to-load and Trash icon
+
+### Templates Library
+- New endpoints: `GET /api/letter-pad/templates` (lightweight list) + `GET /api/letter-pad/templates/{id}` (full content)
+- 8 hardcoded English templates for rice millers (kept identical across 3 backends — `/app/backend/utils/letter_pad_templates.py` and `/app/{desktop-app,local-server}/routes/letter_pad_templates.js`):
+  - bank_statement, supplier_reminder, agent_dispute, govt_inquiry, truck_owner_notice, paddy_quality, noc_request, gst_compliance
+- Frontend: "Templates" button → grid dialog with category badge + lucide icon per template; clicking applies subject/to/references/body and resets `activeDraftId`
+
+### WhatsApp Share
+- New endpoint: `POST /api/letter-pad/whatsapp` with `{letter, mode: 'phone'|'group'|'default', phone?, group_id?, caption?}`
+- Backend internally renders the letter PDF (in-memory, via shared `_build_letter_pdf_bytes` / `renderLetterPdfBuffer`), uploads to `tmpfiles.org`, then sends via existing 360Messenger helpers (`sendMessage` for phone, `sendGroup` for groups)
+- Caption format: `*Company Name*\nSubject: ...\n<custom note OR "Please find attached letter.">\n\n— Company`
+- Frontend: two new buttons in compose footer — "Phone" (single 📱) + "Group" (📥 broadcast). Both open `wa-dialog` with phone/group_id input + optional caption textarea
+- Reuses existing 360Messenger settings from `db.settings.whatsapp` (api_key, country_code, default_numbers, default_group_id) — no new config
+
+### Triple-Backend Parity
+- All 3 backends updated identically: `/app/backend/routes/letter_pad.py`, `/app/desktop-app/routes/letter_pad.js`, `/app/local-server/routes/letter_pad.js`
+- Node backends inline the 360Messenger HTTP helpers (no whatsapp.js cross-import) to keep letter_pad.js self-contained
+- PDF rendering refactored into reusable `renderLetterPdf()` (returns PDFKit doc stream) + `renderLetterPdfBuffer()` (returns Buffer for upload)
+
+### Test Coverage (iteration_204.json)
+- 23/23 backend tests passed (100%)
+- All frontend UI elements verified by Playwright
+- Test file: `/app/backend/tests/test_letter_pad_features_iteration204.py`
 
 ## 🎨 GLOBAL TYPOGRAPHY (v104.28.42-44)
 **Two-font system applied across screen + PDF + Excel** — single CSS rule + monkey-patches, no per-component edits:
