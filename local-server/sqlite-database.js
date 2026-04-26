@@ -1104,15 +1104,15 @@ class SqliteDatabase {
 
   // Get the per-mandi default bhada rate from Mandi Target row (fallback for new entries).
   _getMandiDefaultBhadaRate(entryId) {
-    const entry = this.data.mill_entries.find(e => e.id === entryId);
+    const entry = (this.data.entries || []).find(e => e.id === entryId);
     if (!entry || !entry.mandi_name) return 0;
-    const tgt = this.data.mandi_targets.find(t =>
+    const tgt = (this.data.mandi_targets || []).find(t =>
       t.mandi_name === entry.mandi_name &&
       (entry.kms_year ? t.kms_year === entry.kms_year : true) &&
       (entry.season ? t.season === entry.season : true)
     );
     if (tgt && Number.isFinite(parseFloat(tgt.default_bhada_rate))) return parseFloat(tgt.default_bhada_rate);
-    const any = this.data.mandi_targets.find(t => t.mandi_name === entry.mandi_name && Number.isFinite(parseFloat(t.default_bhada_rate)));
+    const any = (this.data.mandi_targets || []).find(t => t.mandi_name === entry.mandi_name && Number.isFinite(parseFloat(t.default_bhada_rate)));
     return any ? parseFloat(any.default_bhada_rate) : 0;
   }
 

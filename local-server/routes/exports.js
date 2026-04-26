@@ -292,7 +292,7 @@ module.exports = function(database) {
       // Targets
       let targets = database.getMandiTargets(req.query);
       if (targetMandi) targets = targets.filter(t => t.mandi_name === targetMandi);
-      let totTarget = 0, totExpected = 0, totAchieved = 0, totPending = 0, totAgent = 0;
+      let totTarget = 0, totExpected = 0, totAchieved = 0, totPending = 0, totAgent = 0, totCutting = 0;
       const targetRows = [];
       for (const t of targets) {
         const mandiEntries = entries.filter(e => (e.mandi_name || '').toLowerCase() === (t.mandi_name || '').toLowerCase());
@@ -310,8 +310,11 @@ module.exports = function(database) {
         const cuttingRate = t.cutting_rate ?? 5;
         const cuttingQ = Math.round(tpw * cuttingPct / 100 * 100) / 100;
         const agentAmt = Math.round((tpw * baseRate) + (cuttingQ * cuttingRate));
+        // Total agent cutting for KPI banner = sum of (target_qntl * cutting%)
+        const cuttingTargetQ = Math.round(targetVal * cuttingPct / 100 * 100) / 100;
         totTarget += targetVal; totExpected += expected;
         totAchieved += achieved; totPending += pending; totAgent += agentAmt;
+        totCutting += cuttingTargetQ;
         targetRows.push({ t, achieved, expected, pending, progress, agentAmt });
       }
       const overallProgress = totTarget > 0 ? Math.round(totAchieved / totTarget * 1000) / 10 : 0;
@@ -330,6 +333,7 @@ module.exports = function(database) {
       }
       if (showTargets && targets.length) {
         kpis.push({ lbl: 'TARGETS', val: `${Math.round(totTarget)} Q`, color: STAT_COLORS.gold });
+        kpis.push({ lbl: 'AGENT CUTTING', val: `${Math.round(totCutting)} Q`, color: STAT_COLORS.teal });
         kpis.push({ lbl: 'ACHIEVED', val: `${Math.round(totAchieved)} Q (${overallProgress}%)`, color: progressColor });
         kpis.push({ lbl: 'PENDING', val: `${Math.round(totPending)} Q`, color: STAT_COLORS.red });
       }
@@ -380,10 +384,8 @@ module.exports = function(database) {
 
         if (targetRows.length > 0) {
           const tgtHeaders = ['Mandi', 'Govt Target (Q)', 'Cut %', 'Agent Cutting (Q)', 'Achieved (Q)', 'Pending (Q)', 'Progress', 'Agent Amt'];
-          let totCutting = 0;
           const tgtRowsData = targetRows.map(({ t, achieved, expected, pending, progress, agentAmt }) => {
             const cuttingQ = Math.round(t.target_qntl * (t.cutting_percent ?? 0) / 100 * 100) / 100;
-            totCutting += cuttingQ;
             return [t.mandi_name, t.target_qntl.toFixed(1), `${t.cutting_percent}%`,
               cuttingQ.toFixed(1), achieved.toFixed(1), pending.toFixed(1),
               `${progress}%`, `Rs.${fmtAmt(agentAmt)}`];
@@ -442,7 +444,7 @@ module.exports = function(database) {
       if (!targets.length && (req.query.kms_year || req.query.season)) {
         targets = database.getMandiTargets({});
       }
-      let totT = 0, totE = 0, totA = 0, totP = 0;
+      let totT = 0, totE = 0, totA = 0, totP = 0, totCutting = 0;
       const targetCalc = [];
       for (const t of targets) {
         const mEntries = entries.filter(e => (e.mandi_name || '').toLowerCase() === (t.mandi_name || '').toLowerCase());
@@ -452,8 +454,12 @@ module.exports = function(database) {
         const targetVal = t.target_qntl;
         const pending = Math.round(Math.max(0, targetVal - achieved) * 100) / 100;
         const pr = targetVal > 0 ? Math.round(achieved / targetVal * 1000) / 10 : 0;
+        // Agent cutting (Q) per mandi for KPI/TOTAL = target × cutting%
+        const cuttingPct = t.cutting_percent ?? 0;
+        const cuttingQ = Math.round(targetVal * cuttingPct / 100 * 100) / 100;
+        totCutting += cuttingQ;
         totT += targetVal; totE += expected; totA += achieved; totP += pending;
-        targetCalc.push({ t, achieved, expected, pending, pr });
+        targetCalc.push({ t, achieved, expected, pending, pr, cuttingQ });
       }
       const overallProgress = totT > 0 ? Math.round(totA / totT * 1000) / 10 : 0;
 
@@ -530,6 +536,7 @@ module.exports = function(database) {
         { lbl: 'PADDY IN', val: `${Math.round(totalPaddyIn)} Q`, color: STAT_COLORS.blue },
         { lbl: 'PADDY USED', val: `${Math.round(paddyUsed)} Q`, color: STAT_COLORS.orange },
         { lbl: 'TARGETS', val: `${Math.round(totT)} Q`, color: STAT_COLORS.gold },
+        { lbl: 'AGENT CUTTING', val: `${Math.round(totCutting)} Q`, color: STAT_COLORS.teal },
         { lbl: 'ACHIEVED', val: `${overallProgress}%`, color: progressColor },
         { lbl: 'GRAND TOTAL', val: `Rs.${fmtAmt(Math.round(ga))}`, color: STAT_COLORS.purple },
         { lbl: 'PAID', val: `Rs.${fmtAmt(Math.round(gp))} (${paidPct}%)`, color: paidPctColor },
@@ -572,13 +579,9 @@ module.exports = function(database) {
       });
       if (targetCalc.length > 0) {
         const tgtHeaders = ['Mandi', 'Govt Target (Q)', 'Cut %', 'Agent Cutting (Q)', 'Achieved (Q)', 'Pending (Q)', 'Progress'];
-        let totCutting = 0;
-        const tgtRows = targetCalc.map(({ t, achieved, expected, pending, pr }) => {
-          const cuttingQ = Math.round(t.target_qntl * (t.cutting_percent ?? 0) / 100 * 100) / 100;
-          totCutting += cuttingQ;
-          return [t.mandi_name, t.target_qntl.toFixed(1), `${t.cutting_percent}%`,
-            cuttingQ.toFixed(1), achieved.toFixed(1), pending.toFixed(1), `${pr}%`];
-        });
+        const tgtRows = targetCalc.map(({ t, achieved, expected, pending, pr, cuttingQ }) =>
+          [t.mandi_name, t.target_qntl.toFixed(1), `${t.cutting_percent}%`,
+            cuttingQ.toFixed(1), achieved.toFixed(1), pending.toFixed(1), `${pr}%`]);
         tgtRows.push(['TOTAL', totT.toFixed(1), '—', totCutting.toFixed(1), totA.toFixed(1), totP.toFixed(1), `${overallProgress}%`]);
         const tw = [0.20, 0.13, 0.10, 0.15, 0.15, 0.15, 0.12].map(w => Math.floor(pageW * w));
         addPdfTable(doc, tgtHeaders, tgtRows, tw, { fontSize: 8 });

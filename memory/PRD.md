@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.36
+## Current Version: v104.28.37
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -19,6 +19,36 @@
 
 ## ⚠️ LESSON: Stay strictly within scope
 **v104.28.35**: User asked for "PDF and Summary report mein hi sirf changes" — but I went and changed the on-screen Dashboard endpoint + frontend JSX too. Reverted. ALWAYS confirm scope when user says "sirf X mein" — don't refactor adjacent code paths even if they share the same logic. PDF and screen are TWO different surfaces, treat them independently.
+
+## Recent Fixes (Apr 2026) — v104.28.37
+
+### Critical Bug Fix + Agent Cutting KPI on Reports
+- **User report**: Payments tab error log + Summary report PDF crashed:
+  ```
+  TypeError: Cannot read properties of undefined (reading 'find')
+    at SqliteDatabase._getMandiDefaultBhadaRate (sqlite-database.js:1107)
+    at SqliteDatabase.getTruckPayment (sqlite-database.js:1121)
+  ```
+
+- **Root cause**: `_getMandiDefaultBhadaRate()` was reading `this.data.mill_entries` but the in-memory collection key is `entries` (not `mill_entries`). Both Summary Report PDF and Truck Payments tab call `getTruckPayment()` which depends on this. Fixed in 4 files by switching to `(this.data.entries || []).find(...)` and adding null-safety on `mandi_targets`:
+  - `/app/desktop-app/sqlite-database.js`
+  - `/app/desktop-app/main.js` (legacy JSON DB class)
+  - `/app/local-server/sqlite-database.js`
+  - `/app/local-server/server.js`
+
+- **AGENT CUTTING KPI added** to KPI hero banner (between TARGETS and ACHIEVED) in:
+  - **Dashboard PDF** (Python `/app/backend/routes/exports.py` + Node.js `/app/desktop-app/routes/exports.js` + LAN `/app/local-server/routes/exports.js`)
+  - **Summary Report PDF** (same 3 backends)
+  - Value = `Σ(target_qntl × cutting%)` per mandi, e.g. Kesinga 500 Q × 5% = **25 Q** total agent cutting
+  - Color: teal (#0F766E)
+  - Reuses existing computation in the targets table — single source of truth
+
+- **Verified**:
+  - `GET /api/truck-payments?kms_year=2025-2026` → 200 OK (was 500 TypeError) ✓
+  - `GET /api/export/summary-report-pdf` → KPI banner now shows: `PADDY IN | PADDY USED | TARGETS 500 Q | AGENT CUTTING 25 Q | ACHIEVED 135.2% | GRAND TOTAL | PAID | BALANCE DUE` ✓
+  - `GET /api/export/dashboard-pdf` → KPI banner shows: `PADDY IN | PADDY USED | AVAILABLE | RICE PRODUCED | TARGETS 500 Q | AGENT CUTTING 25 Q | ACHIEVED 676 Q (135.2%) | PENDING 0 Q` ✓
+  - Math correct: 500 × 5% = 25 Q ✓
+  - Lint: clean.
 
 ## Recent Fixes (Apr 2026) — v104.28.36
 

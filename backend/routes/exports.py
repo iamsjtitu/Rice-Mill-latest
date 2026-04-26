@@ -144,7 +144,7 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
     # extra commission, not part of the procurement target.
     def _rate(val, fallback):
         return val if val is not None else fallback
-    tot = {"target": 0, "expected": 0, "achieved": 0, "pending": 0, "agent": 0}
+    tot = {"target": 0, "expected": 0, "achieved": 0, "pending": 0, "agent": 0, "cutting": 0}
     target_rows = []
     for tg in targets:
         eq = {"mandi_name": tg["mandi_name"]}
@@ -167,8 +167,11 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
         cutting_rate = _rate(tg.get("cutting_rate"), 5)
         cutting_q = round(tpw * cutting_pct / 100, 2)
         agent_amt = round((tpw * base_rate) + (cutting_q * cutting_rate), 2)
+        # Total agent cutting for KPI banner = sum of (target_qntl * cutting%)
+        cutting_target_q = round(target_qntl_val * cutting_pct / 100, 2)
         tot["target"] += target_qntl_val; tot["expected"] += expected
         tot["achieved"] += achieved; tot["pending"] += pending; tot["agent"] += agent_amt
+        tot["cutting"] += cutting_target_q
         target_rows.append((tg, achieved, expected, pending, progress, agent_amt))
     overall_progress = round((tot["achieved"] / tot["target"] * 100) if tot["target"] > 0 else 0, 1)
 
@@ -186,6 +189,7 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
     if show_targets and targets:
         kpi_stats_top.extend([
             {'label': 'TARGETS', 'value': f"{tot['target']:,.0f} Q", 'color': STAT_COLORS['gold']},
+            {'label': 'AGENT CUTTING', 'value': f"{tot['cutting']:,.0f} Q", 'color': STAT_COLORS['teal']},
             {'label': 'ACHIEVED', 'value': f"{tot['achieved']:,.0f} Q ({overall_progress}%)", 'color': progress_color},
             {'label': 'PENDING', 'value': f"{tot['pending']:,.0f} Q", 'color': STAT_COLORS['red']},
         ])
@@ -393,7 +397,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     targets = await db.mandi_targets.find(tq, {"_id": 0}).to_list(100)
     if not targets and (kms_year or season):
         targets = await db.mandi_targets.find({}, {"_id": 0}).to_list(100)
-    tot = {"t": 0, "e": 0, "a": 0, "p": 0}
+    tot = {"t": 0, "e": 0, "a": 0, "p": 0, "c": 0}
     target_rows = []
     for tg in targets:
         eq = {"mandi_name": tg["mandi_name"]}
@@ -407,7 +411,9 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
         t_val = tg["target_qntl"]
         p = round(max(0, t_val - a), 2)
         pr = round((a / t_val * 100) if t_val > 0 else 0, 1)
-        tot["t"] += t_val; tot["e"] += e_val; tot["a"] += a; tot["p"] += p
+        # Agent cutting (Q) per mandi for KPI/TOTAL = target × cutting%
+        c_q = round(t_val * tg.get("cutting_percent", 0) / 100, 2)
+        tot["t"] += t_val; tot["e"] += e_val; tot["a"] += a; tot["p"] += p; tot["c"] += c_q
         target_rows.append((tg, a, e_val, p, pr))
     overall_progress = round((tot["a"] / tot["t"] * 100) if tot["t"] > 0 else 0, 1)
 
@@ -471,6 +477,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
         {'label': 'PADDY IN', 'value': f"{total_paddy_in:,.0f} Q", 'color': STAT_COLORS['blue']},
         {'label': 'PADDY USED', 'value': f"{paddy_used:,.0f} Q", 'color': STAT_COLORS['orange']},
         {'label': 'TARGETS', 'value': f"{tot['t']:,.0f} Q", 'color': STAT_COLORS['gold']},
+        {'label': 'AGENT CUTTING', 'value': f"{tot['c']:,.0f} Q", 'color': STAT_COLORS['teal']},
         {'label': 'ACHIEVED', 'value': f"{overall_progress}%", 'color': progress_color},
         {'label': 'GRAND TOTAL', 'value': f"Rs.{ga:,.0f}", 'color': STAT_COLORS['purple']},
         {'label': 'PAID', 'value': f"Rs.{gp:,.0f} ({paid_pct}%)", 'color': paid_pct_color},
@@ -530,12 +537,10 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
 
     if target_rows:
         tdata = [["Mandi", "Govt Target (Q)", "Cut %", "Agent Cutting (Q)", "Achieved (Q)", "Pending (Q)", "Progress"]]
-        tot_cutting = 0
         for tg, a, e_val, p, pr in target_rows:
             cutting_q = round(tg["target_qntl"] * tg.get("cutting_percent", 0) / 100, 2)
-            tot_cutting += cutting_q
             tdata.append([tg["mandi_name"], f"{tg['target_qntl']:,.1f}", f"{tg['cutting_percent']}%", f"{cutting_q:,.1f}", f"{a:,.1f}", f"{p:,.1f}", f"{pr}%"])
-        tdata.append(["TOTAL", f"{tot['t']:,.1f}", "—", f"{tot_cutting:,.1f}", f"{tot['a']:,.1f}", f"{tot['p']:,.1f}", f"{overall_progress}%"])
+        tdata.append(["TOTAL", f"{tot['t']:,.1f}", "—", f"{tot['c']:,.1f}", f"{tot['a']:,.1f}", f"{tot['p']:,.1f}", f"{overall_progress}%"])
         tw = [PAGE_W * w for w in (0.20, 0.13, 0.10, 0.15, 0.15, 0.15, 0.12)]
         tt = Table(tdata, colWidths=tw)
         tts = [
