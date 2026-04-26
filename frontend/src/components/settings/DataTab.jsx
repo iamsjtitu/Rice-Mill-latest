@@ -298,7 +298,12 @@ function DataTab({ user }) {
                 try {
                   setHealthLoading(true);
                   const res = await axios.post(`${API}/entries/recalculate-all?username=${user.username}&role=${user.role}`);
-                  toast.success(`${res.data.updated} entries recalculate kiye (Total: ${res.data.total})`);
+                  const d = res.data || {};
+                  const parts = [`${d.updated || 0} entries`];
+                  if (d.ledgers_created > 0) parts.push(`${d.ledgers_created} ledgers banaye`);
+                  if (d.ledgers_updated > 0) parts.push(`${d.ledgers_updated} ledgers update`);
+                  if (d.ledgers_removed > 0) parts.push(`${d.ledgers_removed} stale ledgers hataye`);
+                  toast.success(`Recalculate done: ${parts.join(' • ')} (Total: ${d.total || 0})`);
                 } catch (e) { toast.error("Recalculate failed"); logger.error(e); }
                 finally { setHealthLoading(false); }
               }}

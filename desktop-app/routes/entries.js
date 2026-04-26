@@ -252,18 +252,74 @@ module.exports = function(database) {
   router.post('/api/entries/recalculate-all', safeSync(async (req, res) => {
     const { username, role } = req.query;
     if (role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    const { v4: uuidv4 } = require('uuid');
     const entries = database.data.entries || [];
-    let updated = 0;
+
+    // === Step 1: Recalculate entry-level fields (mill_w, p_pkt_cut, moisture, cutting, final_w) ===
+    let entriesUpdated = 0;
     for (const entry of entries) {
       const oldMillW = entry.mill_w || 0;
       const recalced = database.calculateFields(entry);
       if (Math.abs(oldMillW - recalced.mill_w) > 0.01) {
         Object.assign(entry, recalced);
-        updated++;
+        entriesUpdated++;
       }
     }
-    if (updated > 0) database.save();
-    res.json({ success: true, total: entries.length, updated });
+
+    // === Step 2: Sync truck_entry: ledger (jama) for every mill entry based on rate ===
+    // Rule: rate=0 → no ledger; rate>0 → ledger amount = final_qntl × rate
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    let ledgersCreated = 0, ledgersUpdated = 0, ledgersRemoved = 0;
+    for (const e of entries) {
+      const truckNo = e.truck_no || '';
+      const finalQntl = Math.round(((e.qntl || 0) - (e.bag || 0) / 100) * 100) / 100;
+      const tp = database.data.truck_payments.find(p => p.entry_id === e.id);
+      const rate = tp ? (parseFloat(tp.rate_per_qntl) || 0) : 0;
+      const cashTaken = parseFloat(e.cash_paid) || 0;
+      const dieselTaken = parseFloat(e.diesel_paid) || 0;
+      const deductions = cashTaken + dieselTaken;
+      const jamaIdx = database.data.cash_transactions.findIndex(t => t.linked_entry_id === e.id && (t.reference || '').startsWith('truck_entry:'));
+
+      if (finalQntl > 0 && truckNo && rate > 0) {
+        const newGross = Math.round(finalQntl * rate * 100) / 100;
+        const description = `Truck Entry: ${truckNo} - ${finalQntl}Q @ Rs.${rate}` + (deductions > 0 ? ` (Ded: Rs.${deductions})` : '');
+        if (jamaIdx !== -1) {
+          const existing = database.data.cash_transactions[jamaIdx];
+          if (Math.abs((existing.amount || 0) - newGross) > 0.01 || existing.description !== description) {
+            existing.amount = newGross;
+            existing.description = description;
+            existing.updated_at = new Date().toISOString();
+            ledgersUpdated++;
+          }
+        } else {
+          const now = new Date().toISOString();
+          database.data.cash_transactions.push({
+            id: uuidv4(), date: e.date || now.split('T')[0],
+            account: 'ledger', txn_type: 'jama', category: truckNo, party_type: 'Truck',
+            description, amount: newGross,
+            reference: `truck_entry:${e.id.slice(0, 8)}`,
+            kms_year: e.kms_year || '', season: e.season || '',
+            created_by: username || 'system', linked_entry_id: e.id,
+            created_at: now, updated_at: now
+          });
+          ledgersCreated++;
+        }
+      } else if (jamaIdx !== -1) {
+        // Stale ledger (rate=0 or entry has no truck/qntl) — delete it
+        database.data.cash_transactions.splice(jamaIdx, 1);
+        ledgersRemoved++;
+      }
+    }
+
+    if (entriesUpdated > 0 || ledgersCreated > 0 || ledgersUpdated > 0 || ledgersRemoved > 0) database.save();
+    res.json({
+      success: true,
+      total: entries.length,
+      updated: entriesUpdated,
+      ledgers_created: ledgersCreated,
+      ledgers_updated: ledgersUpdated,
+      ledgers_removed: ledgersRemoved
+    });
   }));
 
   return router;

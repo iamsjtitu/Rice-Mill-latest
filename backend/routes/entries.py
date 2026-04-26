@@ -1931,16 +1931,21 @@ async def get_date_range_totals(
 
 @router.post("/entries/recalculate-all")
 async def recalculate_all_entries(username: str = "", role: str = ""):
+    """Comprehensive recalc: re-derive entry fields AND re-sync truck_entry: ledger
+    amounts based on current truck_payments.rate_per_qntl. Honors v104.28.39 rule —
+    rate=0 → no ledger; rate>0 → amount = final_qntl × rate.
+    """
     if role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     entries = await db.entries.find({}, {"_id": 0}).to_list(length=None)
+    # Step 1: recalc entry fields
     updated = 0
     for entry in entries:
         old_mill_w = entry.get("mill_w", 0)
         recalced = calculate_auto_fields(dict(entry))
         new_mill_w = recalced.get("mill_w", 0)
         if abs(old_mill_w - new_mill_w) > 0.01:
-            db.entries.update_one(
+            await db.entries.update_one(
                 {"id": entry["id"]},
                 {"$set": {
                     "mill_w": recalced["mill_w"],
@@ -1954,4 +1959,54 @@ async def recalculate_all_entries(username: str = "", role: str = ""):
                 }}
             )
             updated += 1
-    return {"success": True, "total": len(entries), "updated": updated}
+    # Step 2: sync mill_entries truck_entry: ledger amounts based on current rate
+    mill_entries = await db.mill_entries.find({}, {"_id": 0}).to_list(length=None)
+    ledgers_created = ledgers_updated = ledgers_removed = 0
+    now_iso = datetime.now(timezone.utc).isoformat()
+    for me in mill_entries:
+        eid = me.get("id")
+        if not eid:
+            continue
+        truck_no = me.get("truck_no", "")
+        final_qntl = round(me.get("qntl", 0) - me.get("bag", 0) / 100, 2)
+        tp = await db.truck_payments.find_one({"entry_id": eid}, {"_id": 0})
+        rate = float(tp.get("rate_per_qntl", 0) or 0) if tp else 0
+        cash_taken = float(me.get("cash_paid", 0) or 0)
+        diesel_taken = float(me.get("diesel_paid", 0) or 0)
+        deductions = cash_taken + diesel_taken
+        existing = await db.cash_transactions.find_one(
+            {"linked_entry_id": eid, "reference": {"$regex": "^truck_entry:"}}, {"_id": 0}
+        )
+        if final_qntl > 0 and truck_no and rate > 0:
+            new_gross = round_amount(final_qntl * rate)
+            description = f"Truck Entry: {truck_no} - {final_qntl}Q @ Rs.{rate}" + (
+                f" (Ded: Rs.{deductions})" if deductions > 0 else "")
+            if existing:
+                if abs((existing.get("amount", 0) or 0) - new_gross) > 0.01 or existing.get("description") != description:
+                    await db.cash_transactions.update_one(
+                        {"linked_entry_id": eid, "reference": {"$regex": "^truck_entry:"}},
+                        {"$set": {"amount": new_gross, "description": description, "updated_at": now_iso}},
+                    )
+                    ledgers_updated += 1
+            else:
+                await db.cash_transactions.insert_one({
+                    "id": str(uuid.uuid4()),
+                    "date": me.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+                    "account": "ledger", "txn_type": "jama", "category": truck_no,
+                    "party_type": "Truck", "description": description, "amount": new_gross,
+                    "reference": f"truck_entry:{eid[:8]}",
+                    "kms_year": me.get("kms_year", ""), "season": me.get("season", ""),
+                    "created_by": username or "system", "linked_entry_id": eid,
+                    "created_at": now_iso, "updated_at": now_iso,
+                })
+                ledgers_created += 1
+        elif existing:
+            result = await db.cash_transactions.delete_many(
+                {"linked_entry_id": eid, "reference": {"$regex": "^truck_entry:"}}
+            )
+            ledgers_removed += result.deleted_count
+    return {
+        "success": True, "total": len(entries), "updated": updated,
+        "ledgers_created": ledgers_created, "ledgers_updated": ledgers_updated,
+        "ledgers_removed": ledgers_removed,
+    }

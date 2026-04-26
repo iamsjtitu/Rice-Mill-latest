@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.39
+## Current Version: v104.28.40
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -19,6 +19,25 @@
 
 ## ⚠️ LESSON: Stay strictly within scope
 **v104.28.35**: User asked for "PDF and Summary report mein hi sirf changes" — but I went and changed the on-screen Dashboard endpoint + frontend JSX too. Reverted. ALWAYS confirm scope when user says "sirf X mein" — don't refactor adjacent code paths even if they share the same logic. PDF and screen are TWO different surfaces, treat them independently.
+
+## Recent Fixes (Apr 2026) — v104.28.40
+
+### Settings → Recalculate Entries: now globally syncs ALL truck ledger amounts
+- **User report**: *"Recalculate entries mai click karne pai entire software mai jo jaisa set kiya hai amount kahi b uske hisab hisab hai kuch b uppner niche ho wo click karte hai sab global auto recalculate kar dena chahiye chahe wo koi b payment ho kis type ka bhi ho wrna iska matlab kya diya"*
+- Earlier: button only re-derived entry-level fields (mill_w, p_pkt_cut, etc.). Did NOT touch ledger amounts → so if a rate changed but ledger didn't sync, it stayed stale.
+- **Now (v104.28.40)**: button does TWO passes:
+  1. Recalculate every entry's auto-fields (mill_w, p_pkt_cut, moisture_cut, cutting, final_w, qntl)
+  2. **Sync every `truck_entry:` jama ledger** based on current `truck_payments.rate_per_qntl × final_qntl`:
+     - If rate>0 + ledger missing → **auto-create**
+     - If rate>0 + ledger has wrong amount/desc → **auto-update**
+     - If rate=0 + ledger exists → **auto-delete** (per v104.28.39 lifecycle rule)
+- Toast shows breakdown: "X entries • Y ledgers banaye • Z ledgers update • W stale ledgers hataye"
+- Files: `/app/backend/routes/entries.py`, `/app/desktop-app/routes/entries.js`, `/app/local-server/routes/entries.js`, `/app/frontend/src/components/settings/DataTab.jsx`
+
+### Verified
+- **Live test 1**: corrupted a ledger amount to ₹999 → recalc restored to ₹1225 (49Q × ₹25) ✓
+- **Live test 2**: injected stale ₹7777 ledger on rate=0 entry → recalc removed it ✓
+- Lint clean across all changed files
 
 ## Recent Fixes (Apr 2026) — v104.28.39
 
