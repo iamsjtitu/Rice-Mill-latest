@@ -7,6 +7,60 @@ the on-screen typography for a consistent brand feel across screen and print.
 """
 import os
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+from openpyxl import Workbook
+
+# === EXCEL DEFAULT FONT OVERRIDE (v104.28.44+) ===
+# Make Inter the default for all openpyxl Font() instances + the workbook's "Normal"
+# named style (which controls cells that don't explicitly set a font). This way Excel
+# exports match the on-screen typography. Cells that need monospace numbers explicitly
+# pass name='JetBrains Mono'. Recipient systems without Inter installed fall back to
+# Calibri/system default gracefully.
+_original_font_init = Font.__init__
+
+def _patched_font_init(self, *args, **kwargs):
+    if 'name' not in kwargs and not (args and args[0]):
+        kwargs['name'] = 'Inter'
+    _original_font_init(self, *args, **kwargs)
+
+# Apply patch only once per process
+if not getattr(Font, '_inter_default_applied', False):
+    Font.__init__ = _patched_font_init
+    Font._inter_default_applied = True
+
+# Patch Workbook so freshly-created workbooks have Inter as the default font. We
+# need to update BOTH the 'Normal' named style AND the underlying _fonts[0] entry,
+# because cells without an explicit font reference _fonts[0] directly via style_id 0.
+_original_workbook_init = Workbook.__init__
+
+def _patched_workbook_init(self, *args, **kwargs):
+    _original_workbook_init(self, *args, **kwargs)
+    try:
+        inter_font = _original_font_init.__self__.__class__(name='Inter', size=11) if hasattr(_original_font_init, '__self__') else None
+    except Exception:
+        inter_font = None
+    if inter_font is None:
+        # Fall back to constructing via the patched Font class
+        inter_font = Font(name='Inter', size=11)
+    try:
+        # 1) Replace the default font in the workbook's font table (slot 0)
+        if hasattr(self, '_fonts') and self._fonts:
+            self._fonts[0] = inter_font
+        # 2) Update the Normal NamedStyle so cells inheriting it also see Inter
+        ns = getattr(self, '_named_styles', None)
+        if ns is not None:
+            try:
+                for style in ns:
+                    if getattr(style, 'name', None) == 'Normal':
+                        style.font = inter_font
+                        break
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+if not getattr(Workbook, '_inter_default_applied', False):
+    Workbook.__init__ = _patched_workbook_init
+    Workbook._inter_default_applied = True
 
 # === FONT PATHS (resolves Inter/JetBrains Mono from the backend's bundled fonts dir) ===
 _HERE = os.path.dirname(os.path.abspath(__file__))

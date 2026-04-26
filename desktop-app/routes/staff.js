@@ -680,7 +680,7 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
     const ExcelJS = require('exceljs');
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Staff Payments');
-    const hdrStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }, alignment: { horizontal: 'center' } };
+    const hdrStyle = { font: { name: 'Inter', bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }, alignment: { horizontal: 'center' } };
 
     ws.mergeCells('A1:G1'); ws.getCell('A1').value = 'Staff Payment Report'; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
 
@@ -712,7 +712,7 @@ router.post('/api/staff/advance-ledger/export', safeAsync(async (req, res) => {
   const ExcelJS = require('exceljs');
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Advance Ledger');
-  const hdrStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }, alignment: { horizontal: 'center' } };
+  const hdrStyle = { font: { name: 'Inter', bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }, alignment: { horizontal: 'center' } };
 
   ws.mergeCells('A1:G1');
   ws.getCell('A1').value = `Advance Ledger - ${staff_name || 'All Staff'}`;

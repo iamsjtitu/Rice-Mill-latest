@@ -246,7 +246,7 @@ module.exports = function(database) {
     const hdrs = ['Truck No.', 'Owner', 'Monthly Rent', 'Start Date', 'End Date', 'Advance', 'Status', 'Total Months', 'Total Due', 'Total Paid', 'Balance'];
     hdrs.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });
     const hRow = ws.getRow(4);
-    hRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    hRow.font = { name: 'Inter', bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
     hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B4F72' } };
     hRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     hRow.height = 30;

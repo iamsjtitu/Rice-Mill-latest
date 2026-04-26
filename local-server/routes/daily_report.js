@@ -45,7 +45,7 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
 
   addExcelTitle(ws, `Daily Report - ${fmtDate(data.date)} (${isDetail ? 'DETAILED' : 'SUMMARY'})`, colCount, database);
   ws.getCell('A4').value = `FY: ${req.query.kms_year || 'All'} | Season: ${req.query.season || 'All'}`;
-  ws.getCell('A4').font = { italic: true, size: 9, color: { argb: 'FF666666' } };
+  ws.getCell('A4').font = { name: 'Inter', italic: true, size: 9, color: { argb: 'FF666666' } };
   let row = 6;
 
   const hdrFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.headerBg } };

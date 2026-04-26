@@ -291,16 +291,16 @@ router.get('/api/local-party/excel', safeAsync(async (req, res) => {
   const ws = wb.addWorksheet('Local Party Account');
   ws.mergeCells('A1:F1');
   ws.getCell('A1').value = 'Local Party Account';
-  ws.getCell('A1').font = { bold: true, size: 14 };
+  ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14 };
 
   ws.addRow([]);
   const hdr = ws.addRow(['Party Name', 'Total Debit', 'Total Paid', 'Balance', 'Entries']);
-  hdr.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF065f46' } }; });
+  hdr.eachCell(c => { c.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF065f46' } }; });
   for (const p of parties) ws.addRow([p.party_name, p.total_debit, p.total_paid, p.balance, p.txn_count]);
 
   ws.addRow([]); ws.addRow([]);
   const tHdr = ws.addRow(['Date', 'Party', 'Type', 'Amount', 'Description', 'Source']);
-  tHdr.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF065f46' } }; });
+  tHdr.eachCell(c => { c.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF065f46' } }; });
   for (const t of txns) {
     ws.addRow([fmtDate(t.date), t.party_name, t.txn_type === 'payment' ? 'Payment' : 'Purchase', t.amount, t.description, t.source_type]);
   }

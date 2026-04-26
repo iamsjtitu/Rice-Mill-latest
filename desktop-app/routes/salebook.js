@@ -663,7 +663,7 @@ module.exports = function(database) {
     ws.mergeCells('A1:F1');
     const titleCell = ws.getCell('A1');
     titleCell.value = `${company} - Stock Summary`;
-    titleCell.font = { bold: true, size: 14, color: { argb: 'FF1565C0' } };
+    titleCell.font = { name: 'Inter', bold: true, size: 14, color: { argb: 'FF1565C0' } };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getRow(1).height = 28;
 
@@ -675,7 +675,7 @@ module.exports = function(database) {
     if (req.query.season) parts.push(req.query.season);
     parts.push(`Date: ${new Date().toLocaleDateString('en-IN')}`);
     metaCell.value = parts.join(' | ');
-    metaCell.font = { size: 8, color: { argb: 'FF666666' } };
+    metaCell.font = { name: 'Inter', size: 8, color: { argb: 'FF666666' } };
     metaCell.alignment = { horizontal: 'center' };
 
     // Group items
@@ -701,7 +701,7 @@ module.exports = function(database) {
       ws.mergeCells(`A${row}:F${row}`);
       const catCell = ws.getCell(`A${row}`);
       catCell.value = `${catName} (${catItems.length} items)`;
-      catCell.font = { bold: true, size: 11, color: catTextColors[catName] || { argb: 'FF1E293B' } };
+      catCell.font = { name: 'Inter', bold: true, size: 11, color: catTextColors[catName] || { argb: 'FF1E293B' } };
       catCell.fill = { type: 'pattern', pattern: 'solid', fgColor: catHeaderFills[catName] || { argb: 'FFF1F5F9' } };
       catCell.border = border;
       ws.getRow(row).height = 24;
@@ -713,7 +713,7 @@ module.exports = function(database) {
       headers.forEach((h, i) => {
         const cell = hdrRow.getCell(i + 1);
         cell.value = h;
-        cell.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
+        cell.font = { name: 'Inter', bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
         cell.alignment = { horizontal: ['In (Qntl)', 'Out (Qntl)', 'Available'].includes(h) ? 'right' : 'left', vertical: 'middle' };
         cell.border = border;
@@ -732,18 +732,18 @@ module.exports = function(database) {
           cell.border = border;
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: rowFill };
           if (i === 0) {
-            cell.font = { bold: true, size: 9, color: { argb: 'FF1E293B' } };
+            cell.font = { name: 'Inter', bold: true, size: 9, color: { argb: 'FF1E293B' } };
           } else if (i === 1) {
-            cell.font = { size: 9, color: { argb: 'FF059669' } };
+            cell.font = { name: 'Inter', size: 9, color: { argb: 'FF059669' } };
             cell.alignment = { horizontal: 'right' };
           } else if (i === 2) {
-            cell.font = { size: 9, color: { argb: 'FFDC2626' } };
+            cell.font = { name: 'Inter', size: 9, color: { argb: 'FFDC2626' } };
             cell.alignment = { horizontal: 'right' };
           } else if (i === 3) {
-            cell.font = { bold: true, size: 10, color: { argb: item.available < 0 ? 'FFDC2626' : 'FF059669' } };
+            cell.font = { name: 'Inter', bold: true, size: 10, color: { argb: item.available < 0 ? 'FFDC2626' : 'FF059669' } };
             cell.alignment = { horizontal: 'right' };
           } else if (i === 5) {
-            cell.font = { size: 7, color: { argb: 'FF888888' } };
+            cell.font = { name: 'Inter', size: 7, color: { argb: 'FF888888' } };
           }
         });
         ws.getRow(row).height = 20;
@@ -777,7 +777,7 @@ module.exports = function(database) {
     ws.mergeCells(`A${row}:F${row}`);
     const footCell = ws.getCell(`A${row}`);
     footCell.value = `${company} - Stock Summary | Generated: ${new Date().toLocaleDateString('en-IN')}`;
-    footCell.font = { size: 7, color: { argb: 'FF999999' }, italic: true };
+    footCell.font = { name: 'Inter', size: 7, color: { argb: 'FF999999' }, italic: true };
     footCell.alignment = { horizontal: 'center' };
 
     const buf = await wb.xlsx.writeBuffer();

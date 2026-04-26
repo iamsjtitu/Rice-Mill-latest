@@ -7,6 +7,7 @@ from models import round_amount
 import uuid, io, csv
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from utils import export_helpers as _eh_default_font  # noqa: F401
 from openpyxl.utils import get_column_letter
 from utils.report_helper import get_columns, get_entry_row, get_total_row, get_excel_headers, get_pdf_headers, get_excel_widths, get_pdf_widths_mm, col_count
 

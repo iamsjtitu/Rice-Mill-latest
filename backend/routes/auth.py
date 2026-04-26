@@ -7,6 +7,7 @@ from models import LoginRequest, PasswordChangeRequest, round_amount
 import uuid, io, csv, os
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from utils import export_helpers as _eh_default_font  # noqa: F401
 from openpyxl.utils import get_column_letter
 
 router = APIRouter()

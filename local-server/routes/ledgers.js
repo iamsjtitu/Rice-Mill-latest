@@ -184,9 +184,9 @@ router.get('/api/reports/outstanding/excel', async (req, res) => {
       if (pending > 0) dcOutstanding.push({ dc_number: dc.dc_number || '', allotted: dc.quantity_qntl, delivered, pending, deadline: dc.deadline || '', rice_type: dc.rice_type || '' });
     }
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Outstanding');
-    ws.mergeCells('A1:F1'); ws.getCell('A1').value = 'Outstanding Report'; ws.getCell('A1').font = { bold: true, size: 14 };
-    let row = 3; ws.getCell(`A${row}`).value = 'DC PENDING DELIVERIES'; ws.getCell(`A${row}`).font = { bold: true, size: 11 }; row++;
-    ['DC No', 'Allotted(Q)', 'Delivered(Q)', 'Pending(Q)', 'Deadline', 'Type'].forEach((h, i) => { ws.getCell(row, i + 1).value = h; ws.getCell(row, i + 1).font = { bold: true, color: { argb: 'FFFFFFFF' } }; ws.getCell(row, i + 1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }; }); row++;
+    ws.mergeCells('A1:F1'); ws.getCell('A1').value = 'Outstanding Report'; ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14 };
+    let row = 3; ws.getCell(`A${row}`).value = 'DC PENDING DELIVERIES'; ws.getCell(`A${row}`).font = { name: 'Inter', bold: true, size: 11 }; row++;
+    ['DC No', 'Allotted(Q)', 'Delivered(Q)', 'Pending(Q)', 'Deadline', 'Type'].forEach((h, i) => { ws.getCell(row, i + 1).value = h; ws.getCell(row, i + 1).font = { name: 'Inter', bold: true, color: { argb: 'FFFFFFFF' } }; ws.getCell(row, i + 1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }; }); row++;
     for (const d of dcOutstanding) { [d.dc_number, d.allotted, d.delivered, d.pending, d.deadline, d.rice_type].forEach((v, i) => { ws.getCell(row, i + 1).value = v; }); row++; }
     const buf = await wb.xlsx.writeBuffer();
     res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename=outstanding_${Date.now()}.xlsx` });
@@ -226,8 +226,8 @@ router.get('/api/reports/party-ledger/excel', async (req, res) => {
     if (!party_type || party_type === 'frk_party') (database.data.frk_purchases||[]).filter(p => (!kms_year || p.kms_year === kms_year) && (!season || p.season === season)).forEach(p => { const n = p.party_name||''; if (!n) return; if (party_name && n.toLowerCase() !== party_name.toLowerCase()) return; ledger.push({ date: p.date, party_name: n, party_type: 'FRK Seller', description: `FRK: ${p.quantity_qntl||0}Q`, debit: Math.round((p.total_amount||0)*100)/100, credit: 0, ref: (p.id||'').substring(0,8) }); });
     if (!party_type || party_type === 'buyer') (database.data.byproduct_sales||[]).filter(s => (!kms_year || s.kms_year === kms_year) && (!season || s.season === season)).forEach(s => { const b = s.buyer_name||''; if (!b) return; if (party_name && b.toLowerCase() !== party_name.toLowerCase()) return; ledger.push({ date: s.date, party_name: b, party_type: 'Buyer', description: `${(s.product||'')}`, debit: 0, credit: Math.round((s.total_amount||0)*100)/100, ref: (s.id||'').substring(0,8) }); });
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Party Ledger');
-    ws.mergeCells('A1:G1'); ws.getCell('A1').value = `Party Ledger${party_name ? ' - ' + party_name : ''}`; ws.getCell('A1').font = { bold: true, size: 14 };
-    ['Date', 'Party', 'Type', 'Description', 'Debit(₹)', 'Credit(₹)', 'Ref'].forEach((h, i) => { ws.getCell(3, i + 1).value = h; ws.getCell(3, i + 1).font = { bold: true, color: { argb: 'FFFFFFFF' } }; ws.getCell(3, i + 1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }; });
+    ws.mergeCells('A1:G1'); ws.getCell('A1').value = `Party Ledger${party_name ? ' - ' + party_name : ''}`; ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14 };
+    ['Date', 'Party', 'Type', 'Description', 'Debit(₹)', 'Credit(₹)', 'Ref'].forEach((h, i) => { ws.getCell(3, i + 1).value = h; ws.getCell(3, i + 1).font = { name: 'Inter', bold: true, color: { argb: 'FFFFFFFF' } }; ws.getCell(3, i + 1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }; });
     ledger.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)));
     ledger.forEach((l, i) => { [fmtDate(l.date), l.party_name, l.party_type, l.description, l.debit || '', l.credit || '', l.ref].forEach((v, j) => { ws.getCell(i + 4, j + 1).value = v; }); });
     const buf = await wb.xlsx.writeBuffer();

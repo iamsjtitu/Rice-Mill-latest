@@ -516,7 +516,7 @@ function addExcelSummaryBanner(ws, rowNum, ncols, stats) {
   ws.mergeCells(rowNum, 1, rowNum, ncols);
   const cell = ws.getCell(rowNum, 1);
   cell.value = text;
-  cell.font = { bold: true, size: 11, color: { argb: 'FF1E293B' } };
+  cell.font = { name: 'Inter', bold: true, size: 11, color: { argb: 'FF1E293B' } };
   cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
   cell.alignment = { horizontal: 'center', vertical: 'middle' };
   cell.border = {

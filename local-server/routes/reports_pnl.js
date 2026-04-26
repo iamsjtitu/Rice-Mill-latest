@@ -87,23 +87,23 @@ router.get('/api/reports/season-pnl/excel', safeAsync(async (req, res) => {
   const ws = wb.addWorksheet('Season P&L');
   ws.mergeCells('A1:C1');
   ws.getCell('A1').value = `Season P&L Report${q.kms_year ? ' - KMS ' + q.kms_year : ''}`;
-  ws.getCell('A1').font = { bold: true, size: 14 };
+  ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14 };
   let row = 3;
-  ws.getCell(`A${row}`).value = 'INCOME'; ws.getCell(`A${row}`).font = { bold: true, size: 11, color: { argb: 'FF16a34a' } };
+  ws.getCell(`A${row}`).value = 'INCOME'; ws.getCell(`A${row}`).font = { name: 'Inter', bold: true, size: 11, color: { argb: 'FF16a34a' } };
   for (const [label, val] of [['MSP Payments', data.income.msp_payments], ['By-Product Sales', data.income.byproduct_sales], ['Cash Book Jama', data.income.cash_book_jama], ['TOTAL INCOME', data.income.total]]) {
     row++; ws.getCell(`A${row}`).value = label; ws.getCell(`B${row}`).value = val;
-    if (label.startsWith('TOTAL')) { ws.getCell(`A${row}`).font = { bold: true }; ws.getCell(`B${row}`).font = { bold: true }; }
+    if (label.startsWith('TOTAL')) { ws.getCell(`A${row}`).font = { name: 'Inter', bold: true }; ws.getCell(`B${row}`).font = { name: 'Inter', bold: true }; }
   }
   row += 2;
-  ws.getCell(`A${row}`).value = 'EXPENSES'; ws.getCell(`A${row}`).font = { bold: true, size: 11, color: { argb: 'FFdc2626' } };
+  ws.getCell(`A${row}`).value = 'EXPENSES'; ws.getCell(`A${row}`).font = { name: 'Inter', bold: true, size: 11, color: { argb: 'FFdc2626' } };
   for (const [label, val] of [['FRK Purchases', data.expenses.frk_purchases], ['Gunny Bags', data.expenses.gunny_bags], ['Cash Book Nikasi', data.expenses.cash_book_nikasi], ['Truck Payments', data.expenses.truck_payments], ['Agent Payments', data.expenses.agent_payments], ['TOTAL EXPENSES', data.expenses.total]]) {
     row++; ws.getCell(`A${row}`).value = label; ws.getCell(`B${row}`).value = val;
-    if (label.startsWith('TOTAL')) { ws.getCell(`A${row}`).font = { bold: true }; ws.getCell(`B${row}`).font = { bold: true }; }
+    if (label.startsWith('TOTAL')) { ws.getCell(`A${row}`).font = { name: 'Inter', bold: true }; ws.getCell(`B${row}`).font = { name: 'Inter', bold: true }; }
   }
   row += 2;
   const pnlLabel = data.profit ? 'NET PROFIT' : 'NET LOSS';
-  ws.getCell(`A${row}`).value = pnlLabel; ws.getCell(`A${row}`).font = { bold: true, size: 12, color: { argb: data.profit ? 'FF16a34a' : 'FFdc2626' } };
-  ws.getCell(`B${row}`).value = data.net_pnl; ws.getCell(`B${row}`).font = { bold: true, size: 12 };
+  ws.getCell(`A${row}`).value = pnlLabel; ws.getCell(`A${row}`).font = { name: 'Inter', bold: true, size: 12, color: { argb: data.profit ? 'FF16a34a' : 'FFdc2626' } };
+  ws.getCell(`B${row}`).value = data.net_pnl; ws.getCell(`B${row}`).font = { name: 'Inter', bold: true, size: 12 };
   ws.getColumn('A').width = 22; ws.getColumn('B').width = 22;
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=season_pnl.xlsx`);
@@ -163,9 +163,9 @@ router.get('/api/reports/cmr-vs-dc/excel', safeAsync(async (req, res) => {
     dc: { total_allotted: +dcs.reduce((s,d)=>s+(d.quantity_qntl||0),0).toFixed(2), total_delivered: +deliveries.reduce((s,d)=>s+(d.quantity_qntl||0),0).toFixed(2) }
   };
   const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('CMR vs DC');
-  ws.mergeCells('A1:D1'); ws.getCell('A1').value = 'CMR vs DC Report'; ws.getCell('A1').font = { bold: true, size: 14 };
+  ws.mergeCells('A1:D1'); ws.getCell('A1').value = 'CMR vs DC Report'; ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14 };
   let row = 3;
-  ws.getCell(`A${row}`).value = 'MILLING'; ws.getCell(`A${row}`).font = { bold: true, size: 11 };
+  ws.getCell(`A${row}`).value = 'MILLING'; ws.getCell(`A${row}`).font = { name: 'Inter', bold: true, size: 11 };
   for (const [l,v] of [['Paddy Milled (Q)',d.milling.total_paddy_milled],['Rice Produced (Q)',d.milling.total_rice_produced],['FRK Used (Q)',d.milling.total_frk_used],['CMR Ready (Q)',d.milling.total_cmr_ready]]) { row++; ws.getCell(`A${row}`).value=l; ws.getCell(`B${row}`).value=v; }
   row+=2; ws.getCell(`A${row}`).value='DC'; ws.getCell(`A${row}`).font={bold:true,size:11};
   for (const [l,v] of [['DC Allotted (Q)',d.dc.total_allotted],['DC Delivered (Q)',d.dc.total_delivered],['DC Pending (Q)',+(d.dc.total_allotted-d.dc.total_delivered).toFixed(2)]]) { row++; ws.getCell(`A${row}`).value=l; ws.getCell(`B${row}`).value=v; }

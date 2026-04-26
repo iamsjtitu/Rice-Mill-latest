@@ -282,7 +282,7 @@ module.exports = function(database) {
     addExcelTitle(ws, title, cols.length, database);
     headers.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });
     const hRow = ws.getRow(4);
-    hRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    hRow.font = { name: 'Inter', bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
     hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B4F72' } };
     hRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     hRow.height = 30;
@@ -297,9 +297,9 @@ module.exports = function(database) {
     });
     styleExcelData(ws, 5);
     const trow = 5 + result.length;
-    ws.getCell(trow,1).value = 'TOTAL'; ws.getCell(trow,1).font = { bold: true, size: 11 };
+    ws.getCell(trow,1).value = 'TOTAL'; ws.getCell(trow,1).font = { name: 'Inter', bold: true, size: 11 };
     const totalVals = getTotalRow(totals, cols);
-    totalVals.forEach((v,i) => { if (v !== null) { ws.getCell(trow,i+1).value = v; ws.getCell(trow,i+1).font = { bold: true, size: 11 }; } });
+    totalVals.forEach((v,i) => { if (v !== null) { ws.getCell(trow,i+1).value = v; ws.getCell(trow,i+1).font = { name: 'Inter', bold: true, size: 11 }; } });
     for (let c = 1; c <= cols.length; c++) {
       const cell = ws.getCell(trow, c);
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
@@ -365,7 +365,7 @@ module.exports = function(database) {
     addExcelTitle(ws, title, cols.length, database);
     headers.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });
     const hRow = ws.getRow(4);
-    hRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    hRow.font = { name: 'Inter', bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
     hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B4F72' } };
     hRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     hRow.height = 30;
@@ -379,9 +379,9 @@ module.exports = function(database) {
     Object.keys(totals).forEach(k => totals[k] = Math.round(totals[k]*100)/100);
     styleExcelData(ws, 5);
     const trow = 5 + items.length;
-    ws.getCell(trow, 1).value = 'TOTAL'; ws.getCell(trow, 1).font = { bold: true, size: 11 };
+    ws.getCell(trow, 1).value = 'TOTAL'; ws.getCell(trow, 1).font = { name: 'Inter', bold: true, size: 11 };
     const totalVals = getTotalRow(totals, cols);
-    totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i+1).value = v; ws.getCell(trow, i+1).font = { bold: true, size: 11 }; } });
+    totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i+1).value = v; ws.getCell(trow, i+1).font = { name: 'Inter', bold: true, size: 11 }; } });
     for (let c = 1; c <= cols.length; c++) {
       const cell = ws.getCell(trow, c);
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
@@ -442,7 +442,7 @@ module.exports = function(database) {
     addExcelTitle(ws, title, cols.length, database);
     headers.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });
     const hRow = ws.getRow(4);
-    hRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    hRow.font = { name: 'Inter', bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
     hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B4F72' } };
     hRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     hRow.height = 30;
@@ -456,9 +456,9 @@ module.exports = function(database) {
     Object.keys(totals).forEach(k => totals[k] = Math.round(totals[k]*100)/100);
     styleExcelData(ws, 5);
     const trow = 5 + items.length;
-    ws.getCell(trow, 1).value = 'TOTAL'; ws.getCell(trow, 1).font = { bold: true, size: 11 };
+    ws.getCell(trow, 1).value = 'TOTAL'; ws.getCell(trow, 1).font = { name: 'Inter', bold: true, size: 11 };
     const totalVals = getTotalRow(totals, cols);
-    totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i+1).value = v; ws.getCell(trow, i+1).font = { bold: true, size: 11 }; } });
+    totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i+1).value = v; ws.getCell(trow, i+1).font = { name: 'Inter', bold: true, size: 11 }; } });
     for (let c = 1; c <= cols.length; c++) {
       const cell = ws.getCell(trow, c);
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };

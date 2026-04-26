@@ -199,7 +199,7 @@ module.exports = function(database) {
       for (const e of entries) { const t = e.truck_no || 'Unknown'; if (!truckMap[t]) truckMap[t] = { truck_no: t, trips: 0, qty: 0, cash: 0, diesel: 0 }; truckMap[t].trips++; truckMap[t].qty += (e.final_w||0)/100; truckMap[t].cash += (e.cash_paid||0); truckMap[t].diesel += (e.diesel_paid||0); const a = e.agent_name || 'Unknown'; if (!agentMap[a]) agentMap[a] = { agent: a, entries: 0, qty: 0 }; agentMap[a].entries++; agentMap[a].qty += (e.final_w||0)/100; }
 
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Outstanding');
-      const hdrStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }, alignment: { horizontal: 'center' } };
+      const hdrStyle = { font: { name: 'Inter', bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }, alignment: { horizontal: 'center' } };
 
       ws.mergeCells('A1:F1'); ws.getCell('A1').value = 'Outstanding Report'; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
       let row = 3;
@@ -277,7 +277,7 @@ module.exports = function(database) {
       const { party_name, party_type, kms_year, season, date_from, date_to } = req.query;
       const ledger = getLedgerData(party_name, party_type, kms_year, season, date_from, date_to);
       ledger.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)) || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
-      const hdrStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }, alignment: { horizontal: 'center' } };
+      const hdrStyle = { font: { name: 'Inter', bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }, alignment: { horizontal: 'center' } };
 
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Party Ledger');
       ws.mergeCells('A1:F1'); ws.getCell('A1').value = `Party Ledger${party_name?' - '+party_name:''}`; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };

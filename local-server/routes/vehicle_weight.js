@@ -1318,26 +1318,26 @@ module.exports = function(database) {
     if (abParts.length > 0) {
       ws.mergeCells(`A${cr}:O${cr}`);
       ws.getCell(`A${cr}`).value = abParts.join('  |  ');
-      ws.getCell(`A${cr}`).font = { bold: true, size: 10, color: { argb: '8B0000' } };
+      ws.getCell(`A${cr}`).font = { name: 'Inter', bold: true, size: 10, color: { argb: '8B0000' } };
       ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
       cr++;
     }
     ws.mergeCells(`A${cr}:O${cr}`);
     ws.getCell(`A${cr}`).value = `${company} - Vehicle Weight / तौल पर्ची`;
-    ws.getCell(`A${cr}`).font = { bold: true, size: 14, color: { argb: '1a1a2e' } };
+    ws.getCell(`A${cr}`).font = { name: 'Inter', bold: true, size: 14, color: { argb: '1a1a2e' } };
     ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
     cr++;
     const belowAll = [tagline, ...blParts].filter(Boolean);
     if (belowAll.length > 0) {
       ws.mergeCells(`A${cr}:O${cr}`);
       ws.getCell(`A${cr}`).value = belowAll.join('  |  ');
-      ws.getCell(`A${cr}`).font = { size: 9, italic: true, color: { argb: '555555' } };
+      ws.getCell(`A${cr}`).font = { name: 'Inter', size: 9, italic: true, color: { argb: '555555' } };
       ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
       cr++;
     }
     ws.mergeCells(`A${cr}:O${cr}`);
     ws.getCell(`A${cr}`).value = `Date: ${fmtDate(req.query.date_from) || 'All'} to ${fmtDate(req.query.date_to) || 'All'} | Total: ${items.length}`;
-    ws.getCell(`A${cr}`).font = { size: 9, color: { argb: '666666' } };
+    ws.getCell(`A${cr}`).font = { name: 'Inter', size: 9, color: { argb: '666666' } };
     ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
     cr++;
 
@@ -1347,7 +1347,7 @@ module.exports = function(database) {
     headers.forEach((h, i) => {
       const cell = hdrRow.getCell(i + 1);
       cell.value = h;
-      cell.font = { bold: true, color: { argb: 'FFFFFF' }, size: 10 };
+      cell.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFF' }, size: 10 };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1a1a2e' } };
       cell.alignment = { horizontal: 'center' };
       cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
@@ -1378,7 +1378,7 @@ module.exports = function(database) {
       totVals.forEach((v, i) => {
         const cell = totRow.getCell(i + 1);
         cell.value = v;
-        cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+        cell.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1a1a2e' } };
         cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
         if (i >= 7) cell.alignment = { horizontal: 'right' };

@@ -157,10 +157,10 @@ module.exports = function(database) {
       return { name: p.name, is_default: p.is_default, td, tp, bal: td-tp, cnt: pt.filter(t=>t.txn_type==='debit').length };
     });
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Diesel Account');
-    ws.mergeCells('A1:G1'); ws.getCell('A1').value = 'Diesel Account'; ws.getCell('A1').font = { bold: true, size: 14 };
-    ws.getCell('A3').value = 'Pump Summary'; ws.getCell('A3').font = { bold: true, size: 11 };
+    ws.mergeCells('A1:G1'); ws.getCell('A1').value = 'Diesel Account'; ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14 };
+    ws.getCell('A3').value = 'Pump Summary'; ws.getCell('A3').font = { name: 'Inter', bold: true, size: 11 };
     ['Pump Name','Total Diesel (Rs.)','Total Paid (Rs.)','Balance (Rs.)','Entries'].forEach((h,i) => {
-      const c = ws.getCell(4, i+1); c.value = h; c.font = { bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '7c2d12' } };
+      const c = ws.getCell(4, i+1); c.value = h; c.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '7c2d12' } };
     });
     let row = 5;
     pumpSummaries.forEach(p => {
@@ -168,14 +168,14 @@ module.exports = function(database) {
       ws.getCell(row, 2).value = p.td; ws.getCell(row, 3).value = p.tp; ws.getCell(row, 4).value = p.bal; ws.getCell(row, 5).value = p.cnt;
       row++;
     });
-    ws.getCell(row, 1).value = 'GRAND TOTAL'; ws.getCell(row, 1).font = { bold: true };
+    ws.getCell(row, 1).value = 'GRAND TOTAL'; ws.getCell(row, 1).font = { name: 'Inter', bold: true };
     ws.getCell(row, 2).value = pumpSummaries.reduce((s,p)=>s+p.td,0);
     ws.getCell(row, 3).value = pumpSummaries.reduce((s,p)=>s+p.tp,0);
-    ws.getCell(row, 4).value = pumpSummaries.reduce((s,p)=>s+p.bal,0); ws.getCell(row, 4).font = { bold: true, color: { argb: 'FF0000' } };
+    ws.getCell(row, 4).value = pumpSummaries.reduce((s,p)=>s+p.bal,0); ws.getCell(row, 4).font = { name: 'Inter', bold: true, color: { argb: 'FF0000' } };
     row += 2;
-    ws.getCell(row, 1).value = 'Transactions'; ws.getCell(row, 1).font = { bold: true, size: 11 }; row++;
+    ws.getCell(row, 1).value = 'Transactions'; ws.getCell(row, 1).font = { name: 'Inter', bold: true, size: 11 }; row++;
     ['Date','Pump','Type','Truck No','Agent','Amount (Rs.)','Description'].forEach((h,i) => {
-      const c = ws.getCell(row, i+1); c.value = h; c.font = { bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '7c2d12' } };
+      const c = ws.getCell(row, i+1); c.value = h; c.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '7c2d12' } };
     });
     row++;
     txns.sort((a,b)=>(a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10))).forEach(t => {

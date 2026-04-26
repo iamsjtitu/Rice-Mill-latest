@@ -55,7 +55,7 @@ module.exports = function(database) {
           g_issued: entries.reduce((s,e) => s+(e.g_issued||0), 0)
         };
         const totalRow = ws.addRow(totals);
-        totalRow.eachCell(c => { c.font = { bold: true, size: 10, color: { argb: 'FF92400E' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7ED' } }; });
+        totalRow.eachCell(c => { c.font = { name: 'Inter', bold: true, size: 10, color: { argb: 'FF92400E' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7ED' } }; });
         // Light-themed summary banner
         addExcelSummaryBanner(ws, totalRow.number + 2, 20, [
           { lbl: 'Total Entries', val: String(entries.length) },
@@ -760,7 +760,7 @@ module.exports = function(database) {
       ];
       purchases.forEach(p => ws.addRow({ date: fmtDate(p.date), party: p.party_name||'', qty: p.quantity_qntl||0, rate: p.rate_per_qntl||0, amount: p.total_amount||0, note: p.note||'' }));
       const totalRow = ws.addRow({ date: 'TOTAL', party: '', qty: +purchases.reduce((s,p)=>s+(p.quantity_qntl||0),0).toFixed(2), rate: '', amount: +purchases.reduce((s,p)=>s+(p.total_amount||0),0).toFixed(2), note: '' });
-      totalRow.font = { bold: true };
+      totalRow.font = { name: 'Inter', bold: true };
       addExcelTitle(ws, 'FRK Purchase Register', 6, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=frk_purchases_${Date.now()}.xlsx`);
@@ -816,10 +816,10 @@ module.exports = function(database) {
       });
       ws.addRow({});
       const detailHeaderRow = ws.addRow({ product: 'Date', produced: 'Product', sold: 'Qty (Q)', available: 'Rate (Rs./Q)', revenue: 'Amount (Rs.)' });
-      detailHeaderRow.font = { bold: true };
+      detailHeaderRow.font = { name: 'Inter', bold: true };
       sales.forEach(s => ws.addRow({ product: fmtDate(s.date)||'', produced: (s.product||'').charAt(0).toUpperCase()+(s.product||'').slice(1), sold: s.quantity_qntl||0, available: s.rate_per_qntl||0, revenue: s.total_amount||0 }));
       const totalRow = ws.addRow({ product: 'TOTAL', produced: '', sold: +sales.reduce((s,e)=>s+(e.quantity_qntl||0),0).toFixed(2), available: '', revenue: +sales.reduce((s,e)=>s+(e.total_amount||0),0).toFixed(2) });
-      totalRow.font = { bold: true };
+      totalRow.font = { name: 'Inter', bold: true };
       addExcelTitle(ws, 'By-Product Stock & Sales Report', 5, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=byproduct_sales_${Date.now()}.xlsx`);
@@ -913,7 +913,7 @@ module.exports = function(database) {
       ];
       rows.forEach(r => ws.addRow({ date: r.date, description: r.description, received: r.received_qntl > 0 ? r.received_qntl : '', released: r.released_qntl > 0 ? r.released_qntl : '', balance: r.balance_qntl }));
       const totalRow = ws.addRow({ date: 'TOTAL', description: '', received: +allRows.reduce((s,r)=>s+r.received_qntl,0).toFixed(2), released: +allRows.reduce((s,r)=>s+r.released_qntl,0).toFixed(2), balance: +balance.toFixed(2) });
-      totalRow.font = { bold: true };
+      totalRow.font = { name: 'Inter', bold: true };
       addExcelTitle(ws, `Paddy Custody Register${groupBy === 'weekly' ? ' (Weekly)' : ''}`, 5, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=paddy_custody_${Date.now()}.xlsx`);

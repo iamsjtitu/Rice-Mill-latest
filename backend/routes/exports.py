@@ -10,6 +10,8 @@ import uuid, io, csv
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+# Trigger the openpyxl Font default-name monkey-patch at module load (Inter for all Excel exports)
+from utils import export_helpers as _eh_default_font  # noqa: F401
 
 router = APIRouter()
 

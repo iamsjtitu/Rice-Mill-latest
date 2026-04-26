@@ -1,11 +1,11 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.43
+## Current Version: v104.28.44
 
-## 🎨 GLOBAL TYPOGRAPHY (v104.28.42-43+)
-**Two-font system applied EVERYWHERE — screen, PDF, Excel — no per-component edits**:
-- **Inter** (loaded weights 400-800) — UI text, headings, buttons, navigation, tabs, body copy
-- **JetBrains Mono** (loaded weights 400-600) — Numbers/codes: KPI values, ₹ amounts, QNTL/BAG counts, dates, version badges
+## 🎨 GLOBAL TYPOGRAPHY (v104.28.42-44)
+**Two-font system applied across screen + PDF + Excel** — single CSS rule + monkey-patches, no per-component edits:
+- **Inter** (loaded weights 400-800) — UI text, headings, buttons, navigation, tabs, body copy, Excel cells (default + via Font())
+- **JetBrains Mono** (loaded weights 400-600) — Numbers/codes: KPI values, ₹ amounts, QNTL/BAG counts, dates, version badges, PDF banner values
 
 ### Screen (CSS auto-detection in `index.css`)
 - `text-lg font-bold` (KPI value pattern) → JetBrains Mono with `tabular-nums`, `letter-spacing: -0.015em`
@@ -19,10 +19,33 @@
 - Body text → **Inter** (8 .ttf files bundled in `/app/{backend,desktop-app,local-server}/fonts/`)
 - KPI banner labels → Inter Semibold
 - KPI banner values → **JetBrains Mono Bold** with mixed-font Paragraph rendering
-- Python: `register_hindi_fonts()` aliases `FreeSans` → Inter so legacy code paths inherit; `JetBrainsMono` family registered for explicit use via `<font face="...">` markup
+- Python: `register_hindi_fonts()` aliases `FreeSans` → Inter so legacy code paths inherit; `JetBrainsMono` family registered for explicit use
 - Node.js: `F('mono'|'mono-bold')` returns `AppMono`/`AppMonoBold` resolved from JetBrainsMono TTFs
 
-Result: Stripe/Plaid/Linear-grade premium typography across screen + every PDF report. Dark + Light themes both inherit automatically.
+### Excel (openpyxl + ExcelJS)
+- **Python (openpyxl)**: `Font.__init__` monkey-patched to default `name='Inter'`, AND `Workbook.__init__` patched to replace `_fonts[0]` (default font) + `Normal` named style font with Inter. Result: 100% Inter coverage in cells (verified 42/42, 58/58, 29/29 cells).
+- **Node.js (ExcelJS)**: 24 route files bulk-updated via sed — `font: { ...` and `.font = { ...` patterns now include `name: 'Inter'`.
+- Cells that need monospace numbers explicitly pass `name: 'JetBrains Mono'`. Recipient systems without Inter fall back to system default (Calibri) gracefully.
+
+Result: Stripe/Plaid/Linear-grade premium typography across screen + PDF + Excel. Dark + Light themes both inherit automatically.
+
+## 🚨 CRITICAL: TRIPLE-BACKEND PARITY DISCIPLINE
+**ANY change made to API routes, PDF generation, Excel export, or business logic MUST be applied to ALL three backends**:
+- `/app/backend/` — Python FastAPI (web preview, MongoDB)
+- `/app/desktop-app/` — Node.js Express (Electron desktop app, JSON/SQLite) — **THIS IS WHAT THE USER ACTUALLY USES IN PRODUCTION**
+- `/app/local-server/` — Node.js Express (LAN host, JSON/SQLite)
+
+## ⚠️ LESSON: Stay strictly within scope
+**v104.28.35**: User asked for "PDF and Summary report mein hi sirf changes" — but I went and changed the on-screen Dashboard endpoint + frontend JSX too. Reverted. ALWAYS confirm scope when user says "sirf X mein" — don't refactor adjacent code paths even if they share the same logic. PDF and screen are TWO different surfaces, treat them independently.
+
+## Recent Fixes (Apr 2026) — v104.28.44
+
+### Excel Typography Upgrade — Inter as default in ALL Excel exports
+- **Python (openpyxl)**: Monkey-patched `Font.__init__` and `Workbook.__init__` in `export_helpers.py`. `Workbook` patch replaces `_fonts[0]` (the default font slot) AND `Normal` NamedStyle with Inter. Eager imports added in 12 backend route files via `from utils import export_helpers as _eh_default_font` to ensure patches fire before any Font() / Workbook() use.
+- **Node.js (ExcelJS)**: Bulk-updated 24 route files using sed — every `font: { ... }` / `.font = { ... }` now includes `name: 'Inter'`.
+- **Verified**: 100% Inter coverage in tested Excel files — `truck-owner-excel` (42/42 cells), `truck-payments-excel` (58/58), `agent-payments-excel` (29/29). Lint clean.
+
+## Recent Fixes (Apr 2026) — v104.28.43
 
 ## 🚨 CRITICAL: TRIPLE-BACKEND PARITY DISCIPLINE
 **ANY change made to API routes, PDF generation, Excel export, or business logic MUST be applied to ALL three backends**:

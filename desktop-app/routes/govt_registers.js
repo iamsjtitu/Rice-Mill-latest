@@ -175,16 +175,16 @@ module.exports = function(database) {
     const branding = database.getBranding ? database.getBranding() : { company_name: 'NAVKAR AGRO' };
     ws.mergeCells('A1:G1');
     ws.getCell('A1').value = branding.company_name || 'NAVKAR AGRO';
-    ws.getCell('A1').font = { bold: true, size: 14, color: { argb: '1F4E79' } };
+    ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14, color: { argb: '1F4E79' } };
     ws.getCell('A1').alignment = { horizontal: 'center' };
     ws.mergeCells('A2:G2');
     ws.getCell('A2').value = `Form A - Paddy Received from State Procuring Agency | ${kms_year || 'All'} ${season || ''}`;
-    ws.getCell('A2').font = { bold: true, size: 12, color: { argb: '4472C4' } };
+    ws.getCell('A2').font = { name: 'Inter', bold: true, size: 12, color: { argb: '4472C4' } };
     ws.getCell('A2').alignment = { horizontal: 'center' };
 
     const headers = ['Date', 'Opening Bal (Qtl)', 'Paddy Received (Qtl)', 'Bags', 'Total Paddy (Qtl)', 'Paddy Milled (Qtl)', 'Closing Bal (Qtl)'];
     const headerRow = ws.addRow(headers);
-    headerRow.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; c.alignment = { horizontal: 'center' }; });
+    headerRow.eachCell(c => { c.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; c.alignment = { horizontal: 'center' }; });
     excelRows.forEach(r => ws.addRow(r));
     [groupBy === 'weekly' ? 28 : 14, 18, 20, 10, 18, 20, 18].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
@@ -361,10 +361,10 @@ module.exports = function(database) {
 
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Form B');
     const branding = database.getBranding ? database.getBranding() : { company_name: 'NAVKAR AGRO' };
-    ws.mergeCells('A1:G1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
-    ws.mergeCells('A2:G2'); ws.getCell('A2').value = `Form B - CMR Produced & Delivered | ${kms_year || 'All'}`; ws.getCell('A2').font = { bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
+    ws.mergeCells('A1:G1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
+    ws.mergeCells('A2:G2'); ws.getCell('A2').value = `Form B - CMR Produced & Delivered | ${kms_year || 'All'}`; ws.getCell('A2').font = { name: 'Inter', bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
     const hdr = ws.addRow(['Date', 'Opening Bal (Qtl)', 'CMR Produced (Qtl)', 'Total Rice (Qtl)', 'CMR Delivered (Qtl)', 'Closing Bal (Qtl)', 'Delivered To']);
-    hdr.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
+    hdr.eachCell(c => { c.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
     dataRows.forEach(r => ws.addRow(r));
     [14, 18, 20, 18, 20, 18, 30].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
@@ -423,10 +423,10 @@ module.exports = function(database) {
 
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Form E');
     const branding = database.getBranding ? database.getBranding() : { company_name: 'NAVKAR AGRO' };
-    ws.mergeCells('A1:H1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
-    ws.mergeCells('A2:H2'); ws.getCell('A2').value = `Form E - Miller's Own Paddy | ${kms_year || 'All'}`; ws.getCell('A2').font = { bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
+    ws.mergeCells('A1:H1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
+    ws.mergeCells('A2:H2'); ws.getCell('A2').value = `Form E - Miller's Own Paddy | ${kms_year || 'All'}`; ws.getCell('A2').font = { name: 'Inter', bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
     const hdr = ws.addRow(['Date', 'Opening Bal (Qtl)', 'Paddy Purchased (Qtl)', 'Bags', 'Total (Qtl)', 'Closing Bal (Qtl)', 'Party Name', 'Amount (Rs)']);
-    hdr.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
+    hdr.eachCell(c => { c.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
     dataRows.forEach(r => ws.addRow(r));
     [14, 18, 22, 10, 15, 18, 28, 16].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -481,10 +481,10 @@ module.exports = function(database) {
     dataRows.push(['TOTAL', Math.round(ts * 100) / 100, '', '']);
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Form F');
     const branding = database.getBranding ? database.getBranding() : { company_name: 'NAVKAR AGRO' };
-    ws.mergeCells('A1:D1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
-    ws.mergeCells('A2:D2'); ws.getCell('A2').value = `Form F - Miller's Own Rice Sale | ${kms_year || 'All'}`; ws.getCell('A2').font = { bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
+    ws.mergeCells('A1:D1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
+    ws.mergeCells('A2:D2'); ws.getCell('A2').value = `Form F - Miller's Own Rice Sale | ${kms_year || 'All'}`; ws.getCell('A2').font = { name: 'Inter', bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
     const hdr = ws.addRow(['Date', 'Rice Sold (Qtl)', 'Party Name', 'Amount (Rs)']);
-    hdr.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
+    hdr.eachCell(c => { c.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
     dataRows.forEach(r => ws.addRow(r));
     [14, 20, 30, 18].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -551,10 +551,10 @@ module.exports = function(database) {
     entries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('FRK Register');
     const branding = database.getBranding ? database.getBranding() : { company_name: 'NAVKAR AGRO' };
-    ws.mergeCells('A1:K1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
-    ws.mergeCells('A2:K2'); ws.getCell('A2').value = `FRK Blending Register | ${req.query.kms_year || 'All'}`; ws.getCell('A2').font = { bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
+    ws.mergeCells('A1:K1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
+    ws.mergeCells('A2:K2'); ws.getCell('A2').value = `FRK Blending Register | ${req.query.kms_year || 'All'}`; ws.getCell('A2').font = { name: 'Inter', bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
     const hdr = ws.addRow(['Date', 'Batch No', 'Supplier', 'Opening Bal (Kg)', 'Received (Kg)', 'Total (Kg)', 'Issued for Blending (Kg)', 'Closing Bal (Kg)', 'Rice Blended (Qtl)', 'Ratio', 'Remarks']);
-    hdr.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
+    hdr.eachCell(c => { c.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
     entries.forEach(e => ws.addRow([fmtDate(e.date), e.batch_no || '', e.supplier || '', e.opening_balance || 0, e.received_qty || 0, e.total || 0, e.issued_for_blending || 0, e.closing_balance || 0, e.rice_blended_qty || 0, e.blend_ratio || '', e.remark || '']));
     [14, 16, 22, 18, 15, 15, 22, 18, 18, 10, 20].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -628,10 +628,10 @@ module.exports = function(database) {
     entries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Gunny Bag Register');
     const branding = database.getBranding ? database.getBranding() : { company_name: 'NAVKAR AGRO' };
-    ws.mergeCells('A1:K1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
-    ws.mergeCells('A2:K2'); ws.getCell('A2').value = `Gunny Bag Stock Register | ${req.query.kms_year || 'All'}`; ws.getCell('A2').font = { bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
+    ws.mergeCells('A1:K1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
+    ws.mergeCells('A2:K2'); ws.getCell('A2').value = `Gunny Bag Stock Register | ${req.query.kms_year || 'All'}`; ws.getCell('A2').font = { name: 'Inter', bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
     const hdr = ws.addRow(['Date', 'Bag Type', 'Source', 'Opening Bal', 'Received', 'Used (Rice)', 'Used (Paddy)', 'Damaged', 'Returned', 'Closing Bal', 'Remarks']);
-    hdr.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
+    hdr.eachCell(c => { c.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
     entries.forEach(e => ws.addRow([fmtDate(e.date), e.bag_type || '', e.source || '', e.opening_balance || 0, e.received || 0, e.used_for_rice || 0, e.used_for_paddy || 0, e.damaged || 0, e.returned || 0, e.closing_balance || 0, e.remark || '']));
     [14, 14, 18, 14, 12, 14, 14, 12, 12, 14, 20].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -708,10 +708,10 @@ module.exports = function(database) {
 
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Transit Pass');
     const branding = database.getBranding ? database.getBranding() : { company_name: 'NAVKAR AGRO' };
-    ws.mergeCells('A1:K1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
-    ws.mergeCells('A2:K2'); ws.getCell('A2').value = `Transit Pass Register | ${kms_year || 'All'}`; ws.getCell('A2').font = { bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
+    ws.mergeCells('A1:K1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
+    ws.mergeCells('A2:K2'); ws.getCell('A2').value = `Transit Pass Register | ${kms_year || 'All'}`; ws.getCell('A2').font = { name: 'Inter', bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
     const hdr = ws.addRow(['Date', 'TP No.', 'RST No.', 'Vehicle No.', 'Agent/Society', 'Mandi/PPC', 'Qty (Qtl)', 'TP Weight', 'Bags', 'Status', 'Remarks']);
-    hdr.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
+    hdr.eachCell(c => { c.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
     let tq = 0, tb = 0;
     entries.forEach(e => { let fw = parseFloat(e.final_w || 0) / 100; if (fw === 0) fw = parseFloat(e.kg || 0) / 100; const bags = parseInt(e.bag || 0); tq += fw; tb += bags; ws.addRow([fmtDate(e.date), String(e.tp_no), String(e.rst_no || ''), e.truck_no || '', e.agent_name || '', e.mandi_name || '', Math.round(fw * 100) / 100, Math.round(parseFloat(e.tp_weight || 0) * 100) / 100, bags, 'Accepted', e.remark || '']); });
     ws.addRow(['TOTAL', `${entries.length} entries`, '', '', '', '', Math.round(tq * 100) / 100, '', tb, '', '']);
@@ -816,10 +816,10 @@ module.exports = function(database) {
     entries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('CMR Delivery');
     const branding = database.getBranding ? database.getBranding() : { company_name: 'NAVKAR AGRO' };
-    ws.mergeCells('A1:J1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
-    ws.mergeCells('A2:J2'); ws.getCell('A2').value = `CMR Delivery Register | ${kms_year || 'All'}`; ws.getCell('A2').font = { bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
+    ws.mergeCells('A1:J1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
+    ws.mergeCells('A2:J2'); ws.getCell('A2').value = `CMR Delivery Register | ${kms_year || 'All'}`; ws.getCell('A2').font = { name: 'Inter', bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
     const hdr = ws.addRow(['Date', 'Delivery No.', 'RRC/Depot', 'Rice Type', 'CMR Qty (Qtl)', 'Bags', 'Vehicle No.', 'Fortified', 'Grade', 'Remarks']);
-    hdr.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
+    hdr.eachCell(c => { c.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
     entries.forEach(e => ws.addRow([fmtDate(e.date), e.delivery_no || '', e.rrc_depot || '', e.rice_type || '', e.cmr_qty || 0, e.bags || 0, e.vehicle_no || '', e.fortified ? 'Yes (+F)' : 'No', e.quality_grade || '', e.remark || '']));
     [14, 16, 22, 16, 18, 10, 16, 12, 10, 20].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -872,10 +872,10 @@ module.exports = function(database) {
     if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Security Deposit');
     const branding = database.getBranding ? database.getBranding() : { company_name: 'NAVKAR AGRO' };
-    ws.mergeCells('A1:J1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
-    ws.mergeCells('A2:J2'); ws.getCell('A2').value = `Security Deposit Register | ${kms_year || 'All'}`; ws.getCell('A2').font = { bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
+    ws.mergeCells('A1:J1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
+    ws.mergeCells('A2:J2'); ws.getCell('A2').value = `Security Deposit Register | ${kms_year || 'All'}`; ws.getCell('A2').font = { name: 'Inter', bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
     const hdr = ws.addRow(['BG Number', 'Bank Name', 'Amount (Rs)', 'SD Ratio', 'Capacity (MT)', 'Issue Date', 'Expiry Date', 'Status', 'Miller Type', 'Remarks']);
-    hdr.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
+    hdr.eachCell(c => { c.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
     entries.forEach(e => ws.addRow([e.bg_number || '', e.bank_name || '', e.amount || 0, e.sd_ratio || '', e.milling_capacity_mt || 0, fmtDate(e.issue_date), fmtDate(e.expiry_date), (e.status || '').toUpperCase(), e.miller_type || '', e.remark || '']));
     [18, 24, 18, 12, 16, 14, 14, 14, 16, 20].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -1353,34 +1353,34 @@ module.exports = function(database) {
     const customFields = branding.custom_fields || [];
 
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Milling Register');
-    ws.mergeCells('A1:Q1'); ws.getCell('A1').value = company.toUpperCase(); ws.getCell('A1').font = { bold: true, size: 14, color: { argb: '1F4E79' } }; ws.getCell('A1').alignment = { horizontal: 'center' };
+    ws.mergeCells('A1:Q1'); ws.getCell('A1').value = company.toUpperCase(); ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14, color: { argb: '1F4E79' } }; ws.getCell('A1').alignment = { horizontal: 'center' };
 
     const infoParts = tagline ? [tagline] : [];
     customFields.forEach(f => infoParts.push(`${f.label || ''}: ${f.value || ''}`));
     if (infoParts.length) {
-      ws.mergeCells('A2:Q2'); ws.getCell('A2').value = infoParts.join('  |  '); ws.getCell('A2').font = { size: 9, color: { argb: '666666' } }; ws.getCell('A2').alignment = { horizontal: 'center' };
+      ws.mergeCells('A2:Q2'); ws.getCell('A2').value = infoParts.join('  |  '); ws.getCell('A2').font = { name: 'Inter', size: 9, color: { argb: '666666' } }; ws.getCell('A2').alignment = { horizontal: 'center' };
     }
 
     let title = 'MILLING REGISTER';
     if (kms_year) title += ` - KMS ${kms_year}`;
     if (season) title += ` (${season})`;
     ws.mergeCells('A3:Q3'); ws.getCell('A3').value = title;
-    ws.getCell('A3').font = { bold: true, size: 12, color: { argb: 'FFFFFF' } };
+    ws.getCell('A3').font = { name: 'Inter', bold: true, size: 12, color: { argb: 'FFFFFF' } };
     ws.getCell('A3').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2E75B6' } };
     ws.getCell('A3').alignment = { horizontal: 'center' };
 
     const headers = ['Date', 'Month', 'OB Paddy', 'Rcvd from CM A/c', 'Total Paddy', 'Issue For Milling', 'Prog Rcpt Paddy', 'Prog Mill Paddy', 'CB Paddy', 'OB Rice', 'Rice Rcpt Milling', 'Total Rice', 'Delivery RRC', 'Delivery FCI', 'Prog Rice Milling', 'Prog Rice Delivered', 'CB Rice'];
     const hdr = ws.addRow([]); // row 4 blank
     const headerRow = ws.addRow(headers);
-    headerRow.eachCell(c => { c.font = { bold: true, size: 8, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2E75B6' } }; c.alignment = { horizontal: 'center', wrapText: true }; c.border = { top: {style:'thin'}, bottom: {style:'thin'}, left: {style:'thin'}, right: {style:'thin'} }; });
+    headerRow.eachCell(c => { c.font = { name: 'Inter', bold: true, size: 8, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2E75B6' } }; c.alignment = { horizontal: 'center', wrapText: true }; c.border = { top: {style:'thin'}, bottom: {style:'thin'}, left: {style:'thin'}, right: {style:'thin'} }; });
 
     const _v = (val) => (val === 0 || val === null || val === undefined || val === '') ? '-' : val;
     rows.forEach((r, idx) => {
       const row = ws.addRow([_fmtDateShort(r.date), r.month || '-', _v(r.ob_paddy), _v(r.rcvd_from_cm), _v(r.total_paddy), _v(r.issue_for_milling), _v(r.prog_rcpt_paddy), _v(r.prog_milling_paddy), _v(r.cb_paddy), _v(r.ob_rice), _v(r.rice_from_milling), _v(r.total_rice), _v(r.delivery_rrc), _v(r.delivery_fci), _v(r.prog_rice_milling), _v(r.prog_rice_delivered), _v(r.cb_rice)]);
       row.eachCell((c, ci) => {
-        c.font = { size: 9 }; c.border = { top: {style:'thin'}, bottom: {style:'thin'}, left: {style:'thin'}, right: {style:'thin'} };
+        c.font = { name: 'Inter', size: 9 }; c.border = { top: {style:'thin'}, bottom: {style:'thin'}, left: {style:'thin'}, right: {style:'thin'} };
         if (ci >= 3) c.alignment = { horizontal: 'right' };
-        if (ci === 9 || ci === 17) c.font = { size: 9, bold: true };
+        if (ci === 9 || ci === 17) c.font = { name: 'Inter', size: 9, bold: true };
         if (idx % 2 === 0) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'D6E4F0' } };
       });
     });

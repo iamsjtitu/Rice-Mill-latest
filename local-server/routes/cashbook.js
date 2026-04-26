@@ -581,7 +581,7 @@ module.exports = function(database) {
       styleExcelHeader(ws);
       // Fix header row to row 4
       const hRow = ws.getRow(4);
-      hRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+      hRow.font = { name: 'Inter', bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
       hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B4F72' } };
       hRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
       hRow.height = 30;
@@ -600,9 +600,9 @@ module.exports = function(database) {
         total_nikasi: +txns.filter(t => t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
         closing_balance: +runBal.toFixed(2)
       };
-      ws.getCell(trow, 1).value = 'TOTAL / कुल'; ws.getCell(trow, 1).font = { bold: true, size: 11 };
+      ws.getCell(trow, 1).value = 'TOTAL / कुल'; ws.getCell(trow, 1).font = { name: 'Inter', bold: true, size: 11 };
       const totalVals = getTotalRow(totals, cols);
-      totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i + 1).value = v; ws.getCell(trow, i + 1).font = { bold: true, size: 11 }; } });
+      totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i + 1).value = v; ws.getCell(trow, i + 1).font = { name: 'Inter', bold: true, size: 11 }; } });
       // Style total row amber
       for (let c = 1; c <= cols.length; c++) {
         const cell = ws.getCell(trow, c);

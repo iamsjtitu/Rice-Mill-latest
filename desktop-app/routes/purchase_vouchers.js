@@ -396,7 +396,7 @@ module.exports = function(database) {
     const hdrs = ['No.', 'Date', 'Inv No.', 'Party', 'Items', 'Truck', 'E-Way Bill', 'Total', 'Advance', 'Cash', 'Diesel', 'Balance'];
     hdrs.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });
     const hRow = ws.getRow(4);
-    hRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    hRow.font = { name: 'Inter', bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
     hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B4F72' } };
     hRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     hRow.height = 30;
@@ -410,9 +410,9 @@ module.exports = function(database) {
     styleExcelData(ws, 5);
     // Total row
     const trow = 5 + vouchers.length;
-    ws.getCell(trow, 1).value = `TOTAL (${vouchers.length})`; ws.getCell(trow, 1).font = { bold: true, size: 11 };
+    ws.getCell(trow, 1).value = `TOTAL (${vouchers.length})`; ws.getCell(trow, 1).font = { name: 'Inter', bold: true, size: 11 };
     [null, null, null, null, null, null, null, Math.round(g.total), Math.round(g.adv), Math.round(g.cash), Math.round(g.diesel), Math.round(g.bal)].forEach((v, i) => {
-      if (v !== null) { ws.getCell(trow, i + 1).value = v; ws.getCell(trow, i + 1).font = { bold: true, size: 11 }; }
+      if (v !== null) { ws.getCell(trow, i + 1).value = v; ws.getCell(trow, i + 1).font = { name: 'Inter', bold: true, size: 11 }; }
     });
     for (let c = 1; c <= colCount; c++) {
       const cell = ws.getCell(trow, c);

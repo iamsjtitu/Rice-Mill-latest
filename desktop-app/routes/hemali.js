@@ -569,7 +569,7 @@ module.exports = (database) => {
     const ws = wb.addWorksheet('Monthly Summary');
     ws.mergeCells('A1:F1');
     ws.getCell('A1').value = 'Hemali Monthly Summary';
-    ws.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF1E293B' } };
+    ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14, color: { argb: 'FF1E293B' } };
     ws.getCell('A1').alignment = { horizontal: 'center' };
     ws.getRow(1).height = 22;
 
@@ -588,7 +588,7 @@ module.exports = (database) => {
       ws.mergeCells(r, 1, r, 6);
       const sardarCell = ws.getCell(r, 1);
       sardarCell.value = `SARDAR: ${sn}     |     Current Advance Balance: Rs.${adv.toFixed(2)}`;
-      sardarCell.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+      sardarCell.font = { name: 'Inter', bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
       sardarCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD97706' } };
       sardarCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
       ws.getRow(r).height = 22;
@@ -597,7 +597,7 @@ module.exports = (database) => {
       // Header row (navy bg)
       const hRow = ws.addRow(['Month', 'Payments (Paid/Total)', 'Total Work', 'Total Paid', 'Adv. Given', 'Adv. Deducted']);
       hRow.eachCell(c => {
-        c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+        c.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
         c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
         c.alignment = { horizontal: 'center', vertical: 'middle' };
       });
@@ -619,7 +619,7 @@ module.exports = (database) => {
       // TOTAL row (amber bg)
       const tRow = ws.addRow(['TOTAL', '', s.gt_work, s.gt_paid, s.gt_adv_given, s.gt_adv_ded]);
       tRow.eachCell((c, ci) => {
-        c.font = { bold: true, color: { argb: 'FF92400E' } };
+        c.font = { name: 'Inter', bold: true, color: { argb: 'FF92400E' } };
         c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
         if (ci > 1) c.numFmt = ci === 2 ? '@' : '"Rs."#,##0.00';
         c.alignment = { horizontal: ci === 1 ? 'left' : 'right' };
@@ -775,7 +775,7 @@ module.exports = (database) => {
     ws.mergeCells('A1:K1');
     const c1 = ws.getCell('A1');
     c1.value = companyName;
-    c1.font = { bold: true, size: 18, color: { argb: 'FFFFFFFF' }, name: 'Calibri' };
+    c1.font = { name: 'Inter', bold: true, size: 18, color: { argb: 'FFFFFFFF' }, name: 'Calibri' };
     c1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
     c1.alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getRow(1).height = 28;
@@ -784,7 +784,7 @@ module.exports = (database) => {
     ws.mergeCells('A2:K2');
     const c2 = ws.getCell('A2');
     c2.value = companyAddr || 'Hemali Payment Report';
-    c2.font = { italic: true, size: 10, color: { argb: 'FFCBD5E1' } };
+    c2.font = { name: 'Inter', italic: true, size: 10, color: { argb: 'FFCBD5E1' } };
     c2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
     c2.alignment = { horizontal: 'center' };
     ws.getRow(2).height = 16;
@@ -793,7 +793,7 @@ module.exports = (database) => {
     ws.mergeCells('A3:K3');
     const c3 = ws.getCell('A3');
     c3.value = 'HEMALI PAYMENT REPORT';
-    c3.font = { bold: true, size: 13, color: { argb: 'FFFFFFFF' } };
+    c3.font = { name: 'Inter', bold: true, size: 13, color: { argb: 'FFFFFFFF' } };
     c3.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF59E0B' } };
     c3.alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getRow(3).height = 22;
@@ -807,7 +807,7 @@ module.exports = (database) => {
     if (sardar_name) filters.push(`Sardar: ${sardar_name}`);
     const c4 = ws.getCell('A4');
     c4.value = filters.length ? filters.join('   |   ') : 'All payments';
-    c4.font = { size: 9, color: { argb: 'FF475569' } };
+    c4.font = { name: 'Inter', size: 9, color: { argb: 'FF475569' } };
     c4.alignment = { horizontal: 'center' };
     c4.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
 
@@ -815,7 +815,7 @@ module.exports = (database) => {
     ws.mergeCells('A5:K5');
     const c5 = ws.getCell('A5');
     c5.value = `Generated: ${new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}    |    Total Records: ${payments.length}`;
-    c5.font = { size: 9, italic: true, color: { argb: 'FF64748B' } };
+    c5.font = { name: 'Inter', size: 9, italic: true, color: { argb: 'FF64748B' } };
     c5.alignment = { horizontal: 'center' };
     c5.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
 
@@ -824,7 +824,7 @@ module.exports = (database) => {
     const headerRow = ws.addRow(headers); // becomes row 6
     headerRow.height = 22;
     headerRow.eachCell((cell) => {
-      cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+      cell.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
       cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
       cell.border = { top: { style: 'thin', color: { argb: 'FF334155' } }, bottom: { style: 'medium', color: { argb: 'FFF59E0B' } } };
@@ -842,7 +842,7 @@ module.exports = (database) => {
       const stripeBg = idx % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF';
       row.eachCell((cell, colNum) => {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: stripeBg } };
-        cell.font = { size: 10, color: { argb: 'FF1E293B' } };
+        cell.font = { name: 'Inter', size: 10, color: { argb: 'FF1E293B' } };
         cell.alignment = { vertical: 'middle', wrapText: false };
         cell.border = { bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
         if (colNum >= 6 && colNum <= 10) {
@@ -850,9 +850,9 @@ module.exports = (database) => {
           cell.alignment = { vertical: 'middle', horizontal: 'right' };
         }
         if (colNum === 1 || colNum === 3 || colNum === 11) cell.alignment = { vertical: 'middle', horizontal: 'center' };
-        if (colNum === 9) cell.font = { size: 10, color: { argb: 'FF16A34A' }, bold: true };
+        if (colNum === 9) cell.font = { name: 'Inter', size: 10, color: { argb: 'FF16A34A' }, bold: true };
         if (colNum === 11) {
-          cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 9 };
+          cell.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFFFF' }, size: 9 };
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isPaid ? 'FF16A34A' : 'FFDC2626' } };
         }
       });
@@ -867,12 +867,12 @@ module.exports = (database) => {
     const totalRow = ws.addRow(['', '', '', '', 'TOTAL', grandTotal, grandAdvDed, grandPayable, grandPaid, grandNewAdv, `${paidCount} Paid / ${unpaidCount} Unpaid`]);
     totalRow.height = 24;
     totalRow.eachCell((cell, colNum) => {
-      cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+      cell.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
       cell.alignment = { vertical: 'middle', horizontal: colNum >= 6 && colNum <= 10 ? 'right' : 'center' };
       cell.border = { top: { style: 'medium', color: { argb: 'FFF59E0B' } } };
       if (colNum >= 6 && colNum <= 10) cell.numFmt = '#,##0.00';
-      if (colNum === 11) cell.font = { bold: true, color: { argb: 'FFF59E0B' }, size: 10 };
+      if (colNum === 11) cell.font = { name: 'Inter', bold: true, color: { argb: 'FFF59E0B' }, size: 10 };
     });
 
     // ===== Beautiful single-line summary banner (LIGHT theme - below totals) =====
@@ -880,7 +880,7 @@ module.exports = (database) => {
     ws.mergeCells(sumRowIdx, 1, sumRowIdx, 11);
     const sumCell = ws.getCell(sumRowIdx, 1);
     sumCell.value = `📊  Total Entries: ${payments.length}   •   Paid: ${paidCount}   •   Unpaid: ${unpaidCount}   •   Gross Work: Rs.${grandTotal.toFixed(2)}   •   Total Paid: Rs.${grandPaid.toFixed(2)}   •   Outstanding: Rs.${(grandPayable - grandPaid).toFixed(2)}`;
-    sumCell.font = { bold: true, size: 11, color: { argb: 'FF1E293B' } };
+    sumCell.font = { name: 'Inter', bold: true, size: 11, color: { argb: 'FF1E293B' } };
     sumCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
     sumCell.alignment = { horizontal: 'center', vertical: 'middle' };
     sumCell.border = {

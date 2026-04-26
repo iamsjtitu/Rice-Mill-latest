@@ -81,7 +81,7 @@ router.get('/api/frk-purchases/excel', async (req, res) => {
     ];
     purchases.forEach(p => ws.addRow({ date: fmtDate(p.date), party: p.party_name||'', qty: p.quantity_qntl||0, rate: p.rate_per_qntl||0, amount: p.total_amount||0, note: p.note||'' }));
     const totalRow = ws.addRow({ date: 'TOTAL', party: '', qty: +purchases.reduce((s,p)=>s+(p.quantity_qntl||0),0).toFixed(2), rate: '', amount: +purchases.reduce((s,p)=>s+(p.total_amount||0),0).toFixed(2), note: '' });
-    totalRow.font = { bold: true };
+    totalRow.font = { name: 'Inter', bold: true };
     addExcelTitle(ws, 'FRK Purchase Register', 6);
     styleExcelHeader(ws);
     styleExcelData(ws, 5);
@@ -140,10 +140,10 @@ router.get('/api/byproduct-sales/excel', async (req, res) => {
     });
     ws.addRow({});
     const detailHeaderRow = ws.addRow({ product: 'Date', produced: 'Product', sold: 'Qty (Q)', available: 'Rate (₹/Q)', revenue: 'Amount (₹)' });
-    detailHeaderRow.font = { bold: true };
+    detailHeaderRow.font = { name: 'Inter', bold: true };
     sales.forEach(s => ws.addRow({ product: fmtDate(s.date), produced: (s.product||'').charAt(0).toUpperCase()+(s.product||'').slice(1), sold: s.quantity_qntl||0, available: s.rate_per_qntl||0, revenue: s.total_amount||0 }));
     const totalRow = ws.addRow({ product: 'TOTAL', produced: '', sold: +sales.reduce((s,e)=>s+(e.quantity_qntl||0),0).toFixed(2), available: '', revenue: +sales.reduce((s,e)=>s+(e.total_amount||0),0).toFixed(2) });
-    totalRow.font = { bold: true };
+    totalRow.font = { name: 'Inter', bold: true };
     addExcelTitle(ws, 'By-Product Stock & Sales Report', 5);
     styleExcelHeader(ws);
     styleExcelData(ws, 5);
@@ -212,7 +212,7 @@ router.get('/api/paddy-custody-register/excel', async (req, res) => {
     ];
     rows.forEach(r => ws.addRow({ date: r.date, description: r.description, received: r.received_qntl > 0 ? r.received_qntl : '', released: r.released_qntl > 0 ? r.released_qntl : '', balance: r.balance_qntl }));
     const totalRow = ws.addRow({ date: 'TOTAL', description: '', received: +rows.reduce((s,r)=>s+r.received_qntl,0).toFixed(2), released: +rows.reduce((s,r)=>s+r.released_qntl,0).toFixed(2), balance: +balance.toFixed(2) });
-    totalRow.font = { bold: true };
+    totalRow.font = { name: 'Inter', bold: true };
     addExcelTitle(ws, 'Paddy Custody Register', 5);
     styleExcelHeader(ws);
     styleExcelData(ws, 5);

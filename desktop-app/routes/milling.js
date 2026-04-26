@@ -372,7 +372,7 @@ module.exports = function(database) {
 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Paddy Chalna');
-    const hdrStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }, alignment: { horizontal: 'center' } };
+    const hdrStyle = { font: { name: 'Inter', bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }, alignment: { horizontal: 'center' } };
     const summaryFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } };
 
     // Title
