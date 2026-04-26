@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.44
+## Current Version: v104.29.0
 
 ## 🎨 GLOBAL TYPOGRAPHY (v104.28.42-44)
 **Two-font system applied across screen + PDF + Excel** — single CSS rule + monkey-patches, no per-component edits:
@@ -37,6 +37,34 @@ Result: Stripe/Plaid/Linear-grade premium typography across screen + PDF + Excel
 
 ## ⚠️ LESSON: Stay strictly within scope
 **v104.28.35**: User asked for "PDF and Summary report mein hi sirf changes" — but I went and changed the on-screen Dashboard endpoint + frontend JSX too. Reverted. ALWAYS confirm scope when user says "sirf X mein" — don't refactor adjacent code paths even if they share the same logic. PDF and screen are TWO different surfaces, treat them independently.
+
+## Recent Fixes (Apr 2026) — v104.29.0
+
+### NEW FEATURE: Company Letter Pad (Milling → Company Letter Pad subtab)
+- **User request**: Letter generator/editor with company letterhead, downloadable as PDF or MS Word. Optional AI assistant for letter generation/improvement/translation. Each miller (multi-tenant SaaS scenario) adds their own free Gemini API key OR paid OpenAI key.
+
+**3 backends synced**:
+- Python (`/app/backend/routes/letter_pad.py`)
+- Node.js Desktop App (`/app/desktop-app/routes/letter_pad.js`)
+- Node.js LAN (`/app/local-server/routes/letter_pad.js`)
+
+**Endpoints**:
+- `GET /api/letter-pad/settings` — return signature + AI key presence (never exposes actual keys)
+- `PUT /api/letter-pad/settings` — save signature_name, designation, ai_enabled, gemini_key, openai_key
+- `POST /api/letter-pad/ai` — proxy to Gemini 2.5 Flash OR GPT-5-mini using miller's stored key. Modes: generate / improve / translate. Free Gemini = 1500 letters/day per miller.
+- `POST /api/letter-pad/pdf` — generate ReportLab/PDFKit PDF with the Navkar-style letterhead (GSTIN top-left, ॐ + company name centered red, address+email below, phone right, red divider, Ref/Date row, To/Subject/Body, signature block bottom-right)
+- `POST /api/letter-pad/docx` — same letterhead in editable Word format (python-docx in Python, docx npm in Node.js)
+
+**Frontend** (`/app/frontend/src/components/LetterPadTab.jsx`):
+- Form: Ref. No., Date (auto-today DD-MM-YYYY), To Address (multiline), Subject, References, Body (large textarea)
+- 3 AI buttons in body header: **AI Generate** (emerald), **Improve** (blue), **Translate** (purple) — disabled when AI off
+- 2 download buttons: Download PDF (rose), Download Word (.docx) (blue)
+- Settings dialog: signature name + designation, AI toggle, provider picker (Gemini Flash / GPT-5-mini), key inputs (password type)
+- AI dialog: target language picker (English/Hindi/Odia for translate), input textarea, Run AI button
+
+**Multi-tenant cost model**: Each miller adds own FREE Gemini key from Google AI Studio (2-min setup, 1500 letters/day forever free). If they prefer GPT-5-mini, they paste own OpenAI key. Software author pays ₹0.
+
+**Verified live**: PDF generated correctly (AI Vision 95% confidence: NAVKAR AGRO red bold, address centered, red divider, Ref/Date row, signature block); DOCX downloads as 37KB; settings GET/PUT returns `has_gemini_key:false` initially. Lint clean, all 3 backends started cleanly.
 
 ## Recent Fixes (Apr 2026) — v104.28.44
 

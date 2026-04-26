@@ -1171,6 +1171,9 @@ async function startServer() {
     const paddyReleaseRoutes = require('./routes/paddy_release')(database);
     app.use(paddyReleaseRoutes);
 
+    const letterPadRoutes = require('./routes/letter_pad')(database);
+    app.use(letterPadRoutes);
+
     console.log('  [Routes] All modular routes loaded successfully');
 
     // ===== DATE FORMAT VALIDATOR - Startup Health Check =====

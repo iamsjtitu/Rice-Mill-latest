@@ -19,6 +19,7 @@ import { Trash2, Edit, Plus, RefreshCw, Filter, X, ShoppingCart, Package, Downlo
 import { useConfirm } from "./ConfirmProvider";
 import { useCloseFiltersOnEsc } from "../utils/useCloseFiltersOnEsc";
 import logger from "../utils/logger";
+import LetterPadTab from "./LetterPadTab";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
@@ -814,6 +815,7 @@ const MillingTracker = ({ filters, user }) => {
   const tabs = [
     { id: "milling", label: "Milling Entries" },
     { id: "chalna", label: "Paddy Chalna" },
+    { id: "letterpad", label: "Company Letter Pad" },
   ];
 
   return (
@@ -825,12 +827,14 @@ const MillingTracker = ({ filters, user }) => {
             data-testid={`subtab-${t.id}`}>
             {t.id === 'custody' && <ClipboardList className="w-4 h-4 mr-1" />}
             {t.id === 'chalna' && <Scissors className="w-4 h-4 mr-1" />}
+            {t.id === 'letterpad' && <FileText className="w-4 h-4 mr-1" />}
             {t.label}
           </Button>
         ))}
       </div>
       {subTab === "milling" && <MillingEntriesTab filters={filters} user={user} paddyStock={paddyStock} frkStock={frkStock} onRefresh={fetchStocks} />}
       {subTab === "chalna" && <PaddyChalnaTab filters={filters} />}
+      {subTab === "letterpad" && <LetterPadTab user={user} />}
     </div>
   );
 };
