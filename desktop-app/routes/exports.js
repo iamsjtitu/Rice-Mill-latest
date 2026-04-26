@@ -3,7 +3,7 @@ const { safeAsync, safeSync, roundAmount } = require('./safe_handler');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, registerFonts, F , safePdfPipe, drawSummaryBanner, addExcelSummaryBanner, STAT_COLORS, fmtInr} = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, registerFonts, F , safePdfPipe, drawSummaryBanner, drawSectionBand, addExcelSummaryBanner, STAT_COLORS, fmtInr} = require('./pdf_helpers');
 const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
 
 module.exports = function(database) {
@@ -253,106 +253,143 @@ module.exports = function(database) {
       const showTargets = !req.query.filter || req.query.filter !== 'stock';
       const targetMandi = req.query.filter && req.query.filter !== 'all' && req.query.filter !== 'stock' ? req.query.filter : null;
 
-      const doc = new PDFDocument({ size: 'A4', margin: 30 });
+      const doc = new PDFDocument({ size: 'A4', margin: 25 });
       registerFonts(doc);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=dashboard_${filterLabel}_${Date.now()}.pdf`);
-      // PDF will be sent via safePdfPipe
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=dashboard_${filterLabel}_${Date.now()}.pdf`);
       addPdfHeader(doc, 'Dashboard Report');
 
       // Sub-header
-      doc.fontSize(8).font(F('normal')).fillColor('grey')
-        .text(`FY: ${req.query.kms_year || 'All'} | Season: ${req.query.season || 'All'} | Filter: ${filterLabel}`, { align: 'center' });
-      doc.moveDown(0.5);
+      doc.fontSize(8.5).font(F('bold')).fillColor('#475569')
+        .text(`DASHBOARD REPORT  |  FY: ${req.query.kms_year || 'All'}  |  Season: ${req.query.season || 'All'}  |  Filter: ${filterLabel}  |  ${new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}`,
+          { align: 'center' });
+      doc.moveDown(0.6);
+
+      // ============================================================
+      // Compute STOCK + TARGETS data
+      // ============================================================
+      const cmrPaddy = Math.round(entries.reduce((s, e) => s + (e.final_w || 0), 0) / 100 * 100) / 100;
+
+      let pvtEntries = database.data.private_paddy || [];
+      if (req.query.kms_year) pvtEntries = pvtEntries.filter(e => e.kms_year === req.query.kms_year);
+      if (req.query.season) pvtEntries = pvtEntries.filter(e => e.season === req.query.season);
+      pvtEntries = pvtEntries.filter(e => e.source !== 'agent_extra');
+      const pvtPaddy = Math.round(pvtEntries.reduce((s, e) => s + ((e.qntl || 0) - (e.bag || 0) / 100), 0) * 100) / 100;
+      const totalPaddyIn = Math.round((cmrPaddy + pvtPaddy) * 100) / 100;
+
+      const millingEntries = database.getMillingEntries(req.query);
+      const paddyUsed = Math.round(millingEntries.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0) * 100) / 100;
+      const riceRaw = Math.round(millingEntries.filter(e => !e.product_type || e.product_type === 'raw').reduce((s, e) => s + (e.rice_qntl || 0), 0) * 100) / 100;
+      const riceUsna = Math.round(millingEntries.filter(e => e.product_type === 'usna').reduce((s, e) => s + (e.rice_qntl || 0), 0) * 100) / 100;
+      const frk = Math.round(millingEntries.reduce((s, e) => s + (e.frk_used_qntl || 0), 0) * 100) / 100;
+      const byproduct = Math.round(millingEntries.reduce((s, e) => s + (e.bran_qntl || 0) + (e.kunda_qntl || 0), 0) * 100) / 100;
+      const paddyAvail = Math.round((totalPaddyIn - paddyUsed) * 100) / 100;
+
+      let gunnyEntries = database.data.gunny_bags || [];
+      if (req.query.kms_year) gunnyEntries = gunnyEntries.filter(e => e.kms_year === req.query.kms_year);
+      if (req.query.season) gunnyEntries = gunnyEntries.filter(e => e.season === req.query.season);
+      const gunnyIn = gunnyEntries.filter(e => e.txn_type === 'in').reduce((s, e) => s + (e.quantity || 0), 0);
+      const gunnyOut = gunnyEntries.filter(e => e.txn_type === 'out').reduce((s, e) => s + (e.quantity || 0), 0);
+
+      // Targets
+      let targets = database.getMandiTargets(req.query);
+      if (targetMandi) targets = targets.filter(t => t.mandi_name === targetMandi);
+      let totTarget = 0, totExpected = 0, totAchieved = 0, totPending = 0, totAgent = 0;
+      const targetRows = [];
+      for (const t of targets) {
+        const mandiEntries = entries.filter(e => (e.mandi_name || '').toLowerCase() === (t.mandi_name || '').toLowerCase());
+        const achieved = Math.round(mandiEntries.reduce((s, e) => s + (e.final_w || 0) / 100, 0) * 100) / 100;
+        const expected = t.expected_total || t.target_qntl;
+        const pending = Math.round(Math.max(0, expected - achieved) * 100) / 100;
+        const progress = expected > 0 ? Math.round(achieved / expected * 1000) / 10 : 0;
+        const cuttingQ = Math.round(t.target_qntl * t.cutting_percent / 100 * 100) / 100;
+        const agentAmt = Math.round((t.target_qntl * (t.base_rate || 10)) + (cuttingQ * (t.cutting_rate || 5)));
+        totTarget += t.target_qntl; totExpected += expected;
+        totAchieved += achieved; totPending += pending; totAgent += agentAmt;
+        targetRows.push({ t, achieved, expected, pending, progress, agentAmt });
+      }
+      const overallProgress = totExpected > 0 ? Math.round(totAchieved / totExpected * 1000) / 10 : 0;
+      const progressColor = overallProgress >= 100 ? STAT_COLORS.green : (overallProgress >= 50 ? STAT_COLORS.gold : STAT_COLORS.red);
+      const availColor = paddyAvail >= 0 ? STAT_COLORS.emerald : STAT_COLORS.red;
+
+      // ============================================================
+      // KPI HERO BANNER
+      // ============================================================
+      const kpis = [];
+      if (showStock) {
+        kpis.push({ lbl: 'PADDY IN', val: `${totalPaddyIn.toFixed(1)} Q`, color: STAT_COLORS.blue });
+        kpis.push({ lbl: 'PADDY USED', val: `${paddyUsed.toFixed(1)} Q`, color: STAT_COLORS.orange });
+        kpis.push({ lbl: 'AVAILABLE', val: `${paddyAvail.toFixed(1)} Q`, color: availColor });
+        kpis.push({ lbl: 'RICE PRODUCED', val: `${(riceRaw + riceUsna).toFixed(1)} Q`, color: STAT_COLORS.purple });
+      }
+      if (showTargets && targets.length) {
+        kpis.push({ lbl: 'TARGETS', val: `${Math.round(totExpected)} Q`, color: STAT_COLORS.gold });
+        kpis.push({ lbl: 'ACHIEVED', val: `${Math.round(totAchieved)} Q (${overallProgress}%)`, color: progressColor });
+        kpis.push({ lbl: 'PENDING', val: `${Math.round(totPending)} Q`, color: STAT_COLORS.red });
+      }
+      if (kpis.length) {
+        const margin = 25;
+        const bannerW = doc.page.width - margin * 2;
+        const newY = drawSummaryBanner(doc, kpis, margin, doc.y, bannerW);
+        doc.y = newY + 8;
+      }
 
       // ---- STOCK SECTION ----
       if (showStock) {
-        addSectionTitle(doc, 'STOCK OVERVIEW');
-
-        // Paddy from CMR (mill entries final_w)
-        const cmrPaddy = Math.round(entries.reduce((s, e) => s + (e.final_w || 0), 0) / 100 * 100) / 100;
-
-        // Private paddy
-        let pvtEntries = database.data.private_paddy || [];
-        if (req.query.kms_year) pvtEntries = pvtEntries.filter(e => e.kms_year === req.query.kms_year);
-        if (req.query.season) pvtEntries = pvtEntries.filter(e => e.season === req.query.season);
-        pvtEntries = pvtEntries.filter(e => e.source !== 'agent_extra');
-        const pvtPaddy = Math.round(pvtEntries.reduce((s, e) => s + ((e.qntl || 0) - (e.bag || 0) / 100), 0) * 100) / 100;
-
-        const totalPaddyIn = Math.round((cmrPaddy + pvtPaddy) * 100) / 100;
-
-        // Milling data
-        const millingEntries = database.getMillingEntries(req.query);
-        const paddyUsed = Math.round(millingEntries.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0) * 100) / 100;
-        const riceRaw = Math.round(millingEntries.filter(e => !e.product_type || e.product_type === 'raw').reduce((s, e) => s + (e.rice_qntl || 0), 0) * 100) / 100;
-        const riceUsna = Math.round(millingEntries.filter(e => e.product_type === 'usna').reduce((s, e) => s + (e.rice_qntl || 0), 0) * 100) / 100;
-        const frk = Math.round(millingEntries.reduce((s, e) => s + (e.frk_used_qntl || 0), 0) * 100) / 100;
-        const byproduct = Math.round(millingEntries.reduce((s, e) => s + (e.bran_qntl || 0) + (e.kunda_qntl || 0), 0) * 100) / 100;
-        const paddyAvail = Math.round((totalPaddyIn - paddyUsed) * 100) / 100;
-
-        // Gunny bags
-        let gunnyEntries = database.data.gunny_bags || [];
-        if (req.query.kms_year) gunnyEntries = gunnyEntries.filter(e => e.kms_year === req.query.kms_year);
-        if (req.query.season) gunnyEntries = gunnyEntries.filter(e => e.season === req.query.season);
-        const gunnyIn = gunnyEntries.filter(e => e.txn_type === 'in').reduce((s, e) => s + (e.quantity || 0), 0);
-        const gunnyOut = gunnyEntries.filter(e => e.txn_type === 'out').reduce((s, e) => s + (e.quantity || 0), 0);
+        drawSectionBand(doc, 'Stock Overview', {
+          subtitle: `FY ${req.query.kms_year || 'All'} · ${req.query.season || 'All'}`,
+          preset: 'orange',
+        });
 
         const stockHeaders = ['Item', 'Source', 'IN', 'OUT/Used', 'Available', 'Unit'];
         const stockRows = [
-          ['Paddy', 'CMR (Mill Entry)', cmrPaddy, '-', '-', 'Qntl'],
-          ['Paddy', 'Private Purchase', pvtPaddy, '-', '-', 'Qntl'],
-          ['Paddy Total', '', totalPaddyIn, paddyUsed, paddyAvail, 'Qntl'],
-          ['Rice (Raw)', 'Milling', riceRaw, '-', riceRaw, 'Qntl'],
-          ['Rice (Usna)', 'Milling', riceUsna, '-', riceUsna, 'Qntl'],
-          ['FRK', 'Milling', frk, '-', frk, 'Qntl'],
-          ['By-Products', 'Milling', byproduct, '-', byproduct, 'Qntl'],
-          ['Gunny Bags', 'All Sources', gunnyIn, gunnyOut, gunnyIn - gunnyOut, 'Bags'],
+          ['Paddy', 'CMR (Mill Entry)', cmrPaddy.toFixed(2), '—', '—', 'Qntl'],
+          ['Paddy', 'Private Purchase', pvtPaddy.toFixed(2), '—', '—', 'Qntl'],
+          ['TOTAL PADDY', '', totalPaddyIn.toFixed(2), paddyUsed.toFixed(2), paddyAvail.toFixed(2), 'Qntl'],
+          ['Rice (Raw)', 'Milling', riceRaw.toFixed(2), '—', riceRaw.toFixed(2), 'Qntl'],
+          ['Rice (Usna)', 'Milling', riceUsna.toFixed(2), '—', riceUsna.toFixed(2), 'Qntl'],
+          ['FRK', 'Milling', frk.toFixed(2), '—', frk.toFixed(2), 'Qntl'],
+          ['By-Products', 'Milling', byproduct.toFixed(2), '—', byproduct.toFixed(2), 'Qntl'],
+          ['Gunny Bags', 'All Sources', String(gunnyIn), String(gunnyOut), String(gunnyIn - gunnyOut), 'Bags'],
         ];
-        addPdfTable(doc, stockHeaders, stockRows, [75, 80, 70, 70, 80, 50]);
-        doc.moveDown(0.5);
+        // Use percentage-based widths so table fills page (matches Python redesign)
+        const pageW = doc.page.width - 50;
+        const sw = [0.18, 0.22, 0.16, 0.16, 0.18, 0.10].map(w => Math.floor(pageW * w));
+        addPdfTable(doc, stockHeaders, stockRows, sw, { fontSize: 8 });
+        doc.moveDown(0.4);
       }
 
       // ---- TARGETS SECTION ----
       if (showTargets) {
-        addSectionTitle(doc, targetMandi ? `MANDI TARGETS - ${targetMandi}` : 'MANDI TARGETS');
+        drawSectionBand(doc, targetMandi ? `Mandi Targets · ${targetMandi}` : 'Mandi Targets', {
+          subtitle: targets.length ? `Overall: ${overallProgress}% achieved` : null,
+          preset: 'teal',
+        });
 
-        let targets = database.getMandiTargets(req.query);
-        if (targetMandi) targets = targets.filter(t => t.mandi_name === targetMandi);
-
-        if (targets.length > 0) {
+        if (targetRows.length > 0) {
           const tgtHeaders = ['Mandi', 'Target (Q)', 'Cut %', 'Expected (Q)', 'Achieved (Q)', 'Pending (Q)', 'Progress', 'Agent Amt'];
-          const tgtRows = [];
-          let totTarget = 0, totExpected = 0, totAchieved = 0, totPending = 0, totAgent = 0;
+          const tgtRowsData = targetRows.map(({ t, achieved, expected, pending, progress, agentAmt }) =>
+            [t.mandi_name, t.target_qntl.toFixed(1), `${t.cutting_percent}%`,
+              expected.toFixed(1), achieved.toFixed(1), pending.toFixed(1),
+              `${progress}%`, `Rs.${fmtAmt(agentAmt)}`]
+          );
+          tgtRowsData.push(['TOTAL', totTarget.toFixed(1), '—', totExpected.toFixed(1),
+            totAchieved.toFixed(1), totPending.toFixed(1), `${overallProgress}%`, `Rs.${fmtAmt(totAgent)}`]);
 
-          for (const t of targets) {
-            const mandiEntries = entries.filter(e => (e.mandi_name || '').toLowerCase() === (t.mandi_name || '').toLowerCase());
-            const achieved = Math.round(mandiEntries.reduce((s, e) => s + (e.final_w || 0) / 100, 0) * 100) / 100;
-            const expected = t.expected_total || t.target_qntl;
-            const pending = Math.round(Math.max(0, expected - achieved) * 100) / 100;
-            const progress = expected > 0 ? Math.round(achieved / expected * 1000) / 10 : 0;
-            const cuttingQ = Math.round(t.target_qntl * t.cutting_percent / 100 * 100) / 100;
-            const agentAmt = Math.round((t.target_qntl * (t.base_rate || 10)) + (cuttingQ * (t.cutting_rate || 5)));
-
-            totTarget += t.target_qntl; totExpected += expected;
-            totAchieved += achieved; totPending += pending; totAgent += agentAmt;
-
-            tgtRows.push([t.mandi_name, t.target_qntl, `${t.cutting_percent}%`, expected, achieved, pending, `${progress}%`, `Rs.${fmtAmt(agentAmt)}`]);
-          }
-
-          const totProg = totExpected > 0 ? Math.round(totAchieved / totExpected * 1000) / 10 : 0;
-          tgtRows.push(['TOTAL', Math.round(totTarget * 100) / 100, '-', Math.round(totExpected * 100) / 100, Math.round(totAchieved * 100) / 100, Math.round(totPending * 100) / 100, `${totProg}%`, `Rs.${fmtAmt(totAgent)}`]);
-
-          addPdfTable(doc, tgtHeaders, tgtRows, [60, 50, 35, 55, 55, 55, 45, 60]);
+          const pageW = doc.page.width - 50;
+          const tw = [0.16, 0.10, 0.07, 0.13, 0.13, 0.13, 0.12, 0.16].map(w => Math.floor(pageW * w));
+          addPdfTable(doc, tgtHeaders, tgtRowsData, tw, { fontSize: 8 });
         } else {
           doc.fontSize(9).font(F('normal')).fillColor('#64748b').text('Koi target set nahi hai', { align: 'center' });
         }
       }
 
       // Footer
-      doc.moveDown(1);
+      doc.moveDown(1.2);
       const branding = database.getBranding ? database.getBranding() : {};
-      doc.fontSize(7).font(F('normal')).fillColor('#94a3b8')
-        .text(`Generated by ${branding.company_name || 'Mill Entry System'} | ${new Date().toLocaleDateString('en-IN')}`, { align: 'center' });
+      doc.fontSize(7.5).font(F('normal')).fillColor('#94a3b8')
+        .text(`Generated by ${branding.company_name || 'Mill Entry System'}  ·  ${new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}`,
+          { align: 'center' });
       await safePdfPipe(doc, res);
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
@@ -360,15 +397,220 @@ module.exports = function(database) {
   // ===== SUMMARY REPORT =====
   router.get('/api/export/summary-report-pdf', safeSync(async (req, res) => {
     try {
-      const entries = database.getEntries(req.query); const totals = database.getTotals ? database.getTotals(req.query) : {};
-      const doc = new PDFDocument({ size: 'A4', margin: 40 });
+      const entries = database.getEntries(req.query);
+
+      // ============================================================
+      // Compute ALL data first
+      // ============================================================
+      // STOCK
+      const cmrPaddy = Math.round(entries.reduce((s, e) => s + (e.final_w || 0), 0) / 100 * 100) / 100;
+      let pvtEntries = database.data.private_paddy || [];
+      if (req.query.kms_year) pvtEntries = pvtEntries.filter(e => e.kms_year === req.query.kms_year);
+      if (req.query.season) pvtEntries = pvtEntries.filter(e => e.season === req.query.season);
+      pvtEntries = pvtEntries.filter(e => e.source !== 'agent_extra');
+      const pvtPaddy = Math.round(pvtEntries.reduce((s, e) => s + ((e.qntl || 0) - (e.bag || 0) / 100), 0) * 100) / 100;
+      const totalPaddyIn = Math.round((cmrPaddy + pvtPaddy) * 100) / 100;
+      const millingEntries = database.getMillingEntries(req.query);
+      const paddyUsed = Math.round(millingEntries.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0) * 100) / 100;
+      const riceRaw = Math.round(millingEntries.filter(e => !e.product_type || e.product_type === 'raw').reduce((s, e) => s + (e.rice_qntl || 0), 0) * 100) / 100;
+      const riceUsna = Math.round(millingEntries.filter(e => e.product_type === 'usna').reduce((s, e) => s + (e.rice_qntl || 0), 0) * 100) / 100;
+      const frk = Math.round(millingEntries.reduce((s, e) => s + (e.frk_used_qntl || 0), 0) * 100) / 100;
+      const paddyAvail = Math.round((totalPaddyIn - paddyUsed) * 100) / 100;
+      let gunnyEntries = database.data.gunny_bags || [];
+      if (req.query.kms_year) gunnyEntries = gunnyEntries.filter(e => e.kms_year === req.query.kms_year);
+      if (req.query.season) gunnyEntries = gunnyEntries.filter(e => e.season === req.query.season);
+      const gunnyIn = gunnyEntries.filter(e => e.txn_type === 'in').reduce((s, e) => s + (e.quantity || 0), 0);
+      const gunnyOut = gunnyEntries.filter(e => e.txn_type === 'out').reduce((s, e) => s + (e.quantity || 0), 0);
+
+      // TARGETS
+      let targets = database.getMandiTargets(req.query);
+      if (!targets.length && (req.query.kms_year || req.query.season)) {
+        targets = database.getMandiTargets({});
+      }
+      let totT = 0, totE = 0, totA = 0, totP = 0;
+      const targetCalc = [];
+      for (const t of targets) {
+        const mEntries = entries.filter(e => (e.mandi_name || '').toLowerCase() === (t.mandi_name || '').toLowerCase());
+        const achieved = Math.round(mEntries.reduce((s, e) => s + (e.final_w || 0) / 100, 0) * 100) / 100;
+        const expected = t.expected_total || t.target_qntl;
+        const pending = Math.round(Math.max(0, expected - achieved) * 100) / 100;
+        const pr = expected > 0 ? Math.round(achieved / expected * 1000) / 10 : 0;
+        totT += t.target_qntl; totE += expected; totA += achieved; totP += pending;
+        targetCalc.push({ t, achieved, expected, pending, pr });
+      }
+      const overallProgress = totE > 0 ? Math.round(totA / totE * 1000) / 10 : 0;
+
+      // TRUCK PAYMENTS
+      let truckNet = 0, truckPaid = 0, truckBal = 0;
+      const truckRowsData = [];
+      for (const e of entries) {
+        const p = database.getTruckPayment ? database.getTruckPayment(e.id) : { rate_per_qntl: 32, paid_amount: 0 };
+        const rate = p.rate_per_qntl || 32;
+        const paid = p.paid_amount || 0;
+        const fq = (e.qntl || 0) - (e.bag || 0) / 100;
+        const cash = e.cash_paid || 0; const diesel = e.diesel_paid || 0;
+        const net = Math.round((fq * rate - cash - diesel) * 100) / 100;
+        const bal = Math.round(Math.max(0, net - paid) * 100) / 100;
+        truckNet += net; truckPaid += paid; truckBal += bal;
+        truckRowsData.push([
+          fmtDate(e.date), String(e.truck_no || '').slice(0, 12), String(e.mandi_name || '').slice(0, 16),
+          fq.toFixed(2), `Rs.${fmtAmt(net)}`, `Rs.${fmtAmt(paid)}`, `Rs.${fmtAmt(bal)}`,
+          bal < 0.10 ? 'Paid' : 'Pending',
+        ]);
+      }
+
+      // AGENT PAYMENTS
+      let agentAmt = 0, agentPaid = 0, agentBal = 0;
+      const agentRowsData = [];
+      for (const t of targets) {
+        const cq = Math.round(t.target_qntl * t.cutting_percent / 100 * 100) / 100;
+        const br = t.base_rate || 10; const cr = t.cutting_rate || 5;
+        const total_amt = Math.round(((t.target_qntl * br) + (cq * cr)) * 100) / 100;
+        let paid = 0;
+        if (database.data.agent_payments) {
+          const apDoc = database.data.agent_payments.find(a => a.mandi_name === t.mandi_name && a.kms_year === t.kms_year && a.season === t.season);
+          if (apDoc) paid = apDoc.paid_amount || 0;
+        }
+        const bal = Math.round(Math.max(0, total_amt - paid) * 100) / 100;
+        agentAmt += total_amt; agentPaid += paid; agentBal += bal;
+        agentRowsData.push([
+          t.mandi_name, t.target_qntl.toFixed(1), cq.toFixed(1), `Rs.${br}/Rs.${cr}`,
+          `Rs.${fmtAmt(total_amt)}`, `Rs.${fmtAmt(paid)}`, `Rs.${fmtAmt(bal)}`,
+          bal <= 0 ? 'Paid' : 'Pending',
+        ]);
+      }
+
+      // GRAND TOTALS
+      const ga = truckNet + agentAmt;
+      const gp = truckPaid + agentPaid;
+      const gb = truckBal + agentBal;
+      const paidPct = ga > 0 ? Math.round(gp / ga * 1000) / 10 : 0;
+      const progressColor = overallProgress >= 100 ? STAT_COLORS.green : (overallProgress >= 50 ? STAT_COLORS.gold : STAT_COLORS.red);
+      const paidPctColor = paidPct >= 90 ? STAT_COLORS.green : (paidPct >= 50 ? STAT_COLORS.gold : STAT_COLORS.red);
+
+      // ============================================================
+      // BUILD PDF
+      // ============================================================
+      const doc = new PDFDocument({ size: 'A4', margin: 25 });
       registerFonts(doc);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=summary_${Date.now()}.pdf`);
-      // PDF will be sent via safePdfPipe
-      addPdfHeader(doc, 'Summary Report');
-      doc.fontSize(10).font(F('bold')).text('Overview:', { underline: true }); doc.moveDown(0.3); doc.font(F('normal')).fontSize(9);
-      doc.text(`Total Entries: ${entries.length}`); doc.text(`Total QNTL: ${(totals.total_qntl||0).toFixed?.(2)||0}`); doc.text(`Total Final W: ${((totals.total_final_w||0)/100).toFixed?.(2)||0}`);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=summary_report_${Date.now()}.pdf`);
+      addPdfHeader(doc, 'Complete Summary Report');
+
+      // Sub-header
+      doc.fontSize(8.5).font(F('bold')).fillColor('#475569')
+        .text(`COMPLETE SUMMARY REPORT  |  FY: ${req.query.kms_year || 'All'}  |  Season: ${req.query.season || 'All'}  |  ${new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}`,
+          { align: 'center' });
+      doc.moveDown(0.6);
+
+      // KPI HERO BANNER
+      const kpis = [
+        { lbl: 'PADDY IN', val: `${Math.round(totalPaddyIn)} Q`, color: STAT_COLORS.blue },
+        { lbl: 'PADDY USED', val: `${Math.round(paddyUsed)} Q`, color: STAT_COLORS.orange },
+        { lbl: 'TARGETS', val: `${Math.round(totE)} Q`, color: STAT_COLORS.gold },
+        { lbl: 'ACHIEVED', val: `${overallProgress}%`, color: progressColor },
+        { lbl: 'GRAND TOTAL', val: `Rs.${fmtAmt(Math.round(ga))}`, color: STAT_COLORS.purple },
+        { lbl: 'PAID', val: `Rs.${fmtAmt(Math.round(gp))} (${paidPct}%)`, color: paidPctColor },
+        { lbl: 'BALANCE DUE', val: `Rs.${fmtAmt(Math.round(gb))}`, color: STAT_COLORS.red },
+      ];
+      const margin = 25;
+      const bannerW = doc.page.width - margin * 2;
+      doc.y = drawSummaryBanner(doc, kpis, margin, doc.y, bannerW) + 8;
+
+      const pageW = doc.page.width - 50;
+
+      // SECTION 1: STOCK
+      drawSectionBand(doc, '1 · Stock Overview', {
+        subtitle: `Available: ${paddyAvail.toFixed(1)} Q · Rice: ${(riceRaw + riceUsna).toFixed(1)} Q`,
+        preset: 'orange',
+      });
+      const stockHeaders = ['Item', 'IN', 'OUT/Used', 'Available', 'Unit'];
+      const stockRows = [
+        ['Paddy (CMR)', cmrPaddy.toFixed(2), '—', '—', 'Qntl'],
+        ['Paddy (Pvt)', pvtPaddy.toFixed(2), '—', '—', 'Qntl'],
+        ['TOTAL PADDY', totalPaddyIn.toFixed(2), paddyUsed.toFixed(2), paddyAvail.toFixed(2), 'Qntl'],
+        ['Rice (Raw)', riceRaw.toFixed(2), '—', riceRaw.toFixed(2), 'Qntl'],
+        ['Rice (Usna)', riceUsna.toFixed(2), '—', riceUsna.toFixed(2), 'Qntl'],
+        ['FRK', frk.toFixed(2), '—', frk.toFixed(2), 'Qntl'],
+        ['Gunny Bags', String(gunnyIn), String(gunnyOut), String(gunnyIn - gunnyOut), 'Bags'],
+      ];
+      const sw = [0.30, 0.18, 0.18, 0.22, 0.12].map(w => Math.floor(pageW * w));
+      addPdfTable(doc, stockHeaders, stockRows, sw, { fontSize: 8 });
+      doc.moveDown(0.4);
+
+      // SECTION 2: TARGETS
+      drawSectionBand(doc, '2 · Mandi Targets', {
+        subtitle: targets.length ? `Overall: ${overallProgress}% achieved` : null,
+        preset: 'teal',
+      });
+      if (targetCalc.length > 0) {
+        const tgtHeaders = ['Mandi', 'Target (Q)', 'Cut %', 'Expected (Q)', 'Achieved (Q)', 'Pending (Q)', 'Progress'];
+        const tgtRows = targetCalc.map(({ t, achieved, expected, pending, pr }) =>
+          [t.mandi_name, t.target_qntl.toFixed(1), `${t.cutting_percent}%`,
+            expected.toFixed(1), achieved.toFixed(1), pending.toFixed(1), `${pr}%`]
+        );
+        tgtRows.push(['TOTAL', totT.toFixed(1), '—', totE.toFixed(1), totA.toFixed(1), totP.toFixed(1), `${overallProgress}%`]);
+        const tw = [0.20, 0.13, 0.10, 0.15, 0.15, 0.15, 0.12].map(w => Math.floor(pageW * w));
+        addPdfTable(doc, tgtHeaders, tgtRows, tw, { fontSize: 8 });
+      } else {
+        doc.fontSize(9).font(F('normal')).fillColor('#64748b').text('No targets set', { align: 'center' });
+      }
+      doc.moveDown(0.4);
+
+      // SECTION 3: TRUCK PAYMENTS
+      drawSectionBand(doc, '3 · Truck Payments', {
+        subtitle: `Balance: Rs.${fmtAmt(Math.round(truckBal))}`,
+        preset: 'purple',
+      });
+      if (truckRowsData.length > 0) {
+        const tHeaders = ['Date', 'Truck', 'Mandi', 'QNTL', 'Net', 'Paid', 'Balance', 'Status'];
+        const tRows = [...truckRowsData];
+        tRows.push(['TOTAL', '', '', '', `Rs.${fmtAmt(Math.round(truckNet))}`, `Rs.${fmtAmt(Math.round(truckPaid))}`, `Rs.${fmtAmt(Math.round(truckBal))}`, '']);
+        const tw = [0.10, 0.12, 0.14, 0.10, 0.13, 0.12, 0.13, 0.16].map(w => Math.floor(pageW * w));
+        addPdfTable(doc, tHeaders, tRows, tw, { fontSize: 7 });
+      } else {
+        doc.fontSize(9).font(F('normal')).fillColor('#64748b').text('No truck entries', { align: 'center' });
+      }
+      doc.moveDown(0.4);
+
+      // SECTION 4: AGENT/MANDI PAYMENTS
+      drawSectionBand(doc, '4 · Agent / Mandi Payments', {
+        subtitle: `Balance: Rs.${fmtAmt(Math.round(agentBal))}`,
+        preset: 'rose',
+      });
+      if (agentRowsData.length > 0) {
+        const aHeaders = ['Mandi', 'Target', 'Cutting', 'Rates', 'Total', 'Paid', 'Balance', 'Status'];
+        const aRows = [...agentRowsData];
+        aRows.push(['TOTAL', '', '', '', `Rs.${fmtAmt(Math.round(agentAmt))}`, `Rs.${fmtAmt(Math.round(agentPaid))}`, `Rs.${fmtAmt(Math.round(agentBal))}`, '']);
+        const aw = [0.16, 0.10, 0.10, 0.16, 0.13, 0.12, 0.13, 0.10].map(w => Math.floor(pageW * w));
+        addPdfTable(doc, aHeaders, aRows, aw, { fontSize: 7 });
+      } else {
+        doc.fontSize(9).font(F('normal')).fillColor('#64748b').text('No agent payments', { align: 'center' });
+      }
+      doc.moveDown(0.4);
+
+      // SECTION 5: GRAND TOTAL
+      drawSectionBand(doc, '5 · Grand Total', {
+        subtitle: `Outstanding: Rs.${fmtAmt(Math.round(gb))} (${(100 - paidPct).toFixed(1)}%)`,
+        preset: 'amber',
+      });
+      const gHeaders = ['Category', 'Total Amount', 'Paid', 'Balance'];
+      const gRows = [
+        ['Truck Payments', `Rs.${fmtAmt(Math.round(truckNet))}`, `Rs.${fmtAmt(Math.round(truckPaid))}`, `Rs.${fmtAmt(Math.round(truckBal))}`],
+        ['Agent Payments', `Rs.${fmtAmt(Math.round(agentAmt))}`, `Rs.${fmtAmt(Math.round(agentPaid))}`, `Rs.${fmtAmt(Math.round(agentBal))}`],
+      ];
+      const gw = [0.30, 0.25, 0.20, 0.25].map(w => Math.floor(pageW * w));
+      addPdfTable(doc, gHeaders, gRows, gw, { fontSize: 9 });
+      // GRAND TOTAL row — uses standard amber totals helper for safe page-flow handling
+      addTotalsRow(doc, ['GRAND TOTAL', `Rs.${fmtAmt(Math.round(ga))}`, `Rs.${fmtAmt(Math.round(gp))}`, `Rs.${fmtAmt(Math.round(gb))}`], gw, { fontSize: 9 });
+
+      // Footer
+      doc.moveDown(1);
+      const branding = database.getBranding ? database.getBranding() : {};
+      doc.fontSize(7.5).font(F('normal')).fillColor('#94a3b8')
+        .text(`Generated by ${branding.company_name || 'Mill Entry System'}  ·  ${new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}`,
+          { align: 'center' });
+
       await safePdfPipe(doc, res);
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));

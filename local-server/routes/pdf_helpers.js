@@ -413,10 +413,20 @@ function createPdfDoc(opts = {}, database = null) {
 // ============================================================================
 // LIGHT-THEME SUMMARY BANNER (PDFKit + ExcelJS)
 // ============================================================================
+// Light cream bg + gold accent + per-stat colored value text.
+// stats: [{ lbl: 'TOTAL ENTRIES', val: '42', color: '#1E293B' }, ...]
+
 const STAT_COLORS = {
-  primary: '#1E293B', green: '#15803D', red: '#B91C1C', gold: '#B45309',
-  orange: '#C2410C', blue: '#1D4ED8', emerald: '#047857', purple: '#7E22CE',
-  teal: '#0F766E', pink: '#BE185D',
+  primary: '#1E293B',  // slate-900
+  green:   '#15803D',  // emerald-700
+  red:     '#B91C1C',  // red-700
+  gold:    '#B45309',  // amber-700
+  orange:  '#C2410C',  // orange-700
+  blue:    '#1D4ED8',  // blue-700
+  emerald: '#047857',  // emerald-700
+  purple:  '#7E22CE',  // purple-700
+  teal:    '#0F766E',  // teal-700
+  pink:    '#BE185D',  // pink-700
 };
 
 function fmtInr(n) {
@@ -427,22 +437,42 @@ function fmtInr(n) {
   return 'Rs. ' + num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+/**
+ * Draw light-themed summary banner (PDFKit) at given (x, y). Returns new y after the banner.
+ * @param {PDFDocument} doc
+ * @param {{ lbl: string, val: string, color?: string }[]} stats
+ * @param {number} x        - left X
+ * @param {number} y        - top Y
+ * @param {number} totalW   - total width
+ */
 function drawSummaryBanner(doc, stats, x, y, totalW) {
   if (!stats || stats.length === 0) return y;
   const summaryH = 30;
+  // Light cream bg
   doc.rect(x, y, totalW, summaryH).fill('#FFFBEB');
+  // Gold accent stripe at top + lighter gold below
   doc.rect(x, y, totalW, 2).fill('#F59E0B');
   doc.rect(x, y + 2, totalW, 1).fill('#FCD34D');
+
   const cellW = totalW / stats.length;
   stats.forEach((s, i) => {
     const cx = x + i * cellW;
     if (i > 0) doc.moveTo(cx, y + 8).lineTo(cx, y + summaryH - 4).strokeColor('#E5E7EB').lineWidth(0.5).stroke();
+    // Label (slate-500 muted small caps)
     doc.fontSize(6).fillColor('#64748B').text(s.lbl, cx + 4, y + 7, { width: cellW - 8, align: 'center', characterSpacing: 0.4 });
+    // Value (vibrant darker shade)
     doc.fontSize(9).fillColor(s.color || '#1E293B').text(s.val, cx + 4, y + 16, { width: cellW - 8, align: 'center' });
   });
   return y + summaryH;
 }
 
+/**
+ * Add light-themed summary banner to ExcelJS worksheet at the given row.
+ * @param {Worksheet} ws
+ * @param {number} rowNum    - row index (1-based)
+ * @param {number} ncols     - number of columns to merge across
+ * @param {{ lbl: string, val: string }[]} stats
+ */
 function addExcelSummaryBanner(ws, rowNum, ncols, stats) {
   if (!stats || stats.length === 0) return;
   const text = '📊  ' + stats.map(s => `${s.lbl}: ${s.val}`).join('  •  ');
@@ -461,4 +491,57 @@ function addExcelSummaryBanner(ws, rowNum, ncols, stats) {
   ws.getRow(rowNum).height = 28;
 }
 
-module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F, safePdfPipe, drawWatermark, createPdfDoc, drawSummaryBanner, addExcelSummaryBanner, STAT_COLORS, fmtInr };
+/**
+ * Draw a coloured "section band" — a full-width title bar between report sections.
+ * Mirrors the Python `get_pdf_section_band` helper for triple-backend visual parity.
+ * @param {PDFDocument} doc
+ * @param {string} title       - Section title (will be uppercased)
+ * @param {object} opts
+ * @param {string} [opts.subtitle] - small right-aligned subtitle
+ * @param {string} [opts.preset]   - 'navy' | 'teal' | 'orange' | 'emerald' | 'rose' | 'purple' | 'amber' | 'slate'
+ * @param {number} [opts.x]        - left X (default = margin)
+ * @param {number} [opts.y]        - top Y (default = doc.y)
+ * @param {number} [opts.width]    - band width (default = page width - 2*margin)
+ * @param {number} [opts.height]   - band height (default = 22)
+ * @returns {number}               - new doc.y after the band
+ */
+function drawSectionBand(doc, title, opts = {}) {
+  registerFonts(doc);
+  const presets = {
+    navy:    { bg: '#1E3A8A', fg: '#FFFFFF', accent: '#FBBF24' },
+    teal:    { bg: '#0F766E', fg: '#FFFFFF', accent: '#A7F3D0' },
+    orange:  { bg: '#C2410C', fg: '#FFFFFF', accent: '#FFEDD5' },
+    emerald: { bg: '#047857', fg: '#FFFFFF', accent: '#A7F3D0' },
+    rose:    { bg: '#BE123C', fg: '#FFFFFF', accent: '#FECDD3' },
+    purple:  { bg: '#6D28D9', fg: '#FFFFFF', accent: '#DDD6FE' },
+    amber:   { bg: '#B45309', fg: '#FFFFFF', accent: '#FDE68A' },
+    slate:   { bg: '#334155', fg: '#FFFFFF', accent: '#CBD5E1' },
+  };
+  const p = presets[opts.preset] || presets.navy;
+  const margin = 25;
+  const x = opts.x ?? margin;
+  const width = opts.width ?? doc.page.width - 2 * margin;
+  const height = opts.height ?? 22;
+  let y = opts.y ?? doc.y;
+
+  // Auto page-break if not enough space
+  if (y + height + 4 > doc.page.height - margin) { doc.addPage(); y = margin; }
+
+  // Background
+  doc.rect(x, y, width, height).fill(p.bg);
+  // Accent stripe on left edge
+  doc.rect(x, y, 4, height).fill(p.accent);
+  // Title
+  doc.fillColor(p.fg).font(F('bold')).fontSize(11)
+    .text(String(title).toUpperCase(), x + 12, y + 6, { width: width - 24, lineBreak: false });
+  // Subtitle on right
+  if (opts.subtitle) {
+    doc.fillColor(p.accent).font(F('normal')).fontSize(8.5)
+      .text(opts.subtitle, x + 12, y + 7, { width: width - 24, align: 'right', lineBreak: false });
+  }
+  doc.y = y + height + 4;
+  doc.x = x;
+  return doc.y;
+}
+
+module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F, safePdfPipe, drawWatermark, createPdfDoc, drawSummaryBanner, drawSectionBand, addExcelSummaryBanner, STAT_COLORS, fmtInr };

@@ -491,4 +491,57 @@ function addExcelSummaryBanner(ws, rowNum, ncols, stats) {
   ws.getRow(rowNum).height = 28;
 }
 
-module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F, safePdfPipe, drawWatermark, createPdfDoc, drawSummaryBanner, addExcelSummaryBanner, STAT_COLORS, fmtInr };
+/**
+ * Draw a coloured "section band" — a full-width title bar between report sections.
+ * Mirrors the Python `get_pdf_section_band` helper for triple-backend visual parity.
+ * @param {PDFDocument} doc
+ * @param {string} title       - Section title (will be uppercased)
+ * @param {object} opts
+ * @param {string} [opts.subtitle] - small right-aligned subtitle
+ * @param {string} [opts.preset]   - 'navy' | 'teal' | 'orange' | 'emerald' | 'rose' | 'purple' | 'amber' | 'slate'
+ * @param {number} [opts.x]        - left X (default = margin)
+ * @param {number} [opts.y]        - top Y (default = doc.y)
+ * @param {number} [opts.width]    - band width (default = page width - 2*margin)
+ * @param {number} [opts.height]   - band height (default = 22)
+ * @returns {number}               - new doc.y after the band
+ */
+function drawSectionBand(doc, title, opts = {}) {
+  registerFonts(doc);
+  const presets = {
+    navy:    { bg: '#1E3A8A', fg: '#FFFFFF', accent: '#FBBF24' },
+    teal:    { bg: '#0F766E', fg: '#FFFFFF', accent: '#A7F3D0' },
+    orange:  { bg: '#C2410C', fg: '#FFFFFF', accent: '#FFEDD5' },
+    emerald: { bg: '#047857', fg: '#FFFFFF', accent: '#A7F3D0' },
+    rose:    { bg: '#BE123C', fg: '#FFFFFF', accent: '#FECDD3' },
+    purple:  { bg: '#6D28D9', fg: '#FFFFFF', accent: '#DDD6FE' },
+    amber:   { bg: '#B45309', fg: '#FFFFFF', accent: '#FDE68A' },
+    slate:   { bg: '#334155', fg: '#FFFFFF', accent: '#CBD5E1' },
+  };
+  const p = presets[opts.preset] || presets.navy;
+  const margin = 25;
+  const x = opts.x ?? margin;
+  const width = opts.width ?? doc.page.width - 2 * margin;
+  const height = opts.height ?? 22;
+  let y = opts.y ?? doc.y;
+
+  // Auto page-break if not enough space
+  if (y + height + 4 > doc.page.height - margin) { doc.addPage(); y = margin; }
+
+  // Background
+  doc.rect(x, y, width, height).fill(p.bg);
+  // Accent stripe on left edge
+  doc.rect(x, y, 4, height).fill(p.accent);
+  // Title
+  doc.fillColor(p.fg).font(F('bold')).fontSize(11)
+    .text(String(title).toUpperCase(), x + 12, y + 6, { width: width - 24, lineBreak: false });
+  // Subtitle on right
+  if (opts.subtitle) {
+    doc.fillColor(p.accent).font(F('normal')).fontSize(8.5)
+      .text(opts.subtitle, x + 12, y + 7, { width: width - 24, align: 'right', lineBreak: false });
+  }
+  doc.y = y + height + 4;
+  doc.x = x;
+  return doc.y;
+}
+
+module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F, safePdfPipe, drawWatermark, createPdfDoc, drawSummaryBanner, drawSectionBand, addExcelSummaryBanner, STAT_COLORS, fmtInr };

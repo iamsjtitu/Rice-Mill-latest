@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.28",
+    date: "Apr 2026",
+    title: "v104.28.28 — 🛠️ Desktop App Dashboard & Summary Report PDFs Professional Redesign (Critical Fix)",
+    items: [
+      { type: "fix", text: "🛠️ **CRITICAL FIX**: Pichli release (v104.28.27) mein Dashboard + Summary Report PDF redesign sirf web preview (Python backend) pe apply hua tha — Desktop App mein wahi old plain PDF aata tha. Triple-Backend Parity miss ho gaya tha. Ab Desktop App + LAN Local Server dono mein bhi same NEW design dikhega" },
+      { type: "fix", text: "🎨 **Desktop App Dashboard PDF**: KPI hero banner with 7 colour-coded stats (PADDY IN/USED/AVAILABLE/RICE PRODUCED/TARGETS/ACHIEVED/PENDING), orange section band for Stock + teal for Targets with informative subtitles, TOTAL row in amber highlight, achievement % auto-coloured (green ≥100%, gold 50-99%, red <50%)" },
+      { type: "fix", text: "🎨 **Desktop App Summary Report PDF**: Earlier sirf 3 lines tha ('Total Entries: X', 'Total QNTL: X'). Ab full executive report — KPI hero banner + 5 colour-coded section bands (Stock orange, Targets teal, Truck purple, Agent rose, Grand Total amber) + status badges (Paid green / Pending red) + Grand Total executive emphasis row" },
+      { type: "new", text: "🛠️ **New reusable helper** `drawSectionBand()` added to `pdf_helpers.js` — same 8 colour presets as Python backend's `get_pdf_section_band()`. Future report enhancements ke liye consistent visual language available" },
+    ],
+  },
+  {
     version: "104.28.27",
     date: "Apr 2026",
     title: "v104.28.27 — 🎨 Dashboard & Summary Report PDFs ko Professional Redesign",

@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.27
+## Current Version: v104.28.28
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -10,6 +10,26 @@
 - Test contrast: text on tinted backgrounds should be at least slate-700 / slate-800
 - Borders: slate-200 / slate-300 instead of slate-700
 - Hover: bg-slate-50 / bg-slate-100
+
+## 🚨 CRITICAL: TRIPLE-BACKEND PARITY DISCIPLINE
+**ANY change made to API routes, PDF generation, Excel export, or business logic MUST be applied to ALL three backends**:
+- `/app/backend/` — Python FastAPI (web preview, MongoDB)
+- `/app/desktop-app/` — Node.js Express (Electron desktop app, JSON/SQLite) — **THIS IS WHAT THE USER ACTUALLY USES IN PRODUCTION**
+- `/app/local-server/` — Node.js Express (LAN host, JSON/SQLite)
+
+**Lesson from v104.28.27→104.28.28**: Redesigning Dashboard/Summary PDFs only in Python backend caused user frustration ("desktop software pai nahi aya jo b tumne kiya") because the Desktop App goes through `/app/desktop-app/routes/` (PDFKit), NOT through Python. The visual changes have to be ported to the Node.js helpers (`pdf_helpers.js`) and endpoints separately.
+
+## Recent Fixes (Apr 2026) — v104.28.28
+
+### CRITICAL: Desktop App + LAN Server Dashboard & Summary PDF Parity Fix
+- **User complaint (verbatim)**: *"mai tang aagaya tumse kuch nahi ho paa raha hai · koi b changes desktop software pai nahi aya jo b tumne kiya"*
+- **Root cause**: v104.28.27 redesign was applied only to `/app/backend/routes/exports.py` (Python web). The Desktop App uses `/app/desktop-app/routes/exports.js` (PDFKit) — that file's `dashboard-pdf` was the basic version and `summary-report-pdf` was a 3-line stub. So the user saw **no change** in their Desktop App.
+- **Fix**:
+  - **New helper** `drawSectionBand(doc, title, opts)` added to `/app/desktop-app/routes/pdf_helpers.js` (also synced to `/app/local-server/routes/pdf_helpers.js`). Eight presets matching the Python helper: navy, teal, orange, emerald, rose, purple, amber, slate.
+  - **Desktop App `dashboard-pdf`** fully rewritten to mirror Python design: KPI hero banner with 7 colour-coded stats, orange Stock band + teal Targets band with informative subtitles, percentage-based column widths, achievement % auto-coloured (green/gold/red), TOTAL row in amber highlight via `addTotalsRow`.
+  - **Desktop App `summary-report-pdf`** rewritten from a 3-line stub into a full 5-section executive report: KPI hero banner with 7 stats including Grand Total, Paid (with %), Balance Due. Five colour-coded section bands (1·Stock orange, 2·Targets teal, 3·Truck purple, 4·Agent rose, 5·Grand Total amber). Status columns Paid/Pending auto-coloured. Grand Total row uses standard amber emphasis helper for safe page-flow.
+  - **LAN Local Server** mirrored using a Python `re`-based extractor that copies the new endpoint blocks from desktop-app to local-server (faster + safer than line-by-line search_replace given the size).
+- **Verified**: generated PDFs locally via PDFKit-direct test runner (no Electron needed) → visually inspected — all 5 sections + GRAND TOTAL row fit on a single A4 page with the new design.
 
 ## Recent Fixes (Apr 2026) — v104.28.27
 
