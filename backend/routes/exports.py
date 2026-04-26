@@ -824,9 +824,12 @@ async def export_truck_owner_excel(
 @router.get("/export/truck-owner-pdf")
 async def export_truck_owner_pdf(
     kms_year: Optional[str] = None,
-    season: Optional[str] = None
+    season: Optional[str] = None,
+    truck_no: Optional[str] = None,
 ):
-    """Export truck owner consolidated payments to PDF"""
+    """Export truck owner consolidated payments to PDF.
+    Pass `truck_no` to filter to a single truck (used by WhatsApp/Group share so
+    each owner gets only their own truck's report, not all trucks)."""
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
     from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
@@ -837,6 +840,8 @@ async def export_truck_owner_pdf(
         query["kms_year"] = kms_year
     if season:
         query["season"] = season
+    if truck_no:
+        query["truck_no"] = truck_no
     
     entries = await db.mill_entries.find(query, {"_id": 0}).sort([("date", 1), ("rst_no", 1)]).to_list(1000)
     

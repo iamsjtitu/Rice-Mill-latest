@@ -668,7 +668,10 @@ module.exports = function(database) {
 
   router.get('/api/export/truck-owner-pdf', safeSync(async (req, res) => {
     try {
-      const entries = database.getEntries(req.query); const td = {};
+      // Filter to a single truck if `truck_no` is passed (used by WhatsApp/Group share)
+      let entries = database.getEntries(req.query);
+      if (req.query.truck_no) entries = entries.filter(e => e.truck_no === req.query.truck_no);
+      const td = {};
       entries.forEach(e => { const tn=e.truck_no||'Unknown'; const p=database.getTruckPayment(e.id); const fq=(e.qntl||0)-(e.bag||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); if(!td[tn])td[tn]={truck_no:tn,trips:0,tq:0,tg:0,tded:0,tn2:0,tp:0,tb:0}; td[tn].trips++;td[tn].tq+=fq;td[tn].tg+=g;td[tn].tded+=d;td[tn].tn2+=n;td[tn].tp+=p.paid_amount;td[tn].tb+=b; });
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);

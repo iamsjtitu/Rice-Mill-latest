@@ -699,26 +699,61 @@ module.exports = function(database) {
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     if (!database.data.entries) database.data.entries = [];
 
-    // Get all ledger nikasi entries for this truck (source of truth)
-    let ledgerPayments = database.data.cash_transactions.filter(t =>
-      t.account === 'ledger' && t.txn_type === 'nikasi' && t.category === truckNo
-    );
-    if (kms_year) ledgerPayments = ledgerPayments.filter(t => t.kms_year === kms_year);
-    if (season) ledgerPayments = ledgerPayments.filter(t => t.season === season);
-
-    // Get entry IDs for this truck to identify deductions (not actual payments)
+    // 1. Mill entries for this truck — source of cash/diesel deductions per trip
     let entries = database.data.entries.filter(e => e.truck_no === truckNo);
     if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
     if (season) entries = entries.filter(e => e.season === season);
     let dcEntries = (database.data.dc_deliveries || []).filter(e => e.vehicle_no === truckNo);
     if (kms_year) dcEntries = dcEntries.filter(e => e.kms_year === kms_year);
     if (season) dcEntries = dcEntries.filter(e => e.season === season);
-    const entryShortIds = [...entries.map(e => (e.id || '').slice(0, 8)), ...dcEntries.map(e => (e.id || '').slice(0, 8))];
 
     const allHistory = [];
+
+    // 2. Cash & diesel taken at each trip (from mill_entries.cash_paid + diesel_paid)
+    for (const e of entries) {
+      const trip = e.rst_no ? `RST ${e.rst_no}` : `Entry ${(e.id || '').slice(0, 6)}`;
+      if (Number(e.cash_paid) > 0) {
+        allHistory.push({
+          kind: 'cash',
+          amount: Number(e.cash_paid),
+          date: e.date || e.created_at || '',
+          note: `Cash taken @ ${trip}`,
+          by: e.created_by || 'system',
+          source: 'entry',
+        });
+      }
+      if (Number(e.diesel_paid) > 0) {
+        allHistory.push({
+          kind: 'diesel',
+          amount: Number(e.diesel_paid),
+          date: e.date || e.created_at || '',
+          note: `Diesel taken @ ${trip}`,
+          by: e.created_by || 'system',
+          source: 'entry',
+        });
+      }
+    }
+    // Cash/diesel from DC deliveries (if any)
+    for (const e of dcEntries) {
+      const trip = `DC ${(e.id || '').slice(0, 6)}`;
+      if (Number(e.cash_paid) > 0) {
+        allHistory.push({ kind: 'cash', amount: Number(e.cash_paid), date: e.date || '', note: `Cash taken @ ${trip}`, by: e.created_by || 'system', source: 'delivery' });
+      }
+      if (Number(e.diesel_paid) > 0) {
+        allHistory.push({ kind: 'diesel', amount: Number(e.diesel_paid), date: e.date || '', note: `Diesel taken @ ${trip}`, by: e.created_by || 'system', source: 'delivery' });
+      }
+    }
+
+    // 3. Actual payments (ledger nikasi for this truck), excluding the auto-created
+    //    cash/diesel deduction entries — those are already covered above.
+    const entryShortIds = [...entries.map(e => (e.id || '').slice(0, 8)), ...dcEntries.map(e => (e.id || '').slice(0, 8))];
+    let ledgerPayments = database.data.cash_transactions.filter(t =>
+      t.account === 'ledger' && t.txn_type === 'nikasi' && t.category === truckNo
+    );
+    if (kms_year) ledgerPayments = ledgerPayments.filter(t => t.kms_year === kms_year);
+    if (season) ledgerPayments = ledgerPayments.filter(t => t.season === season);
     for (const txn of ledgerPayments) {
       const ref = txn.reference || '';
-      // Skip deduction entries (auto-created from entries/deliveries)
       const isDeduction = entryShortIds.some(eid =>
         ref.startsWith(`truck_cash_ded:${eid}`) || ref.startsWith(`truck_diesel_ded:${eid}`) ||
         ref.startsWith(`entry_cash:${eid}`) || ref.startsWith(`delivery_tcash:${eid}`) ||
@@ -726,14 +761,17 @@ module.exports = function(database) {
       );
       if (isDeduction) continue;
       allHistory.push({
+        kind: 'payment',
         amount: txn.amount || 0,
         date: txn.created_at || txn.date || '',
         note: txn.description || '',
         by: txn.created_by || 'system',
-        source: 'ledger'
+        source: 'ledger',
       });
     }
-    allHistory.sort((a, b) => (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10)));
+
+    // Sort newest first by date
+    allHistory.sort((a, b) => (b.date || '').slice(0, 10).localeCompare((a.date || '').slice(0, 10)));
     res.json({ history: allHistory });
   }));
 

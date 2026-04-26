@@ -1697,46 +1697,78 @@ async def undo_truck_owner_paid(truck_no: str, kms_year: str = "", season: str =
 
 @router.get("/truck-owner/{truck_no}/history")
 async def get_truck_owner_history(truck_no: str, kms_year: str = "", season: str = ""):
-    """Get consolidated payment history for a truck owner - uses ledger as source of truth"""
-    # Get all ledger nikasi entries for this truck (payments, not deductions)
+    """Get consolidated payment history for a truck owner.
+    Includes 3 transaction kinds chronologically:
+      - 'cash':    cash taken at each trip (from mill_entries.cash_paid)
+      - 'diesel':  diesel taken at each trip (from mill_entries.diesel_paid)
+      - 'payment': actual rent payments from ledger (excluding auto-deductions)
+    """
+    # Mill entries for this truck — source of cash/diesel deductions per trip
+    query = {"truck_no": truck_no}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    entries = await db.mill_entries.find(query, {"_id": 0}).to_list(None)
+    # DC deliveries (if any cash/diesel given there too)
+    dc_query = {"vehicle_no": truck_no}
+    if kms_year: dc_query["kms_year"] = kms_year
+    if season: dc_query["season"] = season
+    dc_entries = await db.dc_deliveries.find(dc_query, {"_id": 0}).to_list(None)
+
+    all_history = []
+
+    # Cash & diesel taken per trip
+    for e in entries:
+        trip = f"RST {e.get('rst_no')}" if e.get("rst_no") else f"Entry {(e.get('id') or '')[:6]}"
+        if (e.get("cash_paid") or 0) > 0:
+            all_history.append({
+                "kind": "cash",
+                "amount": e["cash_paid"],
+                "date": e.get("date") or e.get("created_at") or "",
+                "note": f"Cash taken @ {trip}",
+                "by": e.get("created_by", "system"),
+                "source": "entry",
+            })
+        if (e.get("diesel_paid") or 0) > 0:
+            all_history.append({
+                "kind": "diesel",
+                "amount": e["diesel_paid"],
+                "date": e.get("date") or e.get("created_at") or "",
+                "note": f"Diesel taken @ {trip}",
+                "by": e.get("created_by", "system"),
+                "source": "entry",
+            })
+    for e in dc_entries:
+        trip = f"DC {(e.get('id') or '')[:6]}"
+        if (e.get("cash_paid") or 0) > 0:
+            all_history.append({"kind": "cash", "amount": e["cash_paid"], "date": e.get("date", ""), "note": f"Cash taken @ {trip}", "by": e.get("created_by", "system"), "source": "delivery"})
+        if (e.get("diesel_paid") or 0) > 0:
+            all_history.append({"kind": "diesel", "amount": e["diesel_paid"], "date": e.get("date", ""), "note": f"Diesel taken @ {trip}", "by": e.get("created_by", "system"), "source": "delivery"})
+
+    # Actual ledger payments (skip auto-deduction entries)
     ledger_query = {"account": "ledger", "txn_type": "nikasi", "category": truck_no}
     if kms_year: ledger_query["kms_year"] = kms_year
     if season: ledger_query["season"] = season
     ledger_payments = await db.cash_transactions.find(ledger_query, {"_id": 0}).to_list(50000)
-    
-    # Get entry IDs for this truck to identify deduction prefixes
-    query = {"truck_no": truck_no}
-    if kms_year: query["kms_year"] = kms_year
-    if season: query["season"] = season
-    entries = await db.mill_entries.find(query, {"_id": 0, "id": 1}).to_list(None)
-    # Also include dc_deliveries
-    dc_query = {"vehicle_no": truck_no}
-    if kms_year: dc_query["kms_year"] = kms_year
-    if season: dc_query["season"] = season
-    dc_entries = await db.dc_deliveries.find(dc_query, {"_id": 0, "id": 1}).to_list(None)
-    entry_short_ids = [e["id"][:8] for e in entries] + [e["id"][:8] for e in dc_entries]
-    
-    all_history = []
+    entry_short_ids = [e["id"][:8] for e in entries if e.get("id")] + [e["id"][:8] for e in dc_entries if e.get("id")]
     for txn in ledger_payments:
         ref = txn.get("reference", "")
-        # Skip deduction entries (auto-created from entries/deliveries)
-        is_deduction = False
-        for eid in entry_short_ids:
-            if (ref.startswith(f"truck_cash_ded:{eid}") or ref.startswith(f"truck_diesel_ded:{eid}") or 
-                ref.startswith(f"entry_cash:{eid}") or ref.startswith(f"delivery_tcash:{eid}") or 
-                ref.startswith(f"delivery_tdiesel:{eid}") or ref.startswith(f"delivery:{eid}")):
-                is_deduction = True
-                break
+        is_deduction = any(
+            ref.startswith(f"truck_cash_ded:{eid}") or ref.startswith(f"truck_diesel_ded:{eid}") or
+            ref.startswith(f"entry_cash:{eid}") or ref.startswith(f"delivery_tcash:{eid}") or
+            ref.startswith(f"delivery_tdiesel:{eid}") or ref.startswith(f"delivery:{eid}")
+            for eid in entry_short_ids
+        )
         if is_deduction:
             continue
         all_history.append({
+            "kind": "payment",
             "amount": txn.get("amount", 0),
             "date": txn.get("created_at") or txn.get("date", ""),
             "note": txn.get("description", ""),
             "by": txn.get("created_by", "system"),
-            "source": "ledger"
+            "source": "ledger",
         })
-    
+
     all_history.sort(key=lambda x: x.get("date", ""), reverse=True)
     return {"history": all_history}
 

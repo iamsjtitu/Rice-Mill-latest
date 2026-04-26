@@ -208,7 +208,9 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
         if (!phone) return;
       }
       const pdfParams = new URLSearchParams();
+      pdfParams.append('truck_no', truckData.truck_no);  // filter PDF to ONLY this truck
       if (filters.kms_year) pdfParams.append('kms_year', filters.kms_year);
+      if (filters.season) pdfParams.append('season', filters.season);
       
       const pdfUrl = `${API}/export/truck-owner-pdf?${pdfParams.toString()}`;
       const res = await axios.post(`${API}/whatsapp/send-truck-owner`, {
@@ -1259,57 +1261,69 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                           </span>
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-1 flex-wrap">
+                          <div className="flex gap-1 items-center">
                             {user.role === 'admin' && truckData.status !== 'paid' && (
                               <>
                                 <Button size="sm" variant="ghost"
+                                  title="Make Payment"
                                   onClick={() => { setSelectedOwnerTruck(truckData); setOwnerPayAmount(""); setOwnerPayNote(""); setShowOwnerPayDialog(true); }}
-                                  className="h-7 px-2 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600 text-xs"
+                                  className="h-7 w-7 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600"
                                   data-testid={`owner-pay-${idx}`}>
-                                  Make Payment
+                                  <IndianRupee className="w-3.5 h-3.5" />
                                 </Button>
                                 <Button size="sm" variant="ghost"
+                                  title="Mark Paid"
                                   onClick={() => handleOwnerMarkPaid(truckData)}
-                                  className="h-7 px-2 text-blue-400 hover:bg-blue-900/30 border border-blue-600 text-xs"
+                                  className="h-7 w-7 p-0 text-blue-400 hover:bg-blue-900/30 border border-blue-600"
                                   data-testid={`owner-markpaid-${idx}`}>
-                                  Mark Paid
+                                  <CheckCircle className="w-3.5 h-3.5" />
                                 </Button>
                               </>
                             )}
                             {user.role === 'admin' && truckData.status !== 'pending' && (
                               <Button size="sm" variant="ghost"
+                                title="Undo Paid"
                                 onClick={() => handleOwnerUndoPaid(truckData)}
-                                className="h-7 px-2 text-orange-400 hover:bg-orange-900/30 border border-orange-600 text-xs"
+                                className="h-7 w-7 p-0 text-orange-400 hover:bg-orange-900/30 border border-orange-600"
                                 data-testid={`owner-undo-${idx}`}>
-                                Undo Paid
+                                <Undo2 className="w-3.5 h-3.5" />
                               </Button>
                             )}
                             <Button size="sm" variant="ghost"
+                              title="Payment History"
                               onClick={() => handleOwnerHistory(truckData)}
-                              className="h-7 px-2 text-purple-400 hover:bg-purple-900/30 border border-purple-600 text-xs"
+                              className="h-7 w-7 p-0 text-purple-400 hover:bg-purple-900/30 border border-purple-600"
                               data-testid={`owner-history-${idx}`}>
-                              History
+                              <History className="w-3.5 h-3.5" />
                             </Button>
                             <Button size="sm" variant="ghost"
+                              title="Print Invoice"
                               onClick={() => handlePrintConsolidatedInvoice(truckData)}
-                              className="h-7 px-2 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600 text-xs">
-                              <Printer className="w-3 h-3 mr-1" /> Print
+                              className="h-7 w-7 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600">
+                              <Printer className="w-3.5 h-3.5" />
                             </Button>
                             {wa && <Button size="sm" variant="ghost"
+                              title="Send on WhatsApp"
                               onClick={() => handleWhatsAppTruckOwner(truckData)}
-                              className="h-7 px-2 text-green-400 hover:bg-green-900/30 border border-green-600 text-xs"
+                              className="h-7 w-7 p-0 text-green-400 hover:bg-green-900/30 border border-green-600"
                               data-testid={`owner-wa-${idx}`}>
-                              <Send className="w-3 h-3 mr-1" /> WhatsApp
+                              <Send className="w-3.5 h-3.5" />
                             </Button>}
                             {wa && <Button size="sm" variant="ghost"
-                              className="h-7 px-2 text-teal-400 hover:bg-teal-900/30 border border-teal-600 text-xs"
+                              title="Send to Group"
+                              className="h-7 w-7 p-0 text-teal-400 hover:bg-teal-900/30 border border-teal-600"
                               data-testid={`owner-group-${idx}`}
                               onClick={() => {
                                 setGroupText(`*Truck Owner Payment / ट्रक मालिक भुगतान*\nTruck: *${truckData.truck_no}*\nTrips: ${truckData.total_trips || 0}\nNet: Rs.${(truckData.total_net || 0).toLocaleString()}\nPaid: Rs.${(truckData.total_paid || 0).toLocaleString()}\n*Balance: Rs.${(truckData.total_balance || 0).toLocaleString()}*`);
-                                setGroupPdfUrl("");
+                                // Pass truck_no so PDF only contains THIS truck (not all trucks)
+                                const pdfParams = new URLSearchParams();
+                                pdfParams.append('truck_no', truckData.truck_no);
+                                if (filters.kms_year) pdfParams.append('kms_year', filters.kms_year);
+                                if (filters.season) pdfParams.append('season', filters.season);
+                                setGroupPdfUrl(`${API}/export/truck-owner-pdf?${pdfParams.toString()}`);
                                 setGroupDialogOpen(true);
                               }}>
-                              <Users className="w-3 h-3 mr-1" /> Group
+                              <Users className="w-3.5 h-3.5" />
                             </Button>}
                           </div>
                         </TableCell>
