@@ -256,7 +256,7 @@ class JsonDatabase {
         const e = this.data.entries.find(en => en.id === p.entry_id && en.truck_no === truckNo && en.mandi_name === (newEntry.mandi_name || ''));
         return !!e;
       });
-      const rate = existingRateDoc ? (existingRateDoc.rate_per_qntl || 32) : 32;
+      const rate = existingRateDoc ? (existingRateDoc.rate_per_qntl ?? 0) : 0;
       const grossAmount = roundAmount(finalQntl * rate);
       const cashTaken = parseFloat(newEntry.cash_paid) || 0;
       const dieselTaken = parseFloat(newEntry.diesel_paid) || 0;
@@ -388,7 +388,7 @@ class JsonDatabase {
     const finalQntl = Math.round(((updated.qntl || 0) - (updated.bag || 0) / 100) * 100) / 100;
     if (finalQntl > 0 && truckNo) {
       const paymentDoc = this.data.truck_payments.find(p => p.entry_id === id);
-      const rate = paymentDoc ? (paymentDoc.rate_per_qntl || 32) : 32;
+      const rate = paymentDoc ? (paymentDoc.rate_per_qntl ?? 0) : 0;
       const grossAmount = roundAmount(finalQntl * rate);
       const cashTaken = parseFloat(updated.cash_paid) || 0;
       const dieselTaken = parseFloat(updated.diesel_paid) || 0;
@@ -605,10 +605,10 @@ class JsonDatabase {
   getTruckPayment(entryId) {
     const found = this.data.truck_payments.find(p => p.entry_id === entryId);
     if (found) {
-      return { rate_per_qntl: 32, paid_amount: 0, status: 'pending', payments_history: [], ...found };
+      return { rate_per_qntl: 0, paid_amount: 0, status: 'pending', payments_history: [], ...found };
     }
     return {
-      entry_id: entryId, rate_per_qntl: 32, paid_amount: 0, status: 'pending', payments_history: []
+      entry_id: entryId, rate_per_qntl: 0, paid_amount: 0, status: 'pending', payments_history: []
     };
   }
 
@@ -617,7 +617,7 @@ class JsonDatabase {
     if (index !== -1) {
       this.data.truck_payments[index] = { ...this.data.truck_payments[index], ...payment, updated_at: new Date().toISOString() };
     } else {
-      this.data.truck_payments.push({ entry_id: entryId, rate_per_qntl: 32, paid_amount: 0, payments_history: [], ...payment, updated_at: new Date().toISOString() });
+      this.data.truck_payments.push({ entry_id: entryId, rate_per_qntl: 0, paid_amount: 0, payments_history: [], ...payment, updated_at: new Date().toISOString() });
     }
     this.save();
     return this.getTruckPayment(entryId);

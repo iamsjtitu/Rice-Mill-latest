@@ -124,7 +124,7 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
                 break
             eid = entry.get("id", "")
             payment_doc = await db.truck_payments.find_one({"entry_id": eid}, {"_id": 0})
-            rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
+            rate = payment_doc.get("rate_per_qntl", 0) if payment_doc else 0
             final_qntl = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
             cash_taken = float(entry.get("cash_paid", 0) or 0)
             diesel_taken = float(entry.get("diesel_paid", 0) or 0)
@@ -140,7 +140,7 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
         for entry in truck_entries_sorted:
             entry_id = entry.get("id")
             payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
-            rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
+            rate = payment_doc.get("rate_per_qntl", 0) if payment_doc else 0
             
             final_qntl = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
             cash_taken = float(entry.get("cash_paid", 0) or 0)
@@ -747,7 +747,7 @@ async def mark_truck_paid(entry_id: str, username: str = "", role: str = ""):
         raise HTTPException(status_code=404, detail="Entry not found")
     
     payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
-    rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
+    rate = payment_doc.get("rate_per_qntl", 0) if payment_doc else 0
     
     cash_taken = float(entry.get("cash_paid", 0) or 0)
     diesel_taken = float(entry.get("diesel_paid", 0) or 0)

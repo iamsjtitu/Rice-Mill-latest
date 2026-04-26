@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.33",
+    date: "Apr 2026",
+    title: "v104.28.33 — 💰 Truck Payment Default Rate: 32 → 0",
+    items: [
+      { type: "fix", text: "💰 **Truck Payments default rate (Bhada) ab 0 hai** — pehle hardcoded 32 Rs/qntl tha. Ab user khud rate dalega entry pe — agar nahi dala toh 0 ke saath save hoga (overcharging risk hat gaya)" },
+      { type: "fix", text: "🔄 **Triple-Backend Parity** — saare 3 backends mein same fix: Python (`/app/backend/routes/entries.py, payments.py, exports.py, private_trading.py, fy_summary.py`), Desktop App (`main.js, sqlite-database.js, routes/exports.js, routes/fy_summary.js`), aur LAN Local Server (same files mirrored)" },
+      { type: "fix", text: "✅ **JS falsy bug avoided**: `||` ki jagah `??` (nullish coalescing) use kiya — agar user explicitly 0 set kare toh respect ho (pehle `0 || 32` JavaScript me 32 deta tha, ab `0 ?? 0` correctly 0 deta hai)" },
+    ],
+  },
+  {
     version: "104.28.32",
     date: "Apr 2026",
     title: "v104.28.32 — 📊 Excel Auto-Open Fixed (4-Method Robust Cascade)",

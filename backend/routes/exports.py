@@ -410,7 +410,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     for entry in entries:
         eid = entry.get("id")
         pdoc = await db.truck_payments.find_one({"entry_id": eid}, {"_id": 0})
-        rate = pdoc.get("rate_per_qntl", 32) if pdoc else 32
+        rate = pdoc.get("rate_per_qntl", 0) if pdoc else 0
         paid = pdoc.get("paid_amount", 0) if pdoc else 0
         fq = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
         cash = entry.get("cash_paid", 0) or 0
@@ -696,7 +696,7 @@ async def export_truck_owner_excel(
         entry_id = entry.get("id")
         payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
         
-        rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
+        rate = payment_doc.get("rate_per_qntl", 0) if payment_doc else 0
         paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0
         
         final_qntl = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
@@ -836,7 +836,7 @@ async def export_truck_owner_pdf(
         entry_id = entry.get("id")
         payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
         
-        rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
+        rate = payment_doc.get("rate_per_qntl", 0) if payment_doc else 0
         paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0
         
         final_qntl = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)

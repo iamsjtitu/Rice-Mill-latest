@@ -454,8 +454,8 @@ module.exports = function(database) {
       let truckNet = 0, truckPaid = 0, truckBal = 0;
       const truckRowsData = [];
       for (const e of entries) {
-        const p = database.getTruckPayment ? database.getTruckPayment(e.id) : { rate_per_qntl: 32, paid_amount: 0 };
-        const rate = p.rate_per_qntl || 32;
+        const p = database.getTruckPayment ? database.getTruckPayment(e.id) : { rate_per_qntl: 0, paid_amount: 0 };
+        const rate = p.rate_per_qntl ?? 0;
         const paid = p.paid_amount || 0;
         const fq = (e.qntl || 0) - (e.bag || 0) / 100;
         const cash = e.cash_paid || 0; const diesel = e.diesel_paid || 0;

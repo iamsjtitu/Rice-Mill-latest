@@ -160,7 +160,7 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
                 {"entry_id": {"$in": [e["id"] async for e in db.private_paddy.find({"truck_no": truck_no, "id": {"$ne": entry_id}}, {"_id": 0, "id": 1})]}},
                 {"_id": 0, "rate_per_qntl": 1}
             )
-        truck_rate = existing_rate_doc.get("rate_per_qntl", 32) if existing_rate_doc else 32
+        truck_rate = existing_rate_doc.get("rate_per_qntl", 0) if existing_rate_doc else 0
         gross_amount = round(final_qntl * truck_rate, 2)
         jama_desc = f"Pvt Paddy Truck: {truck_no} - {party_label} - {final_qntl}Q @ Rs.{truck_rate}"
         await db.cash_transactions.insert_one({

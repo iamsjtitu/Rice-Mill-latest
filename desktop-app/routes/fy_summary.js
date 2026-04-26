@@ -308,7 +308,7 @@ module.exports = function(database) {
         if (!truckMap[tn]) truckMap[tn] = { gross: 0, deductions: 0, paid: 0 };
         // Get rate from truck_payments or default 32
         const tpDoc = truckPaymentDocs.find(tp => tp.entry_id === e.id);
-        const rate = (tpDoc && tpDoc.rate_per_qntl) || e.rate_per_qntl || e.rate || 32;
+        const rate = (tpDoc && tpDoc.rate_per_qntl) ?? e.rate_per_qntl ?? e.rate ?? 0;
         const qntl = Math.round(((e.qntl || 0) - (e.bag || 0) / 100) * 100) / 100;
         const gross = Math.round(qntl * rate * 100) / 100;
         const deductions = (e.diesel_paid || 0) + (e.cash_paid || 0) + (e.g_deposite || 0);
@@ -480,7 +480,7 @@ module.exports = function(database) {
         const tn = (e.truck_no||'').trim(); if (!tn) continue;
         if (!truckMap[tn]) truckMap[tn]={gross:0,deductions:0,paid:0};
         const tpDoc = truckPaymentDocsPdf.find(tp => tp.entry_id === e.id);
-        const rate = (tpDoc && tpDoc.rate_per_qntl) || e.rate_per_qntl || e.rate || 32;
+        const rate = (tpDoc && tpDoc.rate_per_qntl) ?? e.rate_per_qntl ?? e.rate ?? 0;
         truckMap[tn].gross += Math.round(((e.qntl||0)-(e.bag||0)/100) * rate * 100) / 100;
         truckMap[tn].deductions += (e.diesel_paid||0) + (e.cash_paid||0) + (e.g_deposite||0);
       }
@@ -662,7 +662,7 @@ module.exports = function(database) {
         const tn=(e.truck_no||'').trim(); if(!tn) continue;
         if(!truckMap[tn]) truckMap[tn]={gross:0,deductions:0,paid:0};
         const tpDoc = truckPaymentDocsXl.find(tp => tp.entry_id === e.id);
-        const rate = (tpDoc && tpDoc.rate_per_qntl) || e.rate_per_qntl || e.rate || 32;
+        const rate = (tpDoc && tpDoc.rate_per_qntl) ?? e.rate_per_qntl ?? e.rate ?? 0;
         truckMap[tn].gross += Math.round(((e.qntl||0)-(e.bag||0)/100) * rate * 100) / 100;
         truckMap[tn].deductions += (e.diesel_paid||0) + (e.cash_paid||0) + (e.g_deposite||0);
       }

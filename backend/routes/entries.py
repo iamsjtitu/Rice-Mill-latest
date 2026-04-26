@@ -147,7 +147,7 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
             {"entry_id": {"$in": [e["id"] async for e in db.mill_entries.find({"truck_no": truck_no, "mandi_name": doc.get("mandi_name", "")}, {"_id": 0, "id": 1})]}},
             {"_id": 0, "rate_per_qntl": 1}
         ) if truck_no else None
-        rate = existing_rate_doc.get("rate_per_qntl", 32) if existing_rate_doc else 32
+        rate = existing_rate_doc.get("rate_per_qntl", 0) if existing_rate_doc else 0
         gross_amount = round_amount(final_qntl * rate)
         
         cash_taken = float(doc.get("cash_paid", 0) or 0)
@@ -675,7 +675,7 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
     final_qntl = round(merged_data.get("qntl", 0) - merged_data.get("bag", 0) / 100, 2)
     if final_qntl > 0 and truck_no:
         payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
-        rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
+        rate = payment_doc.get("rate_per_qntl", 0) if payment_doc else 0
         gross_amount = round_amount(final_qntl * rate)
         cash_taken = float(merged_data.get("cash_paid", 0) or 0)
         diesel_taken = float(merged_data.get("diesel_paid", 0) or 0)
@@ -1399,7 +1399,7 @@ async def export_truck_payments_excel(
         entry_id = entry.get("id")
         payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
         
-        rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
+        rate = payment_doc.get("rate_per_qntl", 0) if payment_doc else 0
         paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0
         
         final_qntl = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
@@ -1539,7 +1539,7 @@ async def export_truck_payments_pdf(
         entry_id = entry.get("id")
         payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
         
-        rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
+        rate = payment_doc.get("rate_per_qntl", 0) if payment_doc else 0
         paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0
         
         final_qntl = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)

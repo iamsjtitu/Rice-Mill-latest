@@ -718,7 +718,7 @@ class SqliteDatabase {
         const e = this.data.entries.find(en => en.id === p.entry_id && en.truck_no === truckNo && en.mandi_name === (newEntry.mandi_name || ''));
         return !!e;
       });
-      const rate = existingRateDoc ? (existingRateDoc.rate_per_qntl || 32) : 32;
+      const rate = existingRateDoc ? (existingRateDoc.rate_per_qntl ?? 0) : 0;
       const grossAmount = Math.round(finalQntl * rate * 100) / 100;
       const cashTaken = parseFloat(newEntry.cash_paid) || 0;
       const dieselTaken = parseFloat(newEntry.diesel_paid) || 0;
@@ -875,7 +875,7 @@ class SqliteDatabase {
       const finalQntl = Math.round(((updated.qntl || 0) - (updated.bag || 0) / 100) * 100) / 100;
       if (finalQntl > 0 && truckNo) {
         const paymentDoc = this.data.truck_payments.find(p => p.entry_id === id);
-        const rate = paymentDoc ? (paymentDoc.rate_per_qntl || 32) : 32;
+        const rate = paymentDoc ? (paymentDoc.rate_per_qntl ?? 0) : 0;
         const grossAmount = Math.round(finalQntl * rate * 100) / 100;
         const cashTaken = parseFloat(updated.cash_paid) || 0;
         const dieselTaken = parseFloat(updated.diesel_paid) || 0;
@@ -1104,8 +1104,8 @@ class SqliteDatabase {
 
   getTruckPayment(entryId) {
     const found = this.data.truck_payments.find(p => p.entry_id === entryId);
-    if (found) return { rate_per_qntl: 32, paid_amount: 0, status: 'pending', payment_history: [], ...found };
-    return { entry_id: entryId, rate_per_qntl: 32, paid_amount: 0, status: 'pending', payment_history: [] };
+    if (found) return { rate_per_qntl: 0, paid_amount: 0, status: 'pending', payment_history: [], ...found };
+    return { entry_id: entryId, rate_per_qntl: 0, paid_amount: 0, status: 'pending', payment_history: [] };
   }
 
   updateTruckPayment(entryId, payment) {
@@ -1113,7 +1113,7 @@ class SqliteDatabase {
     if (index !== -1) {
       this.data.truck_payments[index] = { ...this.data.truck_payments[index], ...payment };
     } else {
-      this.data.truck_payments.push({ entry_id: entryId, rate_per_qntl: 32, paid_amount: 0, status: 'pending', payment_history: [], ...payment });
+      this.data.truck_payments.push({ entry_id: entryId, rate_per_qntl: 0, paid_amount: 0, status: 'pending', payment_history: [], ...payment });
     }
     this.save();
     return this.getTruckPayment(entryId);

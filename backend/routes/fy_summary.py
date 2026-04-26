@@ -467,7 +467,7 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
         if tn not in truck_map: truck_map[tn] = {"gross": 0, "deductions": 0, "paid": 0}
         # Get rate from truck_payments or use default
         tp_doc = await db.truck_payments.find_one({"entry_id": e.get("id")}, {"_id": 0, "rate_per_qntl": 1})
-        rate = (tp_doc or {}).get("rate_per_qntl") or e.get("rate_per_qntl") or 32
+        rate = (tp_doc or {}).get("rate_per_qntl") or e.get("rate_per_qntl") or 0
         qntl = round((e.get("qntl") or 0) - (e.get("bag") or 0) / 100, 2)
         truck_map[tn]["gross"] += round(qntl * rate, 2)
         truck_map[tn]["deductions"] += (e.get("diesel_paid") or 0) + (e.get("cash_paid") or 0) + (e.get("g_deposite") or 0)

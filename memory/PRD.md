@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.32
+## Current Version: v104.28.33
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -16,6 +16,17 @@
 - `/app/backend/` — Python FastAPI (web preview, MongoDB)
 - `/app/desktop-app/` — Node.js Express (Electron desktop app, JSON/SQLite) — **THIS IS WHAT THE USER ACTUALLY USES IN PRODUCTION**
 - `/app/local-server/` — Node.js Express (LAN host, JSON/SQLite)
+
+## Recent Fixes (Apr 2026) — v104.28.33
+
+### Truck Payment Default Rate: 32 → 0
+- **User directive**: *"Rate 32rs by default hai isko 0 karo rate apan dalenge default 0 rhna chahiye"*
+- **Files updated** (Python + Node.js for Triple-Backend Parity):
+  - Python: `/app/backend/routes/{entries.py, payments.py, exports.py, private_trading.py, fy_summary.py}` — `.get("rate_per_qntl", 32)` → `.get("rate_per_qntl", 0)`, ` else 32` → ` else 0`, `or 32` → `or 0` (within rate context).
+  - Desktop App: `/app/desktop-app/{main.js, sqlite-database.js, routes/exports.js, routes/fy_summary.js}` — JS `|| 32` → `?? 0` to respect explicit zero (pre-existing falsy bug).
+  - LAN Local Server: same files mirrored.
+- **Behavior change**: When a truck entry is added without explicit rate, Bhada (rate_per_qntl) saves as `0` instead of auto-defaulting to 32. User must manually enter rate per truck.
+- Note: existing entries with `rate_per_qntl: 32` are NOT migrated — only NEW entries get 0. User can edit old entries to update.
 
 ## Recent Fixes (Apr 2026) — v104.28.32
 
