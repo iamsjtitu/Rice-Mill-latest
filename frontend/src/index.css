@@ -30,6 +30,18 @@ code, pre, .font-mono {
     font-feature-settings: 'liga', 'calt';
 }
 
+/* Tabular numbers for clean alignment in data tables (auto-applied to all td cells) */
+table td {
+    font-variant-numeric: tabular-nums;
+}
+
+/* .num utility for inline numeric values — JetBrains Mono with tabular alignment */
+.num {
+    font-family: 'JetBrains Mono', source-code-pro, Menlo, Monaco, Consolas, monospace !important;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
 @layer base {
     :root {
         --background: 0 0% 100%;

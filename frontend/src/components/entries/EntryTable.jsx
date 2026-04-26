@@ -43,27 +43,27 @@ export function EntryTable({
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
             <div className="bg-green-900/30 p-3 rounded-lg border border-green-700">
               <p className="text-green-400 text-xs">Total QNTL</p>
-              <p className="text-green-400 text-lg font-bold" data-testid="total-qntl">{totals.total_qntl?.toFixed(2) || 0}</p>
+              <p className="text-green-400 text-lg font-bold num" data-testid="total-qntl">{totals.total_qntl?.toFixed(2) || 0}</p>
             </div>
             <div className="bg-slate-700/50 p-3 rounded-lg">
               <p className="text-slate-400 text-xs">Total BAG</p>
-              <p className="text-white text-lg font-bold" data-testid="total-bag">{totals.total_bag?.toLocaleString() || 0}</p>
+              <p className="text-white text-lg font-bold num" data-testid="total-bag">{totals.total_bag?.toLocaleString() || 0}</p>
             </div>
             <div className="bg-blue-900/30 p-3 rounded-lg border border-blue-700">
               <p className="text-blue-400 text-xs">Total Mill W (QNTL)</p>
-              <p className="text-blue-400 text-lg font-bold" data-testid="total-mill-w">{(totals.total_mill_w / 100)?.toFixed(2) || 0}</p>
+              <p className="text-blue-400 text-lg font-bold num" data-testid="total-mill-w">{(totals.total_mill_w / 100)?.toFixed(2) || 0}</p>
             </div>
             <div className="bg-amber-900/30 p-3 rounded-lg border border-amber-700">
               <p className="text-amber-400 text-xs">Total Final W (QNTL)</p>
-              <p className="text-amber-400 text-lg font-bold" data-testid="total-final-w">{(totals.total_final_w / 100)?.toFixed(2) || 0}</p>
+              <p className="text-amber-400 text-lg font-bold num" data-testid="total-final-w">{(totals.total_final_w / 100)?.toFixed(2) || 0}</p>
             </div>
             <div className="bg-cyan-900/30 p-3 rounded-lg border border-cyan-700">
               <p className="text-cyan-400 text-xs">Total G.Issued</p>
-              <p className="text-cyan-400 text-lg font-bold" data-testid="total-g-issued">{totals.total_g_issued?.toLocaleString() || 0}</p>
+              <p className="text-cyan-400 text-lg font-bold num" data-testid="total-g-issued">{totals.total_g_issued?.toLocaleString() || 0}</p>
             </div>
             <div className="bg-slate-700/50 p-3 rounded-lg">
               <p className="text-slate-400 text-xs">Total Cash Paid</p>
-              <p className="text-white text-lg font-bold" data-testid="total-cash">{totals.total_cash_paid?.toLocaleString() || 0}</p>
+              <p className="text-white text-lg font-bold num" data-testid="total-cash">{totals.total_cash_paid?.toLocaleString() || 0}</p>
             </div>
           </div>
         </CardContent>
