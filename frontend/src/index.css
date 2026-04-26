@@ -36,10 +36,41 @@ table td {
 }
 
 /* .num utility for inline numeric values — JetBrains Mono with tabular alignment */
-.num {
+.num,
+[class~="text-lg"][class~="font-bold"],
+[class~="text-xl"][class~="font-bold"]:not(h1):not(h2):not(h3):not([class*="text-amber-400"]):not([class*="text-cyan-400"]):not([class*="text-purple-400"]),
+[class~="text-3xl"][class~="font-bold"],
+[class~="text-4xl"][class~="font-bold"] {
     font-family: 'JetBrains Mono', source-code-pro, Menlo, Monaco, Consolas, monospace !important;
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
+}
+
+/* Restore Inter (sans-serif) for elements that are clearly headings/buttons (override the auto-mono rule) */
+h1, h2, h3, h4, h5, h6,
+[role="heading"],
+button,
+[role="button"],
+[role="tab"],
+nav,
+[class*="DialogTitle"],
+[class*="CardTitle"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif !important;
+    font-variant-numeric: normal;
+    letter-spacing: normal;
+}
+
+/* Card titles inside cards explicitly — Inter, not mono */
+.cardtitle,
+[class*="text-amber-400"][class*="text-xl"],
+[class*="text-amber-400"][class*="text-2xl"],
+[class*="text-cyan-400"][class*="text-xl"],
+[class*="text-cyan-400"][class*="text-2xl"],
+[class*="text-purple-400"][class*="text-xl"],
+[class*="text-purple-400"][class*="text-2xl"] {
+    font-family: 'Inter', sans-serif !important;
+    font-variant-numeric: normal;
+    letter-spacing: normal;
 }
 
 @layer base {

@@ -1,6 +1,15 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.41
+## Current Version: v104.28.42
+
+## 🎨 GLOBAL TYPOGRAPHY (v104.28.42+)
+**Two-font system, applied globally via CSS — no per-component edits needed**:
+- **Inter** (loaded weights 400-800) — UI text: labels, headings, buttons, navigation, tabs, body copy
+- **JetBrains Mono** (loaded weights 400-600) — Numbers/codes: KPI values, amounts (₹), QNTL/BAG counts, dates, version badges, monospace data
+- Auto-application via CSS: `text-lg/xl/3xl/4xl font-bold` (KPI patterns) → JetBrains Mono with `tabular-nums` + `-0.015em` letter-spacing. Headings & buttons explicitly forced back to Inter.
+- All `<td>` cells get `tabular-nums` for clean column alignment.
+
+Result: Stripe/Plaid/Linear-grade banking-app aesthetic with zero invasive edits per component.
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
