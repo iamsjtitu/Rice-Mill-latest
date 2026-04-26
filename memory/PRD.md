@@ -1,15 +1,58 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.42
+## Current Version: v104.28.43
 
-## 🎨 GLOBAL TYPOGRAPHY (v104.28.42+)
-**Two-font system, applied globally via CSS — no per-component edits needed**:
-- **Inter** (loaded weights 400-800) — UI text: labels, headings, buttons, navigation, tabs, body copy
-- **JetBrains Mono** (loaded weights 400-600) — Numbers/codes: KPI values, amounts (₹), QNTL/BAG counts, dates, version badges, monospace data
-- Auto-application via CSS: `text-lg/xl/3xl/4xl font-bold` (KPI patterns) → JetBrains Mono with `tabular-nums` + `-0.015em` letter-spacing. Headings & buttons explicitly forced back to Inter.
-- All `<td>` cells get `tabular-nums` for clean column alignment.
+## 🎨 GLOBAL TYPOGRAPHY (v104.28.42-43+)
+**Two-font system applied EVERYWHERE — screen, PDF, Excel — no per-component edits**:
+- **Inter** (loaded weights 400-800) — UI text, headings, buttons, navigation, tabs, body copy
+- **JetBrains Mono** (loaded weights 400-600) — Numbers/codes: KPI values, ₹ amounts, QNTL/BAG counts, dates, version badges
 
-Result: Stripe/Plaid/Linear-grade banking-app aesthetic with zero invasive edits per component.
+### Screen (CSS auto-detection in `index.css`)
+- `text-lg font-bold` (KPI value pattern) → JetBrains Mono with `tabular-nums`, `letter-spacing: -0.015em`
+- Exception: `text-amber-/cyan-/purple-/violet-` colored `text-lg font-bold` (semantic section labels) → Inter
+- `text-2xl/3xl/4xl font-bold` & all `h1-h6` → Inter with display tracking (`-0.025em`)
+- `text-xl font-bold` → Inter with `-0.015em` tracking
+- All `<td>` cells get `font-variant-numeric: tabular-nums`
+- Buttons, tabs, nav, dialog/card titles → forced Inter
+
+### PDF (ReportLab + PDFKit)
+- Body text → **Inter** (8 .ttf files bundled in `/app/{backend,desktop-app,local-server}/fonts/`)
+- KPI banner labels → Inter Semibold
+- KPI banner values → **JetBrains Mono Bold** with mixed-font Paragraph rendering
+- Python: `register_hindi_fonts()` aliases `FreeSans` → Inter so legacy code paths inherit; `JetBrainsMono` family registered for explicit use via `<font face="...">` markup
+- Node.js: `F('mono'|'mono-bold')` returns `AppMono`/`AppMonoBold` resolved from JetBrainsMono TTFs
+
+Result: Stripe/Plaid/Linear-grade premium typography across screen + every PDF report. Dark + Light themes both inherit automatically.
+
+## 🚨 CRITICAL: TRIPLE-BACKEND PARITY DISCIPLINE
+**ANY change made to API routes, PDF generation, Excel export, or business logic MUST be applied to ALL three backends**:
+- `/app/backend/` — Python FastAPI (web preview, MongoDB)
+- `/app/desktop-app/` — Node.js Express (Electron desktop app, JSON/SQLite) — **THIS IS WHAT THE USER ACTUALLY USES IN PRODUCTION**
+- `/app/local-server/` — Node.js Express (LAN host, JSON/SQLite)
+
+## ⚠️ LESSON: Stay strictly within scope
+**v104.28.35**: User asked for "PDF and Summary report mein hi sirf changes" — but I went and changed the on-screen Dashboard endpoint + frontend JSX too. Reverted. ALWAYS confirm scope when user says "sirf X mein" — don't refactor adjacent code paths even if they share the same logic. PDF and screen are TWO different surfaces, treat them independently.
+
+## Recent Fixes (Apr 2026) — v104.28.43
+
+### PDF Typography Upgrade + Section Title Hierarchy
+- **PDF**: Inter + JetBrains Mono now embedded in every PDF report (8 .ttf files bundled across all 3 backends)
+- **PDF banner**: KPI labels in Inter, values in JetBrains Mono Bold via mixed-font Paragraph rendering. Confirmed via AI Vision analysis: "values exhibit monospace characteristics... uniform width digits" (95% confidence).
+- **Section title hierarchy** standardized via CSS:
+  - H1 / page titles (text-2xl/3xl/4xl font-bold) → Inter, `-0.025em` tracking, `line-height: 1.2`
+  - H2 / section titles (text-xl font-bold) → Inter, `-0.015em` tracking, `line-height: 1.3`
+  - H3 / KPI values (text-lg font-bold) → JetBrains Mono with tabular alignment
+  - Buttons/tabs/nav → Inter (forced override)
+- **Fonts bundled**: `Inter-Regular/Medium/SemiBold/Bold/Italic.ttf` + `JetBrainsMono-Regular/Medium/Bold.ttf` in all 3 backend `fonts/` dirs
+- **Theme**: Dark theme + Light theme both inherit the new typography automatically
+
+### Verified
+- PDFs: `pdfplumber` confirms 5 fonts embedded — Inter-Regular, Inter-Bold, Inter-Italic, JetBrainsMono-Bold (+ Helvetica residual)
+- AI Vision: confirmed mixed-font rendering on KPI banner (95% confidence)
+- Frontend screenshot: page title in display Inter, KPI values in JetBrains Mono, tabs/nav in Inter — clean hierarchy
+- Lint clean, all 3 backends synced
+
+## Recent Fixes (Apr 2026) — v104.28.42
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:

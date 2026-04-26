@@ -35,40 +35,50 @@ table td {
     font-variant-numeric: tabular-nums;
 }
 
-/* .num utility for inline numeric values — JetBrains Mono with tabular alignment */
+/* === Numbers (JetBrains Mono with tabular alignment) ===
+   Auto-target the safest pattern: KPI value displays inside colored cards
+   (text-lg font-bold). Larger sizes (text-2xl/3xl/4xl) are typically section
+   titles, so we keep them in Inter unless explicitly marked .num. */
 .num,
-[class~="text-lg"][class~="font-bold"],
-[class~="text-xl"][class~="font-bold"]:not(h1):not(h2):not(h3):not([class*="text-amber-400"]):not([class*="text-cyan-400"]):not([class*="text-purple-400"]),
-[class~="text-3xl"][class~="font-bold"],
-[class~="text-4xl"][class~="font-bold"] {
+[class~="text-lg"][class~="font-bold"]:not([class*="text-amber-"]):not([class*="text-cyan-"]):not([class*="text-purple-"]):not([class*="text-violet-"]) {
     font-family: 'JetBrains Mono', source-code-pro, Menlo, Monaco, Consolas, monospace !important;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.015em;
 }
 
-/* Restore Inter (sans-serif) for elements that are clearly headings/buttons (override the auto-mono rule) */
+/* === Section title hierarchy (Inter + tighter tracking for premium feel) === */
 h1, h2, h3, h4, h5, h6,
 [role="heading"],
+[class*="DialogTitle"],
+[class*="CardTitle"],
+[class~="text-2xl"][class~="font-bold"],
+[class~="text-3xl"][class~="font-bold"],
+[class~="text-4xl"][class~="font-bold"],
+[class~="text-2xl"][class~="font-semibold"],
+[class~="text-3xl"][class~="font-semibold"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif !important;
+    font-variant-numeric: normal;
+    letter-spacing: -0.025em;  /* Display tracking for headlines */
+    line-height: 1.2;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
+}
+
+/* H2 / xl section titles — slightly looser tracking */
+[class~="text-xl"][class~="font-bold"],
+[class~="text-xl"][class~="font-semibold"] {
+    font-family: 'Inter', -apple-system, sans-serif !important;
+    font-variant-numeric: normal;
+    letter-spacing: -0.015em;
+    line-height: 1.3;
+}
+
+/* Restore Inter for buttons/tabs/nav */
 button,
 [role="button"],
 [role="tab"],
 nav,
-[class*="DialogTitle"],
-[class*="CardTitle"] {
+.cardtitle {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif !important;
-    font-variant-numeric: normal;
-    letter-spacing: normal;
-}
-
-/* Card titles inside cards explicitly — Inter, not mono */
-.cardtitle,
-[class*="text-amber-400"][class*="text-xl"],
-[class*="text-amber-400"][class*="text-2xl"],
-[class*="text-cyan-400"][class*="text-xl"],
-[class*="text-cyan-400"][class*="text-2xl"],
-[class*="text-purple-400"][class*="text-xl"],
-[class*="text-purple-400"][class*="text-2xl"] {
-    font-family: 'Inter', sans-serif !important;
     font-variant-numeric: normal;
     letter-spacing: normal;
 }

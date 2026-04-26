@@ -18,21 +18,49 @@ const C = {
   dateBg: '#eff6ff', dateText: '#1e40af',
 };
 
-// Font paths - try bundled fonts first, fallback to system Helvetica
+// Font paths - prefer Inter (UI) + JetBrains Mono (numbers); fall back to FreeSans / Helvetica
 const FONT_DIR = path.join(__dirname, '..', 'fonts');
+const HAS_INTER = fs.existsSync(path.join(FONT_DIR, 'Inter-Regular.ttf')) && fs.existsSync(path.join(FONT_DIR, 'Inter-Bold.ttf'));
+const HAS_JBM = fs.existsSync(path.join(FONT_DIR, 'JetBrainsMono-Regular.ttf')) && fs.existsSync(path.join(FONT_DIR, 'JetBrainsMono-Bold.ttf'));
 const HAS_FREESANS = fs.existsSync(path.join(FONT_DIR, 'FreeSans.ttf'));
 
 function registerFonts(doc) {
-  if (HAS_FREESANS) {
+  // Primary UI font: Inter (fall back to FreeSans for Devanagari support)
+  if (HAS_INTER) {
+    doc.registerFont('AppFont', path.join(FONT_DIR, 'Inter-Regular.ttf'));
+    doc.registerFont('AppFontMedium', path.join(FONT_DIR, 'Inter-Medium.ttf'));
+    doc.registerFont('AppFontSemiBold', path.join(FONT_DIR, 'Inter-SemiBold.ttf'));
+    doc.registerFont('AppFontBold', path.join(FONT_DIR, 'Inter-Bold.ttf'));
+    if (fs.existsSync(path.join(FONT_DIR, 'Inter-Italic.ttf')))
+      doc.registerFont('AppFontOblique', path.join(FONT_DIR, 'Inter-Italic.ttf'));
+  } else if (HAS_FREESANS) {
     doc.registerFont('AppFont', path.join(FONT_DIR, 'FreeSans.ttf'));
     doc.registerFont('AppFontBold', path.join(FONT_DIR, 'FreeSansBold.ttf'));
     if (fs.existsSync(path.join(FONT_DIR, 'FreeSansOblique.ttf')))
       doc.registerFont('AppFontOblique', path.join(FONT_DIR, 'FreeSansOblique.ttf'));
   }
+  // Numbers font: JetBrains Mono (used via F('mono')/F('mono-bold'))
+  if (HAS_JBM) {
+    doc.registerFont('AppMono', path.join(FONT_DIR, 'JetBrainsMono-Regular.ttf'));
+    doc.registerFont('AppMonoMedium', path.join(FONT_DIR, 'JetBrainsMono-Medium.ttf'));
+    doc.registerFont('AppMonoBold', path.join(FONT_DIR, 'JetBrainsMono-Bold.ttf'));
+  }
 }
 
 function F(weight) {
-  if (!HAS_FREESANS) return weight === 'bold' ? 'Helvetica-Bold' : (weight === 'oblique' ? 'Helvetica-Oblique' : 'Helvetica');
+  if (!HAS_INTER && !HAS_FREESANS) {
+    // System fallback
+    if (weight === 'mono') return 'Courier';
+    if (weight === 'mono-bold') return 'Courier-Bold';
+    return weight === 'bold' ? 'Helvetica-Bold' : (weight === 'oblique' ? 'Helvetica-Oblique' : 'Helvetica');
+  }
+  // Numbers (JetBrains Mono if available, otherwise app font)
+  if (weight === 'mono') return HAS_JBM ? 'AppMono' : 'AppFont';
+  if (weight === 'mono-bold') return HAS_JBM ? 'AppMonoBold' : 'AppFontBold';
+  if (weight === 'mono-medium') return HAS_JBM ? 'AppMonoMedium' : 'AppFont';
+  // UI text
+  if (weight === 'medium') return HAS_INTER ? 'AppFontMedium' : 'AppFont';
+  if (weight === 'semibold') return HAS_INTER ? 'AppFontSemiBold' : 'AppFontBold';
   return weight === 'bold' ? 'AppFontBold' : (weight === 'oblique' ? 'AppFontOblique' : 'AppFont');
 }
 
@@ -469,11 +497,15 @@ function drawSummaryBanner(doc, stats, x, y, totalW) {
   stats.forEach((s, i) => {
     const cx = x + i * cellW;
     if (i > 0) doc.moveTo(cx, y + 8).lineTo(cx, y + summaryH - 4).strokeColor('#E5E7EB').lineWidth(0.5).stroke();
-    // Label (slate-500 muted small caps)
-    doc.fontSize(6).fillColor('#64748B').text(s.lbl, cx + 4, y + 7, { width: cellW - 8, align: 'center', characterSpacing: 0.4 });
-    // Value (vibrant darker shade)
-    doc.fontSize(9).fillColor(s.color || '#1E293B').text(s.val, cx + 4, y + 16, { width: cellW - 8, align: 'center' });
+    // Label (Inter, slate-500 muted small caps)
+    doc.font(F('semibold')).fontSize(6).fillColor('#64748B')
+      .text(s.lbl, cx + 4, y + 7, { width: cellW - 8, align: 'center', characterSpacing: 0.4 });
+    // Value (JetBrains Mono Bold for tabular alignment + premium aesthetic)
+    doc.font(F('mono-bold')).fontSize(9).fillColor(s.color || '#1E293B')
+      .text(s.val, cx + 4, y + 16, { width: cellW - 8, align: 'center', characterSpacing: -0.2 });
   });
+  // Reset to default font for callers
+  doc.font(F('normal'));
   return y + summaryH;
 }
 

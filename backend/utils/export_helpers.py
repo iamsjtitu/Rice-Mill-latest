@@ -1,26 +1,83 @@
 """
 Shared Excel & PDF styling helpers for professional colorful exports.
 Used by all backend export endpoints.
+
+Typography (v104.28.43+): Inter (UI text) + JetBrains Mono (numbers) — matches
+the on-screen typography for a consistent brand feel across screen and print.
 """
+import os
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 
-# === REGISTER HINDI-CAPABLE FONTS FOR PDF ===
+# === FONT PATHS (resolves Inter/JetBrains Mono from the backend's bundled fonts dir) ===
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_FONTS_DIR = os.path.normpath(os.path.join(_HERE, '..', 'fonts'))
+
+def _font_path(filename):
+    """Return abs path of a font in /app/backend/fonts/, or empty string if missing."""
+    p = os.path.join(_FONTS_DIR, filename)
+    return p if os.path.exists(p) else ''
+
+
+# === REGISTER FONTS FOR PDF ===
 _fonts_registered = False
 
 def register_hindi_fonts():
-    """Register FreeSans font family for Hindi/Devanagari support in PDFs."""
+    """Register Inter (UI) + JetBrains Mono (numbers) + FreeSans (Devanagari fallback)
+    font families for use in ReportLab PDFs.
+    """
     global _fonts_registered
     if _fonts_registered:
         return
     try:
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
-        pdfmetrics.registerFont(TTFont('FreeSans', '/usr/share/fonts/truetype/freefont/FreeSans.ttf'))
-        pdfmetrics.registerFont(TTFont('FreeSansBold', '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf'))
-        pdfmetrics.registerFont(TTFont('FreeSansOblique', '/usr/share/fonts/truetype/freefont/FreeSansOblique.ttf'))
-        pdfmetrics.registerFont(TTFont('FreeSansBoldOblique', '/usr/share/fonts/truetype/freefont/FreeSansBoldOblique.ttf'))
         from reportlab.pdfbase.pdfmetrics import registerFontFamily
-        registerFontFamily('FreeSans', normal='FreeSans', bold='FreeSansBold', italic='FreeSansOblique', boldItalic='FreeSansBoldOblique')
+
+        # Inter (primary UI font) — registered as 'FreeSans' alias so existing
+        # styles (which reference FreeSans/FreeSansBold) automatically pick up Inter.
+        # We also register them under their proper names for new code.
+        inter_reg = _font_path('Inter-Regular.ttf')
+        inter_med = _font_path('Inter-Medium.ttf')
+        inter_sb = _font_path('Inter-SemiBold.ttf')
+        inter_bold = _font_path('Inter-Bold.ttf')
+        inter_italic = _font_path('Inter-Italic.ttf')
+        if inter_reg and inter_bold:
+            pdfmetrics.registerFont(TTFont('Inter', inter_reg))
+            pdfmetrics.registerFont(TTFont('InterMedium', inter_med or inter_reg))
+            pdfmetrics.registerFont(TTFont('InterSemiBold', inter_sb or inter_bold))
+            pdfmetrics.registerFont(TTFont('InterBold', inter_bold))
+            if inter_italic:
+                pdfmetrics.registerFont(TTFont('InterItalic', inter_italic))
+            registerFontFamily('Inter', normal='Inter', bold='InterBold',
+                              italic='InterItalic' if inter_italic else 'Inter',
+                              boldItalic='InterBold')
+            # Alias FreeSans -> Inter so legacy code paths inherit the new typography.
+            pdfmetrics.registerFont(TTFont('FreeSans', inter_reg))
+            pdfmetrics.registerFont(TTFont('FreeSansBold', inter_bold))
+            pdfmetrics.registerFont(TTFont('FreeSansOblique', inter_italic or inter_reg))
+            pdfmetrics.registerFont(TTFont('FreeSansBoldOblique', inter_bold))
+            registerFontFamily('FreeSans', normal='FreeSans', bold='FreeSansBold',
+                              italic='FreeSansOblique', boldItalic='FreeSansBoldOblique')
+        else:
+            # Fallback to system FreeSans for Devanagari support if Inter not bundled
+            pdfmetrics.registerFont(TTFont('FreeSans', '/usr/share/fonts/truetype/freefont/FreeSans.ttf'))
+            pdfmetrics.registerFont(TTFont('FreeSansBold', '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf'))
+            pdfmetrics.registerFont(TTFont('FreeSansOblique', '/usr/share/fonts/truetype/freefont/FreeSansOblique.ttf'))
+            pdfmetrics.registerFont(TTFont('FreeSansBoldOblique', '/usr/share/fonts/truetype/freefont/FreeSansBoldOblique.ttf'))
+            registerFontFamily('FreeSans', normal='FreeSans', bold='FreeSansBold',
+                              italic='FreeSansOblique', boldItalic='FreeSansBoldOblique')
+
+        # JetBrains Mono (numbers)
+        jbm_reg = _font_path('JetBrainsMono-Regular.ttf')
+        jbm_med = _font_path('JetBrainsMono-Medium.ttf')
+        jbm_bold = _font_path('JetBrainsMono-Bold.ttf')
+        if jbm_reg and jbm_bold:
+            pdfmetrics.registerFont(TTFont('JetBrainsMono', jbm_reg))
+            pdfmetrics.registerFont(TTFont('JetBrainsMonoMedium', jbm_med or jbm_reg))
+            pdfmetrics.registerFont(TTFont('JetBrainsMonoBold', jbm_bold))
+            registerFontFamily('JetBrainsMono', normal='JetBrainsMono', bold='JetBrainsMonoBold',
+                              italic='JetBrainsMono', boldItalic='JetBrainsMonoBold')
+
         _fonts_registered = True
     except Exception:
         pass
@@ -438,41 +495,53 @@ SUMMARY_BOTTOM_STRIPE = '#FCD34D'  # amber-300 lighter gold
 def get_pdf_summary_banner(stats, total_width=None):
     """Returns a ReportLab Table representing the LIGHT-themed summary banner.
     
-    Args:
-        stats: list of {'label': str, 'value': str, 'color': str} dicts
-        total_width: optional total width in points; if None, equal-width auto
-    Returns: ReportLab Table element
+    Typography (v104.28.43+): label part in Inter, value part in JetBrainsMono
+    with tabular alignment for a premium Stripe-grade aesthetic.
     """
     register_hindi_fonts()
-    from reportlab.platypus import Table as RTable, TableStyle
+    from reportlab.platypus import Table as RTable, TableStyle, Paragraph
     from reportlab.lib import colors as rl_colors
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER
 
     if not stats:
         return None
-    # Build a single row of "LABEL\nVALUE" cells
-    row = [f"{s['label']}\n{s['value']}" for s in stats]
-    n = len(stats)
-    if total_width:
-        col_widths = [total_width / n] * n
-    else:
-        col_widths = [100] * n  # default 100pt per cell
+    # Build a Paragraph per cell mixing Inter (label) + JetBrainsMono (value)
+    cell_style = ParagraphStyle(
+        'BannerCell', fontSize=9, fontName='FreeSansBold',
+        textColor=rl_colors.HexColor(SUMMARY_LABEL_COLOR),
+        alignment=TA_CENTER, leading=12,
+    )
 
-    t = RTable([row], colWidths=col_widths)
-    # Center the banner horizontally on the page (matches most reports' data tables).
-    # For full-width banners that need to align with explicitly-positioned tables, the
-    # caller should override by setting `t.hAlign = 'LEFT'` after this returns.
+    def _esc(t):
+        return str(t).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+    cells = []
+    try:
+        # check if JetBrainsMono is registered
+        from reportlab.pdfbase import pdfmetrics
+        has_jbm = 'JetBrainsMonoBold' in pdfmetrics.getRegisteredFontNames()
+    except Exception:
+        has_jbm = False
+
+    for s in stats:
+        color = s.get('color', '#1e293b')
+        label_html = f'<font color="{SUMMARY_LABEL_COLOR}">{_esc(s["label"])}</font>'
+        if has_jbm:
+            value_html = f'<font color="{color}" face="JetBrainsMonoBold" size="11">{_esc(s["value"])}</font>'
+        else:
+            value_html = f'<font color="{color}" size="11">{_esc(s["value"])}</font>'
+        cells.append(Paragraph(f"{label_html}<br/>{value_html}", cell_style))
+
+    n = len(stats)
+    col_widths = [total_width / n] * n if total_width else [100] * n
+    t = RTable([cells], colWidths=col_widths)
     t.hAlign = 'CENTER'
 
     style_cmds = [
-        # Light cream background
         ('BACKGROUND', (0, 0), (-1, -1), rl_colors.HexColor(SUMMARY_BANNER_BG)),
-        # Gold stripe at top + bottom for visual frame
         ('LINEABOVE', (0, 0), (-1, 0), 2, rl_colors.HexColor(SUMMARY_TOP_STRIPE)),
         ('LINEBELOW', (0, 0), (-1, 0), 1, rl_colors.HexColor(SUMMARY_BOTTOM_STRIPE)),
-        # Default text color (label part); we override per-cell below
-        ('TEXTCOLOR', (0, 0), (-1, -1), rl_colors.HexColor(SUMMARY_LABEL_COLOR)),
-        ('FONTNAME', (0, 0), (-1, -1), 'FreeSansBold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('TOPPADDING', (0, 0), (-1, -1), 8),
@@ -480,12 +549,8 @@ def get_pdf_summary_banner(stats, total_width=None):
         ('LEFTPADDING', (0, 0), (-1, -1), 4),
         ('RIGHTPADDING', (0, 0), (-1, -1), 4),
     ]
-    # Per-cell colored value override + soft hairline dividers
-    for i, s in enumerate(stats):
-        color_hex = s.get('color', '#1e293b')
-        style_cmds.append(('TEXTCOLOR', (i, 0), (i, 0), rl_colors.HexColor(color_hex)))
-        if i > 0:
-            style_cmds.append(('LINEBEFORE', (i, 0), (i, 0), 0.5, rl_colors.HexColor(SUMMARY_DIVIDER)))
+    for i in range(1, n):
+        style_cmds.append(('LINEBEFORE', (i, 0), (i, 0), 0.5, rl_colors.HexColor(SUMMARY_DIVIDER)))
     t.setStyle(TableStyle(style_cmds))
     return t
 
