@@ -17,6 +17,33 @@ async def get_company_name():
         return settings.get("company_name", "Mill Entry System"), settings.get("tagline", "")
     return "Mill Entry System", ""
 
+
+async def _get_mandi_default_bhada_rate(entry):
+    """Lookup the per-mandi default truck rate from mandi_targets.
+    Used as a fallback when an entry's truck_payments doc has no explicit rate set.
+    Returns 0 if no mandi default is configured.
+    """
+    if not entry or not entry.get("mandi_name"):
+        return 0
+    q = {"mandi_name": entry["mandi_name"]}
+    if entry.get("kms_year"): q["kms_year"] = entry["kms_year"]
+    if entry.get("season"): q["season"] = entry["season"]
+    tgt = await db.mandi_targets.find_one(q, {"_id": 0, "default_bhada_rate": 1})
+    if tgt and tgt.get("default_bhada_rate") not in (None, ""):
+        try:
+            return float(tgt["default_bhada_rate"])
+        except (ValueError, TypeError):
+            pass
+    # Fallback: any target for this mandi (regardless of FY/season)
+    tgt = await db.mandi_targets.find_one({"mandi_name": entry["mandi_name"]}, {"_id": 0, "default_bhada_rate": 1})
+    if tgt and tgt.get("default_bhada_rate") not in (None, ""):
+        try:
+            return float(tgt["default_bhada_rate"])
+        except (ValueError, TypeError):
+            pass
+    return 0
+
+
 async def _find_truck_entry(entry_id):
     """Find entry from mill_entries, private_paddy, rice_sales, sale_vouchers, or dc_deliveries - return (entry, source, final_qntl)"""
     entry = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
@@ -125,6 +152,8 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
             eid = entry.get("id", "")
             payment_doc = await db.truck_payments.find_one({"entry_id": eid}, {"_id": 0})
             rate = payment_doc.get("rate_per_qntl", 0) if payment_doc else 0
+            if not rate:  # fall back to per-mandi default
+                rate = await _get_mandi_default_bhada_rate(entry)
             final_qntl = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
             cash_taken = float(entry.get("cash_paid", 0) or 0)
             diesel_taken = float(entry.get("diesel_paid", 0) or 0)
@@ -141,6 +170,10 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
             entry_id = entry.get("id")
             payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
             rate = payment_doc.get("rate_per_qntl", 0) if payment_doc else 0
+            if not rate:
+                rate = await _get_mandi_default_bhada_rate(entry)
+            if not rate:  # fall back to per-mandi default
+                rate = await _get_mandi_default_bhada_rate(entry)
             
             final_qntl = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
             cash_taken = float(entry.get("cash_paid", 0) or 0)
@@ -204,6 +237,8 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
         # Check if rate/payment exists in truck_payments
         tp = await db.truck_payments.find_one({"entry_id": p["id"]}, {"_id": 0})
         rate = tp.get("rate_per_qntl", 0) if tp else 0
+        if not rate:
+            rate = await _get_mandi_default_bhada_rate(p)
         extra_paid = tp.get("paid_amount", 0) if tp else 0
         tp_status = tp.get("status", "") if tp else ""
         gross = round(final_qntl * rate, 2) if rate > 0 else 0
@@ -250,6 +285,8 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
         qty = r.get("quantity_qntl", 0) or 0
         tp = await db.truck_payments.find_one({"entry_id": r["id"]}, {"_id": 0})
         rate = tp.get("rate_per_qntl", 0) if tp else 0
+        if not rate:
+            rate = await _get_mandi_default_bhada_rate(r)
         extra_paid = tp.get("paid_amount", 0) if tp else 0
         tp_status = tp.get("status", "") if tp else ""
         gross = round(qty * rate, 2) if rate > 0 else 0

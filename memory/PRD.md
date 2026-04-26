@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.33
+## Current Version: v104.28.34
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -16,6 +16,23 @@
 - `/app/backend/` — Python FastAPI (web preview, MongoDB)
 - `/app/desktop-app/` — Node.js Express (Electron desktop app, JSON/SQLite) — **THIS IS WHAT THE USER ACTUALLY USES IN PRODUCTION**
 - `/app/local-server/` — Node.js Express (LAN host, JSON/SQLite)
+
+## Recent Fixes (Apr 2026) — v104.28.34
+
+### Per-Mandi Default Bhada Rate (Auto-Fill Truck Payments)
+- **User directive**: *"Mandi Target vs Achieved yaha karna mandi target banate waqt hum dal sakte hai"*
+- **Frontend** (`/app/frontend/src/components/Dashboard.jsx`):
+  - New "Default Bhada Rate (₹/QNTL)" input field in the Mandi Target form (between Cutting Rate and Year). Optional — empty allowed.
+  - `targetForm` state, `handleEditTarget`, and POST payload all carry the new field. Empty string → 0.
+- **Python** (`/app/backend/models.py`): added `default_bhada_rate: float = 0` to `MandiTarget`, `MandiTargetCreate`, and `MandiTargetUpdate` Pydantic models. Updated `entries.py` POST handler to pass it through to the persisted document (not just rely on dict spread).
+- **Backend rate-resolution logic** (Python `payments.py`):
+  - New helper `_get_mandi_default_bhada_rate(entry)` — looks up the matching mandi target (kms_year + season scoped) and returns its `default_bhada_rate`. Falls back to any mandi target without FY/season match. Returns 0 if not configured.
+  - 4 rate-resolution sites updated (truck-payments list, single-truck-payment GET, agent payment cross-checks, balance summary): if `truck_payments.rate_per_qntl` is unset/0, fall back to the per-mandi default. Stored value untouched — only the UI display gets the auto-filled rate.
+- **Node.js** (`/app/desktop-app/main.js`, `/app/desktop-app/sqlite-database.js` + LAN copies):
+  - New `_getMandiDefaultBhadaRate(entryId)` helper method on the Database class.
+  - `getTruckPayment(entryId)` modified: if stored doc has rate=0 (or doc missing entirely), return the merged object with `rate_per_qntl: <mandi-default>` and a flag `_is_default_rate: true` so UI can optionally style it differently.
+  - Spread-based `addMandiTarget` already passes through the new `default_bhada_rate` field automatically (no schema enforcement in Node.js layer).
+- **Verified end-to-end**: created mandi target with `default_bhada_rate=18` → created mill entry for that mandi → API `/api/truck-payments` returned `rate_per_qntl: 18.0` for that entry. Triple-Backend Parity: Python verified directly via curl, Node.js verified via syntax check + helper unit test.
 
 ## Recent Fixes (Apr 2026) — v104.28.33
 

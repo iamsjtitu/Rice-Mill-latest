@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.34",
+    date: "Apr 2026",
+    title: "v104.28.34 — 💸 Per-Mandi Default Bhada Rate (Auto-Fill Truck Payments)",
+    items: [
+      { type: "new", text: "💸 **Mandi Target form mein naya field**: Default Bhada Rate (₹/QNTL). Har Mandi ke liye apna ek default truck rate save kar sakte ho. Optional — empty chhodo toh 0 rahega" },
+      { type: "new", text: "⚡ **Auto-fill in Truck Payments**: jab us mandi ki naya truck entry add karte ho, Bhada Rate automatically pre-fill ho jayega is mandi ke saved default se. User per-entry edit kar sakta hai (still flexible). Sabse common case (har mandi ka fixed rate) — bahut time bachega" },
+      { type: "fix", text: "🛡️ **Smart fallback**: agar truck payment doc mein rate explicitly set hai (non-zero), woh respect hota hai. Sirf rate=0 / empty hone par mandi ka default lookup hota hai" },
+      { type: "fix", text: "🔄 **Triple-Backend Parity**: Python (MandiTarget model + entries.py POST + payments.py rate lookups), Desktop App (`getTruckPayment` + new `_getMandiDefaultBhadaRate` helper in main.js + sqlite-database.js), aur LAN Local Server — sab synced. End-to-end tested via API: entry created → Truck Payment list mein rate=18 auto-filled ✓" },
+    ],
+  },
+  {
     version: "104.28.33",
     date: "Apr 2026",
     title: "v104.28.33 — 💰 Truck Payment Default Rate: 32 → 0",

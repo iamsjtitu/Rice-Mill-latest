@@ -1102,10 +1102,32 @@ class SqliteDatabase {
     this.save();
   }
 
+  // Get the per-mandi default bhada rate from Mandi Target row (fallback for new entries).
+  _getMandiDefaultBhadaRate(entryId) {
+    const entry = this.data.mill_entries.find(e => e.id === entryId);
+    if (!entry || !entry.mandi_name) return 0;
+    const tgt = this.data.mandi_targets.find(t =>
+      t.mandi_name === entry.mandi_name &&
+      (entry.kms_year ? t.kms_year === entry.kms_year : true) &&
+      (entry.season ? t.season === entry.season : true)
+    );
+    if (tgt && Number.isFinite(parseFloat(tgt.default_bhada_rate))) return parseFloat(tgt.default_bhada_rate);
+    const any = this.data.mandi_targets.find(t => t.mandi_name === entry.mandi_name && Number.isFinite(parseFloat(t.default_bhada_rate)));
+    return any ? parseFloat(any.default_bhada_rate) : 0;
+  }
+
   getTruckPayment(entryId) {
     const found = this.data.truck_payments.find(p => p.entry_id === entryId);
-    if (found) return { rate_per_qntl: 0, paid_amount: 0, status: 'pending', payment_history: [], ...found };
-    return { entry_id: entryId, rate_per_qntl: 0, paid_amount: 0, status: 'pending', payment_history: [] };
+    const def = this._getMandiDefaultBhadaRate(entryId);
+    if (found) {
+      const merged = { rate_per_qntl: 0, paid_amount: 0, status: 'pending', payment_history: [], ...found };
+      if (!merged.rate_per_qntl && def) {
+        merged.rate_per_qntl = def;
+        merged._is_default_rate = true;
+      }
+      return merged;
+    }
+    return { entry_id: entryId, rate_per_qntl: def || 0, paid_amount: 0, status: 'pending', payment_history: [], _is_default_rate: !!def };
   }
 
   updateTruckPayment(entryId, payment) {

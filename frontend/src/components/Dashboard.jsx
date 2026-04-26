@@ -56,6 +56,7 @@ export const Dashboard = ({ filters, user }) => {
     cutting_percent: "5",
     base_rate: "10",
     cutting_rate: "0",
+    default_bhada_rate: "",
     kms_year: filters.kms_year || CURRENT_KMS_YEAR,
     season: filters.season || "Kharif"
   });
@@ -119,7 +120,8 @@ export const Dashboard = ({ filters, user }) => {
         target_qntl: parseFloat(targetForm.target_qntl),
         cutting_percent: parseFloat(targetForm.cutting_percent),
         base_rate: parseFloat(targetForm.base_rate),
-        cutting_rate: parseFloat(targetForm.cutting_rate)
+        cutting_rate: parseFloat(targetForm.cutting_rate),
+        default_bhada_rate: targetForm.default_bhada_rate === "" ? 0 : parseFloat(targetForm.default_bhada_rate)
       };
 
       if (editingTargetId) {
@@ -138,6 +140,7 @@ export const Dashboard = ({ filters, user }) => {
         cutting_percent: "5",
         base_rate: "10",
         cutting_rate: "0",
+        default_bhada_rate: "",
         kms_year: filters.kms_year || CURRENT_KMS_YEAR,
         season: filters.season || "Kharif"
       });
@@ -165,6 +168,7 @@ export const Dashboard = ({ filters, user }) => {
       cutting_percent: target.cutting_percent.toString(),
       base_rate: (target.base_rate ?? 10).toString(),
       cutting_rate: (target.cutting_rate ?? 0).toString(),
+      default_bhada_rate: target.default_bhada_rate ? target.default_bhada_rate.toString() : "",
       kms_year: target.kms_year,
       season: target.season
     });
@@ -473,6 +477,19 @@ export const Dashboard = ({ filters, user }) => {
                     placeholder="5"
                     className="bg-slate-700 border-slate-600 text-white text-sm"
                     required
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-300 text-xs">Default Bhada Rate (₹/QNTL)</Label>
+                  <Input
+                    type="number"
+                    step="0.5"
+                    value={targetForm.default_bhada_rate}
+                    onChange={(e) => setTargetForm(prev => ({ ...prev, default_bhada_rate: e.target.value }))}
+                    placeholder="0"
+                    className="bg-slate-700 border-slate-600 text-white text-sm"
+                    title="Truck Payments page pe is mandi ka rate auto-fill ho jayega. Optional."
+                    data-testid="target-default-bhada-rate"
                   />
                 </div>
                 <div>

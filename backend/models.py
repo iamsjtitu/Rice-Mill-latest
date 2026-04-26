@@ -150,6 +150,7 @@ class MandiTarget(BaseModel):
     expected_total: float = 0
     base_rate: float = 10.0
     cutting_rate: float = 5.0
+    default_bhada_rate: float = 0  # per-mandi default truck rate (Rs./QNTL); 0 = none
     kms_year: str
     season: str
     created_by: str = ""
@@ -161,6 +162,7 @@ class MandiTargetCreate(BaseModel):
     cutting_percent: float = 5.0
     base_rate: float = 10.0
     cutting_rate: float = 5.0
+    default_bhada_rate: float = 0
     kms_year: str
     season: str
 
@@ -170,6 +172,7 @@ class MandiTargetUpdate(BaseModel):
     cutting_percent: Optional[float] = None
     base_rate: Optional[float] = None
     cutting_rate: Optional[float] = None
+    default_bhada_rate: Optional[float] = None
     kms_year: Optional[str] = None
     season: Optional[str] = None
 

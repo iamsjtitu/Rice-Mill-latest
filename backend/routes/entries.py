@@ -1693,6 +1693,7 @@ async def create_mandi_target(input: MandiTargetCreate, username: str = "", role
         expected_total=expected_total,
         base_rate=input.base_rate,
         cutting_rate=input.cutting_rate,
+        default_bhada_rate=input.default_bhada_rate,
         kms_year=input.kms_year,
         season=input.season,
         created_by=username
