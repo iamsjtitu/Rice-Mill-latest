@@ -1,6 +1,6 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.28.30
+## Current Version: v104.28.31
 
 ## 🎨 USER UI PREFERENCE — IMPORTANT
 **User uses LIGHT/WHITE theme**. All new UI work must:
@@ -16,6 +16,27 @@
 - `/app/backend/` — Python FastAPI (web preview, MongoDB)
 - `/app/desktop-app/` — Node.js Express (Electron desktop app, JSON/SQLite) — **THIS IS WHAT THE USER ACTUALLY USES IN PRODUCTION**
 - `/app/local-server/` — Node.js Express (LAN host, JSON/SQLite)
+
+## Recent Fixes (Apr 2026) — v104.28.31
+
+### Global Banner-Centering Fix + Per-Section PDF Bookmarks
+- **User complaint (verbatim)**: *"v104.28.23 - ismai tumne bola tha ki jo neeche banner side mai aaraha tha wo ab center mai ayega · but still u are failed - saare pdf check karo · ek chiz bar bar repeat karna pdd raha hai"*
+
+#### Banner Centering — Single-Point Global Fix
+- **Root cause**: `drawSummaryBanner(doc, stats, x, y, totalW)` in `/app/desktop-app/routes/pdf_helpers.js` (and local-server copy) accepted caller-provided `x` and `totalW`. 10+ caller files (cashbook.js, entries.js, vehicle_weight.js, salebook.js, truck_lease.js, diesel.js, hemali.js, purchase_vouchers.js, govt_registers.js, etc.) all passed `tableW` (sum of column widths) which is typically 250-450pt vs full page width 545pt. The Hemali fix from v104.28.23 fixed the Hemali table specifically but every OTHER report still had the issue.
+- **Fix**: modified `drawSummaryBanner` to **auto-expand** when caller-provided `totalW < doc.page.width - 2*margin`. Helper now overrides `x = margin` and `totalW = full_content_width` automatically. This fixes ALL existing callers in one place — no per-file edits needed, no risk of missing one.
+- **Also synced** to `/app/local-server/routes/pdf_helpers.js`.
+
+#### Per-Section PDF Bookmarks (NEW feature)
+- Used PDFKit's native `doc.outline.addItem(title)` API which produces standard PDF outline (table of contents). Renders as a side panel in Acrobat / Edge / Chrome / Firefox / SumatraPDF — user clicks an item and PDF jumps to that section.
+- **Summary Report** (`/api/export/summary-report-pdf`): 5 bookmarks → "1 · Stock Overview", "2 · Mandi Targets", "3 · Truck Payments", "4 · Agent / Mandi Payments", "5 · Grand Total".
+- **Dashboard PDF** (`/api/export/dashboard-pdf`): "Stock Overview" + "Mandi Targets" bookmarks (when respective sections are present).
+- **Hemali Monthly Summary** (`/api/hemali/monthly-summary/pdf`): one bookmark per Sardar — "Sardar: Rajesh", "Sardar: Vijay", etc. — long reports can have 10-20 sardars, this navigation is essential.
+- All synced from `/app/desktop-app/` to `/app/local-server/` via the Python regex extractor.
+
+#### Verified
+- Smoke-tested cashbook PDF: orange header band, navy title band, AND bottom summary banner now all 3 span full page width and visually align.
+- pypdf reader confirmed bookmarks rendering correctly: 5 outline items in summary report PDF.
 
 ## Recent Fixes (Apr 2026) — v104.28.30
 

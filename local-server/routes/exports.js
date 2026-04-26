@@ -338,9 +338,12 @@ module.exports = function(database) {
         doc.y = newY + 8;
       }
 
+      const outline = doc.outline;
+
       // ---- STOCK SECTION ----
       if (showStock) {
         ensureSpace(doc, 170);
+        if (outline) outline.addItem('Stock Overview');
         drawSectionBand(doc, 'Stock Overview', {
           subtitle: `FY ${req.query.kms_year || 'All'} · ${req.query.season || 'All'}`,
           preset: 'orange',
@@ -367,6 +370,7 @@ module.exports = function(database) {
       // ---- TARGETS SECTION ----
       if (showTargets) {
         ensureSpace(doc, 130);
+        if (outline) outline.addItem(targetMandi ? `Mandi Targets · ${targetMandi}` : 'Mandi Targets');
         drawSectionBand(doc, targetMandi ? `Mandi Targets · ${targetMandi}` : 'Mandi Targets', {
           subtitle: targets.length ? `Overall: ${overallProgress}% achieved` : null,
           preset: 'teal',
@@ -529,9 +533,11 @@ module.exports = function(database) {
       doc.y = drawSummaryBanner(doc, kpis, margin, doc.y, bannerW) + 8;
 
       const pageW = doc.page.width - 50;
+      const outline = doc.outline;  // PDFKit document outline (bookmarks panel)
 
       // SECTION 1: STOCK
       ensureSpace(doc, 170);  // band (22) + ~6 rows (130) + spacing (18)
+      if (outline) outline.addItem('1 · Stock Overview');
       drawSectionBand(doc, '1 · Stock Overview', {
         subtitle: `Available: ${paddyAvail.toFixed(1)} Q · Rice: ${(riceRaw + riceUsna).toFixed(1)} Q`,
         preset: 'orange',
@@ -552,6 +558,7 @@ module.exports = function(database) {
 
       // SECTION 2: TARGETS
       ensureSpace(doc, 130);  // band + header + ~3 rows minimum
+      if (outline) outline.addItem('2 · Mandi Targets');
       drawSectionBand(doc, '2 · Mandi Targets', {
         subtitle: targets.length ? `Overall: ${overallProgress}% achieved` : null,
         preset: 'teal',
@@ -572,6 +579,7 @@ module.exports = function(database) {
 
       // SECTION 3: TRUCK PAYMENTS
       ensureSpace(doc, 130);
+      if (outline) outline.addItem('3 · Truck Payments');
       drawSectionBand(doc, '3 · Truck Payments', {
         subtitle: `Balance: Rs.${fmtAmt(Math.round(truckBal))}`,
         preset: 'purple',
@@ -589,6 +597,7 @@ module.exports = function(database) {
 
       // SECTION 4: AGENT/MANDI PAYMENTS
       ensureSpace(doc, 130);
+      if (outline) outline.addItem('4 · Agent / Mandi Payments');
       drawSectionBand(doc, '4 · Agent / Mandi Payments', {
         subtitle: `Balance: Rs.${fmtAmt(Math.round(agentBal))}`,
         preset: 'rose',
@@ -606,6 +615,7 @@ module.exports = function(database) {
 
       // SECTION 5: GRAND TOTAL
       ensureSpace(doc, 160);  // band + header + 2 rows + grand total emphasis row
+      if (outline) outline.addItem('5 · Grand Total');
       drawSectionBand(doc, '5 · Grand Total', {
         subtitle: `Outstanding: Rs.${fmtAmt(Math.round(gb))} (${(100 - paidPct).toFixed(1)}%)`,
         preset: 'amber',

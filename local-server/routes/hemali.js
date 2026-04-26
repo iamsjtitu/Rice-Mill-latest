@@ -459,6 +459,7 @@ module.exports = (database) => {
     // Page width: A4 landscape (842pt) - 50pt margins = 792pt usable
     const margin = 25;
     const PAGE_W = doc.page.width - margin * 2;
+    const outline = doc.outline;  // PDF bookmarks panel
 
     // Grand totals across all sardars
     let grandWork = 0, grandPaid = 0, grandAdvGiven = 0, grandAdvDed = 0;
@@ -473,6 +474,7 @@ module.exports = (database) => {
       // SARDAR PILL BAND (full-page-width orange band, name on left + advance on right)
       // Auto page-break if not enough space for band + at least 2 rows of table
       if (doc.y + 22 + 32 + 16 > doc.page.height - margin) doc.addPage();
+      if (outline) outline.addItem(`Sardar: ${sn}`);  // PDF bookmark per sardar
       const bandY = doc.y;
       const bandH = 22;
       doc.rect(margin, bandY, PAGE_W, bandH).fill('#d97706');

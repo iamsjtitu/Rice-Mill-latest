@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.28.31",
+    date: "Apr 2026",
+    title: "v104.28.31 — 🛟 Saare PDFs ka Bottom Banner Centering Fix + 📑 Section Bookmarks",
+    items: [
+      { type: "fix", text: "🛟 **GLOBAL FIX**: SAARE PDF reports (Cash Book, Mill Entries, Vehicle Weight, Sale Book, Truck Lease, Diesel, Hemali, Purchase Vouchers, Dashboard, Summary etc) ke bottom Summary Banner ab full page width pe spread hote hain. Pehle banner narrow tableW pe stick tha → page ke left side pe dikhta tha → user complaint 'wo abhi side mai aaraha hai'. Ab `drawSummaryBanner` ek hi jagah pe **auto-expand** karta hai full content width tak — koi bhi caller (10+ files) automatically benefit hua bina file-by-file edit kiye" },
+      { type: "new", text: "📑 **Per-Section PDF Bookmarks**: Long reports me ab PDF reader ke side panel se directly section pe jump kar sakte hain. **Summary Report** mein 5 bookmarks (Stock Overview / Mandi Targets / Truck Payments / Agent Mandi Payments / Grand Total). **Dashboard PDF** mein Stock + Targets bookmarks. **Hemali Monthly Summary** mein har Sardar ka apna bookmark (Sardar: Rajesh, Sardar: Vijay, etc) — long Hemali reports mein bahut helpful" },
+      { type: "fix", text: "🔄 **Triple-Backend Parity** — Desktop App + LAN Local Server dono mein same fix. PDFKit ka `doc.outline.addItem(title)` use kiya gaya jo native PDF outline standard support karta hai (Acrobat / SumatraPDF / Edge / browser sab supports karte hain)" },
+    ],
+  },
+  {
     version: "104.28.30",
     date: "Apr 2026",
     title: "v104.28.30 — 🐛 Agent / Mandi Payments Calculation Fix + Section Gap Fix",

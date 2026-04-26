@@ -447,6 +447,17 @@ function fmtInr(n) {
  */
 function drawSummaryBanner(doc, stats, x, y, totalW) {
   if (!stats || stats.length === 0) return y;
+  // Auto-expand to FULL page content width if caller passed a narrower width than
+  // the page allows (e.g. tableW from a narrow data table). This way the banner
+  // spans the entire content area and visually aligns with full-width header bands.
+  // Only kicks in when the requested width is meaningfully smaller — preserves
+  // explicit full-width callers untouched.
+  const _margin = (doc.page.margins && doc.page.margins.left) || 25;
+  const _fullW = doc.page.width - _margin * 2;
+  if (typeof totalW === 'number' && totalW < _fullW - 1) {
+    x = _margin;
+    totalW = _fullW;
+  }
   const summaryH = 30;
   // Light cream bg
   doc.rect(x, y, totalW, summaryH).fill('#FFFBEB');
