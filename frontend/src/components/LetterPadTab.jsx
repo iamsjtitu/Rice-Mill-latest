@@ -89,7 +89,20 @@ const LetterPadTab = () => {
   const loadSettings = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/letter-pad/settings`);
-      setSettings(res.data);
+      setSettings({
+        gstin: res.data?.gstin || "",
+        phone: res.data?.phone || "",
+        phone_secondary: res.data?.phone_secondary || "",
+        address: res.data?.address || "",
+        email: res.data?.email || "",
+        license_number: res.data?.license_number || "",
+        signature_name: res.data?.signature_name || "",
+        signature_designation: res.data?.signature_designation || "",
+        ai_enabled: !!res.data?.ai_enabled,
+        has_gemini_key: !!res.data?.has_gemini_key,
+        has_openai_key: !!res.data?.has_openai_key,
+        ai_provider: res.data?.ai_provider || "gemini",
+      });
     } catch (e) { /* ignore */ }
   }, []);
 
@@ -127,13 +140,28 @@ const LetterPadTab = () => {
       if (geminiKey) payload.gemini_key = geminiKey;
       if (openaiKey) payload.openai_key = openaiKey;
       const res = await axios.put(`${API}/letter-pad/settings`, payload);
-      setSettings(res.data);
+      setSettings({
+        gstin: res.data?.gstin || "",
+        phone: res.data?.phone || "",
+        phone_secondary: res.data?.phone_secondary || "",
+        address: res.data?.address || "",
+        email: res.data?.email || "",
+        license_number: res.data?.license_number || "",
+        signature_name: res.data?.signature_name || "",
+        signature_designation: res.data?.signature_designation || "",
+        ai_enabled: !!res.data?.ai_enabled,
+        has_gemini_key: !!res.data?.has_gemini_key,
+        has_openai_key: !!res.data?.has_openai_key,
+        ai_provider: res.data?.ai_provider || "gemini",
+      });
       setGeminiKey("");
       setOpenaiKey("");
       toast.success("Letterhead settings save ho gayi");
       setSettingsOpen(false);
     } catch (e) {
-      toast.error("Settings save nahi ho payi");
+      const detail = e.response?.data?.detail || e.message || 'Unknown error';
+      console.error('Settings save error:', e);
+      toast.error(`Settings save nahi ho payi: ${detail}`);
     } finally {
       setSavingSettings(false);
     }
