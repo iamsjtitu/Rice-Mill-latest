@@ -16,7 +16,7 @@ import { Switch } from "../components/ui/switch";
 import {
   FileText, Download, Sparkles, Languages, Wand2, Settings as SettingsIcon, Save, KeyRound,
   FolderOpen, BookTemplate, MessageCircle, Users, Trash2, Send, Loader2, FileWarning,
-  Banknote, AlertCircle, Building2, Truck, AlertTriangle, FileCheck, Receipt,
+  Banknote, AlertCircle, Building2, Truck, AlertTriangle, FileCheck, Receipt, Eraser,
 } from "lucide-react";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -335,6 +335,10 @@ const LetterPadTab = () => {
           <Button onClick={newLetter} variant="outline" size="sm"
             className="border-slate-600 text-slate-300" data-testid="letter-new-btn">
             <FileText className="w-4 h-4 mr-1" /> New
+          </Button>
+          <Button onClick={clearAll} variant="outline" size="sm"
+            className="border-rose-700 text-rose-400 hover:bg-rose-900/30" data-testid="letter-clear-all-btn">
+            <Eraser className="w-4 h-4 mr-1" /> Clear All
           </Button>
           <Button onClick={() => { loadDrafts(); setDraftsOpen(true); }} variant="outline" size="sm"
             className="border-amber-700 text-amber-400 hover:bg-amber-900/30" data-testid="letter-drafts-btn">
