@@ -206,6 +206,13 @@ const LetterPadTab = () => {
     setBody("");
   };
 
+  const clearAll = () => {
+    const hasContent = (body.trim() || subject.trim() || toAddress.trim() || references.trim() || refNo.trim());
+    if (hasContent && !window.confirm("Saara letter clear karna hai? Ye undo nahi hoga.")) return;
+    newLetter();
+    toast.success("Letter clear ho gaya");
+  };
+
   const saveDraft = async () => {
     if (!body.trim() && !subject.trim()) {
       toast.error("Khaali draft save nahi ho sakti — kuch text type karein");
