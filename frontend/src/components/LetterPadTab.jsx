@@ -718,24 +718,34 @@ const LetterPadTab = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label className="text-slate-400 text-xs flex items-center gap-1">
-                      <KeyRound className="w-3 h-3" /> Gemini API Key {settings.has_gemini_key && <span className="text-emerald-400 text-[10px]">(✓ Saved)</span>}
-                    </Label>
-                    <Input type="password" value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)}
-                      placeholder={settings.has_gemini_key ? "•••••••• (paste new to update)" : "AIza..."}
-                      className="bg-slate-700 border-slate-600 text-white font-mono"
-                      data-testid="settings-gemini-key" />
-                  </div>
-                  <div>
-                    <Label className="text-slate-400 text-xs flex items-center gap-1">
-                      <KeyRound className="w-3 h-3" /> OpenAI API Key {settings.has_openai_key && <span className="text-emerald-400 text-[10px]">(✓ Saved)</span>}
-                    </Label>
-                    <Input type="password" value={openaiKey} onChange={(e) => setOpenaiKey(e.target.value)}
-                      placeholder={settings.has_openai_key ? "•••••••• (paste new to update)" : "sk-..."}
-                      className="bg-slate-700 border-slate-600 text-white font-mono"
-                      data-testid="settings-openai-key" />
-                  </div>
+                  {settings.ai_provider === "gemini" && (
+                    <div>
+                      <Label className="text-slate-400 text-xs flex items-center gap-1">
+                        <KeyRound className="w-3 h-3" /> Gemini API Key {settings.has_gemini_key && <span className="text-emerald-400 text-[10px]">(✓ Saved)</span>}
+                      </Label>
+                      <Input type="password" value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)}
+                        placeholder={settings.has_gemini_key ? "•••••••• (paste new to update)" : "AIza..."}
+                        className="bg-slate-700 border-slate-600 text-white font-mono"
+                        data-testid="settings-gemini-key" />
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        FREE key: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-emerald-400 underline">aistudio.google.com/app/apikey</a>
+                      </p>
+                    </div>
+                  )}
+                  {settings.ai_provider === "openai" && (
+                    <div>
+                      <Label className="text-slate-400 text-xs flex items-center gap-1">
+                        <KeyRound className="w-3 h-3" /> OpenAI API Key {settings.has_openai_key && <span className="text-emerald-400 text-[10px]">(✓ Saved)</span>}
+                      </Label>
+                      <Input type="password" value={openaiKey} onChange={(e) => setOpenaiKey(e.target.value)}
+                        placeholder={settings.has_openai_key ? "•••••••• (paste new to update)" : "sk-..."}
+                        className="bg-slate-700 border-slate-600 text-white font-mono"
+                        data-testid="settings-openai-key" />
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        Paid key: <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" className="text-emerald-400 underline">platform.openai.com/api-keys</a>
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
             </div>
