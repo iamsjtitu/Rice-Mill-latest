@@ -37,7 +37,9 @@ const ARRAY_COLLECTIONS = [
 
 // KV items (non-array objects)
 const KV_KEYS = ['branding', 'users', 'gst_opening_balances', '_migrations', 'settings',
-  'fy_settings', 'gst_company_settings', 'gst_settings'];
+  'fy_settings', 'gst_company_settings', 'gst_settings',
+  // v104.30.8 — Letter Pad extra settings (header_text, signature, AI keys, etc.):
+  'app_settings_extra'];
 
 class SqliteDatabase {
   constructor(dataFolder) {

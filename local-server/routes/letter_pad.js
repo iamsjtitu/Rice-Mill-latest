@@ -78,7 +78,7 @@ module.exports = (database) => {
     if (b.clear_gemini_key) lp.gemini_key = '';
     if (b.clear_openai_key) lp.openai_key = '';
     lp.updated_at = new Date().toISOString();
-    database.save();
+    if (database.saveImmediate) database.saveImmediate(); else database.save();
     res.json(settingsResponse());
   }));
 
