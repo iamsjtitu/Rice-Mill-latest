@@ -22,6 +22,7 @@ module.exports = (database) => {
     const pick = (...opts) => opts.find(o => o && String(o).trim()) || '';
     return {
       company_name: pick(settings.company_name, 'NAVKAR AGRO'),
+      header_text: pick(lp.header_text),
       address: pick(lp.address, settings.address, 'Laitara Road, Jolko - 766012, Dist. Kalahandi (Odisha)'),
       email: pick(lp.email, settings.email),
       phone: pick(lp.phone, settings.phone),
@@ -47,6 +48,7 @@ module.exports = (database) => {
       address: lp.address || '',
       email: lp.email || '',
       license_number: lp.license_number || '',
+      header_text: lp.header_text || '',
       signature_name: lp.signature_name || '',
       signature_designation: lp.signature_designation || '',
       ai_enabled: !!lp.ai_enabled,
@@ -66,7 +68,7 @@ module.exports = (database) => {
     if (!database.data.app_settings_extra.letter_pad) database.data.app_settings_extra.letter_pad = {};
     const lp = database.data.app_settings_extra.letter_pad;
     const b = req.body || {};
-    const textFields = ['gstin', 'phone', 'phone_secondary', 'address', 'email', 'license_number', 'signature_name', 'signature_designation', 'ai_provider'];
+    const textFields = ['gstin', 'phone', 'phone_secondary', 'address', 'email', 'license_number', 'header_text', 'signature_name', 'signature_designation', 'ai_provider'];
     textFields.forEach(f => {
       if (b[f] !== undefined) lp[f] = String(b[f] || '').trim();
     });
@@ -172,8 +174,14 @@ module.exports = (database) => {
     phones.forEach((p, i) => {
       doc.font(pdfF('bold')).fontSize(9).fillColor(DARK).text(`Mob. ${p}`, pageW - 200, top + i * 11, { width: 160, align: 'right' });
     });
-    doc.font(pdfF('bold')).fontSize(22).fillColor(RED).text(ctx.company_name, 0, top + 18, { align: 'center', width: pageW });
-    let y = top + 48;
+    // Optional header text (slogan) ABOVE company name
+    let companyY = top + 18;
+    if (ctx.header_text) {
+      doc.font(pdfF('normal')).fontSize(11).fillColor(MUTED).text(ctx.header_text, 0, top + 4, { align: 'center', width: pageW });
+      companyY = top + 22;
+    }
+    doc.font(pdfF('bold')).fontSize(22).fillColor(RED).text(ctx.company_name, 0, companyY, { align: 'center', width: pageW });
+    let y = companyY + 30;
     if (ctx.address) {
       doc.font(pdfF('normal')).fontSize(10).fillColor(MUTED).text(ctx.address, 0, y, { align: 'center', width: pageW });
       y += 13;
@@ -296,6 +304,7 @@ module.exports = (database) => {
 
     const childrenSec = [
       headerTable,
+      ...(ctx.header_text ? [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: ctx.header_text, size: 22, color: '475569' })] })] : []),
       new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: ctx.company_name, bold: true, size: 56, color: 'C0392B' })] }),
       new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: ctx.address || '', size: 20, color: '475569' })] }),
       new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: ctx.email ? `Email: ${ctx.email}` : '', size: 20, color: '475569' })] }),

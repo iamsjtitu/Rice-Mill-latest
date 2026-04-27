@@ -46,6 +46,7 @@ async def get_letter_pad_settings():
         "address": doc.get("address", ""),
         "email": doc.get("email", ""),
         "license_number": doc.get("license_number", ""),
+        "header_text": doc.get("header_text", ""),
         "signature_name": doc.get("signature_name", ""),
         "signature_designation": doc.get("signature_designation", ""),
         "ai_enabled": bool(doc.get("ai_enabled", False)),
@@ -63,7 +64,7 @@ async def update_letter_pad_settings(payload: dict = Body(...)):
     update = {}
     text_fields = (
         "gstin", "phone", "phone_secondary", "address", "email", "license_number",
-        "signature_name", "signature_designation", "ai_provider",
+        "signature_name", "signature_designation", "ai_provider", "header_text",
     )
     for f in text_fields:
         if f in payload:
@@ -267,6 +268,7 @@ async def _build_letter_context():
     return {
         "company_name": pick(branding.get("company_name"), "NAVKAR AGRO"),
         "tagline": pick(branding.get("tagline")),
+        "header_text": pick(lp.get("header_text")),
         "address": pick(lp.get("address"), branding.get("address"), "Laitara Road, Jolko - 766012, Dist. Kalahandi (Odisha)"),
         "email": pick(lp.get("email"), branding.get("email")),
         "phone": pick(lp.get("phone"), branding.get("phone")),
@@ -317,10 +319,18 @@ def _draw_letterhead_pdf(canvas, ctx, page_w, page_h):
     for i, p in enumerate(phones):
         canvas.drawRightString(page_w - 40, top - i * 11, f"Mob. {p}")
 
+    # Center: optional small header text (slogan like "Shree Ram") ABOVE company name
+    company_y = top - 28
+    if ctx.get("header_text"):
+        canvas.setFont("Inter", 11)
+        canvas.setFillColor(MUTED)
+        canvas.drawCentredString(page_w / 2, top - 12, ctx["header_text"])
+        company_y = top - 36
+
     # Center: Company Name (red, bold). Pulled down a bit so phone numbers fit.
     canvas.setFont("InterBold", 22)
     canvas.setFillColor(BRAND_RED)
-    canvas.drawCentredString(page_w / 2, top - 28, ctx['company_name'])
+    canvas.drawCentredString(page_w / 2, company_y, ctx['company_name'])
 
     # Address (centered)
     addr_y = top - 46
@@ -501,6 +511,14 @@ async def generate_letter_docx(payload: dict = Body(...)):
         p2.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         run = p2.add_run(f"Mob. {ctx['phone_secondary']}")
         run.font.size = Pt(9)
+
+    # Center: optional small header text (slogan) ABOVE company name
+    if ctx.get("header_text"):
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run(ctx["header_text"])
+        run.font.size = Pt(11)
+        run.font.color.rgb = RGBColor(0x47, 0x55, 0x69)
 
     # Center: company name
     p = doc.add_paragraph()

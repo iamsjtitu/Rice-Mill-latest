@@ -53,6 +53,7 @@ const LetterPadTab = () => {
     address: "",
     email: "",
     license_number: "",
+    header_text: "",
     signature_name: "",
     signature_designation: "",
     ai_enabled: false,
@@ -101,6 +102,7 @@ const LetterPadTab = () => {
         address: res.data?.address || "",
         email: res.data?.email || "",
         license_number: res.data?.license_number || "",
+        header_text: res.data?.header_text || "",
         signature_name: res.data?.signature_name || "",
         signature_designation: res.data?.signature_designation || "",
         ai_enabled: !!res.data?.ai_enabled,
@@ -137,6 +139,7 @@ const LetterPadTab = () => {
         address: settings.address || "",
         email: settings.email || "",
         license_number: settings.license_number || "",
+        header_text: settings.header_text || "",
         signature_name: settings.signature_name || "",
         signature_designation: settings.signature_designation || "",
         ai_enabled: settings.ai_enabled,
@@ -152,6 +155,7 @@ const LetterPadTab = () => {
         address: res.data?.address || "",
         email: res.data?.email || "",
         license_number: res.data?.license_number || "",
+        header_text: res.data?.header_text || "",
         signature_name: res.data?.signature_name || "",
         signature_designation: res.data?.signature_designation || "",
         ai_enabled: !!res.data?.ai_enabled,
@@ -745,6 +749,13 @@ const LetterPadTab = () => {
                 <Input value={settings.email || ""} onChange={(e) => setSettings({ ...settings, email: e.target.value })}
                   placeholder="navkaragro2@gmail.com" className="bg-slate-700 border-slate-600 text-white"
                   data-testid="settings-email" />
+              </div>
+              <div>
+                <Label className="text-slate-400 text-xs">Header Text (Company name ke <span className="text-amber-400">upar</span> centered — e.g. "Shree Ram", "॥ श्री ॥")</Label>
+                <Input value={settings.header_text || ""} onChange={(e) => setSettings({ ...settings, header_text: e.target.value })}
+                  placeholder="(Optional) Slogan / blessing line"
+                  className="bg-slate-700 border-slate-600 text-white"
+                  data-testid="settings-header-text" />
               </div>
               <div>
                 <Label className="text-slate-400 text-xs">Address (single line)</Label>
