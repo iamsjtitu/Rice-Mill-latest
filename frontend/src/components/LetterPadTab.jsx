@@ -16,7 +16,7 @@ import { Switch } from "../components/ui/switch";
 import {
   FileText, Download, Sparkles, Languages, Wand2, Settings as SettingsIcon, Save, KeyRound,
   FolderOpen, BookTemplate, MessageCircle, Users, Trash2, Send, Loader2, FileWarning,
-  Banknote, AlertCircle, Building2, Truck, AlertTriangle, FileCheck, Receipt, Eraser,
+  Banknote, AlertCircle, Building2, Truck, AlertTriangle, FileCheck, Receipt, Eraser, Eye,
 } from "lucide-react";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -85,6 +85,11 @@ const LetterPadTab = () => {
   const [waGroupId, setWaGroupId] = useState("");
   const [waCaption, setWaCaption] = useState("");
   const [waBusy, setWaBusy] = useState(false);
+
+  // Preview
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -213,12 +218,47 @@ const LetterPadTab = () => {
       if (aiDialog.mode === "translate") payload.target_lang = aiTargetLang;
       const res = await axios.post(`${API}/letter-pad/ai`, payload);
       setBody(res.data.result);
-      toast.success(`AI ne ${aiDialog.mode === 'generate' ? 'letter likha' : aiDialog.mode === 'improve' ? 'letter sudhara' : 'translate kiya'} (${res.data.provider})`);
+      // For 'generate' mode: AI also returns subject + to_address — auto-fill them
+      if (aiDialog.mode === 'generate' && res.data.structured) {
+        if (res.data.subject) setSubject(res.data.subject);
+        if (res.data.to_address) setToAddress(res.data.to_address);
+      }
+      toast.success(`AI ne ${aiDialog.mode === 'generate' ? 'letter likha (Subject + To bhi auto-fill kiya)' : aiDialog.mode === 'improve' ? 'letter sudhara' : 'translate kiya'} (${res.data.provider})`);
       setAiDialog({ open: false, mode: "generate" });
     } catch (e) {
       toast.error(e.response?.data?.detail || "AI fail ho gaya");
     } finally {
       setAiBusy(false);
+    }
+  };
+
+  const openPreview = async () => {
+    if (!body.trim()) { toast.error("Pehle body type karein"); return; }
+    setPreviewLoading(true);
+    setPreviewOpen(true);
+    try {
+      const res = await axios.post(
+        `${API}/letter-pad/pdf`,
+        { ref_no: refNo, date, to_address: toAddress, subject, references, body },
+        { responseType: "blob" }
+      );
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      // Cleanup old URL if any
+      if (previewUrl) window.URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(url);
+    } catch (e) {
+      toast.error("Preview generate fail");
+      setPreviewOpen(false);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const closePreview = () => {
+    setPreviewOpen(false);
+    if (previewUrl) {
+      window.URL.revokeObjectURL(previewUrl);
+      setPreviewUrl("");
     }
   };
 
@@ -457,6 +497,10 @@ const LetterPadTab = () => {
               {savingDraft ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
               {activeDraftId ? "Update Draft" : "Save Draft"}
             </Button>
+            <Button onClick={openPreview} disabled={!body.trim()}
+              className="bg-slate-600 hover:bg-slate-700 text-white" data-testid="preview-btn">
+              <Eye className="w-4 h-4 mr-1" /> Preview
+            </Button>
             <Button onClick={() => downloadFile("pdf")} disabled={downloading || !body.trim()}
               className="bg-rose-600 hover:bg-rose-700 text-white" data-testid="download-pdf-btn">
               <Download className="w-4 h-4 mr-1" /> Download PDF
@@ -613,6 +657,43 @@ const LetterPadTab = () => {
               className="bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="wa-send-btn">
               {waBusy ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Send className="w-4 h-4 mr-1" />}
               {waBusy ? "Sending..." : "Send via WhatsApp"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Dialog */}
+      <Dialog open={previewOpen} onOpenChange={(o) => !o && closePreview()}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-5xl h-[90vh] flex flex-col p-0" data-testid="preview-dialog">
+          <DialogHeader className="px-6 pt-6 pb-2">
+            <DialogTitle className="text-slate-200 flex items-center gap-2">
+              <Eye className="w-5 h-5" /> Letter Preview
+            </DialogTitle>
+            <DialogDescription className="text-slate-400 text-xs">
+              Live PDF preview — yahi exact letter download/WhatsApp share hoga
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 bg-slate-900 mx-6 rounded overflow-hidden">
+            {previewLoading ? (
+              <div className="h-full flex items-center justify-center text-slate-400">
+                <Loader2 className="w-6 h-6 animate-spin mr-2" /> Generating preview...
+              </div>
+            ) : previewUrl ? (
+              <iframe
+                src={previewUrl}
+                title="Letter Preview"
+                className="w-full h-full border-0 bg-white"
+                data-testid="preview-iframe"
+              />
+            ) : null}
+          </div>
+          <DialogFooter className="px-6 py-4">
+            <Button variant="ghost" onClick={closePreview} className="text-slate-300">Close</Button>
+            <Button onClick={() => downloadFile("pdf")} disabled={downloading} className="bg-rose-600 hover:bg-rose-700 text-white">
+              <Download className="w-4 h-4 mr-1" /> Download PDF
+            </Button>
+            <Button onClick={() => downloadFile("docx")} disabled={downloading} className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Download className="w-4 h-4 mr-1" /> Download Word
             </Button>
           </DialogFooter>
         </DialogContent>

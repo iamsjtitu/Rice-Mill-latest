@@ -82,19 +82,19 @@ module.exports = (database) => {
 
   // ========== AI proxy ==========
   const SYSTEM_PROMPTS = {
-    generate: 'You are a professional business letter writer. Write ONLY the BODY of a formal Indian business letter — never include the letterhead, sender\'s company name/address (those are pre-printed on the letterhead), date, ref number, To/recipient block, or signature (those are added separately). STRICT RULES: 1) NO preamble like "Here is your letter:" or "Sure, here\'s a letter". 2) NO sender\'s company info — the letterhead already contains the company name and address. 3) NO placeholders like "[Your Name]", "[Date]", "[Recipient]", "[Account No]". 4) Start directly with "Respected Sir/Madam," (or appropriate greeting). 5) End with "Thanking you." (NO "Yours faithfully" / signature). 6) Write in first person plural (we/our) for company correspondence. 7) Match the language requested. 150-300 words. Polite, direct, formal. 8) Output ONLY the letter body — nothing else.',
+    generate: 'You are a professional business letter writer. Generate a complete formal Indian business letter and return STRICT JSON output with three keys.\n\nOUTPUT FORMAT (return ONLY this JSON, no markdown fences, no preamble):\n{\n  "to_address": "<recipient name and address, multi-line with \\n>",\n  "subject": "<concise subject line, 5-12 words>",\n  "body": "<full letter body starting with greeting, ending with Thanking you.>"\n}\n\nSTRICT RULES for the body:\n1) NO sender info (already on letterhead). 2) NO placeholders like [Your Name]. 3) Start with "Respected Sir/Madam,". 4) End with "Thanking you." 5) Use first person plural (we/our). 6) 150-300 words.\n\nSTRICT RULES for to_address: Standard Indian business format, multi-line with \\n. Example: "The Branch Manager,\\nState Bank of India,\\n[Branch Name],\\n[City]". Match the language requested for ALL three fields. Return PURE JSON only.',
     improve: "You are a professional business letter editor. Rewrite the user's draft with improved grammar, tone, and professionalism. STRICT RULES: 1) Output ONLY the improved letter body — no preamble, no explanation. 2) NO placeholders like '[Your Name]'. 3) Preserve the user's intent and key facts (dates, amounts, names). 4) Don't add 'Yours faithfully' / signature — those are added separately. 5) Keep length similar. Same language as input.",
     translate: "You are a professional translator for Indian business letters. Translate between English, Hindi (Devanagari), and Odia. STRICT RULES: 1) Output ONLY the translation — no preamble, no explanation. 2) Preserve formal business tone and all factual details (numbers, dates, names). 3) Use natural, professional phrasing in the target language.",
   };
 
-  async function callGemini(apiKey, sys, user) {
+  async function callGemini(apiKey, sys, user, jsonMode) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const genConfig = { temperature: 0.7, maxOutputTokens: 2048, thinkingConfig: { thinkingBudget: 0 } };
+    if (jsonMode) genConfig.responseMimeType = 'application/json';
     const body = {
       system_instruction: { parts: [{ text: sys }] },
       contents: [{ role: 'user', parts: [{ text: user }] }],
-      // Gemini 2.5 Flash: maxOutputTokens includes thinking tokens. Disable
-      // thinking so the full budget is available for the actual letter body.
-      generationConfig: { temperature: 0.7, maxOutputTokens: 2048, thinkingConfig: { thinkingBudget: 0 } },
+      generationConfig: genConfig,
     };
     const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!r.ok) throw new Error(`Gemini error: ${(await r.text()).slice(0, 300)}`);
@@ -102,15 +102,17 @@ module.exports = (database) => {
     return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
   }
 
-  async function callOpenAI(apiKey, sys, user) {
+  async function callOpenAI(apiKey, sys, user, jsonMode) {
+    const reqBody = {
+      model: 'gpt-5-mini',
+      messages: [{ role: 'system', content: sys }, { role: 'user', content: user }],
+      max_completion_tokens: 1500,
+    };
+    if (jsonMode) reqBody.response_format = { type: 'json_object' };
     const r = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'gpt-5-mini',
-        messages: [{ role: 'system', content: sys }, { role: 'user', content: user }],
-        max_completion_tokens: 1024,
-      }),
+      body: JSON.stringify(reqBody),
     });
     if (!r.ok) throw new Error(`OpenAI error: ${(await r.text()).slice(0, 300)}`);
     const data = await r.json();
@@ -129,8 +131,26 @@ module.exports = (database) => {
     if (!provider) return res.status(400).json({ detail: 'No API key configured' });
     let userPrompt = String(text).trim();
     if (mode === 'translate') userPrompt = `Translate the following to ${target_lang || 'English'}:\n\n${userPrompt}`;
+    const jsonMode = (mode === 'generate');
     try {
-      const out = provider === 'gemini' ? await callGemini(ctx.gemini_key, SYSTEM_PROMPTS[mode], userPrompt) : await callOpenAI(ctx.openai_key, SYSTEM_PROMPTS[mode], userPrompt);
+      const out = provider === 'gemini'
+        ? await callGemini(ctx.gemini_key, SYSTEM_PROMPTS[mode], userPrompt, jsonMode)
+        : await callOpenAI(ctx.openai_key, SYSTEM_PROMPTS[mode], userPrompt, jsonMode);
+      if (jsonMode) {
+        const clean = String(out).trim().replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
+        try {
+          const parsed = JSON.parse(clean);
+          return res.json({
+            result: (parsed.body || '').trim(),
+            subject: (parsed.subject || '').trim(),
+            to_address: (parsed.to_address || '').trim(),
+            provider,
+            structured: true,
+          });
+        } catch (_) {
+          return res.json({ result: clean, subject: '', to_address: '', provider, structured: false });
+        }
+      }
       res.json({ result: out, provider });
     } catch (e) {
       res.status(502).json({ detail: e.message || 'AI call failed' });
@@ -152,7 +172,7 @@ module.exports = (database) => {
     phones.forEach((p, i) => {
       doc.font(pdfF('bold')).fontSize(9).fillColor(DARK).text(`Mob. ${p}`, pageW - 200, top + i * 11, { width: 160, align: 'right' });
     });
-    doc.font(pdfF('bold')).fontSize(22).fillColor(RED).text(`\u0950 ${ctx.company_name}`, 0, top + 18, { align: 'center', width: pageW });
+    doc.font(pdfF('bold')).fontSize(22).fillColor(RED).text(ctx.company_name, 0, top + 18, { align: 'center', width: pageW });
     let y = top + 48;
     if (ctx.address) {
       doc.font(pdfF('normal')).fontSize(10).fillColor(MUTED).text(ctx.address, 0, y, { align: 'center', width: pageW });
@@ -276,7 +296,7 @@ module.exports = (database) => {
 
     const childrenSec = [
       headerTable,
-      new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `\u0950 ${ctx.company_name}`, bold: true, size: 56, color: 'C0392B' })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: ctx.company_name, bold: true, size: 56, color: 'C0392B' })] }),
       new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: ctx.address || '', size: 20, color: '475569' })] }),
       new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: ctx.email ? `Email: ${ctx.email}` : '', size: 20, color: '475569' })] }),
       new Paragraph({ border: { bottom: { color: 'C0392B', space: 1, style: BorderStyle.SINGLE, size: 12 } }, children: [new TextRun({ text: '' })] }),

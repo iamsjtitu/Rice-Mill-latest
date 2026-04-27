@@ -91,21 +91,27 @@ async def update_letter_pad_settings(payload: dict = Body(...)):
 
 _AI_SYSTEM_PROMPTS = {
     "generate": (
-        "You are a professional business letter writer. Write ONLY the BODY of a "
-        "formal Indian business letter — never include the letterhead, sender's "
-        "company name/address (those are pre-printed on the letterhead), date, "
-        "ref number, To/recipient block, or signature (those are added separately). "
-        "STRICT RULES:\n"
-        "1. NO preamble like 'Here is your letter:' or 'Sure, here's a letter'.\n"
-        "2. NO sender's company info (NO 'I, [Company Name], am writing...') — "
-        "the letterhead already contains the company name and address.\n"
-        "3. NO placeholders like '[Your Name]', '[Date]', '[Recipient]', '[Account No]'.\n"
-        "4. Start directly with 'Respected Sir/Madam,' (or appropriate greeting).\n"
-        "5. End with 'Thanking you.' (NO 'Yours faithfully' / 'Sincerely' / signature).\n"
-        "6. Write in first person plural (we/our) for company correspondence.\n"
-        "7. Match the language requested (Hindi/English/Odia). 150-300 words. "
-        "Polite, direct, formal.\n"
-        "8. Output ONLY the letter body — nothing else."
+        "You are a professional business letter writer. Generate a complete formal "
+        "Indian business letter and return STRICT JSON output with three keys.\n\n"
+        "OUTPUT FORMAT (return ONLY this JSON, no markdown fences, no preamble):\n"
+        "{\n"
+        '  "to_address": "<recipient name and address, multi-line with \\n>",\n'
+        '  "subject": "<concise subject line, 5-12 words>",\n'
+        '  "body": "<full letter body starting with greeting, ending with Thanking you.>"\n'
+        "}\n\n"
+        "STRICT RULES for the body:\n"
+        "1. NO sender's company info (it's already on the letterhead).\n"
+        "2. NO placeholders like '[Your Name]', '[Date]', '[Recipient]'.\n"
+        "3. Start with 'Respected Sir/Madam,' (or appropriate greeting).\n"
+        "4. End with 'Thanking you.' (NO 'Yours faithfully' / signature).\n"
+        "5. Use first person plural (we/our).\n"
+        "6. 150-300 words. Polite, direct, formal.\n\n"
+        "STRICT RULES for to_address:\n"
+        "- Standard Indian business format. Example:\n"
+        "  'The Branch Manager,\\nState Bank of India,\\n[Branch Name],\\n[City]'\n"
+        "- If user did not specify recipient, infer reasonable defaults based on context.\n\n"
+        "Match the language requested (Hindi/English/Odia) for ALL three fields.\n"
+        "Return PURE JSON only. No ```json fences."
     ),
     "improve": (
         "You are a professional business letter editor. Rewrite the user's draft "
@@ -128,22 +134,22 @@ _AI_SYSTEM_PROMPTS = {
 }
 
 
-async def _call_gemini(api_key: str, system_prompt: str, user_prompt: str) -> str:
+async def _call_gemini(api_key: str, system_prompt: str, user_prompt: str, json_mode: bool = False) -> str:
     url = (
         "https://generativelanguage.googleapis.com/v1beta/models/"
         f"gemini-2.5-flash:generateContent?key={api_key}"
     )
+    gen_config = {
+        "temperature": 0.7,
+        "maxOutputTokens": 2048,
+        "thinkingConfig": {"thinkingBudget": 0},
+    }
+    if json_mode:
+        gen_config["responseMimeType"] = "application/json"
     payload = {
         "system_instruction": {"parts": [{"text": system_prompt}]},
         "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
-        # NOTE on Gemini 2.5 Flash: maxOutputTokens includes "thinking" tokens.
-        # Disable thinking (thinkingBudget=0) so all 2048 tokens are available
-        # for the actual letter body, otherwise Gemini truncates mid-sentence.
-        "generationConfig": {
-            "temperature": 0.7,
-            "maxOutputTokens": 2048,
-            "thinkingConfig": {"thinkingBudget": 0},
-        },
+        "generationConfig": gen_config,
     }
     async with httpx.AsyncClient(timeout=60) as client:
         r = await client.post(url, json=payload)
@@ -156,7 +162,7 @@ async def _call_gemini(api_key: str, system_prompt: str, user_prompt: str) -> st
             raise HTTPException(status_code=502, detail="Gemini returned no text")
 
 
-async def _call_openai(api_key: str, system_prompt: str, user_prompt: str) -> str:
+async def _call_openai(api_key: str, system_prompt: str, user_prompt: str, json_mode: bool = False) -> str:
     url = "https://api.openai.com/v1/chat/completions"
     payload = {
         "model": "gpt-5-mini",
@@ -164,8 +170,10 @@ async def _call_openai(api_key: str, system_prompt: str, user_prompt: str) -> st
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        "max_completion_tokens": 1024,
+        "max_completion_tokens": 1500,
     }
+    if json_mode:
+        payload["response_format"] = {"type": "json_object"}
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     async with httpx.AsyncClient(timeout=60) as client:
         r = await client.post(url, json=payload, headers=headers)
@@ -211,10 +219,33 @@ async def letter_pad_ai(payload: dict = Body(...)):
         target = payload.get("target_lang") or "English"
         user_prompt = f"Translate the following to {target}:\n\n{text}"
 
+    json_mode = (mode == "generate")
     if provider == "gemini":
-        out = await _call_gemini(gemini_key, system_prompt, user_prompt)
+        out = await _call_gemini(gemini_key, system_prompt, user_prompt, json_mode=json_mode)
     else:
-        out = await _call_openai(openai_key, system_prompt, user_prompt)
+        out = await _call_openai(openai_key, system_prompt, user_prompt, json_mode=json_mode)
+
+    # For generate mode, parse JSON and return structured fields
+    if json_mode:
+        import json as _json
+        import re as _re
+        clean = out.strip()
+        # Strip markdown fences if model added them despite instruction
+        clean = _re.sub(r"^```(?:json)?\s*", "", clean)
+        clean = _re.sub(r"\s*```$", "", clean)
+        try:
+            parsed = _json.loads(clean)
+            return {
+                "result": parsed.get("body", "").strip(),
+                "subject": parsed.get("subject", "").strip(),
+                "to_address": parsed.get("to_address", "").strip(),
+                "provider": provider,
+                "structured": True,
+            }
+        except Exception:
+            # Fallback: treat whole output as body
+            return {"result": clean, "subject": "", "to_address": "", "provider": provider, "structured": False}
+
     return {"result": out, "provider": provider}
 
 
@@ -286,11 +317,10 @@ def _draw_letterhead_pdf(canvas, ctx, page_w, page_h):
     for i, p in enumerate(phones):
         canvas.drawRightString(page_w - 40, top - i * 11, f"Mob. {p}")
 
-    # Center: ॐ + Company Name (red, bold). Pulled down a bit so phone numbers fit.
+    # Center: Company Name (red, bold). Pulled down a bit so phone numbers fit.
     canvas.setFont("InterBold", 22)
     canvas.setFillColor(BRAND_RED)
-    name_text = f"\u0950 {ctx['company_name']}"
-    canvas.drawCentredString(page_w / 2, top - 28, name_text)
+    canvas.drawCentredString(page_w / 2, top - 28, ctx['company_name'])
 
     # Address (centered)
     addr_y = top - 46
@@ -475,7 +505,7 @@ async def generate_letter_docx(payload: dict = Body(...)):
     # Center: company name
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run(f"\u0950 {ctx['company_name']}")
+    run = p.add_run(ctx['company_name'])
     run.bold = True
     run.font.size = Pt(28)
     run.font.color.rgb = RGBColor(0xC0, 0x39, 0x2B)
