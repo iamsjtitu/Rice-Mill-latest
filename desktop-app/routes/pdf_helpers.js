@@ -23,6 +23,11 @@ const FONT_DIR = path.join(__dirname, '..', 'fonts');
 const HAS_INTER = fs.existsSync(path.join(FONT_DIR, 'Inter-Regular.ttf')) && fs.existsSync(path.join(FONT_DIR, 'Inter-Bold.ttf'));
 const HAS_JBM = fs.existsSync(path.join(FONT_DIR, 'JetBrainsMono-Regular.ttf')) && fs.existsSync(path.join(FONT_DIR, 'JetBrainsMono-Bold.ttf'));
 const HAS_FREESANS = fs.existsSync(path.join(FONT_DIR, 'FreeSans.ttf'));
+const HAS_DEVA = fs.existsSync(path.join(FONT_DIR, 'NotoSansDevanagari-Regular.ttf')) && fs.existsSync(path.join(FONT_DIR, 'NotoSansDevanagari-Bold.ttf'));
+
+// Devanagari Unicode block (U+0900 – U+097F)
+const DEVA_RE = /[\u0900-\u097F]/;
+function hasDeva(s) { return DEVA_RE.test(String(s || '')); }
 
 function registerFonts(doc) {
   // Primary UI font: Inter (fall back to FreeSans for Devanagari support)
@@ -45,6 +50,11 @@ function registerFonts(doc) {
     doc.registerFont('AppMonoMedium', path.join(FONT_DIR, 'JetBrainsMono-Medium.ttf'));
     doc.registerFont('AppMonoBold', path.join(FONT_DIR, 'JetBrainsMono-Bold.ttf'));
   }
+  // Devanagari (Hindi) — Noto Sans Devanagari
+  if (HAS_DEVA) {
+    doc.registerFont('AppDeva', path.join(FONT_DIR, 'NotoSansDevanagari-Regular.ttf'));
+    doc.registerFont('AppDevaBold', path.join(FONT_DIR, 'NotoSansDevanagari-Bold.ttf'));
+  }
 }
 
 function F(weight) {
@@ -52,16 +62,28 @@ function F(weight) {
     // System fallback
     if (weight === 'mono') return 'Courier';
     if (weight === 'mono-bold') return 'Courier-Bold';
+    if (weight === 'deva') return 'Helvetica';
+    if (weight === 'deva-bold') return 'Helvetica-Bold';
     return weight === 'bold' ? 'Helvetica-Bold' : (weight === 'oblique' ? 'Helvetica-Oblique' : 'Helvetica');
   }
   // Numbers (JetBrains Mono if available, otherwise app font)
   if (weight === 'mono') return HAS_JBM ? 'AppMono' : 'AppFont';
   if (weight === 'mono-bold') return HAS_JBM ? 'AppMonoBold' : 'AppFontBold';
   if (weight === 'mono-medium') return HAS_JBM ? 'AppMonoMedium' : 'AppFont';
+  // Devanagari
+  if (weight === 'deva') return HAS_DEVA ? 'AppDeva' : 'AppFont';
+  if (weight === 'deva-bold') return HAS_DEVA ? 'AppDevaBold' : 'AppFontBold';
   // UI text
   if (weight === 'medium') return HAS_INTER ? 'AppFontMedium' : 'AppFont';
   if (weight === 'semibold') return HAS_INTER ? 'AppFontSemiBold' : 'AppFontBold';
   return weight === 'bold' ? 'AppFontBold' : (weight === 'oblique' ? 'AppFontOblique' : 'AppFont');
+}
+
+// Pick font dynamically: if text contains Devanagari, use Devanagari font; else default
+function autoF(text, weight) {
+  const isBold = weight === 'bold' || weight === 'semibold';
+  if (hasDeva(text)) return F(isBold ? 'deva-bold' : 'deva');
+  return F(weight);
 }
 
 /**
@@ -599,4 +621,4 @@ function ensureSpace(doc, needed) {
   }
 }
 
-module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F, safePdfPipe, drawWatermark, createPdfDoc, drawSummaryBanner, drawSectionBand, ensureSpace, addExcelSummaryBanner, STAT_COLORS, fmtInr };
+module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F, autoF, hasDeva, safePdfPipe, drawWatermark, createPdfDoc, drawSummaryBanner, drawSectionBand, ensureSpace, addExcelSummaryBanner, STAT_COLORS, fmtInr };

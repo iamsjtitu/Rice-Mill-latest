@@ -7,7 +7,7 @@ const https = require('https');
 const http = require('http');
 const { v4: uuidv4 } = require('uuid');
 const { safeSync } = require('./safe_handler');
-const { F: pdfF, registerFonts } = require('./pdf_helpers');
+const { F: pdfF, autoF: pdfAutoF, hasDeva: pdfHasDeva, registerFonts } = require('./pdf_helpers');
 const PDFDocument = require('pdfkit');
 const docx = require('docx');
 const { LETTER_PAD_TEMPLATES, getTemplates, getTemplateById } = require('./letter_pad_templates');
@@ -177,10 +177,10 @@ module.exports = (database) => {
     // Optional header text (slogan) ABOVE company name
     let companyY = top + 18;
     if (ctx.header_text) {
-      doc.font(pdfF('normal')).fontSize(11).fillColor(MUTED).text(ctx.header_text, 0, top + 4, { align: 'center', width: pageW });
+      doc.font(pdfAutoF(ctx.header_text, 'normal')).fontSize(11).fillColor(MUTED).text(ctx.header_text, 0, top + 4, { align: 'center', width: pageW });
       companyY = top + 22;
     }
-    doc.font(pdfF('bold')).fontSize(22).fillColor(RED).text(ctx.company_name, 0, companyY, { align: 'center', width: pageW });
+    doc.font(pdfAutoF(ctx.company_name, 'bold')).fontSize(22).fillColor(RED).text(ctx.company_name, 0, companyY, { align: 'center', width: pageW });
     let y = companyY + 30;
     if (ctx.address) {
       doc.font(pdfF('normal')).fontSize(10).fillColor(MUTED).text(ctx.address, 0, y, { align: 'center', width: pageW });
@@ -228,37 +228,39 @@ module.exports = (database) => {
       doc.font(pdfF('bold')).fontSize(10).text('To,', 40, y);
       y += 14;
       String(to_address).split('\n').forEach(line => {
-        doc.font(pdfF('normal')).fontSize(10).text(line.slice(0, 95), 50, y);
+        const t = line.slice(0, 95);
+        doc.font(pdfAutoF(t, 'normal')).fontSize(10).text(t, 50, y);
         y += 13;
       });
       y += 8;
     }
     if (subject && String(subject).trim()) {
-      doc.font(pdfF('bold')).fontSize(11).fillColor('#1f2937').text(`Subject: ${subject}`, 40, y);
+      doc.font(pdfAutoF(subject, 'bold')).fontSize(11).fillColor('#1f2937').text(`Subject: ${subject}`, 40, y);
       y += 18;
     }
     if (references && String(references).trim()) {
       doc.font(pdfF('bold')).fontSize(10).text('Reference:', 40, y);
       y += 13;
       String(references).split('\n').forEach(line => {
-        doc.font(pdfF('normal')).fontSize(10).text(line.slice(0, 100), 50, y);
+        const t = line.slice(0, 100);
+        doc.font(pdfAutoF(t, 'normal')).fontSize(10).text(t, 50, y);
         y += 13;
       });
       y += 6;
     }
     if (body && String(body).trim()) {
-      doc.font(pdfF('normal')).fontSize(11).fillColor('#1f2937')
+      doc.font(pdfAutoF(body, 'normal')).fontSize(11).fillColor('#1f2937')
         .text(String(body), 40, y, { width: pageW - 80, align: 'justify', lineGap: 3 });
       y = doc.y + 20;
     }
     const sigY = Math.max(y, pageH - 130);
     doc.font(pdfF('normal')).fontSize(11).fillColor('#1f2937')
       .text('Yours faithfully,', 0, sigY, { width: pageW - 40, align: 'right' });
-    doc.font(pdfF('bold')).fontSize(12)
+    doc.font(pdfAutoF(ctx.signature_name, 'bold')).fontSize(12)
       .text(ctx.signature_name, 0, sigY + 50, { width: pageW - 40, align: 'right' });
     doc.font(pdfF('normal')).fontSize(10).fillColor('#475569')
       .text(ctx.signature_designation, 0, sigY + 64, { width: pageW - 40, align: 'right' });
-    doc.text(`M/s ${ctx.company_name}`, 0, sigY + 78, { width: pageW - 40, align: 'right' });
+    doc.font(pdfAutoF(ctx.company_name, 'normal')).text(`M/s ${ctx.company_name}`, 0, sigY + 78, { width: pageW - 40, align: 'right' });
     return doc;
   }
 

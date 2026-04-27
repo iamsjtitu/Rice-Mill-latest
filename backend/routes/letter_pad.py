@@ -29,6 +29,21 @@ from utils.letter_pad_templates import (
     get_templates,
     get_template_by_id,
 )
+import re as _re
+
+# Detect Devanagari (Hindi) characters → switch to Noto Devanagari font
+_DEVA_RE = _re.compile(r"[\u0900-\u097F]")
+
+
+def _has_deva(s) -> bool:
+    return bool(_DEVA_RE.search(str(s or "")))
+
+
+def _auto_font(text, bold: bool = False) -> str:
+    """Pick Noto Devanagari for Hindi text, else Inter."""
+    if _has_deva(text):
+        return "NotoDevaBold" if bold else "NotoDeva"
+    return "InterBold" if bold else "Inter"
 
 router = APIRouter()
 logger = logging.getLogger("letter_pad")
@@ -322,13 +337,13 @@ def _draw_letterhead_pdf(canvas, ctx, page_w, page_h):
     # Center: optional small header text (slogan like "Shree Ram") ABOVE company name
     company_y = top - 28
     if ctx.get("header_text"):
-        canvas.setFont("Inter", 11)
+        canvas.setFont(_auto_font(ctx["header_text"], bold=False), 11)
         canvas.setFillColor(MUTED)
         canvas.drawCentredString(page_w / 2, top - 12, ctx["header_text"])
         company_y = top - 36
 
     # Center: Company Name (red, bold). Pulled down a bit so phone numbers fit.
-    canvas.setFont("InterBold", 22)
+    canvas.setFont(_auto_font(ctx['company_name'], bold=True), 22)
     canvas.setFillColor(BRAND_RED)
     canvas.drawCentredString(page_w / 2, company_y, ctx['company_name'])
 
@@ -415,8 +430,8 @@ def _build_letter_pdf_bytes(payload: dict, ctx: dict) -> bytes:
         c.setFont("InterBold", 10)
         c.drawString(40, y, "To,")
         y -= 14
-        c.setFont("Inter", 10)
         for line in to_addr.split("\n"):
+            c.setFont(_auto_font(line, bold=False), 10)
             c.drawString(50, y, line[:90])
             y -= 13
         y -= 8
@@ -424,7 +439,7 @@ def _build_letter_pdf_bytes(payload: dict, ctx: dict) -> bytes:
     # === Subject ===
     subject = (payload.get("subject") or "").strip()
     if subject:
-        c.setFont("InterBold", 11)
+        c.setFont(_auto_font(subject, bold=True), 11)
         c.drawString(40, y, f"Subject: {subject}")
         y -= 18
 
@@ -434,21 +449,22 @@ def _build_letter_pdf_bytes(payload: dict, ctx: dict) -> bytes:
         c.setFont("InterBold", 10)
         c.drawString(40, y, "Reference:")
         y -= 13
-        c.setFont("Inter", 10)
         for line in refs.split("\n"):
+            c.setFont(_auto_font(line, bold=False), 10)
             c.drawString(50, y, line[:95])
             y -= 13
         y -= 6
 
     # === Body (greeting + paragraphs) ===
     from reportlab.lib.colors import HexColor as _HexColor
-    c.setFont("Inter", 11)
     body = (payload.get("body") or "").strip()
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.platypus import Paragraph
     from reportlab.lib.enums import TA_JUSTIFY
+    body_font = "NotoDeva" if _has_deva(body) else "Inter"
+    c.setFont(body_font, 11)
     body_style = ParagraphStyle(
-        "Body", fontName="Inter", fontSize=11, leading=15,
+        "Body", fontName=body_font, fontSize=11, leading=15,
         alignment=TA_JUSTIFY, textColor=_HexColor("#1f2937"),
     )
     for para in body.split("\n\n"):

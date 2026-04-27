@@ -132,6 +132,15 @@ def register_hindi_fonts():
             registerFontFamily('JetBrainsMono', normal='JetBrainsMono', bold='JetBrainsMonoBold',
                               italic='JetBrainsMono', boldItalic='JetBrainsMonoBold')
 
+        # Noto Sans Devanagari (Hindi/Marathi/Sanskrit) — used in letter pad
+        deva_reg = _font_path('NotoSansDevanagari-Regular.ttf')
+        deva_bold = _font_path('NotoSansDevanagari-Bold.ttf')
+        if deva_reg and deva_bold:
+            pdfmetrics.registerFont(TTFont('NotoDeva', deva_reg))
+            pdfmetrics.registerFont(TTFont('NotoDevaBold', deva_bold))
+            registerFontFamily('NotoDeva', normal='NotoDeva', bold='NotoDevaBold',
+                              italic='NotoDeva', boldItalic='NotoDevaBold')
+
         _fonts_registered = True
     except Exception:
         pass
