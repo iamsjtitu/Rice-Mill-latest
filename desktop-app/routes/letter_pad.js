@@ -253,14 +253,16 @@ module.exports = (database) => {
         .text(String(body), 40, y, { width: pageW - 80, align: 'justify', lineGap: 3 });
       y = doc.y + 20;
     }
-    const sigY = Math.max(y, pageH - 130);
+    // Signature appears 30pt below where body ended (not pinned to bottom).
+    // If body is so long that signature would overflow, clamp near bottom margin.
+    const sigY = Math.min(pageH - 100, y + 30);
     doc.font(pdfF('normal')).fontSize(11).fillColor('#1f2937')
       .text('Yours faithfully,', 0, sigY, { width: pageW - 40, align: 'right' });
     doc.font(pdfAutoF(ctx.signature_name, 'bold')).fontSize(12)
-      .text(ctx.signature_name, 0, sigY + 50, { width: pageW - 40, align: 'right' });
+      .text(ctx.signature_name, 0, sigY + 32, { width: pageW - 40, align: 'right' });
     doc.font(pdfF('normal')).fontSize(10).fillColor('#475569')
-      .text(ctx.signature_designation, 0, sigY + 64, { width: pageW - 40, align: 'right' });
-    doc.font(pdfAutoF(ctx.company_name, 'normal')).text(`M/s ${ctx.company_name}`, 0, sigY + 78, { width: pageW - 40, align: 'right' });
+      .text(ctx.signature_designation, 0, sigY + 46, { width: pageW - 40, align: 'right' });
+    doc.font(pdfAutoF(ctx.company_name, 'normal')).text(`M/s ${ctx.company_name}`, 0, sigY + 60, { width: pageW - 40, align: 'right' });
     return doc;
   }
 

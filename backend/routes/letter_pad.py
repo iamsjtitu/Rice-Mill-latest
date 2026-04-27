@@ -378,16 +378,17 @@ def _draw_letterhead_pdf(canvas, ctx, page_w, page_h):
 
 
 def _draw_footer_signature(canvas, ctx, page_w, y):
-    """Draw 'Yours faithfully,' + signature name + designation."""
+    """Draw 'Yours faithfully,' + signature name + designation. Tighter spacing."""
     canvas.setFont("Inter", 11)
     canvas.setFillColor("#1f2937")
     canvas.drawRightString(page_w - 40, y, "Yours faithfully,")
-    canvas.setFont("InterBold", 12)
-    canvas.drawRightString(page_w - 40, y - 50, ctx["signature_name"])
+    canvas.setFont(_auto_font(ctx["signature_name"], bold=True), 12)
+    canvas.drawRightString(page_w - 40, y - 32, ctx["signature_name"])
     canvas.setFont("Inter", 10)
     canvas.setFillColor("#475569")
-    canvas.drawRightString(page_w - 40, y - 64, ctx["signature_designation"])
-    canvas.drawRightString(page_w - 40, y - 78, f"M/s {ctx['company_name']}")
+    canvas.drawRightString(page_w - 40, y - 46, ctx["signature_designation"])
+    canvas.setFont(_auto_font(ctx["company_name"], bold=False), 10)
+    canvas.drawRightString(page_w - 40, y - 60, f"M/s {ctx['company_name']}")
 
 
 @router.post("/letter-pad/pdf")
@@ -482,7 +483,9 @@ def _build_letter_pdf_bytes(payload: dict, ctx: dict) -> bytes:
         y -= h + 8
 
     # === Signature ===
-    sig_y = max(150, y - 30)
+    # Signature 30pt neeche jaha body khatam hua. Agar body bahut lambi hai
+    # (signature page ke neeche overflow karega), to bottom margin pe clamp.
+    sig_y = max(120, y - 30)
     _draw_footer_signature(c, ctx, page_w, sig_y)
 
     c.save()
