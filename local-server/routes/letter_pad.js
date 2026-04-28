@@ -309,6 +309,7 @@ module.exports = (database) => {
 
     const childrenSec = [
       headerTable,
+      ...(ctx.header_text ? [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: ctx.header_text, size: 22, color: '475569' })] })] : []),
       new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: ctx.company_name, bold: true, size: 56, color: 'C0392B' })] }),
       new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: ctx.address || '', size: 20, color: '475569' })] }),
       new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: ctx.email ? `Email: ${ctx.email}` : '', size: 20, color: '475569' })] }),
@@ -493,11 +494,47 @@ module.exports = (database) => {
     });
   }
 
+  // Provider-aware multipart helper for direct file upload (wa9x sendMessageFile / sendGroupFile)
+  function sendWaFileMultipart(apiKey, settings, endpoint, fields, fileBuffer, fileName) {
+    return new Promise((resolve) => {
+      const boundary = '----FormBoundary' + Date.now();
+      const parts = [];
+      Object.entries(fields).forEach(([k, v]) => {
+        if (v === undefined || v === null || v === '') return;
+        parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${k}"\r\n\r\n${v}\r\n`));
+      });
+      parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: application/pdf\r\n\r\n`));
+      parts.push(fileBuffer);
+      parts.push(Buffer.from(`\r\n--${boundary}--\r\n`));
+      const body = Buffer.concat(parts);
+      const options = {
+        hostname: waHostname(settings), path: `${waPathPrefix(settings)}${endpoint}`, method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length }
+      };
+      const r = https.request(options, (rr) => {
+        let data = '';
+        rr.on('data', c => data += c);
+        rr.on('end', () => {
+          try {
+            const result = JSON.parse(data);
+            const ok = result.success === true;
+            resolve({ success: ok, error: ok ? '' : (result.error || result.message || `HTTP ${rr.statusCode}`) });
+          } catch (e) { resolve({ success: false, error: data || 'Parse error' }); }
+        });
+      });
+      r.on('error', e => resolve({ success: false, error: e.message }));
+      r.setTimeout(120000, () => { r.destroy(); resolve({ success: false, error: 'Provider timeout (120s).' }); });
+      r.write(body);
+      r.end();
+    });
+  }
+
   function sendWaMessage(apiKey, phone, text, mediaUrl) {
     return new Promise((resolve) => {
+      const settings = (database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {};
       const postData = `phonenumber=${encodeURIComponent(phone)}&text=${encodeURIComponent(text)}${mediaUrl ? '&url=' + encodeURIComponent(mediaUrl) : ''}`;
       const options = {
-        hostname: waHostname((database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {}), path: `${waPathPrefix((database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {})}/sendMessage`, method: 'POST',
+        hostname: waHostname(settings), path: `${waPathPrefix(settings)}/sendMessage`, method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(postData) },
       };
       const r = https.request(options, (rr) => {
@@ -519,9 +556,10 @@ module.exports = (database) => {
 
   function sendWaGroup(apiKey, groupId, text, mediaUrl) {
     return new Promise((resolve) => {
+      const settings = (database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {};
       const postData = JSON.stringify({ groupId, text, url: mediaUrl || undefined });
       const options = {
-        hostname: waHostname((database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {}), path: `${waPathPrefix((database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {})}/sendGroup`, method: 'POST',
+        hostname: waHostname(settings), path: `${waPathPrefix(settings)}/sendGroup`, method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) },
       };
       const r = https.request(options, (rr) => {
@@ -547,8 +585,9 @@ module.exports = (database) => {
       return res.status(400).json({ detail: 'Letter body khaali hai' });
     }
     const wa = getWaSettings();
-    if (!wa.api_key) return res.status(400).json({ detail: 'WhatsApp API key set nahi hai. Settings → WhatsApp mein 360Messenger key dale.' });
+    if (!wa.api_key) return res.status(400).json({ detail: 'WhatsApp API key set nahi hai. Settings → WhatsApp mein WhatsApp key dale.' });
 
+    const provider = (wa.wa_provider || '360messenger').toLowerCase();
     const ctx = loadCtx();
     let pdfBuf;
     try {
@@ -557,8 +596,13 @@ module.exports = (database) => {
       return res.status(500).json({ detail: 'PDF generation fail: ' + e.message });
     }
     const fname = `letter_${(letter.date || new Date().toISOString().slice(0, 10)).replace(/-/g, '')}.pdf`;
-    const publicPdfUrl = await uploadPdfBufferToTmpFiles(pdfBuf, fname);
-    if (!publicPdfUrl) return res.status(502).json({ detail: 'PDF upload (tmpfiles.org) fail. Internet check karein.' });
+
+    // wa9x: skip tmpfiles, use direct file upload. 360messenger: still uses tmpfiles → URL flow.
+    let publicPdfUrl = '';
+    if (provider !== 'wa9x') {
+      publicPdfUrl = await uploadPdfBufferToTmpFiles(pdfBuf, fname);
+      if (!publicPdfUrl) return res.status(502).json({ detail: 'PDF upload (tmpfiles.org) fail. Internet check karein.' });
+    }
 
     const company = ctx.company_name || 'Mill Entry System';
     const subject = String(letter.subject || '').trim();
@@ -572,19 +616,27 @@ module.exports = (database) => {
     const results = [];
     if (m === 'phone') {
       if (!phone) return res.status(400).json({ detail: 'Phone number daalein' });
-      const r = await sendWaMessage(wa.api_key, cleanPhone(phone, wa.country_code || '91'), cap, publicPdfUrl);
+      const cleanedPhone = cleanPhone(phone, wa.country_code || '91');
+      const r = provider === 'wa9x'
+        ? await sendWaFileMultipart(wa.api_key, wa, '/sendMessageFile', { phonenumber: cleanedPhone, caption: cap }, pdfBuf, fname)
+        : await sendWaMessage(wa.api_key, cleanedPhone, cap, publicPdfUrl);
       results.push({ target: phone, success: r.success, error: r.error });
     } else if (m === 'group') {
       const gid = String(group_id || '').trim() || wa.default_group_id || wa.group_id;
       if (!gid) return res.status(400).json({ detail: 'Group ID daalein ya default group set karein' });
-      const r = await sendWaGroup(wa.api_key, gid, cap, publicPdfUrl);
+      const r = provider === 'wa9x'
+        ? await sendWaFileMultipart(wa.api_key, wa, '/sendGroupFile', { groupId: gid, caption: cap }, pdfBuf, fname)
+        : await sendWaGroup(wa.api_key, gid, cap, publicPdfUrl);
       results.push({ target: 'group', success: r.success, error: r.error });
     } else {
       let nums = wa.default_numbers || [];
       if (typeof nums === 'string') nums = nums.split(',').map(n => n.trim()).filter(Boolean);
       if (!Array.isArray(nums) || !nums.length) return res.status(400).json({ detail: 'Default numbers set nahi hai. Settings → WhatsApp mein numbers SAVE karein, ya phone/group choose karein.' });
       for (const n of nums) {
-        const r = await sendWaMessage(wa.api_key, cleanPhone(n, wa.country_code || '91'), cap, publicPdfUrl);
+        const cleanedPhone = cleanPhone(n, wa.country_code || '91');
+        const r = provider === 'wa9x'
+          ? await sendWaFileMultipart(wa.api_key, wa, '/sendMessageFile', { phonenumber: cleanedPhone, caption: cap }, pdfBuf, fname)
+          : await sendWaMessage(wa.api_key, cleanedPhone, cap, publicPdfUrl);
         results.push({ target: n, success: r.success, error: r.error });
       }
     }

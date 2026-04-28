@@ -41,8 +41,51 @@ def _clean_phone(phone: str, country_code: str = "91") -> str:
     return phone
 
 
-async def _send_wa_message(phone: str, text: str, media_url: str = ""):
-    """Send a WhatsApp message via 360Messenger v2 API."""
+async def _upload_pdf_to_tmpfiles(pdf_bytes: bytes, filename: str = "report.pdf") -> str:
+    """Upload PDF bytes to tmpfiles.org and return public download URL. Returns empty string on failure."""
+    if not pdf_bytes or len(pdf_bytes) < 100:
+        return ""
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            files = {"file": (filename, pdf_bytes, "application/pdf")}
+            resp = await client.post("https://tmpfiles.org/api/v1/upload", files=files)
+            if resp.status_code == 200:
+                tmp_url = resp.json().get("data", {}).get("url", "")
+                if tmp_url:
+                    public = tmp_url.replace("http://tmpfiles.org/", "https://tmpfiles.org/dl/")
+                    logger.info(f"PDF uploaded to tmpfiles: {public}")
+                    return public
+            logger.error(f"tmpfiles upload failed: HTTP {resp.status_code}")
+    except Exception as e:
+        logger.error(f"tmpfiles upload error: {e}")
+    return ""
+
+
+async def _fetch_local_pdf_bytes(pdf_url: str) -> bytes:
+    """Fetch PDF bytes from a local /api/* URL or full http URL. Returns empty bytes on failure."""
+    if not pdf_url:
+        return b""
+    fetch_url = pdf_url
+    if pdf_url.startswith("/api/"):
+        fetch_url = f"http://localhost:8001{pdf_url}"
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.get(fetch_url)
+            if resp.status_code == 200 and len(resp.content) > 100:
+                return resp.content
+            logger.error(f"PDF fetch failed: HTTP {resp.status_code}, size={len(resp.content)}")
+    except Exception as e:
+        logger.error(f"PDF fetch error: {e}")
+    return b""
+
+
+async def _send_wa_message(phone: str, text: str, media_url: str = "",
+                            pdf_bytes: bytes | None = None, filename: str = "report.pdf"):
+    """Send a WhatsApp message. Provider-aware:
+    - wa9x + pdf_bytes: direct binary upload via /sendMessageFile (fast, no middleman)
+    - 360messenger + pdf_bytes: tmpfiles.org upload → /sendMessage with url
+    - media_url only: /sendMessage with url (both providers)
+    """
     settings = await _get_wa_settings()
     api_key = settings.get("api_key", "")
     if not api_key:
@@ -50,7 +93,41 @@ async def _send_wa_message(phone: str, text: str, media_url: str = ""):
 
     country_code = settings.get("country_code", "91")
     phone = _clean_phone(phone, country_code)
+    provider = (settings.get("wa_provider") or "360messenger").lower()
+    base_url = _wa_base_url(settings)
 
+    # Fast path: wa9x + binary file → /sendMessageFile
+    if pdf_bytes and provider == "wa9x":
+        try:
+            async with httpx.AsyncClient(timeout=120) as client:
+                files = {"file": (filename, pdf_bytes, "application/pdf")}
+                form = {"phonenumber": phone}
+                if text:
+                    form["caption"] = text
+                resp = await client.post(
+                    f"{base_url}/sendMessageFile",
+                    files=files, data=form,
+                    headers={"Authorization": f"Bearer {api_key}"}
+                )
+                result = resp.json() if resp.text else {}
+                if result.get("success"):
+                    return {"success": True, "message": "WhatsApp file bhej diya!", "data": result.get("data", {})}
+                err = result.get("error") or result.get("message") or f"HTTP {resp.status_code}"
+                logger.error(f"sendMessageFile fail: {err} | body: {resp.text[:300]}")
+                return {"success": False, "error": err}
+        except httpx.TimeoutException:
+            logger.error("sendMessageFile timeout (>120s)")
+            return {"success": False, "error": "Provider timeout (120s). Retry karein."}
+        except Exception as e:
+            msg = str(e) or e.__class__.__name__
+            logger.error(f"sendMessageFile error: {msg}")
+            return {"success": False, "error": msg}
+
+    # 360messenger fallback: upload bytes to tmpfiles, then use URL flow
+    if pdf_bytes and not media_url:
+        media_url = await _upload_pdf_to_tmpfiles(pdf_bytes, filename)
+
+    # Standard URL/text flow
     data = {"phonenumber": phone, "text": text}
     if media_url:
         data["url"] = media_url
@@ -58,26 +135,30 @@ async def _send_wa_message(phone: str, text: str, media_url: str = ""):
     try:
         async with httpx.AsyncClient(timeout=90) as client:
             resp = await client.post(
-                f"{_wa_base_url(settings)}/sendMessage",
+                f"{base_url}/sendMessage",
                 data=data,
                 headers={"Authorization": f"Bearer {api_key}"}
             )
             result = resp.json()
             if result.get("success") or resp.status_code == 201:
                 return {"success": True, "message": "WhatsApp message bhej diya!", "data": result.get("data", {})}
-            else:
-                return {"success": False, "error": result.get("message", "Message send fail")}
+            return {"success": False, "error": result.get("message") or result.get("error") or "Message send fail"}
     except httpx.TimeoutException:
-        logger.error("WhatsApp send timeout (>90s) — provider response slow")
-        return {"success": False, "error": "Provider timeout (90s). Network slow ya media URL fetch fail. Retry karein."}
+        logger.error("WhatsApp send timeout (>90s)")
+        return {"success": False, "error": "Provider timeout (90s). Retry karein."}
     except Exception as e:
         msg = str(e) or e.__class__.__name__
         logger.error(f"WhatsApp send error: {msg}")
         return {"success": False, "error": msg}
 
 
-async def _send_wa_to_group(group_id: str, text: str, media_url: str = ""):
-    """Send message to WhatsApp group via 360Messenger sendGroup API."""
+async def _send_wa_to_group(group_id: str, text: str, media_url: str = "",
+                             pdf_bytes: bytes | None = None, filename: str = "report.pdf"):
+    """Send to WhatsApp group. Provider-aware:
+    - wa9x + pdf_bytes: direct binary upload via /sendGroupFile (fast)
+    - 360messenger + pdf_bytes: tmpfiles.org upload → /sendGroup with url
+    - media_url only: /sendGroup with url (both providers)
+    """
     settings = await _get_wa_settings()
     api_key = settings.get("api_key", "")
     if not api_key:
@@ -85,6 +166,41 @@ async def _send_wa_to_group(group_id: str, text: str, media_url: str = ""):
     if not group_id:
         return {"success": False, "error": "Group ID set nahi hai."}
 
+    provider = (settings.get("wa_provider") or "360messenger").lower()
+    base_url = _wa_base_url(settings)
+
+    # Fast path: wa9x + binary file → /sendGroupFile
+    if pdf_bytes and provider == "wa9x":
+        try:
+            async with httpx.AsyncClient(timeout=120) as client:
+                files = {"file": (filename, pdf_bytes, "application/pdf")}
+                form = {"groupId": group_id}
+                if text:
+                    form["caption"] = text
+                resp = await client.post(
+                    f"{base_url}/sendGroupFile",
+                    files=files, data=form,
+                    headers={"Authorization": f"Bearer {api_key}"}
+                )
+                result = resp.json() if resp.text else {}
+                if result.get("success"):
+                    return {"success": True, "message": "Group file bhej diya!", "data": result.get("data", {})}
+                err = result.get("error") or result.get("message") or f"HTTP {resp.status_code}"
+                logger.error(f"sendGroupFile fail: {err} | body: {resp.text[:300]}")
+                return {"success": False, "error": err}
+        except httpx.TimeoutException:
+            logger.error("sendGroupFile timeout (>120s)")
+            return {"success": False, "error": "Provider timeout (120s). Retry karein."}
+        except Exception as e:
+            msg = str(e) or e.__class__.__name__
+            logger.error(f"sendGroupFile error: {msg}")
+            return {"success": False, "error": msg}
+
+    # 360messenger fallback: upload bytes to tmpfiles, then use URL flow
+    if pdf_bytes and not media_url:
+        media_url = await _upload_pdf_to_tmpfiles(pdf_bytes, filename)
+
+    # Standard URL/text flow
     data = {"groupId": group_id, "text": text}
     if media_url:
         data["url"] = media_url
@@ -92,31 +208,30 @@ async def _send_wa_to_group(group_id: str, text: str, media_url: str = ""):
     try:
         async with httpx.AsyncClient(timeout=90) as client:
             resp = await client.post(
-                f"{_wa_base_url(settings)}/sendGroup",
+                f"{base_url}/sendGroup",
                 data=data,
                 headers={"Authorization": f"Bearer {api_key}"}
             )
             result = resp.json()
             if result.get("success") or resp.status_code == 201:
                 return {"success": True, "message": "Group message bhej diya!"}
-            # Surface useful error info for debugging (especially wa.9x.design's empty-error responses)
             err_parts = []
-            if result.get("message"): err_parts.append(result["message"])
-            if result.get("error"): err_parts.append(result["error"])
+            if result.get("message"):
+                err_parts.append(result["message"])
+            if result.get("error"):
+                err_parts.append(result["error"])
             sc = result.get("statusCode")
-            if sc and sc != resp.status_code: err_parts.append(f"provider statusCode {sc}")
-            sent_id = (result.get("data") or {}).get("groupId")
-            if sent_id and sent_id != group_id:
-                err_parts.append(f"Provider received groupId='{sent_id}' (sent='{group_id}'). Provider API may be stripping special chars like @ or .")
+            if sc and sc != resp.status_code:
+                err_parts.append(f"provider statusCode {sc}")
             err_msg = " | ".join(err_parts) or f"Group send fail (HTTP {resp.status_code})"
-            logger.error(f"WhatsApp group send fail: {err_msg} | full body: {resp.text[:300]}")
+            logger.error(f"sendGroup fail: {err_msg} | body: {resp.text[:300]}")
             return {"success": False, "error": err_msg}
     except httpx.TimeoutException:
-        logger.error("WhatsApp group send timeout (>90s) — provider response slow")
-        return {"success": False, "error": "Provider timeout (90s). PDF media bhejne mein time lag raha hai. Retry karein."}
+        logger.error("sendGroup timeout (>90s)")
+        return {"success": False, "error": "Provider timeout (90s). Retry karein."}
     except Exception as e:
         msg = str(e) or e.__class__.__name__
-        logger.error(f"WhatsApp group send error: {msg}")
+        logger.error(f"sendGroup error: {msg}")
         return {"success": False, "error": msg}
 
 
@@ -200,7 +315,7 @@ async def get_whatsapp_groups():
 
 @router.post("/whatsapp/send-group")
 async def send_to_whatsapp_group(data: dict):
-    """Send message + optional PDF to a specific WhatsApp group."""
+    """Send message + optional PDF to a specific WhatsApp group. Uses direct file upload for wa9x."""
     group_id = data.get("group_id", "")
     text = data.get("text", "")
     media_url = data.get("media_url", "")
@@ -211,29 +326,11 @@ async def send_to_whatsapp_group(data: dict):
     if not text and not media_url and not pdf_url:
         raise HTTPException(status_code=400, detail="Text ya media URL required")
 
-    public_pdf_url = media_url
+    pdf_bytes: bytes = b""
     if pdf_url and not media_url:
-        try:
-            fetch_url = pdf_url
-            if pdf_url.startswith("/api/"):
-                fetch_url = f"http://localhost:8001{pdf_url}"
-            async with httpx.AsyncClient(timeout=30) as client:
-                pdf_resp = await client.get(fetch_url)
-                if pdf_resp.status_code == 200 and len(pdf_resp.content) > 100:
-                    files = {"file": ("report.pdf", pdf_resp.content, "application/pdf")}
-                    upload_resp = await client.post("https://tmpfiles.org/api/v1/upload", files=files)
-                    if upload_resp.status_code == 200:
-                        tmp_data = upload_resp.json()
-                        tmp_url = tmp_data.get("data", {}).get("url", "")
-                        if tmp_url:
-                            public_pdf_url = tmp_url.replace("http://tmpfiles.org/", "https://tmpfiles.org/dl/")
-                            logger.info(f"Group PDF uploaded: {public_pdf_url}")
-                else:
-                    logger.error(f"Group PDF fetch fail: status={pdf_resp.status_code}")
-        except Exception as e:
-            logger.error(f"Group PDF upload error: {e}")
+        pdf_bytes = await _fetch_local_pdf_bytes(pdf_url)
 
-    result = await _send_wa_to_group(group_id, text, public_pdf_url)
+    result = await _send_wa_to_group(group_id, text, media_url, pdf_bytes=pdf_bytes or None)
     return result
 
 
@@ -315,7 +412,7 @@ async def send_payment_reminder(data: dict):
 
 @router.post("/whatsapp/send-daily-report")
 async def send_daily_report(data: dict):
-    """Send daily report via WhatsApp to default numbers and/or group. Generates PDF, uploads to tmpfiles.org first."""
+    """Send daily report via WhatsApp to default numbers and/or group. Uses direct file upload for wa9x."""
     report_text = data.get("report_text", "")
     pdf_url = data.get("pdf_url", "")
     send_to_group = data.get("send_to_group", False)
@@ -324,29 +421,8 @@ async def send_daily_report(data: dict):
     if not report_text:
         raise HTTPException(status_code=400, detail="Report text required")
 
-    # If pdf_url is a local/API URL, fetch PDF and upload to tmpfiles.org
-    public_pdf_url = ""
-    if pdf_url:
-        try:
-            # Fetch PDF from internal API
-            async with httpx.AsyncClient(timeout=30) as client:
-                pdf_resp = await client.get(pdf_url)
-                if pdf_resp.status_code == 200 and len(pdf_resp.content) > 100:
-                    # Upload to tmpfiles.org
-                    files = {"file": ("daily_report.pdf", pdf_resp.content, "application/pdf")}
-                    upload_resp = await client.post("https://tmpfiles.org/api/v1/upload", files=files)
-                    if upload_resp.status_code == 200:
-                        tmp_data = upload_resp.json()
-                        tmp_url = tmp_data.get("data", {}).get("url", "")
-                        if tmp_url:
-                            public_pdf_url = tmp_url.replace("http://tmpfiles.org/", "https://tmpfiles.org/dl/")
-                            logger.info(f"Daily report PDF uploaded to tmpfiles: {public_pdf_url}")
-                    else:
-                        logger.error(f"tmpfiles upload failed: {upload_resp.status_code}")
-                else:
-                    logger.error(f"PDF fetch failed: status={pdf_resp.status_code}, size={len(pdf_resp.content)}")
-        except Exception as e:
-            logger.error(f"Daily report PDF upload error: {e}")
+    pdf_bytes = await _fetch_local_pdf_bytes(pdf_url) if pdf_url else b""
+    pdf_payload = pdf_bytes or None
 
     settings = await _get_wa_settings()
     default_numbers = settings.get("default_numbers", [])
@@ -356,21 +432,21 @@ async def send_daily_report(data: dict):
         default_numbers = []
     group_id = settings.get("default_group_id", "").strip() or settings.get("group_id", "").strip()
 
-    logger.info(f"send-daily-report: phone='{phone}', default_numbers={default_numbers}, group_id='{group_id}', send_to_group={send_to_group}, pdf_url='{public_pdf_url}'")
+    logger.info(f"send-daily-report: phone='{phone}', default_numbers={default_numbers}, group_id='{group_id}', send_to_group={send_to_group}, pdf_bytes={len(pdf_bytes)}")
 
     results = []
 
     if phone:
-        r = await _send_wa_message(phone, report_text, public_pdf_url)
+        r = await _send_wa_message(phone, report_text, pdf_bytes=pdf_payload, filename="daily_report.pdf")
         results.append({"target": phone, "success": r.get("success", False)})
     else:
         for num in default_numbers:
             if num and num.strip():
-                r = await _send_wa_message(num.strip(), report_text, public_pdf_url)
+                r = await _send_wa_message(num.strip(), report_text, pdf_bytes=pdf_payload, filename="daily_report.pdf")
                 results.append({"target": num, "success": r.get("success", False)})
 
     if send_to_group and group_id:
-        r = await _send_wa_to_group(group_id, report_text, public_pdf_url)
+        r = await _send_wa_to_group(group_id, report_text, pdf_bytes=pdf_payload, filename="daily_report.pdf")
         results.append({"target": "group", "success": r.get("success", False)})
 
     if not results:
@@ -379,7 +455,7 @@ async def send_daily_report(data: dict):
     success_count = sum(1 for r in results if r["success"])
     return {"success": success_count > 0,
             "message": f"{success_count}/{len(results)} targets pe bhej diya!",
-            "details": results, "pdf_url": public_pdf_url}
+            "details": results}
 
 
 @router.post("/whatsapp/send-party-ledger")
@@ -434,7 +510,8 @@ async def send_party_ledger(data: dict):
     text += f"\nThank you\n{company}"
 
     # Generate the SAME PDF internally (no HTTP self-call)
-    public_pdf_url = ""
+    pdf_bytes = b""
+    fname = "party_ledger.pdf"
     try:
         from urllib.parse import urlparse, parse_qs
         # Parse query params from pdf_url to get the same filters
@@ -447,7 +524,7 @@ async def send_party_ledger(data: dict):
             # Detect if this is a cash-book PDF request
             if "cash-book/pdf" in parsed.path:
                 is_cashbook_pdf = True
-        
+
         if is_cashbook_pdf:
             from routes.cashbook import _generate_cash_book_pdf_bytes
             pdf_bytes = await _generate_cash_book_pdf_bytes(
@@ -460,6 +537,7 @@ async def send_party_ledger(data: dict):
                 date_from=pdf_params.get("date_from", None),
                 date_to=pdf_params.get("date_to", None),
             )
+            fname = f"cash_book_{party_name}.pdf"
         else:
             from routes.ledgers import _generate_party_ledger_pdf_bytes
             pdf_bytes = await _generate_party_ledger_pdf_bytes(
@@ -470,36 +548,27 @@ async def send_party_ledger(data: dict):
                 date_from=pdf_params.get("date_from", ""),
                 date_to=pdf_params.get("date_to", ""),
             )
-        if pdf_bytes and len(pdf_bytes) > 100:
-            fname = f"cash_book_{party_name}.pdf" if is_cashbook_pdf else f"party_ledger_{party_name}.pdf"
-            async with httpx.AsyncClient(timeout=30) as client:
-                files = {"file": (fname, pdf_bytes, "application/pdf")}
-                upload_resp = await client.post("https://tmpfiles.org/api/v1/upload", files=files)
-                if upload_resp.status_code == 200:
-                    tmp_data = upload_resp.json()
-                    tmp_url = tmp_data.get("data", {}).get("url", "")
-                    if tmp_url:
-                        public_pdf_url = tmp_url.replace("http://tmpfiles.org/", "https://tmpfiles.org/dl/")
-                        logger.info(f"PDF uploaded to tmpfiles: {public_pdf_url}")
-                else:
-                    logger.error(f"tmpfiles upload failed: {upload_resp.status_code}")
-        else:
+            fname = f"party_ledger_{party_name}.pdf"
+        if not pdf_bytes or len(pdf_bytes) <= 100:
             logger.error("PDF generation returned empty/small data")
+            pdf_bytes = b""
     except Exception as e:
-        logger.error(f"PDF generation/upload error: {e}")
+        logger.error(f"PDF generation error: {e}")
+        pdf_bytes = b""
 
     default_numbers = settings.get("default_numbers", [])
     if isinstance(default_numbers, str):
         default_numbers = [n.strip() for n in default_numbers.split(",") if n.strip()]
 
+    pdf_payload = pdf_bytes or None
     results = []
     if phone:
-        r = await _send_wa_message(phone, text, public_pdf_url)
+        r = await _send_wa_message(phone, text, pdf_bytes=pdf_payload, filename=fname)
         results.append({"target": phone, "success": r.get("success", False)})
     else:
         for num in default_numbers:
             if num and num.strip():
-                r = await _send_wa_message(num.strip(), text, public_pdf_url)
+                r = await _send_wa_message(num.strip(), text, pdf_bytes=pdf_payload, filename=fname)
                 results.append({"target": num, "success": r.get("success", False)})
 
     if not results:
@@ -730,21 +799,9 @@ async def scheduled_wa_group_send():
             pdf_buf.write(chunk)
         pdf_bytes = pdf_buf.getvalue()
 
-        # Upload PDF to tmpfiles.org
-        public_pdf_url = ""
-        if len(pdf_bytes) > 100:
-            async with httpx.AsyncClient(timeout=30) as client:
-                files = {"file": ("daily_report.pdf", pdf_bytes, "application/pdf")}
-                upload_resp = await client.post("https://tmpfiles.org/api/v1/upload", files=files)
-                if upload_resp.status_code == 200:
-                    tmp_data = upload_resp.json()
-                    tmp_url = tmp_data.get("data", {}).get("url", "")
-                    if tmp_url:
-                        public_pdf_url = tmp_url.replace("http://tmpfiles.org/", "https://tmpfiles.org/dl/")
-
         report_text = f"*Daily Report - {today}*\n(Auto-scheduled via WhatsApp Group)"
 
-        result = await _send_wa_to_group(group_id, report_text, public_pdf_url)
+        result = await _send_wa_to_group(group_id, report_text, pdf_bytes=pdf_bytes or None, filename="daily_report.pdf")
 
         await db["wa_group_schedule_logs"].insert_one({
             "date": today,
@@ -767,7 +824,7 @@ async def scheduled_wa_group_send():
 
 @router.post("/whatsapp/send-pdf")
 async def send_pdf_via_whatsapp(data: dict):
-    """Send any internal PDF URL via WhatsApp to default numbers/group."""
+    """Send any internal PDF URL via WhatsApp to default numbers/group. Uses direct file upload for wa9x."""
     settings = await _get_wa_settings()
     if not settings.get("enabled") or not settings.get("api_key"):
         raise HTTPException(status_code=400, detail="WhatsApp settings configure nahi hai.")
@@ -777,26 +834,9 @@ async def send_pdf_via_whatsapp(data: dict):
     if not pdf_url:
         raise HTTPException(status_code=400, detail="pdf_url required")
 
-    fetch_url = pdf_url
-    if pdf_url.startswith("/api/"):
-        fetch_url = f"http://localhost:8001{pdf_url}"
-
-    public_pdf_url = ""
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            pdf_resp = await client.get(fetch_url)
-            if pdf_resp.status_code == 200 and len(pdf_resp.content) > 100:
-                files = {"file": ("report.pdf", pdf_resp.content, "application/pdf")}
-                upload_resp = await client.post("https://tmpfiles.org/api/v1/upload", files=files)
-                if upload_resp.status_code == 200:
-                    tmp_url = upload_resp.json().get("data", {}).get("url", "")
-                    if tmp_url:
-                        public_pdf_url = tmp_url.replace("http://tmpfiles.org/", "https://tmpfiles.org/dl/")
-    except Exception as e:
-        logger.error(f"PDF upload error: {e}")
-
-    if not public_pdf_url:
-        raise HTTPException(status_code=500, detail="PDF upload fail hua")
+    pdf_bytes = await _fetch_local_pdf_bytes(pdf_url)
+    if not pdf_bytes:
+        raise HTTPException(status_code=500, detail="PDF fetch fail hua")
 
     default_numbers = settings.get("default_numbers", [])
     if isinstance(default_numbers, str):
@@ -805,11 +845,11 @@ async def send_pdf_via_whatsapp(data: dict):
 
     results = []
     if group_id:
-        r = await _send_wa_to_group(group_id, caption, public_pdf_url)
+        r = await _send_wa_to_group(group_id, caption, pdf_bytes=pdf_bytes, filename="report.pdf")
         results.append({"target": "group", "success": r.get("success", False)})
     for num in default_numbers:
         if num and num.strip():
-            r = await _send_wa_message(num.strip(), caption, public_pdf_url)
+            r = await _send_wa_message(num.strip(), caption, pdf_bytes=pdf_bytes, filename="report.pdf")
             results.append({"target": num, "success": r.get("success", False)})
 
     if not results:

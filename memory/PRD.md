@@ -1,8 +1,46 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.32.0
+## Current Version: v104.33.0
 
-## 🆕 v104.32.0 — wa.9x.design Group Fetch Verified + Dynamic Provider Footer
+## 🚀 v104.33.0 — wa.9x.design Direct File Upload (Refactor)
+**Build date:** 2026-04-28
+
+### Eliminated tmpfiles.org middleman for wa.9x.design provider
+- **Before:** PDF → fetch → upload to tmpfiles.org (~3-5s) → public URL → /sendGroup with `url`
+- **After:** PDF bytes → directly POST multipart to `/sendGroupFile` (1-2s, ~70% faster)
+
+### New endpoints integrated (wa.9x.design)
+- `POST /api/v2/sendMessageFile` — direct binary file upload to phone (multipart: phonenumber, file, caption, filename)
+- `POST /api/v2/sendGroupFile` — direct binary file upload to group (multipart: groupId, file, caption, filename)
+- Response: `{success, statusCode, data: {messageId, groupId/phonenumber, fileType}}`
+
+### Helper-level provider routing (clean abstraction)
+Both `_send_wa_message()` and `_send_wa_to_group()` now accept optional `pdf_bytes` param:
+- **wa9x + pdf_bytes** → direct `sendGroupFile`/`sendMessageFile` (fast path)
+- **360messenger + pdf_bytes** → tmpfiles.org upload internally → existing URL flow (fallback)
+- **media_url only (no bytes)** → `/sendGroup`/`/sendMessage` with `url` field (unchanged)
+
+### Callers refactored to pass bytes (no more inline tmpfiles)
+- `POST /api/whatsapp/send-group` — fetches PDF bytes, passes to helper
+- `POST /api/whatsapp/send-daily-report` — fetches PDF bytes, passes to helper
+- `POST /api/whatsapp/send-party-ledger` — generates PDF in-memory, passes bytes directly
+- `POST /api/whatsapp/send-pdf` — fetches bytes, passes to helper
+- `POST /api/letter-pad/whatsapp` — already had bytes, now passes directly
+- WhatsApp scheduler — passes generated PDF bytes directly
+
+### Triple-Backend Parity
+- `/app/backend/routes/whatsapp.py` — 4 helpers refactored, 5 endpoints updated
+- `/app/desktop-app/routes/whatsapp.js` — added `fetchLocalPdfBuffer`, `sendWaFileMultipart`, `sendWaToGroup`, `uploadPdfBufferToTmpFiles`
+- `/app/desktop-app/routes/letter_pad.js` — added `sendWaFileMultipart`, provider-aware routing
+- `/app/local-server/routes/whatsapp.js` and `letter_pad.js` — copied identically (zero diff with desktop-app)
+
+### Verified (curl + backend logs)
+- `sendGroup` (text only) → 200 OK ✅
+- `sendGroupFile` (PDF direct) → 200 OK with messageId ✅
+- `sendMessageFile` (PDF direct) → 200 OK ✅
+- groupId with `@g.us` preserved correctly (wa.9x.design fixed their sanitization bug)
+
+## v104.32.0 — wa.9x.design Group Fetch Verified + Dynamic Provider Footer
 **Build date:** 2026-04-28
 
 ### wa.9x.design WhatsApp Provider — User Verification PASSED

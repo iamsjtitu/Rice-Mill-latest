@@ -774,20 +774,7 @@ async def share_letter_via_whatsapp(payload: dict = Body(...)):
     if len(pdf_bytes) < 100:
         raise HTTPException(status_code=500, detail="PDF generation fail")
 
-    # Upload to tmpfiles.org
-    public_pdf_url = ""
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            files = {"file": (f"letter_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf", pdf_bytes, "application/pdf")}
-            up = await client.post("https://tmpfiles.org/api/v1/upload", files=files)
-            if up.status_code == 200:
-                tmp_url = up.json().get("data", {}).get("url", "")
-                if tmp_url:
-                    public_pdf_url = tmp_url.replace("http://tmpfiles.org/", "https://tmpfiles.org/dl/")
-    except Exception as e:
-        logger.error(f"Letter PDF upload error: {e}")
-    if not public_pdf_url:
-        raise HTTPException(status_code=502, detail="PDF upload (tmpfiles.org) fail hua. Internet check karein.")
+    filename = f"letter_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
 
     # Caption: company name + subject + custom note
     company = ctx.get("company_name") or "Mill Entry System"
@@ -807,13 +794,13 @@ async def share_letter_via_whatsapp(payload: dict = Body(...)):
         phone = (payload.get("phone") or "").strip()
         if not phone:
             raise HTTPException(status_code=400, detail="Phone number daalein")
-        r = await _send_wa_message(phone, caption, public_pdf_url)
+        r = await _send_wa_message(phone, caption, pdf_bytes=pdf_bytes, filename=filename)
         results.append({"target": phone, "success": r.get("success", False), "error": r.get("error", "")})
     elif mode == "group":
         gid = (payload.get("group_id") or "").strip() or wa_settings.get("default_group_id", "") or wa_settings.get("group_id", "")
         if not gid:
             raise HTTPException(status_code=400, detail="Group ID daalein ya default group set karein")
-        r = await _send_wa_to_group(gid, caption, public_pdf_url)
+        r = await _send_wa_to_group(gid, caption, pdf_bytes=pdf_bytes, filename=filename)
         results.append({"target": "group", "success": r.get("success", False), "error": r.get("error", "")})
     else:  # default — send to all default numbers
         nums = wa_settings.get("default_numbers", [])
@@ -822,7 +809,7 @@ async def share_letter_via_whatsapp(payload: dict = Body(...)):
         if not nums:
             raise HTTPException(status_code=400, detail="Default numbers set nahi hai. Settings → WhatsApp mein numbers SAVE karein, ya phone/group choose karein.")
         for num in nums:
-            r = await _send_wa_message(num, caption, public_pdf_url)
+            r = await _send_wa_message(num, caption, pdf_bytes=pdf_bytes, filename=filename)
             results.append({"target": num, "success": r.get("success", False), "error": r.get("error", "")})
 
     success_count = sum(1 for r in results if r["success"])
@@ -830,5 +817,4 @@ async def share_letter_via_whatsapp(payload: dict = Body(...)):
         "success": success_count > 0,
         "message": f"Letter {success_count}/{len(results)} target(s) pe bhej diya!",
         "details": results,
-        "pdf_url": public_pdf_url,
     }

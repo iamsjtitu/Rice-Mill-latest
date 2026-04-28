@@ -91,6 +91,68 @@ async function resolvePdfUrl(pdfUrl) {
   return '';
 }
 
+// Fetch local PDF as Buffer (returns null on failure)
+function fetchLocalPdfBuffer(pdfUrl) {
+  return new Promise((resolve) => {
+    if (!pdfUrl) { resolve(null); return; }
+    const port = (global.DESKTOP_API_PORT) || 9876;
+    let fetchUrl = pdfUrl;
+    if (pdfUrl.startsWith('/api/')) fetchUrl = `http://127.0.0.1:${port}${pdfUrl}`;
+    const lib = fetchUrl.startsWith('https') ? https : http;
+    lib.get(fetchUrl, (r) => {
+      if (r.statusCode !== 200) { resolve(null); return; }
+      const chunks = [];
+      r.on('data', c => chunks.push(c));
+      r.on('end', () => {
+        const buf = Buffer.concat(chunks);
+        resolve(buf.length >= 100 ? buf : null);
+      });
+      r.on('error', () => resolve(null));
+    }).on('error', () => resolve(null));
+  });
+}
+
+// Generic multipart POST helper (used for sendMessageFile and sendGroupFile)
+function sendWaFileMultipart(apiKey, settings, endpoint, fields, fileBuffer, fileName) {
+  return new Promise((resolve) => {
+    const boundary = '----FormBoundary' + Date.now();
+    const parts = [];
+    Object.entries(fields).forEach(([k, v]) => {
+      if (v === undefined || v === null || v === '') return;
+      parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${k}"\r\n\r\n${v}\r\n`));
+    });
+    parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: application/pdf\r\n\r\n`));
+    parts.push(fileBuffer);
+    parts.push(Buffer.from(`\r\n--${boundary}--\r\n`));
+    const body = Buffer.concat(parts);
+
+    const options = {
+      hostname: waHostname(settings), path: `${waPathPrefix(settings)}${endpoint}`, method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': body.length
+      }
+    };
+    const req = https.request(options, (r) => {
+      let data = '';
+      r.on('data', c => data += c);
+      r.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          const ok = result.success === true;
+          console.log(`[WhatsApp] ${endpoint} response:`, r.statusCode, ok ? 'OK' : 'FAIL', data.substring(0, 200));
+          resolve({ success: ok, data: result, error: ok ? '' : (result.error || result.message || `HTTP ${r.statusCode}`) });
+        } catch (e) { resolve({ success: false, error: data || 'Parse error' }); }
+      });
+    });
+    req.on('error', e => { console.log(`[WhatsApp] ${endpoint} network error:`, e.message); resolve({ success: false, error: e.message }); });
+    req.setTimeout(120000, () => { req.destroy(); resolve({ success: false, error: 'Provider timeout (120s). Retry karein.' }); });
+    req.write(body);
+    req.end();
+  });
+}
+
 function col(name) {
   if (!database.data[name]) database.data[name] = [];
   return database.data[name];
@@ -110,14 +172,30 @@ function cleanPhone(phone, countryCode = '91') {
   return phone;
 }
 
-function sendWaMessage(apiKey, phone, text, mediaUrl, settings = {}) {
-  return new Promise((resolve, reject) => {
+// Provider-aware: sends to phone. If pdfBuffer given + wa9x → /sendMessageFile; else 360messenger fallback uses tmpfiles + URL flow.
+async function sendWaMessage(apiKey, phone, text, mediaUrl, settings = {}, pdfBuffer = null, fileName = 'report.pdf') {
+  const provider = (settings.wa_provider || '360messenger').toLowerCase();
+
+  // Fast path: wa9x + binary file
+  if (pdfBuffer && provider === 'wa9x') {
+    return await sendWaFileMultipart(apiKey, settings, '/sendMessageFile',
+      { phonenumber: phone, caption: text || '' }, pdfBuffer, fileName);
+  }
+
+  // 360messenger fallback: upload bytes to tmpfiles, use URL
+  if (pdfBuffer && !mediaUrl) {
+    const tmpUrl = await uploadPdfBufferToTmpFiles(pdfBuffer, fileName);
+    if (tmpUrl) mediaUrl = tmpUrl;
+  }
+
+  // Standard URL/text flow (existing)
+  return new Promise((resolve) => {
     const postData = `phonenumber=${encodeURIComponent(phone)}&text=${encodeURIComponent(text)}${mediaUrl ? '&url=' + encodeURIComponent(mediaUrl) : ''}`;
     const options = {
       hostname: waHostname(settings), path: `${waPathPrefix(settings)}/sendMessage`, method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(postData) }
     };
-    console.log('[WhatsApp] Sending to:', phone, 'mediaUrl:', mediaUrl ? 'yes' : 'no');
+    console.log('[WhatsApp] sendMessage to:', phone, 'mediaUrl:', mediaUrl ? 'yes' : 'no');
     const req = https.request(options, (res) => {
       let data = '';
       res.on('data', c => data += c);
@@ -125,14 +203,85 @@ function sendWaMessage(apiKey, phone, text, mediaUrl, settings = {}) {
         try {
           const result = JSON.parse(data);
           const ok = result.success || res.statusCode === 201;
-          console.log('[WhatsApp] Response:', res.statusCode, ok ? 'OK' : 'FAIL', data.substring(0, 200));
           resolve({ success: ok, data: result, error: ok ? '' : (result.error || result.message || `HTTP ${res.statusCode}`) });
-        } catch (e) { console.log('[WhatsApp] Parse error:', data.substring(0, 200)); resolve({ success: false, error: data }); }
+        } catch (e) { resolve({ success: false, error: data }); }
       });
     });
-    req.on('error', e => { console.log('[WhatsApp] Network error:', e.message); resolve({ success: false, error: e.message }); });
-    req.setTimeout(90000, () => { req.destroy(); console.log('[WhatsApp] Send timeout (90s)'); resolve({ success: false, error: 'Provider timeout (90s). Retry karein.' }); });
+    req.on('error', e => resolve({ success: false, error: e.message }));
+    req.setTimeout(90000, () => { req.destroy(); resolve({ success: false, error: 'Provider timeout (90s). Retry karein.' }); });
     req.write(postData);
+    req.end();
+  });
+}
+
+// Provider-aware: sends to group. If pdfBuffer given + wa9x → /sendGroupFile; else 360messenger fallback.
+async function sendWaToGroup(apiKey, groupId, text, mediaUrl, settings = {}, pdfBuffer = null, fileName = 'report.pdf') {
+  const provider = (settings.wa_provider || '360messenger').toLowerCase();
+
+  // Fast path: wa9x + binary file
+  if (pdfBuffer && provider === 'wa9x') {
+    return await sendWaFileMultipart(apiKey, settings, '/sendGroupFile',
+      { groupId, caption: text || '' }, pdfBuffer, fileName);
+  }
+
+  // 360messenger fallback: upload to tmpfiles
+  if (pdfBuffer && !mediaUrl) {
+    const tmpUrl = await uploadPdfBufferToTmpFiles(pdfBuffer, fileName);
+    if (tmpUrl) mediaUrl = tmpUrl;
+  }
+
+  // Standard sendGroup
+  return new Promise((resolve) => {
+    const postData = JSON.stringify({ groupId, text, url: mediaUrl || undefined });
+    const options = {
+      hostname: waHostname(settings), path: `${waPathPrefix(settings)}/sendGroup`, method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) }
+    };
+    const req = https.request(options, (r) => {
+      let data = '';
+      r.on('data', c => data += c);
+      r.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          const ok = result.success || r.statusCode === 201;
+          resolve({ success: ok, data: result, error: ok ? '' : (result.error || result.message || `HTTP ${r.statusCode}`) });
+        } catch (e) { resolve({ success: false, error: 'Parse error' }); }
+      });
+    });
+    req.on('error', e => resolve({ success: false, error: e.message }));
+    req.setTimeout(90000, () => { req.destroy(); resolve({ success: false, error: 'Provider timeout (90s). Retry karein.' }); });
+    req.write(postData);
+    req.end();
+  });
+}
+
+// Upload Buffer to tmpfiles.org, returns public URL or empty string
+function uploadPdfBufferToTmpFiles(pdfBuffer, fileName = 'report.pdf') {
+  return new Promise((resolve) => {
+    if (!pdfBuffer || pdfBuffer.length < 100) { resolve(''); return; }
+    const boundary = '----FormBoundary' + Date.now();
+    const header = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: application/pdf\r\n\r\n`;
+    const footer = `\r\n--${boundary}--\r\n`;
+    const body = Buffer.concat([Buffer.from(header), pdfBuffer, Buffer.from(footer)]);
+    const opts = {
+      hostname: 'tmpfiles.org', path: '/api/v1/upload', method: 'POST',
+      headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length }
+    };
+    const req = https.request(opts, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          if (result.status === 'success' && result.data && result.data.url) {
+            resolve(result.data.url.replace('http://tmpfiles.org/', 'https://tmpfiles.org/dl/'));
+          } else { resolve(''); }
+        } catch (e) { resolve(''); }
+      });
+    });
+    req.on('error', () => resolve(''));
+    req.setTimeout(60000, () => { req.destroy(); resolve(''); });
+    req.write(body);
     req.end();
   });
 }
@@ -215,40 +364,24 @@ router.get('/api/whatsapp/groups', safeAsync(async (req, res) => {
   }
 }));
 
-// Send message to WhatsApp group
+// Send message to WhatsApp group (provider-aware: wa9x uses sendGroupFile direct upload)
 router.post('/api/whatsapp/send-group', safeAsync(async (req, res) => {
   const groupId = req.body.group_id || '';
   const text = req.body.text || '';
   const mediaUrl = req.body.media_url || '';
+  const pdfUrl = req.body.pdf_url || '';
   if (!groupId) return res.status(400).json({ detail: 'Group ID required' });
-  if (!text && !mediaUrl) return res.status(400).json({ detail: 'Text ya media URL required' });
+  if (!text && !mediaUrl && !pdfUrl) return res.status(400).json({ detail: 'Text ya media URL required' });
   const config = getWaSettings();
   if (!config.api_key) return res.json({ success: false, error: 'API key set nahi hai.' });
 
-  try {
-    const result = await new Promise((resolve) => {
-      const postData = JSON.stringify({ groupId, text, url: mediaUrl || undefined });
-      const options = {
-        hostname: waHostname(config), path: `${waPathPrefix(config)}/sendGroup`, method: 'POST',
-        headers: { 'Authorization': `Bearer ${config.api_key}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) }
-      };
-      const req = https.request(options, (r) => {
-        let data = '';
-        r.on('data', c => data += c);
-        r.on('end', () => {
-          try { resolve(JSON.parse(data)); }
-          catch (e) { resolve({ success: false, error: 'Parse error' }); }
-        });
-      });
-      req.on('error', e => resolve({ success: false, error: e.message }));
-      req.setTimeout(90000, () => { req.destroy(); resolve({ success: false, error: 'Provider timeout (90s). PDF media bhejne mein time lag raha hai. Retry karein.' }); });
-      req.write(postData);
-      req.end();
-    });
-    res.json({ success: result.success || false, message: result.success ? 'Group message bhej diya!' : '', error: result.error || result.message || 'Group send fail' });
-  } catch (e) {
-    res.json({ success: false, error: e.message || 'Group send error' });
+  let pdfBuffer = null;
+  if (pdfUrl && !mediaUrl) {
+    pdfBuffer = await fetchLocalPdfBuffer(pdfUrl);
   }
+
+  const result = await sendWaToGroup(config.api_key, groupId, text, mediaUrl, config, pdfBuffer, 'report.pdf');
+  res.json({ success: result.success || false, message: result.success ? 'Group message bhej diya!' : '', error: result.error || 'Group send fail' });
 }));
 
 
@@ -310,7 +443,7 @@ router.post('/api/whatsapp/send-payment-reminder', safeAsync(async (req, res) =>
   res.json({ success: ok > 0, message: `${ok}/${results.length} numbers pe bhej diya!`, error: ok === 0 ? (firstErr?.error || '360Messenger API error') : '', details: results });
 }));
 
-// Daily report
+// Daily report (provider-aware: uses sendMessageFile/sendGroupFile for wa9x direct upload)
 router.post('/api/whatsapp/send-daily-report', safeAsync(async (req, res) => {
   const { report_text, pdf_url, send_to_group } = req.body;
   const phone = (req.body.phone || '').trim();
@@ -318,36 +451,45 @@ router.post('/api/whatsapp/send-daily-report', safeAsync(async (req, res) => {
   const config = getWaSettings();
   if (!config.api_key) return res.json({ success: false, error: 'API key set nahi hai.' });
 
-  const resolvedPdfUrl = await resolvePdfUrl(pdf_url || '');
+  let pdfBuffer = null;
+  if (pdf_url) {
+    // Try local fetch first; if external public URL, fall back to URL-based send
+    if (pdf_url.includes('127.0.0.1') || pdf_url.includes('localhost') || pdf_url.startsWith('/api/')) {
+      const localPath = pdf_url.startsWith('/api/') ? pdf_url : new URL(pdf_url).pathname + new URL(pdf_url).search;
+      pdfBuffer = await fetchLocalPdfBuffer(localPath);
+    }
+  }
+  // For non-local public URLs (uncommon path), use the URL flow
+  const externalUrl = (pdf_url && !pdfBuffer && !pdf_url.includes('127.0.0.1') && !pdf_url.includes('localhost') && !pdf_url.startsWith('/api/')) ? pdf_url : '';
 
   // Defensive: ensure default_numbers is always an array
   let defaultNums = config.default_numbers || [];
   if (typeof defaultNums === 'string') defaultNums = defaultNums.split(',').map(n => n.trim()).filter(Boolean);
   if (!Array.isArray(defaultNums)) defaultNums = [];
-  const groupId = (config.group_id || '').trim();
+  const groupId = (config.default_group_id || config.group_id || '').trim();
 
-  console.log('[WhatsApp] send-daily-report: phone=' + phone + ', default_numbers=' + JSON.stringify(defaultNums) + ', group_id=' + groupId + ', pdf=' + (resolvedPdfUrl ? 'yes' : 'no'));
+  console.log('[WhatsApp] send-daily-report: phone=' + phone + ', default_numbers=' + JSON.stringify(defaultNums) + ', group_id=' + groupId + ', pdf=' + (pdfBuffer ? 'buffer' : externalUrl ? 'url' : 'none'));
 
   const results = [];
   if (phone) {
-    const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), report_text, resolvedPdfUrl);
+    const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), report_text, externalUrl, config, pdfBuffer, 'daily_report.pdf');
     results.push({ target: phone, success: r.success, error: r.error || '' });
   } else {
     for (const num of defaultNums) {
       if (num && num.trim()) {
-        const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), report_text, resolvedPdfUrl);
+        const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), report_text, externalUrl, config, pdfBuffer, 'daily_report.pdf');
         results.push({ target: num, success: r.success, error: r.error || '' });
       }
     }
   }
   if (send_to_group && groupId) {
-    const r = await sendWaMessage(config.api_key, groupId, report_text, resolvedPdfUrl, config);
+    const r = await sendWaToGroup(config.api_key, groupId, report_text, externalUrl, config, pdfBuffer, 'daily_report.pdf');
     results.push({ target: 'group', success: r.success, error: r.error || '' });
   }
   if (!results.length) return res.json({ success: false, error: 'Koi number ya group set nahi hai. Settings > WhatsApp mein default numbers SAVE karein.' });
   const ok = results.filter(r => r.success).length;
   const firstErr2 = results.find(r => !r.success && r.error);
-  res.json({ success: ok > 0, message: `${ok}/${results.length} targets pe bhej diya!`, error: ok === 0 ? (firstErr2?.error || '360Messenger API error') : '', details: results });
+  res.json({ success: ok > 0, message: `${ok}/${results.length} targets pe bhej diya!`, error: ok === 0 ? (firstErr2?.error || 'WhatsApp API error') : '', details: results });
 }));
 
 // Party Ledger WhatsApp
