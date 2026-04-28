@@ -181,13 +181,13 @@ router.put('/api/whatsapp/settings', safeAsync(async (req, res) => {
   res.json({ success: true, message: 'WhatsApp settings save ho gayi!' });
 }));
 
-// GET groups from 360Messenger
+// GET groups (supports both 360messenger and wa.9x.design response shapes)
 router.get('/api/whatsapp/groups', safeAsync(async (req, res) => {
   const config = getWaSettings();
   const apiKey = config.api_key || '';
   if (!apiKey) return res.json({ success: false, groups: [], error: 'WhatsApp API key set nahi hai.' });
   try {
-    const result = await new Promise((resolve, reject) => {
+    const { result, statusCode } = await new Promise((resolve) => {
       const options = {
         hostname: waHostname(config), path: `${waPathPrefix(config)}/groupChat/getGroupList`, method: 'GET',
         headers: { 'Authorization': `Bearer ${apiKey}` }
@@ -196,19 +196,23 @@ router.get('/api/whatsapp/groups', safeAsync(async (req, res) => {
         let data = '';
         r.on('data', c => data += c);
         r.on('end', () => {
-          try { resolve(JSON.parse(data)); }
-          catch (e) { resolve({ success: false }); }
+          try { resolve({ result: JSON.parse(data), statusCode: r.statusCode }); }
+          catch (e) { resolve({ result: {}, statusCode: r.statusCode || 0 }); }
         });
       });
-      req.on('error', e => resolve({ success: false, message: e.message }));
-      req.setTimeout(30000, () => { req.destroy(); resolve({ success: false, message: 'Timeout' }); });
+      req.on('error', e => resolve({ result: { message: e.message }, statusCode: 0 }));
+      req.setTimeout(30000, () => { req.destroy(); resolve({ result: { message: 'Timeout' }, statusCode: 0 }); });
       req.end();
     });
-    if (result.success) {
-      const groups = (result.data && result.data.groups) || [];
-      return res.json({ success: true, groups });
+    if (statusCode >= 400 || statusCode === 0) {
+      return res.json({ success: false, groups: [], error: result.message || result.detail || `HTTP ${statusCode}` });
     }
-    res.json({ success: false, groups: [], error: result.message || 'Group list fetch fail' });
+    if ('success' in result && result.success === false) {
+      return res.json({ success: false, groups: [], error: result.message || result.detail || 'Group list fetch fail' });
+    }
+    const data = result.data !== undefined ? result.data : result;
+    const groups = Array.isArray(data) ? data : (data.groups || data.list || []);
+    res.json({ success: true, groups });
   } catch (e) {
     res.json({ success: false, groups: [], error: e.message });
   }
