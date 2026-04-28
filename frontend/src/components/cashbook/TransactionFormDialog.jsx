@@ -160,20 +160,28 @@ const TransactionFormDialog = ({
                 </p>
               )}
               {form.account === 'owner' && form.owner_name && (() => {
-                // Owner balance includes BOTH:
-                // 1) Direct owner-account txns (account=owner, owner_name=Titu)
-                // 2) Cash/Bank txns where this owner is the party (category=Titu, party_type=Owner)
-                // Auto-ledger entries (reference starts with 'auto_ledger:') are
-                // duplicates created by the system — exclude them to avoid
-                // double-counting.
+                // Owner balance interpreted as "Mill ka karz Owner ki taraf":
+                //   - Owner paid mill's vendor (account=owner + nikasi) → contribution +
+                //   - Mill received via Owner (account=owner + jama) → withdrawal -
+                //   - Mill paid Owner cash (account=cash, category=Owner, nikasi) → +
+                //   - Owner gave mill cash (account=cash, category=Owner, jama) → +
+                // To keep things simple: ledger value of an Owner txn:
+                //   account=owner + nikasi = +amount (Owner contributed to mill)
+                //   account=owner + jama   = -amount (Owner withdrew from mill)
+                //   category=Owner, party_type=Owner, jama (any account) = +amount
+                //   category=Owner, party_type=Owner, nikasi (any account) = -amount
                 const isAutoLedger = (t) => /^auto_ledger:/.test(String(t.reference || ''));
-                const isThisOwner = (t) => !isAutoLedger(t) && (
-                  (t.account === 'owner' && t.owner_name === form.owner_name) ||
-                  (t.category === form.owner_name && t.party_type === 'Owner')
-                );
-                const ownerJama = (allTxns || []).filter(t => isThisOwner(t) && t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0);
-                const ownerNikasi = (allTxns || []).filter(t => isThisOwner(t) && t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0);
-                const bal = ownerJama - ownerNikasi;
+                const sign = (t) => {
+                  if (isAutoLedger(t)) return 0;
+                  if (t.account === 'owner' && t.owner_name === form.owner_name) {
+                    return t.txn_type === 'nikasi' ? +(t.amount || 0) : -(t.amount || 0);
+                  }
+                  if (t.category === form.owner_name && t.party_type === 'Owner') {
+                    return t.txn_type === 'jama' ? +(t.amount || 0) : -(t.amount || 0);
+                  }
+                  return 0;
+                };
+                const bal = (allTxns || []).reduce((s, t) => s + sign(t), 0);
                 return (
                   <p className="text-[10px] mt-1 font-medium" data-testid="cashbook-form-owner-balance">
                     {form.owner_name} Balance: <span className={`${bal >= 0 ? 'text-emerald-600' : 'text-red-600'} font-bold`}>Rs.{bal.toLocaleString('en-IN')}</span>

@@ -410,6 +410,11 @@ async def get_party_summary(kms_year: Optional[str] = None, season: Optional[str
     
     # === Add Owner Accounts as virtual parties (their statement comes from
     # transactions where account=="owner" and owner_name=<owner>) ===
+    # IMPORTANT: From the Owner's ledger perspective the direction is FLIPPED:
+    #   account=owner + nikasi (Owner paid mill's vendor) → Owner's contribution ↑ (JAMA)
+    #   account=owner + jama   (Owner received from a party, mill paid via owner) → Owner withdrew (NIKASI)
+    # This way Owner's ledger reads naturally: "kitna paisa Owner ne mill mein
+    # daala vs kitna nikala", with running balance = mill ka karz Owner ki taraf.
     for t in txns:
         if t.get("account") != "owner":
             continue
@@ -426,9 +431,11 @@ async def get_party_summary(kms_year: Optional[str] = None, season: Optional[str
         else:
             # Force party_type to Owner if owner_name matches
             party_map[owner]["party_type"] = "Owner"
-        if t.get("txn_type") == "jama":
+        if t.get("txn_type") == "nikasi":
+            # Owner paid out for mill → CONTRIBUTION (jama in Owner's ledger)
             party_map[owner]["total_jama"] += t.get("amount", 0)
         else:
+            # Owner received money via mill → WITHDRAWAL (nikasi from Owner's ledger)
             party_map[owner]["total_nikasi"] += t.get("amount", 0)
         party_map[owner]["txn_count"] += 1
 
