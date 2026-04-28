@@ -550,7 +550,7 @@ module.exports = function(database) {
         // ── Weight Bars + Compact Photos ──
         function drawWeightBar(label, wt, timeStr, frontKey, sideKey, bgColor) {
           doc.rect(LM, y, PW, 18).fill(bgColor);
-          doc.font(F('bold')).fontSize(9).fillColor('#fff').text(label, LM + 4, y + 4, { width: PW * 0.35, lineBreak: false });
+          doc.font(autoF(label, 'bold')).fontSize(9).fillColor('#fff').text(label, LM + 4, y + 4, { width: PW * 0.35, lineBreak: false });
           doc.font(F('bold')).fontSize(10).fillColor('#fff').text(`${Number(wt).toLocaleString()} KG`, LM + PW * 0.35, y + 3, { width: PW * 0.3, align: 'center', lineBreak: false });
           doc.font(F('normal')).fontSize(7.5).fillColor('#ddd').text(`Time: ${fmtIST(timeStr)}`, LM + PW * 0.65, y + 5, { width: PW * 0.33, align: 'right', lineBreak: false });
           y += 18;
@@ -598,7 +598,7 @@ module.exports = function(database) {
           const bx = LM + i * boxW;
           doc.rect(bx, y, boxW, boxH).fill(b.bg);
           doc.strokeColor('#ccc').lineWidth(0.3).rect(bx, y, boxW, boxH).stroke();
-          doc.font(F('normal')).fontSize(5.5).fillColor(b.fg).text(b.label, bx + 2, y + 3, { width: boxW - 4, align: 'center' });
+          doc.font(autoF(b.label, 'normal')).fontSize(5.5).fillColor(b.fg).text(b.label, bx + 2, y + 3, { width: boxW - 4, align: 'center' });
           doc.font(F('bold')).fontSize(10).fillColor(b.fg).text(b.value, bx + 2, y + 20, { width: boxW - 4, align: 'center', lineBreak: false });
         });
 

@@ -105,11 +105,22 @@ def register_hindi_fonts():
             registerFontFamily('Inter', normal='Inter', bold='InterBold',
                               italic='InterItalic' if inter_italic else 'Inter',
                               boldItalic='InterBold')
-            # Alias FreeSans -> Inter so legacy code paths inherit the new typography.
-            pdfmetrics.registerFont(TTFont('FreeSans', inter_reg))
-            pdfmetrics.registerFont(TTFont('FreeSansBold', inter_bold))
-            pdfmetrics.registerFont(TTFont('FreeSansOblique', inter_italic or inter_reg))
-            pdfmetrics.registerFont(TTFont('FreeSansBoldOblique', inter_bold))
+            # FreeSans alias — use NotoSansDevanagari if available (it has Latin + Devanagari).
+            # This globally fixes Hindi text rendering as `||||` in all PDFs without changing
+            # any caller code. Inter alone lacks Devanagari glyphs.
+            deva_reg_path = _font_path('NotoSansDevanagari-Regular.ttf')
+            deva_bold_path = _font_path('NotoSansDevanagari-Bold.ttf')
+            if deva_reg_path and deva_bold_path:
+                pdfmetrics.registerFont(TTFont('FreeSans', deva_reg_path))
+                pdfmetrics.registerFont(TTFont('FreeSansBold', deva_bold_path))
+                pdfmetrics.registerFont(TTFont('FreeSansOblique', deva_reg_path))
+                pdfmetrics.registerFont(TTFont('FreeSansBoldOblique', deva_bold_path))
+            else:
+                # Fallback: alias to Inter (English-only PDFs)
+                pdfmetrics.registerFont(TTFont('FreeSans', inter_reg))
+                pdfmetrics.registerFont(TTFont('FreeSansBold', inter_bold))
+                pdfmetrics.registerFont(TTFont('FreeSansOblique', inter_italic or inter_reg))
+                pdfmetrics.registerFont(TTFont('FreeSansBoldOblique', inter_bold))
             registerFontFamily('FreeSans', normal='FreeSans', bold='FreeSansBold',
                               italic='FreeSansOblique', boldItalic='FreeSansBoldOblique')
         else:

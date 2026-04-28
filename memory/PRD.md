@@ -1,8 +1,42 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.33.1
+## Current Version: v104.33.2
 
-## 🐛 v104.33.1 — Bug Fix: TOTAL Row Double-counting Auto-Ledger Pairs
+## 🎯 v104.33.2 — GLOBAL Fix: All PDFs Hindi/Devanagari Rendering
+**Build date:** 2026-04-28
+
+### Issue
+**All PDFs** (Weight Report, Mill Entries, Stock Summary, Sale Book, Hemali, etc.) had Devanagari labels rendering as `||||||||` vertical bars. Header/branding could have Hindi text (e.g., "मिल एंट्री", "नवकार एग्रो") which broke wherever it appeared.
+
+### Root Cause
+Both Python (ReportLab) and Node (PDFKit) had `FreeSans` aliased to **Inter** font for premium aesthetics, but Inter has **NO Devanagari glyphs** — so every Hindi character rendered as a missing-glyph box.
+
+### Global Fix (Single-line cascade for entire app)
+
+#### Python (`utils/export_helpers.py`)
+- Re-aliased `FreeSans` font family to **NotoSansDevanagari** (which has both Latin AND Devanagari glyphs)
+- Now ALL PDFs using FreeSans/FreeSansBold automatically render Hindi correctly without any caller code change
+- Inter still registered separately for English-only contexts
+
+#### Node (`pdf_helpers.js` for Desktop + LAN)
+- All shared helpers (`addPdfHeader`, `addPdfTable`, `addTotalsRow`, `addSummaryBox`, `addSectionTitle`, `drawSummaryBanner`, `drawSectionBand`) now use `autoF()` instead of plain `F()`
+- `autoF()` auto-detects Devanagari in text and switches to NotoDeva font on the fly
+- Vehicle Weight Report (`vehicle_weight.js`) — additional fixes for `drawWeightBar` label, summary box labels (कुल/शुद्ध/बोरा/नकद/डीजल)
+
+#### Mill Entries Report (`entries.py`)
+- `title_table` and `style_commands` styled tables now use `NotoDevaBold` font
+- Header "Mill Entries / मिल एंट्री" renders correctly
+
+### Triple-Backend Parity
+- ✅ Python: NotoDeva alias for FreeSans
+- ✅ Node Desktop: pdf_helpers.js + vehicle_weight.js fixed with autoF
+- ✅ Node LAN Local: synced with desktop-app
+
+### Verified
+- Generated Mill Entries PDF via curl → AI analysis confirms "**मलि एंट्री** is clearly legible"
+- All shared helper functions now Devanagari-aware
+
+## v104.33.1 — Bug Fix: TOTAL Row Double-counting Auto-Ledger Pairs
 **Build date:** 2026-04-28
 
 ### Issue

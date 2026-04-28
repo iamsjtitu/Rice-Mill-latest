@@ -1256,7 +1256,7 @@ async def export_pdf(
     title_text = f"{company_name} - {display_title} | FY: {kms_year or 'All'} | {season or 'All Seasons'}"
     title_data = [[Paragraph(f"<b>{title_text}</b>", title_style)]]
     title_table = Table(title_data, colWidths=[page_width - 16*mm])
-    title_table.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), 
+    title_table.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'NotoDevaBold'), 
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#1B4F72')),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -1616,7 +1616,7 @@ async def export_truck_payments_pdf(
     style_commands = [
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'),
+        ('FONTNAME', (0, 0), (-1, 0), 'NotoDevaBold'),
         ('FONTSIZE', (0, 0), (-1, -1), 7),
         ('ALIGN', (3, 1), (-1, -1), 'RIGHT'),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
@@ -1624,7 +1624,7 @@ async def export_truck_payments_pdf(
         ('TOPPADDING', (0, 0), (-1, -1), 3),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FEF3C7')),
-        ('FONTNAME', (0, -1), (-1, -1), 'FreeSansBold'),
+        ('FONTNAME', (0, -1), (-1, -1), 'NotoDevaBold'),
     ]
     
     # Alternating rows and status colors

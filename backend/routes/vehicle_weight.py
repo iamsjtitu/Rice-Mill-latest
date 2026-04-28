@@ -1130,7 +1130,7 @@ async def weight_report_pdf(entry_id: str):
     elements.append(Spacer(1, 4*mm))
 
     # ── Weight Sections ──
-    wt_header_style = ParagraphStyle('wth', fontName='FreeSansBold', fontSize=9, textColor=colors.white)
+    wt_header_style = ParagraphStyle('wth', fontName='NotoDevaBold', fontSize=9, textColor=colors.white)
 
     def add_weight_section(label, wt_val, time_str, front_key, side_key, bg_color):
         # Header bar as table
@@ -1193,8 +1193,8 @@ async def weight_report_pdf(entry_id: str):
     box_data_values = []
     box_styles = []
     for i, (lbl, val, bg, fg) in enumerate(summary_items):
-        box_data_labels.append(Paragraph(lbl, ParagraphStyle(f'bl{i}', fontName='FreeSans', fontSize=6, textColor=colors.HexColor(fg), alignment=TA_CENTER)))
-        box_data_values.append(Paragraph(val, ParagraphStyle(f'bv{i}', fontName='FreeSansBold', fontSize=10, textColor=colors.HexColor(fg), alignment=TA_CENTER)))
+        box_data_labels.append(Paragraph(lbl, ParagraphStyle(f'bl{i}', fontName='NotoDeva', fontSize=6, textColor=colors.HexColor(fg), alignment=TA_CENTER)))
+        box_data_values.append(Paragraph(val, ParagraphStyle(f'bv{i}', fontName='NotoDevaBold', fontSize=10, textColor=colors.HexColor(fg), alignment=TA_CENTER)))
         box_styles.append(('BACKGROUND', (i, 0), (i, 1), colors.HexColor(bg)))
 
     ncols = len(summary_items)

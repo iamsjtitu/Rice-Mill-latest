@@ -30,6 +30,7 @@ const DEVA_RE = /[\u0900-\u097F]/;
 function hasDeva(s) { return DEVA_RE.test(String(s || '')); }
 
 function registerFonts(doc) {
+  // Primary UI font: Inter (fall back to FreeSans for Devanagari support)
   if (HAS_INTER) {
     doc.registerFont('AppFont', path.join(FONT_DIR, 'Inter-Regular.ttf'));
     doc.registerFont('AppFontMedium', path.join(FONT_DIR, 'Inter-Medium.ttf'));
@@ -43,6 +44,7 @@ function registerFonts(doc) {
     if (fs.existsSync(path.join(FONT_DIR, 'FreeSansOblique.ttf')))
       doc.registerFont('AppFontOblique', path.join(FONT_DIR, 'FreeSansOblique.ttf'));
   }
+  // Numbers font: JetBrains Mono (used via F('mono')/F('mono-bold'))
   if (HAS_JBM) {
     doc.registerFont('AppMono', path.join(FONT_DIR, 'JetBrainsMono-Regular.ttf'));
     doc.registerFont('AppMonoMedium', path.join(FONT_DIR, 'JetBrainsMono-Medium.ttf'));
@@ -57,22 +59,27 @@ function registerFonts(doc) {
 
 function F(weight) {
   if (!HAS_INTER && !HAS_FREESANS) {
+    // System fallback
     if (weight === 'mono') return 'Courier';
     if (weight === 'mono-bold') return 'Courier-Bold';
     if (weight === 'deva') return 'Helvetica';
     if (weight === 'deva-bold') return 'Helvetica-Bold';
     return weight === 'bold' ? 'Helvetica-Bold' : (weight === 'oblique' ? 'Helvetica-Oblique' : 'Helvetica');
   }
+  // Numbers (JetBrains Mono if available, otherwise app font)
   if (weight === 'mono') return HAS_JBM ? 'AppMono' : 'AppFont';
   if (weight === 'mono-bold') return HAS_JBM ? 'AppMonoBold' : 'AppFontBold';
   if (weight === 'mono-medium') return HAS_JBM ? 'AppMonoMedium' : 'AppFont';
+  // Devanagari
   if (weight === 'deva') return HAS_DEVA ? 'AppDeva' : 'AppFont';
   if (weight === 'deva-bold') return HAS_DEVA ? 'AppDevaBold' : 'AppFontBold';
+  // UI text
   if (weight === 'medium') return HAS_INTER ? 'AppFontMedium' : 'AppFont';
   if (weight === 'semibold') return HAS_INTER ? 'AppFontSemiBold' : 'AppFontBold';
   return weight === 'bold' ? 'AppFontBold' : (weight === 'oblique' ? 'AppFontOblique' : 'AppFont');
 }
 
+// Pick font dynamically: if text contains Devanagari, use Devanagari font; else default
 function autoF(text, weight) {
   const isBold = weight === 'bold' || weight === 'semibold';
   if (hasDeva(text)) return F(isBold ? 'deva-bold' : 'deva');
@@ -191,17 +198,17 @@ function addPdfHeader(doc, title, branding, subtitle) {
     const left = aboveFields.filter(f => f.position === 'left').map(fmtField).join('  ');
     const center = aboveFields.filter(f => f.position === 'center').map(fmtField).join('  ');
     const right = aboveFields.filter(f => f.position === 'right').map(fmtField).join('  ');
-    doc.fontSize(7).font(F('normal')).fillColor('#374151');
-    if (left) doc.text(left, 25, curY, { align: 'left', width: pageW / 3 });
-    if (center) doc.text(center, 25 + pageW / 3, curY, { align: 'center', width: pageW / 3 });
-    if (right) doc.text(right, 25 + (pageW * 2 / 3), curY, { align: 'right', width: pageW / 3 });
+    doc.fontSize(7).fillColor('#374151');
+    if (left) doc.font(autoF(left, 'normal')).text(left, 25, curY, { align: 'left', width: pageW / 3 });
+    if (center) doc.font(autoF(center, 'normal')).text(center, 25 + pageW / 3, curY, { align: 'center', width: pageW / 3 });
+    if (right) doc.font(autoF(right, 'normal')).text(right, 25 + (pageW * 2 / 3), curY, { align: 'right', width: pageW / 3 });
     curY += 12;
   }
   
-  doc.fontSize(16).font(F('bold')).fillColor(C.hdrBg)
+  doc.fontSize(16).font(autoF(companyName, 'bold')).fillColor(C.hdrBg)
     .text(companyName, 25, curY, { align: 'center', width: doc.page.width - 50 });
   curY += 18;
-  if (tagline) { doc.fontSize(8).font(F('normal')).fillColor('#6b7280')
+  if (tagline) { doc.fontSize(8).font(autoF(tagline, 'normal')).fillColor('#6b7280')
     .text(tagline, 25, curY, { align: 'center', width: doc.page.width - 50 }); curY += 10; }
   
   // Below fields (default)
@@ -211,10 +218,10 @@ function addPdfHeader(doc, title, branding, subtitle) {
     const left = belowFields.filter(f => f.position === 'left').map(fmtField).join('  ');
     const center = belowFields.filter(f => f.position === 'center').map(fmtField).join('  ');
     const right = belowFields.filter(f => f.position === 'right').map(fmtField).join('  ');
-    doc.fontSize(7).font(F('normal')).fillColor('#374151');
-    if (left) doc.text(left, 25, curY, { align: 'left', width: pageW / 3 });
-    if (center) doc.text(center, 25 + pageW / 3, curY, { align: 'center', width: pageW / 3 });
-    if (right) doc.text(right, 25 + (pageW * 2 / 3), curY, { align: 'right', width: pageW / 3 });
+    doc.fontSize(7).fillColor('#374151');
+    if (left) doc.font(autoF(left, 'normal')).text(left, 25, curY, { align: 'left', width: pageW / 3 });
+    if (center) doc.font(autoF(center, 'normal')).text(center, 25 + pageW / 3, curY, { align: 'center', width: pageW / 3 });
+    if (right) doc.font(autoF(right, 'normal')).text(right, 25 + (pageW * 2 / 3), curY, { align: 'right', width: pageW / 3 });
   }
   
   doc.y = barY + barH + 4;
@@ -222,13 +229,13 @@ function addPdfHeader(doc, title, branding, subtitle) {
   // Title bar - teal
   const titleY = doc.y;
   doc.rect(20, titleY, doc.page.width - 40, 22).fill('#0891b2');
-  doc.fontSize(11).font(F('bold')).fillColor('#ffffff')
+  doc.fontSize(11).font(autoF(title, 'bold')).fillColor('#ffffff')
     .text(title, 25, titleY + 5, { align: 'center', width: doc.page.width - 50 });
   
   doc.y = titleY + 26;
   
   // Subtitle & date
-  if (subtitle) doc.fontSize(8).font(F('normal')).fillColor('#6b7280').text(subtitle, { align: 'center' });
+  if (subtitle) doc.fontSize(8).font(autoF(subtitle, 'normal')).fillColor('#6b7280').text(subtitle, { align: 'center' });
   doc.fontSize(7).font(F('normal')).fillColor('#9ca3af')
     .text(`Generated: ${new Date().toLocaleDateString('en-IN')} | ${new Date().toLocaleTimeString('en-IN')}`, { align: 'center' });
   doc.moveDown(0.4);
@@ -277,7 +284,7 @@ function addPdfTable(doc, headers, rows, colWidths, opts) {
   doc.rect(x, y, actualTotalW, rowH + 2).fill(hdrBg);
   headers.forEach((h, i) => {
     doc.rect(x, y, widths[i], rowH + 2).stroke(hdrBg);
-    doc.fillColor(hdrTextColor).font(F('bold')).fontSize(fs + 0.5)
+    doc.fillColor(hdrTextColor).font(autoF(h, 'bold')).fontSize(fs + 0.5)
       .text(String(h), x + pad, y + pad + 1, { width: widths[i] - pad*2, height: rowH - 2, lineBreak: false });
     x += widths[i];
   });
@@ -311,7 +318,7 @@ function addPdfTable(doc, headers, rows, colWidths, opts) {
       
       doc.rect(x, y, widths[ci], rowH).fill(cellBg);
       doc.rect(x, y, widths[ci], rowH).stroke(C.border);
-      doc.fillColor(textColor).font(F(fontWeight)).fontSize(fs)
+      doc.fillColor(textColor).font(autoF(cellStr, fontWeight)).fontSize(fs)
         .text(cellStr, x + pad, y + pad, { width: widths[ci] - pad*2, height: rowH - 2, lineBreak: false });
       x += widths[ci];
     });
@@ -334,7 +341,7 @@ function addSummaryBox(doc, labels, values, colWidths, bgColor) {
   doc.rect(x, y, totalW, rowH).stroke(C.border);
   labels.forEach((l, i) => {
     doc.rect(x, y, colWidths[i], rowH).stroke(C.border);
-    doc.fillColor(C.text).font(F('bold')).fontSize(fs + 1)
+    doc.fillColor(C.text).font(autoF(l, 'bold')).fontSize(fs + 1)
       .text(String(l), x + 3, y + 4, { width: colWidths[i] - 6, height: rowH - 2, lineBreak: false, align: 'center' });
     x += colWidths[i];
   });
@@ -345,7 +352,7 @@ function addSummaryBox(doc, labels, values, colWidths, bgColor) {
   doc.rect(x, y, totalW, rowH).stroke(C.border);
   values.forEach((v, i) => {
     doc.rect(x, y, colWidths[i], rowH).stroke(C.border);
-    doc.fillColor(C.text).font(F('bold')).fontSize(fs + 1)
+    doc.fillColor(C.text).font(autoF(v, 'bold')).fontSize(fs + 1)
       .text(String(v ?? ''), x + 3, y + 4, { width: colWidths[i] - 6, height: rowH - 2, lineBreak: false, align: 'center' });
     x += colWidths[i];
   });
@@ -371,7 +378,7 @@ function addTotalsRow(doc, values, colWidths, opts) {
   doc.rect(x, y, actualTotalW, 2).fill('#f59e0b');
   values.forEach((v, i) => {
     doc.rect(x, y, widths[i], rowH).stroke(C.border);
-    doc.fillColor('#92400e').font(F('bold')).fontSize(fs + 1)
+    doc.fillColor('#92400e').font(autoF(v, 'bold')).fontSize(fs + 1)
       .text(String(v ?? ''), x + 2, y + 3, { width: widths[i] - 4, height: rowH - 2, lineBreak: false });
     x += widths[i];
   });
@@ -385,7 +392,7 @@ function addSectionTitle(doc, title) {
   const titleY = doc.y;
   doc.rect(25, titleY, doc.page.width - 50, 18).fill('#f0f9ff');
   doc.rect(25, titleY, 3, 18).fill('#0891b2');
-  doc.fontSize(10).font(F('bold')).fillColor(C.hdrBg)
+  doc.fontSize(10).font(autoF(title, 'bold')).fillColor(C.hdrBg)
     .text(title, 32, titleY + 3, { width: doc.page.width - 60 });
   doc.y = titleY + 22;
   doc.fillColor('black').font(F('normal')).fontSize(7);
@@ -513,12 +520,15 @@ function drawSummaryBanner(doc, stats, x, y, totalW) {
     const cx = x + i * cellW;
     if (i > 0) doc.moveTo(cx, y + 8).lineTo(cx, y + summaryH - 4).strokeColor('#E5E7EB').lineWidth(0.5).stroke();
     // Label (Inter, slate-500 muted small caps)
-    doc.font(F('semibold')).fontSize(6).fillColor('#64748B')
+    doc.font(autoF(s.lbl, 'semibold')).fontSize(6).fillColor('#64748B')
       .text(s.lbl, cx + 4, y + 7, { width: cellW - 8, align: 'center', characterSpacing: 0.4 });
-    // Value (JetBrains Mono Bold for tabular alignment + premium aesthetic)
-    doc.font(F('mono-bold')).fontSize(9).fillColor(s.color || '#1E293B')
-      .text(s.val, cx + 4, y + 16, { width: cellW - 8, align: 'center', characterSpacing: -0.2 });
+    // Value (JetBrains Mono Bold for tabular alignment + premium aesthetic; fallback to autoF for Devanagari)
+    const valStr = String(s.val ?? '');
+    const valFont = hasDeva(valStr) ? autoF(valStr, 'bold') : F('mono-bold');
+    doc.font(valFont).fontSize(9).fillColor(s.color || '#1E293B')
+      .text(valStr, cx + 4, y + 16, { width: cellW - 8, align: 'center', characterSpacing: -0.2 });
   });
+  // Reset to default font for callers
   doc.font(F('normal'));
   return y + summaryH;
 }
@@ -589,11 +599,11 @@ function drawSectionBand(doc, title, opts = {}) {
   // Accent stripe on left edge
   doc.rect(x, y, 4, height).fill(p.accent);
   // Title
-  doc.fillColor(p.fg).font(F('bold')).fontSize(11)
+  doc.fillColor(p.fg).font(autoF(title, 'bold')).fontSize(11)
     .text(String(title).toUpperCase(), x + 12, y + 6, { width: width - 24, lineBreak: false });
   // Subtitle on right
   if (opts.subtitle) {
-    doc.fillColor(p.accent).font(F('normal')).fontSize(8.5)
+    doc.fillColor(p.accent).font(autoF(opts.subtitle, 'normal')).fontSize(8.5)
       .text(opts.subtitle, x + 12, y + 7, { width: width - 24, align: 'right', lineBreak: false });
   }
   doc.y = y + height + 4;
