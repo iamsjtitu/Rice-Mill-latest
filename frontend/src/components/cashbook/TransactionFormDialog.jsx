@@ -163,9 +163,14 @@ const TransactionFormDialog = ({
                 // Owner balance includes BOTH:
                 // 1) Direct owner-account txns (account=owner, owner_name=Titu)
                 // 2) Cash/Bank txns where this owner is the party (category=Titu, party_type=Owner)
-                const isThisOwner = (t) =>
+                // Auto-ledger entries (reference starts with 'auto_ledger:') are
+                // duplicates created by the system — exclude them to avoid
+                // double-counting.
+                const isAutoLedger = (t) => /^auto_ledger:/.test(String(t.reference || ''));
+                const isThisOwner = (t) => !isAutoLedger(t) && (
                   (t.account === 'owner' && t.owner_name === form.owner_name) ||
-                  (t.category === form.owner_name && t.party_type === 'Owner');
+                  (t.category === form.owner_name && t.party_type === 'Owner')
+                );
                 const ownerJama = (allTxns || []).filter(t => isThisOwner(t) && t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0);
                 const ownerNikasi = (allTxns || []).filter(t => isThisOwner(t) && t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0);
                 const bal = ownerJama - ownerNikasi;
