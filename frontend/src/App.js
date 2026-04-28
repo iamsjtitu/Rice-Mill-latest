@@ -667,6 +667,7 @@ function MainApp({ user, setUser, onLogout }) {
         setSelectAll(false);
         fetchEntries();
         fetchTotals();
+        fetchPendingVwCount();
       } catch (error) {
         toast.error("Delete karne mein error");
       }

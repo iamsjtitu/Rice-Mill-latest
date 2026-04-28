@@ -1,8 +1,25 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.36.0
+## Current Version: v104.36.1
 
-## 🚀 v104.36.0 — 6 New WhatsApp Locations + 3 Critical Bug Fixes
+## 🔴 v104.36.1 — Bug Fix: Pending VW Badge Stale After Bulk Delete
+**Build date:** 2026-04-28
+
+### Issue
+After bulk-deleting Mill Entries from the entries table, the "Auto Weight Entries" tab badge (pending count) didn't refresh — showed stale count.
+
+### Root Cause
+In `App.js`, the bulk-delete handler (line 645-672) called `fetchEntries()` and `fetchTotals()` after deletion but **NOT** `fetchPendingVwCount()`. The single-entry delete handler had it (line 818), but bulk delete missed it.
+
+### Fix
+Added `fetchPendingVwCount()` call after bulk deletion completes. All deletion paths now refresh the badge:
+- ✅ Single Mill Entry delete
+- ✅ Bulk Mill Entry delete (NEW)
+- ✅ VW entry delete (AutoWeightEntries.jsx)
+- ✅ VW entry delete (VehicleWeight.jsx)
+- ✅ Mill Entry create/edit save
+
+## v104.36.0 — 6 New WhatsApp Locations + 3 Critical Bug Fixes
 **Build date:** 2026-04-28
 
 ### 🔴 Bug Fix #A — bp_sale_register.js: matchRef CRASH on undefined ref
