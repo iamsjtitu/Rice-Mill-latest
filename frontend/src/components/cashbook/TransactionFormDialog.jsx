@@ -160,8 +160,14 @@ const TransactionFormDialog = ({
                 </p>
               )}
               {form.account === 'owner' && form.owner_name && (() => {
-                const ownerJama = (allTxns || []).filter(t => t.account === 'owner' && t.owner_name === form.owner_name && t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0);
-                const ownerNikasi = (allTxns || []).filter(t => t.account === 'owner' && t.owner_name === form.owner_name && t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0);
+                // Owner balance includes BOTH:
+                // 1) Direct owner-account txns (account=owner, owner_name=Titu)
+                // 2) Cash/Bank txns where this owner is the party (category=Titu, party_type=Owner)
+                const isThisOwner = (t) =>
+                  (t.account === 'owner' && t.owner_name === form.owner_name) ||
+                  (t.category === form.owner_name && t.party_type === 'Owner');
+                const ownerJama = (allTxns || []).filter(t => isThisOwner(t) && t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0);
+                const ownerNikasi = (allTxns || []).filter(t => isThisOwner(t) && t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0);
                 const bal = ownerJama - ownerNikasi;
                 return (
                   <p className="text-[10px] mt-1 font-medium" data-testid="cashbook-form-owner-balance">
