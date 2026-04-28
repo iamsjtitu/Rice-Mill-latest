@@ -775,10 +775,16 @@ async def make_truck_payment(entry_id: str, request: MakePaymentRequest, usernam
         kms_year = entry.get("kms_year", "")
         season = entry.get("season", "")
         pay_id = str(uuid.uuid4())
+        # Resolve payment account (cash / bank / owner)
+        pay_account = (request.account or "cash").lower()
+        if pay_account not in ("cash", "bank", "owner"):
+            pay_account = "cash"
         cb_entry = {
             "id": pay_id,
             "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-            "account": "cash",
+            "account": pay_account,
+            "bank_name": request.bank_name if pay_account == "bank" else "",
+            "owner_name": request.owner_name if pay_account == "owner" else "",
             "txn_type": "nikasi",
             "category": truck_no,
             "party_type": "Truck",
@@ -1082,11 +1088,16 @@ async def make_agent_payment(mandi_name: str, request: MakePaymentRequest, kms_y
                               "updated_at": datetime.now(timezone.utc).isoformat()}}
                 )
         
-        # NIKASI (Cash) - Agent Payment
+        # NIKASI (Cash/Bank/Owner) - Agent Payment
+        pay_account = (request.account or "cash").lower()
+        if pay_account not in ("cash", "bank", "owner"):
+            pay_account = "cash"
         cb_entry = {
             "id": str(uuid.uuid4()),
             "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-            "account": "cash",
+            "account": pay_account,
+            "bank_name": request.bank_name if pay_account == "bank" else "",
+            "owner_name": request.owner_name if pay_account == "owner" else "",
             "txn_type": "nikasi",
             "category": mandi_name,
             "party_type": "Agent",

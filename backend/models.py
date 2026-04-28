@@ -352,6 +352,9 @@ class MakePaymentRequest(BaseModel):
     amount: float
     note: str = ""
     round_off: float = 0
+    account: str = "cash"  # "cash" | "bank" | "owner"
+    bank_name: str = ""    # required if account == "bank"
+    owner_name: str = ""   # required if account == "owner"
 
 
 # ===== Utility Functions =====

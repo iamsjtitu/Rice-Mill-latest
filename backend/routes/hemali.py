@@ -191,6 +191,10 @@ async def create_hemali_payment(request: Request):
         "status": "unpaid",
         "kms_year": kms_year,
         "season": season,
+        # Payment account (cash / bank / owner) — used at mark-paid time
+        "account": (d.get("account") or "cash"),
+        "bank_name": d.get("bank_name", ""),
+        "owner_name": d.get("owner_name", ""),
         "created_by": created_by,
         "created_at": now,
         "updated_at": now,
@@ -249,13 +253,21 @@ async def _create_cash_entries(p, round_off=0):
         "kms_year": p.get("kms_year", ""), "season": p.get("season", ""),
         "created_by": p.get("created_by", ""), "created_at": now, "updated_at": now,
     }
+    # Resolve payment account (cash / bank / owner)
+    pay_account = (p.get("account") or "cash").lower()
+    if pay_account not in ("cash", "bank", "owner"):
+        pay_account = "cash"
+    pay_extra = {
+        "bank_name": p.get("bank_name", "") if pay_account == "bank" else "",
+        "owner_name": p.get("owner_name", "") if pay_account == "owner" else "",
+    }
 
     # 1. Cash Book: Nikasi (cash going out) - actual cash amount
     await db.cash_transactions.insert_one({
-        "id": str(uuid.uuid4()), "date": p["date"], "account": "cash", "txn_type": "nikasi",
+        "id": str(uuid.uuid4()), "date": p["date"], "account": pay_account, "txn_type": "nikasi",
         "amount": p["amount_paid"], "category": "Hemali Payment", "party_type": "Hemali",
         "description": f"Hemali: {sardar} - {items_desc}",
-        "reference": f"hemali_payment:{pid}", **base,
+        "reference": f"hemali_payment:{pid}", **pay_extra, **base,
     })
 
     # 2. Ledger: Jama (work amount) — shows in Party Ledger tab

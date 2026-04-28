@@ -62,6 +62,11 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentNote, setPaymentNote] = useState("");
   const [paymentRoundOff, setPaymentRoundOff] = useState("");
+  const [paymentAccount, setPaymentAccount] = useState("cash");
+  const [paymentBankName, setPaymentBankName] = useState("");
+  const [paymentOwnerName, setPaymentOwnerName] = useState("");
+  const [bankAccounts, setBankAccounts] = useState([]);
+  const [ownerAccounts, setOwnerAccounts] = useState([]);
   const [newRate, setNewRate] = useState("");
   const [truckSearchFilter, setTruckSearchFilter] = useState("");
   const [paymentHistory, setPaymentHistory] = useState([]);
@@ -105,6 +110,14 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   useEffect(() => {
     fetchPayments();
   }, [fetchPayments]);
+
+  // Load bank + owner accounts for the payment dialog selector
+  useEffect(() => {
+    (async () => {
+      try { const r = await axios.get(`${API}/bank-accounts`); setBankAccounts(r.data || []); } catch (e) { /* ignore */ }
+      try { const r = await axios.get(`${API}/owner-accounts`); setOwnerAccounts(r.data || []); } catch (e) { /* ignore */ }
+    })();
+  }, []);
 
   // Filter truck payments by search
   const filteredTruckPayments = truckSearchFilter
@@ -367,17 +380,25 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
 
   const handleMakePayment = async () => {
     if (!paymentAmount || !selectedItem) return;
+    if (paymentAccount === 'bank' && !paymentBankName) { toast.error("Bank select karein"); return; }
+    if (paymentAccount === 'owner' && !paymentOwnerName) { toast.error("Owner account select karein"); return; }
     try {
       const roundOff = parseFloat(paymentRoundOff) || 0;
+      const payload = {
+        amount: parseFloat(paymentAmount), note: paymentNote, round_off: roundOff,
+        account: paymentAccount,
+        bank_name: paymentAccount === 'bank' ? paymentBankName : "",
+        owner_name: paymentAccount === 'owner' ? paymentOwnerName : "",
+      };
       if (activePaymentTab === "truck") {
         await axios.post(
           `${API}/truck-payments/${selectedItem.entry_id}/pay?username=${user.username}&role=${user.role}`,
-          { amount: parseFloat(paymentAmount), note: paymentNote, round_off: roundOff }
+          payload
         );
       } else {
         await axios.post(
           `${API}/agent-payments/${encodeURIComponent(selectedItem.mandi_name)}/pay?kms_year=${selectedItem.kms_year}&season=${selectedItem.season}&username=${user.username}&role=${user.role}`,
-          { amount: parseFloat(paymentAmount), note: paymentNote, round_off: roundOff }
+          payload
         );
       }
       toast.success("Payment recorded!");
@@ -385,6 +406,9 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
       setPaymentAmount("");
       setPaymentNote("");
       setPaymentRoundOff("");
+      setPaymentAccount("cash");
+      setPaymentBankName("");
+      setPaymentOwnerName("");
       fetchPayments();
     } catch (error) {
       toast.error(error.response?.data?.detail || "Payment karne mein error");
@@ -1702,6 +1726,32 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                 placeholder="Enter amount"
                 className="bg-slate-700 border-slate-600 text-white"
               />
+            </div>
+            <div>
+              <Label className="text-slate-300">Payment Account</Label>
+              <Select value={paymentAccount === 'owner' && paymentOwnerName ? `owner:${paymentOwnerName}` : paymentAccount === 'bank' && paymentBankName ? `bank:${paymentBankName}` : paymentAccount}
+                onValueChange={(v) => {
+                  if (v.startsWith('owner:')) { setPaymentAccount('owner'); setPaymentOwnerName(v.slice(6)); setPaymentBankName(""); }
+                  else if (v.startsWith('bank:')) { setPaymentAccount('bank'); setPaymentBankName(v.slice(5)); setPaymentOwnerName(""); }
+                  else { setPaymentAccount(v); setPaymentBankName(""); setPaymentOwnerName(""); }
+                }}>
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white" data-testid="payment-account-select"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash (नकद)</SelectItem>
+                  {bankAccounts.length > 0 && (
+                    <>
+                      <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-indigo-400 font-semibold border-t mt-1">Bank Accounts</div>
+                      {bankAccounts.map(b => (<SelectItem key={b.id} value={`bank:${b.bank_name}`}>{b.bank_name}</SelectItem>))}
+                    </>
+                  )}
+                  {ownerAccounts.length > 0 && (
+                    <>
+                      <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-amber-400 font-semibold border-t mt-1">Owner Accounts</div>
+                      {ownerAccounts.map(o => (<SelectItem key={o.id} value={`owner:${o.name}`}>{o.name} <span className="text-[10px] text-amber-400 ml-1">(मालिक)</span></SelectItem>))}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label className="text-slate-300">Note (Optional)</Label>

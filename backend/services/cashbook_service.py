@@ -99,7 +99,7 @@ async def create_auto_ledger_entry(txn_dict: dict, round_off: float = 0):
 async def process_diesel_auto_entry(txn_dict: dict, round_off: float, username: str):
     """Auto-create diesel_accounts payment entry when payment is for a Diesel pump."""
     category = txn_dict.get('category', '').strip()
-    if txn_dict.get('party_type') != "Diesel" or not category or txn_dict.get('account') not in ('cash', 'bank'):
+    if txn_dict.get('party_type') != "Diesel" or not category or txn_dict.get('account') not in ('cash', 'bank', 'owner'):
         return
     
     cat_rgx_re = re.compile(f"^{re.escape(category)}$", re.IGNORECASE)
@@ -130,7 +130,7 @@ async def process_diesel_auto_entry(txn_dict: dict, round_off: float, username: 
 async def process_pvt_paddy_auto_payment(txn_dict: dict):
     """Auto-update private_paddy paid_amount when cashbook payment is for Pvt Paddy Purchase party."""
     category = txn_dict.get('category', '').strip()
-    if txn_dict.get('party_type') != "Pvt Paddy Purchase" or not category or txn_dict.get('account') not in ('cash', 'bank'):
+    if txn_dict.get('party_type') != "Pvt Paddy Purchase" or not category or txn_dict.get('account') not in ('cash', 'bank', 'owner'):
         return
     
     pvt_entry = None
@@ -266,7 +266,7 @@ async def revert_pvt_paddy_payment(txn: dict):
             pvt_entry = await db.private_paddy.find_one({"id": linked_entry_id}, {"_id": 0})
         ledger_ref = ref.replace("pvt_paddy_adv:", "pvt_paddy_advl:")
         await db.cash_transactions.delete_many({"reference": ledger_ref})
-    elif not linked_pay_id and txn.get('account') in ('cash', 'bank'):
+    elif not linked_pay_id and txn.get('account') in ('cash', 'bank', 'owner'):
         cat = txn.get('category', '')
         if txn.get('cashbook_pvt_linked'):
             pvt_entry = await db.private_paddy.find_one({"id": txn['cashbook_pvt_linked']}, {"_id": 0})
