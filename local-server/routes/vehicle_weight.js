@@ -9,6 +9,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { safeAsync } = require('./safe_handler');
+const { waHostname, waPathPrefix } = require('./wa_helper');
 const { fmtDate, createPdfDoc, registerFonts, F, addPdfHeader } = require('./pdf_helpers');
 const router = express.Router();
 
@@ -158,7 +159,7 @@ module.exports = function(database) {
     return new Promise((resolve) => {
       const postData = `phonenumber=${encodeURIComponent(phone)}&text=${encodeURIComponent(text)}${mediaUrl ? '&url=' + encodeURIComponent(mediaUrl) : ''}`;
       const options = {
-        hostname: 'api.360messenger.com', path: '/v2/sendMessage', method: 'POST',
+        hostname: waHostname((database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {}), path: `${waPathPrefix((database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {})}/sendMessage`, method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(postData) }
       };
       const req = https.request(options, (res) => {
@@ -184,7 +185,7 @@ module.exports = function(database) {
         ? `groupId=${encodeURIComponent(groupId)}&text=${encodeURIComponent(text)}&url=${encodeURIComponent(mediaUrl)}`
         : `groupId=${encodeURIComponent(groupId)}&text=${encodeURIComponent(text)}`;
       const options = {
-        hostname: 'api.360messenger.com', path: '/v2/sendGroup', method: 'POST',
+        hostname: waHostname((database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {}), path: `${waPathPrefix((database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {})}/sendGroup`, method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(postData) }
       };
       const req = https.request(options, (res) => {
@@ -619,7 +620,7 @@ module.exports = function(database) {
       const textParts = parts.join('\r\n') + '\r\n';
       const body = Buffer.concat([Buffer.from(textParts), Buffer.from(fileHead), pdfBuf, Buffer.from(fileTail)]);
       const options = {
-        hostname: 'api.360messenger.com', path: '/v2/sendGroup', method: 'POST',
+        hostname: waHostname((database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {}), path: `${waPathPrefix((database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {})}/sendGroup`, method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length }
       };
       const req = https.request(options, (res) => {
@@ -651,7 +652,7 @@ module.exports = function(database) {
       const textParts = parts.join('\r\n') + '\r\n';
       const body = Buffer.concat([Buffer.from(textParts), Buffer.from(fileHead), pdfBuf, Buffer.from(fileTail)]);
       const options = {
-        hostname: 'api.360messenger.com', path: '/v2/sendMessage', method: 'POST',
+        hostname: waHostname((database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {}), path: `${waPathPrefix((database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {})}/sendMessage`, method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length }
       };
       const req = https.request(options, (res) => {

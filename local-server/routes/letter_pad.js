@@ -7,6 +7,7 @@ const https = require('https');
 const http = require('http');
 const { v4: uuidv4 } = require('uuid');
 const { safeSync } = require('./safe_handler');
+const { waHostname, waPathPrefix } = require('./wa_helper');
 const { F: pdfF, autoF: pdfAutoF, hasDeva: pdfHasDeva, registerFonts } = require('./pdf_helpers');
 const PDFDocument = require('pdfkit');
 const docx = require('docx');
@@ -496,7 +497,7 @@ module.exports = (database) => {
     return new Promise((resolve) => {
       const postData = `phonenumber=${encodeURIComponent(phone)}&text=${encodeURIComponent(text)}${mediaUrl ? '&url=' + encodeURIComponent(mediaUrl) : ''}`;
       const options = {
-        hostname: 'api.360messenger.com', path: '/v2/sendMessage', method: 'POST',
+        hostname: waHostname((database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {}), path: `${waPathPrefix((database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {})}/sendMessage`, method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(postData) },
       };
       const r = https.request(options, (rr) => {
@@ -520,7 +521,7 @@ module.exports = (database) => {
     return new Promise((resolve) => {
       const postData = JSON.stringify({ groupId, text, url: mediaUrl || undefined });
       const options = {
-        hostname: 'api.360messenger.com', path: '/v2/sendGroup', method: 'POST',
+        hostname: waHostname((database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {}), path: `${waPathPrefix((database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {})}/sendGroup`, method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) },
       };
       const r = https.request(options, (rr) => {

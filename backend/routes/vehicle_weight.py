@@ -296,12 +296,14 @@ async def auto_notify_weight(data: dict):
         if wa_settings.get("enabled") and wa_settings.get("api_key"):
             api_key = wa_settings["api_key"]
 
+            from routes.whatsapp import _wa_base_url
+            wa_base = _wa_base_url(wa_settings)
             async with httpx.AsyncClient(timeout=30) as client:
                 if vw_wa_group_id:
                     wa_data = {"groupId": vw_wa_group_id, "text": caption}
                     if pdf_url:
                         wa_data["url"] = pdf_url
-                    resp = await client.post("https://api.360messenger.com/v2/sendGroup",
+                    resp = await client.post(f"{wa_base}/sendGroup",
                         data=wa_data, headers={"Authorization": f"Bearer {api_key}"})
                     logger.info(f"WA group resp: {resp.status_code} {resp.text[:200]}")
                     results["whatsapp"].append({"success": resp.status_code == 201 or resp.json().get("success")})
@@ -312,7 +314,7 @@ async def auto_notify_weight(data: dict):
                             wa_data = {"phonenumber": num.strip(), "text": caption}
                             if pdf_url:
                                 wa_data["url"] = pdf_url
-                            resp = await client.post("https://api.360messenger.com/v2/sendMessage",
+                            resp = await client.post(f"{wa_base}/sendMessage",
                                 data=wa_data, headers={"Authorization": f"Bearer {api_key}"})
                             results["whatsapp"].append({"success": resp.status_code == 201 or resp.json().get("success")})
     except Exception as e:

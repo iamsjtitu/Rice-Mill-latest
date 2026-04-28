@@ -1,5 +1,6 @@
 const express = require('express');
 const { safeAsync, safeSync } = require('./safe_handler');
+const { waHostname, waPathPrefix } = require('./wa_helper');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const ExcelJS = require('exceljs');
@@ -1529,7 +1530,7 @@ module.exports = function(database) {
       if (mediaUrl) form.append('url', mediaUrl);
       const postData = form.toString();
       const opts = {
-        hostname: 'api.360messenger.com',
+        hostname: waHostname((database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {}),
         path: isGroup ? '/v2/sendGroup' : '/v2/sendMessage',
         method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(postData) }

@@ -2,6 +2,7 @@ const express = require('express');
 const https = require('https');
 const http = require('http');
 const { safeAsync } = require('./safe_handler');
+const { waHostname, waPathPrefix } = require('./wa_helper');
 const router = express.Router();
 
 module.exports = function(database) {
@@ -109,11 +110,11 @@ function cleanPhone(phone, countryCode = '91') {
   return phone;
 }
 
-function sendWaMessage(apiKey, phone, text, mediaUrl) {
+function sendWaMessage(apiKey, phone, text, mediaUrl, settings = {}) {
   return new Promise((resolve, reject) => {
     const postData = `phonenumber=${encodeURIComponent(phone)}&text=${encodeURIComponent(text)}${mediaUrl ? '&url=' + encodeURIComponent(mediaUrl) : ''}`;
     const options = {
-      hostname: 'api.360messenger.com', path: '/v2/sendMessage', method: 'POST',
+      hostname: waHostname(settings), path: `${waPathPrefix(settings)}/sendMessage`, method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(postData) }
     };
     console.log('[WhatsApp] Sending to:', phone, 'mediaUrl:', mediaUrl ? 'yes' : 'no');
@@ -148,7 +149,8 @@ router.get('/api/whatsapp/settings', safeAsync(async (req, res) => {
     default_group_id: config.default_group_id || '',
     default_group_name: config.default_group_name || '',
     group_schedule_enabled: config.group_schedule_enabled || false,
-    group_schedule_time: config.group_schedule_time || ''
+    group_schedule_time: config.group_schedule_time || '',
+    wa_provider: config.wa_provider || '360messenger'
   });
 }));
 
@@ -169,7 +171,8 @@ router.put('/api/whatsapp/settings', safeAsync(async (req, res) => {
     default_group_id: (req.body.default_group_id || '').trim(),
     default_group_name: (req.body.default_group_name || '').trim(),
     group_schedule_enabled: !!req.body.group_schedule_enabled,
-    group_schedule_time: (req.body.group_schedule_time || '').trim()
+    group_schedule_time: (req.body.group_schedule_time || '').trim(),
+    wa_provider: ['360messenger', 'wa9x'].includes(String(req.body.wa_provider || '').toLowerCase()) ? String(req.body.wa_provider).toLowerCase() : '360messenger'
   };
   if (idx >= 0) settings[idx] = config; else settings.push(config);
   // Use immediate save to prevent data loss from debounce
@@ -186,7 +189,7 @@ router.get('/api/whatsapp/groups', safeAsync(async (req, res) => {
   try {
     const result = await new Promise((resolve, reject) => {
       const options = {
-        hostname: 'api.360messenger.com', path: '/v2/groupChat/getGroupList', method: 'GET',
+        hostname: waHostname(config), path: `${waPathPrefix(config)}/groupChat/getGroupList`, method: 'GET',
         headers: { 'Authorization': `Bearer ${apiKey}` }
       };
       const req = https.request(options, (r) => {
@@ -225,7 +228,7 @@ router.post('/api/whatsapp/send-group', safeAsync(async (req, res) => {
     const result = await new Promise((resolve) => {
       const postData = JSON.stringify({ groupId, text, url: mediaUrl || undefined });
       const options = {
-        hostname: 'api.360messenger.com', path: '/v2/sendGroup', method: 'POST',
+        hostname: waHostname(config), path: `${waPathPrefix(config)}/sendGroup`, method: 'POST',
         headers: { 'Authorization': `Bearer ${config.api_key}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) }
       };
       const req = https.request(options, (r) => {
@@ -336,7 +339,7 @@ router.post('/api/whatsapp/send-daily-report', safeAsync(async (req, res) => {
     }
   }
   if (send_to_group && groupId) {
-    const r = await sendWaMessage(config.api_key, groupId, report_text, resolvedPdfUrl);
+    const r = await sendWaMessage(config.api_key, groupId, report_text, resolvedPdfUrl, config);
     results.push({ target: 'group', success: r.success, error: r.error || '' });
   }
   if (!results.length) return res.json({ success: false, error: 'Koi number ya group set nahi hai. Settings > WhatsApp mein default numbers SAVE karein.' });

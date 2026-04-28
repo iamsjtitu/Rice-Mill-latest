@@ -11,8 +11,8 @@ import logger from "../../utils/logger";
 
 function MessagingTab() {
   // WhatsApp state
-  const [waSettings, setWaSettings] = useState({ api_key: "", country_code: "91", enabled: false, api_key_masked: "", default_numbers: [], default_group_id: "", default_group_name: "", group_schedule_enabled: false, group_schedule_time: "" });
-  const [waForm, setWaForm] = useState({ api_key: "", country_code: "91", default_numbers: "", default_group_id: "", default_group_name: "", group_schedule_enabled: false, group_schedule_time: "", enabled: false });
+  const [waSettings, setWaSettings] = useState({ api_key: "", country_code: "91", enabled: false, api_key_masked: "", default_numbers: [], default_group_id: "", default_group_name: "", group_schedule_enabled: false, group_schedule_time: "", wa_provider: "360messenger" });
+  const [waForm, setWaForm] = useState({ api_key: "", country_code: "91", default_numbers: "", default_group_id: "", default_group_name: "", group_schedule_enabled: false, group_schedule_time: "", enabled: false, wa_provider: "360messenger" });
   const [waTestPhone, setWaTestPhone] = useState("");
   const [waLoading, setWaLoading] = useState(false);
   const [waGroups, setWaGroups] = useState([]);
@@ -35,7 +35,8 @@ function MessagingTab() {
         default_group_name: res.data.default_group_name || "",
         group_schedule_enabled: res.data.group_schedule_enabled || false,
         group_schedule_time: res.data.group_schedule_time || "",
-        enabled: res.data.enabled || false
+        enabled: res.data.enabled || false,
+        wa_provider: res.data.wa_provider || "360messenger"
       });
     } catch (e) { logger.error("WA settings fetch error:", e); }
   };
@@ -125,7 +126,8 @@ function MessagingTab() {
                     enabled: newEnabled,
                     default_numbers: waForm.default_numbers,
                     default_group_id: waForm.default_group_id, default_group_name: waForm.default_group_name,
-                    group_schedule_enabled: waForm.group_schedule_enabled, group_schedule_time: waForm.group_schedule_time
+                    group_schedule_enabled: waForm.group_schedule_enabled, group_schedule_time: waForm.group_schedule_time,
+                    wa_provider: waForm.wa_provider || "360messenger"
                   });
                   window.dispatchEvent(new Event("messaging-config-changed"));
                   toast.success(newEnabled ? "WhatsApp ON!" : "WhatsApp OFF!");
@@ -156,13 +158,49 @@ function MessagingTab() {
             </div>
           </div>
 
+          {/* WhatsApp Provider — 360messenger or wa.9x.design */}
+          <div>
+            <Label className="text-slate-400 text-xs mb-1 block flex items-center gap-2">
+              WhatsApp Provider <span className="text-[10px] text-slate-500">(API service)</span>
+            </Label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setWaForm(prev => ({ ...prev, wa_provider: "360messenger" }))}
+                className={`p-3 rounded border text-left transition ${waForm.wa_provider === "360messenger" ? "bg-emerald-900/40 border-emerald-500 ring-2 ring-emerald-500/40" : "bg-slate-700/50 border-slate-600 hover:bg-slate-700"}`}
+                data-testid="wa-provider-360messenger"
+              >
+                <p className="text-sm font-semibold text-white flex items-center gap-2">
+                  360messenger
+                  {waForm.wa_provider === "360messenger" && <CheckCircle className="w-4 h-4 text-emerald-400" />}
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">api.360messenger.com</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setWaForm(prev => ({ ...prev, wa_provider: "wa9x" }))}
+                className={`p-3 rounded border text-left transition ${waForm.wa_provider === "wa9x" ? "bg-amber-900/40 border-amber-500 ring-2 ring-amber-500/40" : "bg-slate-700/50 border-slate-600 hover:bg-slate-700"}`}
+                data-testid="wa-provider-wa9x"
+              >
+                <p className="text-sm font-semibold text-white flex items-center gap-2">
+                  wa.9x.design
+                  {waForm.wa_provider === "wa9x" && <CheckCircle className="w-4 h-4 text-amber-400" />}
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">wa.9x.design</p>
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-500 mt-1">Dono APIs same hai — bas hostname change. Apna provider pick karke API key daalein.</p>
+          </div>
+
           {/* API Key Input */}
           <div className="grid grid-cols-12 gap-3">
             <div className="col-span-8">
-              <Label className="text-slate-400 text-xs mb-1 block">360Messenger API Key</Label>
+              <Label className="text-slate-400 text-xs mb-1 block">
+                {waForm.wa_provider === "wa9x" ? "wa.9x.design" : "360Messenger"} API Key
+              </Label>
               <Input type="password" value={waForm.api_key}
                 onChange={(e) => setWaForm(prev => ({ ...prev, api_key: e.target.value }))}
-                placeholder="API key paste karein..."
+                placeholder={waForm.wa_provider === "wa9x" ? "wa.9x.design key paste karein..." : "360Messenger key paste karein..."}
                 className="bg-slate-700 border-slate-600 text-white text-sm" data-testid="wa-api-key-input" />
             </div>
             <div className="col-span-4">
@@ -246,7 +284,8 @@ function MessagingTab() {
                   enabled: waForm.enabled,
                   default_numbers: waForm.default_numbers,
                   default_group_id: waForm.default_group_id, default_group_name: waForm.default_group_name,
-                  group_schedule_enabled: waForm.group_schedule_enabled, group_schedule_time: waForm.group_schedule_time
+                  group_schedule_enabled: waForm.group_schedule_enabled, group_schedule_time: waForm.group_schedule_time,
+                  wa_provider: waForm.wa_provider || "360messenger"
                 });
                 toast.success("WhatsApp settings save ho gayi!");
                 fetchWaSettings();

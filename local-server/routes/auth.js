@@ -1,5 +1,6 @@
 const express = require('express');
 const { safeSync, safeAsync } = require('./safe_handler');
+const { waHostname, waPathPrefix } = require('./wa_helper');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
@@ -131,7 +132,7 @@ module.exports = function(database) {
     const cleaned = _cleanPhone(phone, countryCode);
     const postData = `phonenumber=${encodeURIComponent(cleaned)}&text=${encodeURIComponent(text)}`;
     const opts = {
-      hostname: 'api.360messenger.com', path: '/v2/sendMessage', method: 'POST',
+      hostname: waHostname((database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {}), path: `${waPathPrefix((database.data.app_settings || []).find(s => s.setting_id === 'whatsapp_config') || {})}/sendMessage`, method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(postData) }
     };
     const req2 = https.request(opts, (r) => {

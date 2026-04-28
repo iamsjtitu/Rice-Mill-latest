@@ -1,4 +1,4 @@
-"""WhatsApp integration via 360Messenger API."""
+"""WhatsApp integration — supports 360messenger AND wa.9x.design (drop-in compatible)."""
 from fastapi import APIRouter, HTTPException, Request
 from database import db
 import httpx
@@ -8,7 +8,18 @@ import os
 router = APIRouter()
 logger = logging.getLogger("whatsapp")
 
-WA_API_BASE = "https://api.360messenger.com/v2"
+# Provider hosts (both speak the same v2 API)
+WA_PROVIDER_HOSTS = {
+    "360messenger": "https://api.360messenger.com/v2",
+    "wa9x": "https://wa.9x.design/api/v2",
+}
+WA_API_BASE_DEFAULT = WA_PROVIDER_HOSTS["360messenger"]
+
+
+def _wa_base_url(settings: dict) -> str:
+    """Return v2 base URL for whichever provider the user has configured."""
+    provider = (settings.get("wa_provider") or "360messenger").lower()
+    return WA_PROVIDER_HOSTS.get(provider, WA_API_BASE_DEFAULT)
 
 
 async def _get_wa_settings():
@@ -17,7 +28,7 @@ async def _get_wa_settings():
     if doc:
         return doc
     return {"key": "whatsapp", "api_key": "", "country_code": "91", "enabled": False,
-            "default_numbers": [], "group_id": ""}
+            "default_numbers": [], "group_id": "", "wa_provider": "360messenger"}
 
 
 def _clean_phone(phone: str, country_code: str = "91") -> str:
@@ -47,7 +58,7 @@ async def _send_wa_message(phone: str, text: str, media_url: str = ""):
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
-                f"{WA_API_BASE}/sendMessage",
+                f"{_wa_base_url(settings)}/sendMessage",
                 data=data,
                 headers={"Authorization": f"Bearer {api_key}"}
             )
@@ -77,7 +88,7 @@ async def _send_wa_to_group(group_id: str, text: str, media_url: str = ""):
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
-                f"{WA_API_BASE}/sendGroup",
+                f"{_wa_base_url(settings)}/sendGroup",
                 data=data,
                 headers={"Authorization": f"Bearer {api_key}"}
             )
@@ -121,6 +132,10 @@ async def update_whatsapp_settings(data: dict):
     default_group_name = data.get("default_group_name", "").strip()
     group_schedule_enabled = data.get("group_schedule_enabled", False)
     group_schedule_time = data.get("group_schedule_time", "").strip()
+    # WhatsApp API provider: '360messenger' (default) or 'wa9x' (wa.9x.design)
+    wa_provider = (data.get("wa_provider") or "360messenger").strip().lower()
+    if wa_provider not in WA_PROVIDER_HOSTS:
+        wa_provider = "360messenger"
 
     await db["settings"].update_one(
         {"key": "whatsapp"},
@@ -128,7 +143,8 @@ async def update_whatsapp_settings(data: dict):
             "key": "whatsapp", "api_key": api_key, "country_code": country_code,
             "enabled": enabled, "default_numbers": default_numbers, "group_id": group_id,
             "default_group_id": default_group_id, "default_group_name": default_group_name,
-            "group_schedule_enabled": group_schedule_enabled, "group_schedule_time": group_schedule_time
+            "group_schedule_enabled": group_schedule_enabled, "group_schedule_time": group_schedule_time,
+            "wa_provider": wa_provider,
         }},
         upsert=True
     )
@@ -145,7 +161,7 @@ async def get_whatsapp_groups():
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(
-                f"{WA_API_BASE}/groupChat/getGroupList",
+                f"{_wa_base_url(settings)}/groupChat/getGroupList",
                 headers={"Authorization": f"Bearer {api_key}"}
             )
             result = resp.json()
