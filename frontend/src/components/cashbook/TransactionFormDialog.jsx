@@ -42,23 +42,31 @@ const enterNav = (testId) => (e) => {
   }
 };
 
-const HARDCODED_PARTY_TYPES = ["Cash Party", "Pvt Paddy Purchase", "Rice Sale", "Diesel", "Local Party", "Truck", "Agent", "By-Product Sale", "Staff", "BP Sale"];
+const HARDCODED_PARTY_TYPES = ["Cash Party", "Pvt Paddy Purchase", "Rice Sale", "Diesel", "Local Party", "Truck", "Agent", "By-Product Sale", "Staff", "BP Sale", "Owner"];
 
 const TransactionFormDialog = ({
   isOpen, onOpenChange, editingId,
   form, setForm, summary,
   categories, allTxns, partyBalance,
-  onSubmit, bankAccounts = [],
+  onSubmit, bankAccounts = [], ownerAccounts = [],
 }) => {
+
+  // Owner account names for auto-detection in autocomplete
+  const ownerNamesLC = ownerAccounts.map(o => String(o.name || '').toLowerCase());
+  const isOwner = (name) => ownerNamesLC.includes(String(name || '').toLowerCase().trim());
 
   // Merge hardcoded + custom party types from existing transactions
   const customTypes = [...new Set((allTxns || []).map(t => t.party_type).filter(Boolean))];
   const allPartyTypes = [...new Set([...HARDCODED_PARTY_TYPES, ...customTypes])].sort();
 
+  // Categories augmented with owner account names (so they appear in autocomplete)
+  const ownerCategoryNames = ownerAccounts.map(o => o.name).filter(Boolean);
+  const augmentedCategories = [...new Set([...(categories || []), ...ownerCategoryNames])].sort();
+
   const formRef = useRef(null);
 
   const handleCategoryKeyDown = useCallback((e) => {
-    const filtered = categories.filter(c => !form.category || c.toLowerCase().includes(form.category.toLowerCase()));
+    const filtered = augmentedCategories.filter(c => !form.category || c.toLowerCase().includes(form.category.toLowerCase()));
     const idx = form._highlightIdx ?? -1;
 
     if (e.key === 'ArrowDown' && form._showPartySuggestions && filtered.length > 0) {
@@ -73,6 +81,8 @@ const TransactionFormDialog = ({
       const c = filtered[idx];
       if (form._showManualType) {
         setForm(p => ({ ...p, category: c, _showPartySuggestions: false, _highlightIdx: -1 }));
+      } else if (isOwner(c)) {
+        setForm(p => ({ ...p, category: c, party_type: "Owner", _showPartySuggestions: false, _highlightIdx: -1 }));
       } else {
         const match = allTxns.find(t => t.category && t.category.toLowerCase() === c.toLowerCase() && t.party_type);
         setForm(p => ({ ...p, category: c, party_type: match ? match.party_type : (p.party_type || ""), _showPartySuggestions: false, _highlightIdx: -1 }));
@@ -153,6 +163,8 @@ const TransactionFormDialog = ({
                   const val = e.target.value;
                   if (form._showManualType) {
                     setForm(p => ({ ...p, category: val, _showPartySuggestions: true, _highlightIdx: -1 }));
+                  } else if (isOwner(val)) {
+                    setForm(p => ({ ...p, category: val, party_type: "Owner", _showPartySuggestions: true, _highlightIdx: -1 }));
                   } else {
                     const match = allTxns.find(t => t.category && t.category.toLowerCase() === val.toLowerCase() && t.party_type);
                     setForm(p => ({ ...p, category: val, party_type: match ? match.party_type : (p.party_type || ""), _showPartySuggestions: true, _highlightIdx: -1 }));
@@ -161,18 +173,19 @@ const TransactionFormDialog = ({
                 onFocus={() => setForm(p => ({ ...p, _showPartySuggestions: true, _highlightIdx: -1 }))}
                 onBlur={() => setTimeout(() => setForm(p => ({ ...p, _showPartySuggestions: false, _highlightIdx: -1 })), 200)}
                 onKeyDown={handleCategoryKeyDown}
-                placeholder="Party name search karein..."
+                placeholder="Party / Owner name search karein..."
                 className="border-slate-300 h-8 text-sm"
                 autoComplete="off"
                 data-testid="cashbook-form-category"
               />
               {form._showPartySuggestions && (
                 (() => {
-                  const filtered = categories.filter(c => !form.category || c.toLowerCase().includes(form.category.toLowerCase()));
+                  const filtered = augmentedCategories.filter(c => !form.category || c.toLowerCase().includes(form.category.toLowerCase()));
                   return filtered.length > 0 ? (
                     <div className="absolute z-50 w-full mt-1 max-h-40 overflow-auto bg-slate-800 border border-slate-200 rounded-md shadow-lg">
                       {filtered.map((c, i) => {
-                        const pt = allTxns.find(t => t.category === c && t.party_type);
+                        const owner = isOwner(c);
+                        const pt = owner ? { party_type: 'Owner' } : allTxns.find(t => t.category === c && t.party_type);
                         const isHighlighted = (form._highlightIdx ?? -1) === i;
                         return (
                           <div key={c}
@@ -180,6 +193,8 @@ const TransactionFormDialog = ({
                             onMouseDown={() => {
                               if (form._showManualType) {
                                 setForm(p => ({ ...p, category: c, _showPartySuggestions: false, _highlightIdx: -1 }));
+                              } else if (owner) {
+                                setForm(p => ({ ...p, category: c, party_type: "Owner", _showPartySuggestions: false, _highlightIdx: -1 }));
                               } else {
                                 const match = allTxns.find(t => t.category && t.category.toLowerCase() === c.toLowerCase() && t.party_type);
                                 setForm(p => ({ ...p, category: c, party_type: match ? match.party_type : (p.party_type || ""), _showPartySuggestions: false, _highlightIdx: -1 }));
@@ -192,6 +207,7 @@ const TransactionFormDialog = ({
                               pt.party_type === 'Agent' ? 'bg-purple-100 text-purple-700' :
                               pt.party_type === 'Local Party' ? 'bg-amber-100 text-amber-700' :
                               pt.party_type === 'Diesel' ? 'bg-orange-100 text-orange-700' :
+                              pt.party_type === 'Owner' ? 'bg-emerald-100 text-emerald-700 font-semibold' :
                               'bg-slate-100 text-slate-600'
                             }`}>{pt.party_type}</span>}
                           </div>

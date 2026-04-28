@@ -73,6 +73,9 @@ const CashBook = ({ filters, user }) => {
   const [bankAccounts, setBankAccounts] = useState([]);
   const [newBankName, setNewBankName] = useState("");
   const [isBankMgmtOpen, setIsBankMgmtOpen] = useState(false);
+  const [ownerAccounts, setOwnerAccounts] = useState([]);
+  const [newOwnerName, setNewOwnerName] = useState("");
+  const [isOwnerMgmtOpen, setIsOwnerMgmtOpen] = useState(false);
   const [isObSettingsOpen, setIsObSettingsOpen] = useState(false);
   const [obCash, setObCash] = useState("");
   const [obBankDetails, setObBankDetails] = useState({});
@@ -135,6 +138,13 @@ const CashBook = ({ filters, user }) => {
     } catch (e) { console.warn('fetchBankAccounts failed:', e?.message || e); }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const fetchOwnerAccounts = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/owner-accounts`);
+      setOwnerAccounts(res.data || []);
+    } catch (e) { console.warn('fetchOwnerAccounts failed:', e?.message || e); }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const cbAbortRef = useRef(null);
   const fetchData = useCallback(async (fetchPage) => {
     if (cbAbortRef.current) cbAbortRef.current.abort();
@@ -189,6 +199,7 @@ const CashBook = ({ filters, user }) => {
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
   useEffect(() => { fetchAgentNames(); }, [fetchAgentNames]);
   useEffect(() => { fetchBankAccounts(); }, [fetchBankAccounts]);
+  useEffect(() => { fetchOwnerAccounts(); }, [fetchOwnerAccounts]);
   useEffect(() => { if (activeView === "party-summary") fetchPartySummary(); }, [activeView, fetchPartySummary]);
 
   const resetForm = () => setForm({
@@ -476,6 +487,9 @@ const CashBook = ({ filters, user }) => {
         <Button onClick={() => setIsBankMgmtOpen(true)} variant="outline" size="sm" className="border-indigo-600 text-indigo-400 hover:bg-indigo-900/30" data-testid="bank-mgmt-btn">
           <Landmark className="w-3 h-3 mr-1" /> Bank Accounts
         </Button>
+        <Button onClick={() => setIsOwnerMgmtOpen(true)} variant="outline" size="sm" className="border-amber-600 text-amber-400 hover:bg-amber-900/30" data-testid="owner-mgmt-btn">
+          <Wallet className="w-3 h-3 mr-1" /> Owner Accounts
+        </Button>
         <Button onClick={openSvPayDialog} variant="outline" size="sm" className="border-emerald-600 text-emerald-400 hover:bg-emerald-900/30" data-testid="sv-payment-btn">
           <FileText className="w-3 h-3 mr-1" /> Sale Voucher Payment
         </Button>
@@ -610,7 +624,7 @@ const CashBook = ({ filters, user }) => {
         isOpen={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingId(null); }}
         editingId={editingId} form={form} setForm={setForm} summary={summary}
         categories={categories} allTxns={allTxns} partyBalance={partyBalance}
-        onSubmit={handleSubmit} bankAccounts={bankAccounts}
+        onSubmit={handleSubmit} bankAccounts={bankAccounts} ownerAccounts={ownerAccounts}
       />
 
       {/* Opening Balance Dialog (Party Ledger) */}
@@ -699,6 +713,56 @@ const CashBook = ({ filters, user }) => {
                     try { await axios.delete(`${API}/bank-accounts/${b.id}`); toast.success("Deleted"); fetchBankAccounts(); }
                     catch { toast.error("Delete failed"); }
                   }} className="text-red-400 hover:text-red-300">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Owner Accounts Management Dialog */}
+      <Dialog open={isOwnerMgmtOpen} onOpenChange={setIsOwnerMgmtOpen}>
+        <DialogContent className="max-w-md bg-slate-800 border-slate-700 text-white" data-testid="owner-mgmt-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-amber-400 flex items-center gap-2">
+              <Wallet className="w-5 h-5" /> Owner Accounts (Pvt / Drawing)
+            </DialogTitle>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Owner ke alag-alag accounts (e.g. "Titu", "Mahesh"). Cash Book mein
+              Party / Category mein autocomplete ho jayenge — Party Ledger se
+              full statement nikal sakte ho.
+            </p>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <Input value={newOwnerName} onChange={e => setNewOwnerName(e.target.value)}
+                placeholder='Owner name (e.g. "Titu")' className="bg-slate-700 border-slate-600 text-white h-8 text-sm flex-1" data-testid="new-owner-name" />
+              <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white h-8" data-testid="add-owner-btn"
+                onClick={async () => {
+                  if (!newOwnerName.trim()) return;
+                  try {
+                    await axios.post(`${API}/owner-accounts`, { name: newOwnerName.trim() });
+                    toast.success("Owner account added!"); setNewOwnerName(""); fetchOwnerAccounts();
+                  } catch (e) { toast.error(e.response?.data?.detail || "Error adding owner"); }
+                }}>
+                <Plus className="w-3 h-3 mr-1" /> Add
+              </Button>
+            </div>
+            {ownerAccounts.length === 0 && <p className="text-xs text-slate-500 text-center py-4">Koi owner account nahi hai. Upar se add karein.</p>}
+            <div className="space-y-1 max-h-60 overflow-auto">
+              {ownerAccounts.map(o => (
+                <div key={o.id} className="flex items-center justify-between bg-slate-700/50 px-3 py-2 rounded" data-testid={`owner-item-${o.id}`}>
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-amber-400" />
+                    <span className="text-sm text-white">{o.name}</span>
+                  </div>
+                  <button onClick={async () => {
+                    if (!await showConfirm("Delete Owner Account", `"${o.name}" delete karna hai?`)) return;
+                    try { await axios.delete(`${API}/owner-accounts/${o.id}`); toast.success("Deleted"); fetchOwnerAccounts(); }
+                    catch { toast.error("Delete failed"); }
+                  }} className="text-red-400 hover:text-red-300" data-testid={`owner-delete-${o.id}`}>
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>

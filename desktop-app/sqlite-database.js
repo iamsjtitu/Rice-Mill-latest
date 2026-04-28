@@ -33,6 +33,8 @@ const ARRAY_COLLECTIONS = [
   'telegram_logs', 'verification_history',
   // v104.30.0 — Letter Pad drafts (Save Draft feature):
   'letter_drafts',
+  // v104.31.0 — Owner Accounts (Pvt / Drawing accounts in Cash Book):
+  'owner_accounts',
 ];
 
 // KV items (non-array objects)

@@ -177,6 +177,7 @@ class JsonDatabase {
       agent_payments: [],
       milling_entries: [],
       bank_accounts: [],
+      owner_accounts: [],
       opening_balances: [],
       gst_opening_balances: {},
       sale_vouchers: [],
@@ -1429,6 +1430,7 @@ function createApiServer(database) {
     { name: 'fy_summary', load: () => require('./routes/fy_summary')(database) },
     { name: 'telegram', load: () => require('./routes/telegram')(database) },
     { name: 'bank_accounts', load: () => require('./routes/bank_accounts')(database) },
+    { name: 'owner_accounts', load: () => require('./routes/owner_accounts')(database) },
     { name: 'gst_ledger', load: () => require('./routes/gst_ledger')(database) },
     { name: 'voucher_payments', load: () => require('./routes/voucher_payments')(database) },
     { name: 'salebook', load: () => require('./routes/salebook')(database) },
@@ -1476,7 +1478,7 @@ function createApiServer(database) {
       'sale_vouchers', 'purchase_vouchers', 'gunny_bags', 'cash_transactions',
       'opening_balances', 'gst_opening_balances', 'local_party_accounts', 'party_ledger',
       'mandi_targets', 'voucher_payments', 'stock_summary', 'truck_payments', 'agent_payments',
-      'milling_entries', 'diesel_accounts', 'bank_accounts'];
+      'milling_entries', 'diesel_accounts', 'bank_accounts', 'owner_accounts'];
     const deleted = {};
     for (const col of collections) {
       const count = (database.data[col] || []).length || 0;

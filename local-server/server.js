@@ -1096,6 +1096,10 @@ async function startServer() {
     const bankAccountsRoutes = require('./routes/bank_accounts')(database);
     app.use(bankAccountsRoutes);
 
+    // Owner Accounts routes (v104.31.0)
+    const ownerAccountsRoutes = require('./routes/owner_accounts')(database);
+    app.use(ownerAccountsRoutes);
+
     // Backups routes
     const backupsRoutes = require('./routes/backups')(database, {
       createBackup: (_db, label) => createBackup(label),

@@ -46,6 +46,42 @@ async def delete_bank_account(bank_id: str):
         raise HTTPException(status_code=404, detail="Bank account not found")
     return {"message": "Bank account deleted", "id": bank_id}
 
+
+# ============ OWNER ACCOUNTS MANAGEMENT (Pvt / Drawing accounts) ============
+# Owner accounts are tracked as PARTIES in the cashbook ledger (e.g. "Titu",
+# "Mahesh"). Listing them centrally lets the frontend autocomplete owner names
+# and auto-classify transactions with party_type="Owner" so the Party Ledger
+# tab can produce a clean per-owner statement.
+
+@router.get("/owner-accounts")
+async def get_owner_accounts():
+    accounts = await db.owner_accounts.find({}, {"_id": 0}).sort("name", 1).to_list(100)
+    return accounts
+
+
+@router.post("/owner-accounts")
+async def add_owner_account(request: Request):
+    data = await request.json()
+    name = (data.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Owner account name is required")
+    existing = await db.owner_accounts.find_one({"name": {"$regex": f"^{name}$", "$options": "i"}})
+    if existing:
+        raise HTTPException(status_code=400, detail="Owner account already exists")
+    doc = {"id": str(uuid.uuid4()), "name": name, "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.owner_accounts.insert_one(doc.copy())
+    doc.pop("_id", None)
+    return doc
+
+
+@router.delete("/owner-accounts/{owner_id}")
+async def delete_owner_account(owner_id: str):
+    result = await db.owner_accounts.delete_one({"id": owner_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Owner account not found")
+    return {"message": "Owner account deleted", "id": owner_id}
+
+
 # ============ CASH BOOK / DAILY CASH & BANK REGISTER ============
 
 class CashTransaction(BaseModel):
@@ -1431,6 +1467,18 @@ async def _generate_cash_book_pdf_bytes(kms_year=None, season=None, account=None
 
     doc.build(elements); buffer.seek(0)
     return buffer.getvalue()
+
+
+@router.get("/cash-book/pdf")
+async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[str] = None,
+                                account: Optional[str] = None, txn_type: Optional[str] = None,
+                                category: Optional[str] = None, party_type: Optional[str] = None,
+                                date_from: Optional[str] = None, date_to: Optional[str] = None):
+    pdf_bytes = await _generate_cash_book_pdf_bytes(
+        kms_year=kms_year, season=season, account=account, txn_type=txn_type,
+        category=category, party_type=party_type, date_from=date_from, date_to=date_to)
+    return Response(content=pdf_bytes, media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=cash_book_{datetime.now().strftime('%Y%m%d')}.pdf"})
 
 
 @router.get("/cash-book/pdf")
