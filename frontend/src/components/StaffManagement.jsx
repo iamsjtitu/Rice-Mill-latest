@@ -169,11 +169,15 @@ const Attendance = ({ staff, filters }) => {
         <Button onClick={saveAll} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white h-9" data-testid="save-attendance-btn">
           <Check className="w-4 h-4 mr-1" /> Save Attendance
         </Button>
-        <Button onClick={() => exportAtt('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 h-9" data-testid="att-export-excel">
-          <Download className="w-4 h-4 mr-1" /> Excel
+        <Button onClick={() => exportAtt('excel')} variant="outline" size="sm"
+          title="Excel download" aria-label="Excel"
+          className="border-slate-600 text-green-400 h-9 w-9 p-0" data-testid="att-export-excel">
+          <Download className="w-4 h-4" />
         </Button>
-        <Button onClick={() => exportAtt('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-9" data-testid="att-export-pdf">
-          <FileText className="w-4 h-4 mr-1" /> PDF
+        <Button onClick={() => exportAtt('pdf')} variant="outline" size="sm"
+          title="PDF download" aria-label="PDF"
+          className="border-slate-600 text-red-400 h-9 w-9 p-0" data-testid="att-export-pdf">
+          <FileText className="w-4 h-4" />
         </Button>
         <ShareFileViaWhatsApp
           getFile={async () => {
@@ -185,7 +189,7 @@ const Attendance = ({ staff, filters }) => {
             return await fetchAsBlob(`/api/staff/export/attendance?${p}`, `staff_attendance_${from}_to_${to}.xlsx`);
           }}
           caption={`Staff Attendance — ${date.slice(0, 7)}`}
-          label="WhatsApp"
+          title="WhatsApp pe bhejein (Excel)"
           testId="att-share-whatsapp"
         />
       </div>

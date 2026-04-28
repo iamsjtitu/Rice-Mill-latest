@@ -1,8 +1,40 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.34.0
+## Current Version: v104.35.0
 
-## 🚀 v104.34.0 — Generic File Upload (Excel/Word/Image/Video → WhatsApp)
+## 🚀 v104.35.0 — Icon-Only Buttons + 3 New WhatsApp Share Locations + Bug Fix
+**Build date:** 2026-04-28
+
+### 🔴 Bug Fix: Single WhatsApp click was ALSO sending to group
+- **Issue:** Daily Report → click "WhatsApp" button (single send) → message ALSO appeared in WhatsApp Group
+- **Root cause:** `send_to_group: true` was hardcoded in the WhatsApp button onClick handler (DailyReport.jsx:157)
+- **Fix:** Changed to `send_to_group: false` — single button only sends to phone/default numbers, Group button sends to group
+- **Verified via curl:** `send-daily-report` with `send_to_group=false` returns only 1 target (no group)
+
+### Icon-Only Action Buttons (cleaner UI)
+Replaced text+icon buttons with **icon-only buttons** across all key reports:
+- **DailyReport**: Telegram, WhatsApp (single), Group buttons → all icon-only with hover tooltips
+- **StaffManagement**: Excel, PDF, WhatsApp Share buttons → icon-only
+- **StockSummary**: Excel, PDF, WhatsApp Share → icon-only
+- **AgentMandiReport**: Excel, PDF, WhatsApp Share → icon-only
+- **CashBook (SummaryCards)**: Excel, PDF, WhatsApp Share → icon-only with `actionExtras` slot
+- **ShareFileViaWhatsApp** component: now icon-only by default with `title` tooltip
+
+### 3 New WhatsApp Share Locations (drop-in)
+1. **Stock Summary** — share Excel report directly to WhatsApp group (file: `stock_summary.xlsx`)
+2. **Cash Book** — share PDF (with current filters preserved: account, txn_type, party, dates) (file: `cash_book.pdf`)
+3. **Agent / Mandi Report** — share PDF (with current filters: search, dates, expanded mandis) (file: `agent_mandi_report.pdf`)
+
+### Pattern (any future location):
+```jsx
+<ShareFileViaWhatsApp
+  getFile={async () => fetchAsBlob('/api/some/export?fmt=xlsx', 'report.xlsx')}
+  caption="Report description"
+  title="WhatsApp pe bhejein"
+/>
+```
+
+## v104.34.0 — Generic File Upload (Excel/Word/Image/Video → WhatsApp)
 **Build date:** 2026-04-28
 
 ### MIME-aware backend helpers

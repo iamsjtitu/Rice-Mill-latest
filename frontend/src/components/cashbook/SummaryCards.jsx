@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Wallet, Landmark, Plus, Download, FileText } from "lucide-react";
-const SummaryCards = ({ summary, onNewTransaction, onExport, previewData = [] }) => {
+const SummaryCards = ({ summary, onNewTransaction, onExport, actionExtras = null, previewData = [] }) => {
   if (!summary) return null;
   const bankDetails = summary.bank_details || {};
   const bankNames = Object.keys(bankDetails);
@@ -65,12 +65,17 @@ const SummaryCards = ({ summary, onNewTransaction, onExport, previewData = [] })
               <Plus className="w-4 h-4 mr-1" /> New Transaction
             </Button>
             <div className="flex gap-1 w-full">
-              <Button onClick={() => onExport('excel')} variant="outline" size="sm" className="flex-1 border-green-300 text-green-700 hover:bg-green-50 text-xs" data-testid="cashbook-export-excel">
-                <Download className="w-3 h-3 mr-1" /> Excel
+              <Button onClick={() => onExport('excel')} variant="outline" size="sm"
+                title="Excel download" aria-label="Excel"
+                className="flex-1 border-green-300 text-green-700 hover:bg-green-50 h-8 px-0" data-testid="cashbook-export-excel">
+                <Download className="w-4 h-4" />
               </Button>
-              <Button onClick={() => onExport('pdf')} variant="outline" size="sm" className="flex-1 border-red-300 text-red-600 hover:bg-red-50 text-xs" data-testid="cashbook-export-pdf">
-                <FileText className="w-3 h-3 mr-1" /> PDF
+              <Button onClick={() => onExport('pdf')} variant="outline" size="sm"
+                title="PDF download" aria-label="PDF"
+                className="flex-1 border-red-300 text-red-600 hover:bg-red-50 h-8 px-0" data-testid="cashbook-export-pdf">
+                <FileText className="w-4 h-4" />
               </Button>
+              {actionExtras}
             </div>
           </CardContent>
         </Card>

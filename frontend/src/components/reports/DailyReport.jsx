@@ -124,12 +124,14 @@ const DailyReport = ({ filters }) => {
         <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-9" data-testid="daily-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
         {tg && isDetail && (
           <Button onClick={openTelegramConfirm} disabled={sendingTelegram} variant="outline" size="sm"
-            className="border-blue-500 text-blue-400 hover:bg-blue-500/10 h-9" data-testid="daily-send-telegram">
-            <Send className={`w-4 h-4 mr-1 ${sendingTelegram ? 'animate-pulse' : ''}`} />
-            {sendingTelegram ? "Sending..." : "Telegram"}
+            title="Telegram pe bhejein" aria-label="Telegram pe bhejein"
+            className="border-blue-500 text-blue-400 hover:bg-blue-500/10 h-9 w-9 p-0" data-testid="daily-send-telegram">
+            <Send className={`w-4 h-4 ${sendingTelegram ? 'animate-pulse' : ''}`} />
           </Button>
         )}
-        {wa && <Button variant="outline" size="sm" className="border-green-500 text-green-400 hover:bg-green-500/10 h-9" data-testid="daily-send-whatsapp"
+        {wa && <Button variant="outline" size="sm"
+          title="WhatsApp pe bhejein (default numbers)" aria-label="WhatsApp pe bhejein"
+          className="border-green-500 text-green-400 hover:bg-green-500/10 h-9 w-9 p-0" data-testid="daily-send-whatsapp"
           onClick={async () => {
             if (!data) { toast.error("Pehle report load karein"); return; }
             // Check if default numbers exist, else ask
@@ -154,16 +156,18 @@ const DailyReport = ({ filters }) => {
             const pdfUrl = `${API}/reports/daily/pdf?date=${date}&mode=${mode}&kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`;
             try {
               const res = await axios.post(`${API}/whatsapp/send-daily-report`, {
-                report_text: summary, pdf_url: pdfUrl, send_to_group: true, phone
+                report_text: summary, pdf_url: pdfUrl, send_to_group: false, phone
               });
               if (res.data.success) toast.success(res.data.message || "Daily Report WhatsApp pe bhej diya!");
               else toast.error(res.data.error || res.data.message || "WhatsApp fail");
             } catch (e) { toast.error(e.response?.data?.detail || e.response?.data?.error || "WhatsApp error"); }
           }}
         >
-          <Send className="w-4 h-4 mr-1" /> WhatsApp
+          <Send className="w-4 h-4" />
         </Button>}
-        {wa && <Button variant="outline" size="sm" className="border-teal-500 text-teal-400 hover:bg-teal-500/10 h-9" data-testid="daily-send-to-group"
+        {wa && <Button variant="outline" size="sm"
+          title="WhatsApp Group pe bhejein" aria-label="WhatsApp Group pe bhejein"
+          className="border-teal-500 text-teal-400 hover:bg-teal-500/10 h-9 w-9 p-0" data-testid="daily-send-to-group"
           onClick={() => {
             if (!data) { toast.error("Pehle report load karein"); return; }
             const summary = [
@@ -181,7 +185,7 @@ const DailyReport = ({ filters }) => {
             setGroupDialogOpen(true);
           }}
         >
-          <Users className="w-4 h-4 mr-1" /> Group
+          <Users className="w-4 h-4" />
         </Button>}
       </div>
 

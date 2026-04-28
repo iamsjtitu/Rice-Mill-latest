@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useConfirm } from "./ConfirmProvider";
 import { SendToGroupDialog } from "./SendToGroupDialog";
+import { ShareFileViaWhatsApp } from "./common/ShareFileViaWhatsApp";
+import { fetchAsBlob } from "../utils/download";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 import logger from "../utils/logger";
 
@@ -511,7 +513,28 @@ const CashBook = ({ filters, user }) => {
         </Button>
       </div>
 
-      <SummaryCards summary={summary} onNewTransaction={openNewTransaction} onExport={exportData} previewData={txns} />
+      <SummaryCards summary={summary} onNewTransaction={openNewTransaction} onExport={exportData}
+        actionExtras={
+          <ShareFileViaWhatsApp
+            getFile={async () => {
+              const params = new URLSearchParams();
+              if (filters.kms_year) params.append('kms_year', filters.kms_year);
+              if (activeView === 'cash-transactions') params.append('account', 'cash');
+              else if (txnFilters.account) params.append('account', txnFilters.account);
+              if (txnFilters.txn_type) params.append('txn_type', txnFilters.txn_type);
+              if (txnFilters.category) params.append('category', txnFilters.category);
+              if (txnFilters.party_type) params.append('party_type', txnFilters.party_type);
+              if (txnFilters.date_from) params.append('date_from', txnFilters.date_from);
+              if (txnFilters.date_to) params.append('date_to', txnFilters.date_to);
+              return await fetchAsBlob(`/api/cash-book/pdf?${params}`, 'cash_book.pdf');
+            }}
+            caption="Cash Book Report"
+            title="Cash Book WhatsApp pe bhejein (PDF)"
+            className="flex-1 h-8"
+            testId="cashbook-share-whatsapp"
+          />
+        }
+        previewData={txns} />
 
       {/* Sub-tabs */}
       <div className="flex gap-2 flex-wrap items-center">

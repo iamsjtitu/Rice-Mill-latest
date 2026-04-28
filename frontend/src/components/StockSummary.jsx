@@ -9,7 +9,8 @@ import {
 import {
   RefreshCw, FileText, FileSpreadsheet, Package, Wheat, ShoppingBag, Box,
 } from "lucide-react";
-import { downloadFile } from "../utils/download";
+import { downloadFile, fetchAsBlob } from "../utils/download";
+import { ShareFileViaWhatsApp } from "./common/ShareFileViaWhatsApp";
 import logger from "../utils/logger";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -91,12 +92,22 @@ export default function StockSummary({ filters }) {
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="stock-refresh-btn">
           <RefreshCw className="w-4 h-4 mr-1" /> Refresh
         </Button>
-        <Button onClick={() => handleExport('pdf')} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30" data-testid="stock-export-pdf">
-          <FileText className="w-4 h-4 mr-1" /> PDF
+        <Button onClick={() => handleExport('pdf')} variant="outline" size="sm"
+          title="PDF download" aria-label="PDF"
+          className="border-red-700 text-red-400 hover:bg-red-900/30 h-9 w-9 p-0" data-testid="stock-export-pdf">
+          <FileText className="w-4 h-4" />
         </Button>
-        <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-green-700 text-green-400 hover:bg-green-900/30" data-testid="stock-export-excel">
-          <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+        <Button onClick={() => handleExport('excel')} variant="outline" size="sm"
+          title="Excel download" aria-label="Excel"
+          className="border-green-700 text-green-400 hover:bg-green-900/30 h-9 w-9 p-0" data-testid="stock-export-excel">
+          <FileSpreadsheet className="w-4 h-4" />
         </Button>
+        <ShareFileViaWhatsApp
+          getFile={async () => fetchAsBlob('/api/stock-summary/export/excel', 'stock_summary.xlsx')}
+          caption="Stock Summary Report"
+          title="Stock Summary WhatsApp pe bhejein (Excel)"
+          testId="stock-share-whatsapp"
+        />
         {categories.length > 0 && (
           <div className="flex gap-1 bg-slate-900 p-0.5 rounded border border-slate-700 ml-2">
             <Button onClick={() => setFilterCategory("all")} variant={filterCategory === "all" ? "default" : "ghost"} size="sm"

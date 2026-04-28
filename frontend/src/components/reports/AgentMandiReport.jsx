@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RefreshCw, Download, FileText, Truck, Users } from "lucide-react";
+import { fetchAsBlob } from "../../utils/download";
+import { ShareFileViaWhatsApp } from "../common/ShareFileViaWhatsApp";
 import { API } from "./constants";
 
 const AgentMandiReport = ({ filters }) => {
@@ -55,19 +57,23 @@ const AgentMandiReport = ({ filters }) => {
   };
   const collapseAll = () => setExpandedMandis({});
 
+  // Build export URL with current filters (used for WhatsApp share too)
+  const buildExportUrl = (format) => {
+    const p = new URLSearchParams();
+    if (filters.kms_year) p.append('kms_year', filters.kms_year);
+    if (filters.season) p.append('season', filters.season);
+    if (search.trim()) p.append('search', search.trim());
+    if (dateFrom) p.append('date_from', dateFrom);
+    if (dateTo) p.append('date_to', dateTo);
+    const expanded = Object.keys(expandedMandis).filter(k => expandedMandis[k]);
+    if (expanded.length > 0) p.append('mandis', expanded.join(','));
+    return `/api/reports/agent-mandi-wise/${format}?${p}`;
+  };
+
   const exportData = async (format) => {
     try {
-      const p = new URLSearchParams();
-      if (filters.kms_year) p.append('kms_year', filters.kms_year);
-      if (filters.season) p.append('season', filters.season);
-      if (search.trim()) p.append('search', search.trim());
-      if (dateFrom) p.append('date_from', dateFrom);
-      if (dateTo) p.append('date_to', dateTo);
-      // Pass expanded mandi names so PDF/Excel only includes those
-      const expanded = Object.keys(expandedMandis).filter(k => expandedMandis[k]);
-      if (expanded.length > 0) p.append('mandis', expanded.join(','));
       const { downloadFile } = await import('../../utils/download');
-      downloadFile(`/api/reports/agent-mandi-wise/${format}?${p}`, `agent_mandi_report.${format === 'excel' ? 'xlsx' : 'pdf'}`);
+      downloadFile(buildExportUrl(format), `agent_mandi_report.${format === 'excel' ? 'xlsx' : 'pdf'}`);
     } catch (e) { toast.error("Export failed"); }
   };
 
@@ -134,12 +140,22 @@ const AgentMandiReport = ({ filters }) => {
         <Button onClick={expandAll} variant="outline" size="sm" className="border-slate-600 text-slate-300">Expand All</Button>
         <Button onClick={collapseAll} variant="outline" size="sm" className="border-slate-600 text-slate-300">Collapse All</Button>
         <div className="flex gap-2 ml-auto">
-          <Button onClick={() => exportData('excel')} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="agent-mandi-export-excel">
-            <Download className="w-4 h-4 mr-1" /> Excel
+          <Button onClick={() => exportData('excel')} size="sm"
+            title="Excel download" aria-label="Excel"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white h-9 w-9 p-0" data-testid="agent-mandi-export-excel">
+            <Download className="w-4 h-4" />
           </Button>
-          <Button onClick={() => exportData('pdf')} size="sm" className="bg-red-600 hover:bg-red-700 text-white" data-testid="agent-mandi-export-pdf">
-            <FileText className="w-4 h-4 mr-1" /> PDF
+          <Button onClick={() => exportData('pdf')} size="sm"
+            title="PDF download" aria-label="PDF"
+            className="bg-red-600 hover:bg-red-700 text-white h-9 w-9 p-0" data-testid="agent-mandi-export-pdf">
+            <FileText className="w-4 h-4" />
           </Button>
+          <ShareFileViaWhatsApp
+            getFile={async () => fetchAsBlob(buildExportUrl('pdf'), 'agent_mandi_report.pdf')}
+            caption="Agent / Mandi Report"
+            title="Agent/Mandi Report WhatsApp pe bhejein (PDF)"
+            testId="agent-mandi-share-whatsapp"
+          />
         </div>
       </div>
 
