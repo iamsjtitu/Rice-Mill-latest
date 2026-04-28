@@ -1,12 +1,33 @@
 """WhatsApp integration — supports 360messenger AND wa.9x.design (drop-in compatible)."""
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File, Form
 from database import db
 import httpx
 import logging
+import mimetypes
 import os
 
 router = APIRouter()
 logger = logging.getLogger("whatsapp")
+
+# MIME type detection from filename extension
+def _detect_mime(filename: str) -> str:
+    """Detect MIME type from filename. Returns application/octet-stream as fallback."""
+    if not filename:
+        return "application/octet-stream"
+    mime, _ = mimetypes.guess_type(filename)
+    if mime:
+        return mime
+    # Manual fallback for common types not always in mimetypes
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    overrides = {
+        "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "xls": "application/vnd.ms-excel",
+        "doc": "application/msword",
+        "csv": "text/csv",
+    }
+    return overrides.get(ext, "application/octet-stream")
 
 # Provider hosts (both speak the same v2 API)
 WA_PROVIDER_HOSTS = {
@@ -80,10 +101,11 @@ async def _fetch_local_pdf_bytes(pdf_url: str) -> bytes:
 
 
 async def _send_wa_message(phone: str, text: str, media_url: str = "",
-                            pdf_bytes: bytes | None = None, filename: str = "report.pdf"):
+                            file_bytes: bytes | None = None, filename: str = "report.pdf",
+                            content_type: str | None = None):
     """Send a WhatsApp message. Provider-aware:
-    - wa9x + pdf_bytes: direct binary upload via /sendMessageFile (fast, no middleman)
-    - 360messenger + pdf_bytes: tmpfiles.org upload → /sendMessage with url
+    - wa9x + file_bytes: direct binary upload via /sendMessageFile (PDF/Excel/Word/image — MIME auto-detected)
+    - 360messenger + file_bytes: tmpfiles.org upload → /sendMessage with url
     - media_url only: /sendMessage with url (both providers)
     """
     settings = await _get_wa_settings()
@@ -95,12 +117,13 @@ async def _send_wa_message(phone: str, text: str, media_url: str = "",
     phone = _clean_phone(phone, country_code)
     provider = (settings.get("wa_provider") or "360messenger").lower()
     base_url = _wa_base_url(settings)
+    mime = content_type or _detect_mime(filename)
 
     # Fast path: wa9x + binary file → /sendMessageFile
-    if pdf_bytes and provider == "wa9x":
+    if file_bytes and provider == "wa9x":
         try:
             async with httpx.AsyncClient(timeout=120) as client:
-                files = {"file": (filename, pdf_bytes, "application/pdf")}
+                files = {"file": (filename, file_bytes, mime)}
                 form = {"phonenumber": phone}
                 if text:
                     form["caption"] = text
@@ -124,8 +147,8 @@ async def _send_wa_message(phone: str, text: str, media_url: str = "",
             return {"success": False, "error": msg}
 
     # 360messenger fallback: upload bytes to tmpfiles, then use URL flow
-    if pdf_bytes and not media_url:
-        media_url = await _upload_pdf_to_tmpfiles(pdf_bytes, filename)
+    if file_bytes and not media_url:
+        media_url = await _upload_pdf_to_tmpfiles(file_bytes, filename)
 
     # Standard URL/text flow
     data = {"phonenumber": phone, "text": text}
@@ -153,10 +176,11 @@ async def _send_wa_message(phone: str, text: str, media_url: str = "",
 
 
 async def _send_wa_to_group(group_id: str, text: str, media_url: str = "",
-                             pdf_bytes: bytes | None = None, filename: str = "report.pdf"):
+                             file_bytes: bytes | None = None, filename: str = "report.pdf",
+                             content_type: str | None = None):
     """Send to WhatsApp group. Provider-aware:
-    - wa9x + pdf_bytes: direct binary upload via /sendGroupFile (fast)
-    - 360messenger + pdf_bytes: tmpfiles.org upload → /sendGroup with url
+    - wa9x + file_bytes: direct binary upload via /sendGroupFile (PDF/Excel/Word/image — MIME auto-detected)
+    - 360messenger + file_bytes: tmpfiles.org upload → /sendGroup with url
     - media_url only: /sendGroup with url (both providers)
     """
     settings = await _get_wa_settings()
@@ -168,12 +192,13 @@ async def _send_wa_to_group(group_id: str, text: str, media_url: str = "",
 
     provider = (settings.get("wa_provider") or "360messenger").lower()
     base_url = _wa_base_url(settings)
+    mime = content_type or _detect_mime(filename)
 
     # Fast path: wa9x + binary file → /sendGroupFile
-    if pdf_bytes and provider == "wa9x":
+    if file_bytes and provider == "wa9x":
         try:
             async with httpx.AsyncClient(timeout=120) as client:
-                files = {"file": (filename, pdf_bytes, "application/pdf")}
+                files = {"file": (filename, file_bytes, mime)}
                 form = {"groupId": group_id}
                 if text:
                     form["caption"] = text
@@ -197,8 +222,8 @@ async def _send_wa_to_group(group_id: str, text: str, media_url: str = "",
             return {"success": False, "error": msg}
 
     # 360messenger fallback: upload bytes to tmpfiles, then use URL flow
-    if pdf_bytes and not media_url:
-        media_url = await _upload_pdf_to_tmpfiles(pdf_bytes, filename)
+    if file_bytes and not media_url:
+        media_url = await _upload_pdf_to_tmpfiles(file_bytes, filename)
 
     # Standard URL/text flow
     data = {"groupId": group_id, "text": text}
@@ -330,7 +355,7 @@ async def send_to_whatsapp_group(data: dict):
     if pdf_url and not media_url:
         pdf_bytes = await _fetch_local_pdf_bytes(pdf_url)
 
-    result = await _send_wa_to_group(group_id, text, media_url, pdf_bytes=pdf_bytes or None)
+    result = await _send_wa_to_group(group_id, text, media_url, file_bytes=pdf_bytes or None)
     return result
 
 
@@ -342,6 +367,77 @@ async def test_whatsapp(data: dict):
         raise HTTPException(status_code=400, detail="Phone number daalein")
     result = await _send_wa_message(phone, "Test message from Mill Entry System - WhatsApp connected!")
     return result
+
+
+# ---- Generic File Send (any file type — Excel, Word, Image, PDF, etc.) ----
+
+@router.post("/whatsapp/send-file")
+async def send_file_via_whatsapp(
+    file: UploadFile = File(...),
+    mode: str = Form("default"),  # "phone" | "group" | "default"
+    phone: str = Form(""),
+    group_id: str = Form(""),
+    caption: str = Form(""),
+):
+    """Send any file (PDF/Excel/Word/image/etc.) to WhatsApp. MIME auto-detected from filename.
+
+    Form fields:
+    - file: binary file (multipart upload)
+    - mode: 'phone' | 'group' | 'default' (default = all default numbers)
+    - phone: required if mode='phone'
+    - group_id: optional override; defaults to settings.default_group_id when mode='group'
+    - caption: optional caption text
+    """
+    file_bytes = await file.read()
+    if not file_bytes or len(file_bytes) < 10:
+        raise HTTPException(status_code=400, detail="File khaali hai ya bahut chhoti hai")
+    if len(file_bytes) > 100 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File 100 MB se badi hai. WhatsApp limit exceed hua.")
+
+    filename = file.filename or "attachment.bin"
+    content_type = file.content_type or _detect_mime(filename)
+
+    settings = await _get_wa_settings()
+    if not settings.get("api_key"):
+        raise HTTPException(status_code=400, detail="WhatsApp API key set nahi hai. Settings → WhatsApp mein set karein.")
+
+    mode = (mode or "default").lower()
+    results = []
+
+    if mode == "phone":
+        if not phone.strip():
+            raise HTTPException(status_code=400, detail="Phone number daalein")
+        r = await _send_wa_message(phone.strip(), caption, file_bytes=file_bytes,
+                                    filename=filename, content_type=content_type)
+        results.append({"target": phone, "success": r.get("success", False), "error": r.get("error", "")})
+    elif mode == "group":
+        gid = group_id.strip() or settings.get("default_group_id", "").strip() or settings.get("group_id", "").strip()
+        if not gid:
+            raise HTTPException(status_code=400, detail="Group ID daalein ya default group set karein")
+        r = await _send_wa_to_group(gid, caption, file_bytes=file_bytes,
+                                     filename=filename, content_type=content_type)
+        results.append({"target": "group", "success": r.get("success", False), "error": r.get("error", "")})
+    else:  # default = all default numbers
+        nums = settings.get("default_numbers", [])
+        if isinstance(nums, str):
+            nums = [n.strip() for n in nums.split(",") if n.strip()]
+        if not isinstance(nums, list) or not nums:
+            raise HTTPException(status_code=400, detail="Default numbers set nahi hai. Phone ya group choose karein, ya Settings me numbers SAVE karein.")
+        for num in nums:
+            if num and num.strip():
+                r = await _send_wa_message(num.strip(), caption, file_bytes=file_bytes,
+                                            filename=filename, content_type=content_type)
+                results.append({"target": num, "success": r.get("success", False), "error": r.get("error", "")})
+
+    success_count = sum(1 for r in results if r["success"])
+    return {
+        "success": success_count > 0,
+        "message": f"File {success_count}/{len(results)} target(s) pe bhej diya!",
+        "details": results,
+        "filename": filename,
+        "size_bytes": len(file_bytes),
+        "mime_type": content_type,
+    }
 
 
 # ---- Send Messages ----
@@ -437,16 +533,16 @@ async def send_daily_report(data: dict):
     results = []
 
     if phone:
-        r = await _send_wa_message(phone, report_text, pdf_bytes=pdf_payload, filename="daily_report.pdf")
+        r = await _send_wa_message(phone, report_text, file_bytes=pdf_payload, filename="daily_report.pdf")
         results.append({"target": phone, "success": r.get("success", False)})
     else:
         for num in default_numbers:
             if num and num.strip():
-                r = await _send_wa_message(num.strip(), report_text, pdf_bytes=pdf_payload, filename="daily_report.pdf")
+                r = await _send_wa_message(num.strip(), report_text, file_bytes=pdf_payload, filename="daily_report.pdf")
                 results.append({"target": num, "success": r.get("success", False)})
 
     if send_to_group and group_id:
-        r = await _send_wa_to_group(group_id, report_text, pdf_bytes=pdf_payload, filename="daily_report.pdf")
+        r = await _send_wa_to_group(group_id, report_text, file_bytes=pdf_payload, filename="daily_report.pdf")
         results.append({"target": "group", "success": r.get("success", False)})
 
     if not results:
@@ -563,12 +659,12 @@ async def send_party_ledger(data: dict):
     pdf_payload = pdf_bytes or None
     results = []
     if phone:
-        r = await _send_wa_message(phone, text, pdf_bytes=pdf_payload, filename=fname)
+        r = await _send_wa_message(phone, text, file_bytes=pdf_payload, filename=fname)
         results.append({"target": phone, "success": r.get("success", False)})
     else:
         for num in default_numbers:
             if num and num.strip():
-                r = await _send_wa_message(num.strip(), text, pdf_bytes=pdf_payload, filename=fname)
+                r = await _send_wa_message(num.strip(), text, file_bytes=pdf_payload, filename=fname)
                 results.append({"target": num, "success": r.get("success", False)})
 
     if not results:
@@ -801,7 +897,7 @@ async def scheduled_wa_group_send():
 
         report_text = f"*Daily Report - {today}*\n(Auto-scheduled via WhatsApp Group)"
 
-        result = await _send_wa_to_group(group_id, report_text, pdf_bytes=pdf_bytes or None, filename="daily_report.pdf")
+        result = await _send_wa_to_group(group_id, report_text, file_bytes=pdf_bytes or None, filename="daily_report.pdf")
 
         await db["wa_group_schedule_logs"].insert_one({
             "date": today,
@@ -845,11 +941,11 @@ async def send_pdf_via_whatsapp(data: dict):
 
     results = []
     if group_id:
-        r = await _send_wa_to_group(group_id, caption, pdf_bytes=pdf_bytes, filename="report.pdf")
+        r = await _send_wa_to_group(group_id, caption, file_bytes=pdf_bytes, filename="report.pdf")
         results.append({"target": "group", "success": r.get("success", False)})
     for num in default_numbers:
         if num and num.strip():
-            r = await _send_wa_message(num.strip(), caption, pdf_bytes=pdf_bytes, filename="report.pdf")
+            r = await _send_wa_message(num.strip(), caption, file_bytes=pdf_bytes, filename="report.pdf")
             results.append({"target": num, "success": r.get("success", False)})
 
     if not results:

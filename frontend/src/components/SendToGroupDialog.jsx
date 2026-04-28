@@ -10,7 +10,7 @@ const _isElectron = typeof window !== "undefined" && (window.electronAPI || wind
 const BACKEND_URL = _isElectron ? "" : (process.env.REACT_APP_BACKEND_URL || "");
 const API = `${BACKEND_URL}/api`;
 
-export function SendToGroupDialog({ open, onOpenChange, text, pdfUrl, onSent }) {
+export function SendToGroupDialog({ open, onOpenChange, text, pdfUrl, fileBlob, fileName, onSent }) {
   const [groups, setGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState("");
   const [loading, setLoading] = useState(false);
@@ -48,11 +48,25 @@ export function SendToGroupDialog({ open, onOpenChange, text, pdfUrl, onSent }) 
     if (!selectedGroup) { toast.error("Pehle group select karein"); return; }
     setSending(true);
     try {
-      const res = await axios.post(`${API}/whatsapp/send-group`, {
-        group_id: selectedGroup,
-        text: text || "",
-        pdf_url: pdfUrl || ""
-      });
+      let res;
+      if (fileBlob) {
+        // Direct file upload (Excel/Word/Image/etc.) via /send-file
+        const fd = new FormData();
+        fd.append("file", fileBlob, fileName || "attachment.bin");
+        fd.append("mode", "group");
+        fd.append("group_id", selectedGroup);
+        if (text) fd.append("caption", text);
+        res = await axios.post(`${API}/whatsapp/send-file`, fd, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      } else {
+        // Existing PDF-URL flow
+        res = await axios.post(`${API}/whatsapp/send-group`, {
+          group_id: selectedGroup,
+          text: text || "",
+          pdf_url: pdfUrl || ""
+        });
+      }
       if (res.data.success) {
         toast.success(res.data.message || "Group mein bhej diya!");
         onOpenChange(false);

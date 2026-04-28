@@ -122,3 +122,15 @@ function guessFilename(url, contentType) {
   if (p.includes('excel') || p.includes('xlsx')) return 'export.xlsx';
   return 'export';
 }
+
+/**
+ * Fetch a URL as a Blob (for in-memory use — e.g., uploading to WhatsApp).
+ * Does NOT trigger a download dialog. Returns { blob, name }.
+ */
+export const fetchAsBlob = async (url, filename) => {
+  const fullUrl = url.startsWith('http') ? url : `${API}${url}`;
+  const res = await axios.get(fullUrl, { responseType: 'blob' });
+  const ct = res.headers['content-type'] || 'application/octet-stream';
+  const blob = new Blob([res.data], { type: ct });
+  return { blob, name: filename || guessFilename(url, ct) };
+};

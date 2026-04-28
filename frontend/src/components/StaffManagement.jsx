@@ -12,6 +12,8 @@ import { Plus, Trash2, Edit, Users, Calendar, IndianRupee, RefreshCw, Check, X, 
 import RoundOffInput from "./common/RoundOffInput";
 import PaymentAccountSelect from "./common/PaymentAccountSelect";
 import { useConfirm } from "./ConfirmProvider";
+import { ShareFileViaWhatsApp } from "./common/ShareFileViaWhatsApp";
+import { fetchAsBlob } from "@/utils/download";
 import logger from "../utils/logger";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
@@ -173,6 +175,19 @@ const Attendance = ({ staff, filters }) => {
         <Button onClick={() => exportAtt('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-9" data-testid="att-export-pdf">
           <FileText className="w-4 h-4 mr-1" /> PDF
         </Button>
+        <ShareFileViaWhatsApp
+          getFile={async () => {
+            const m = date.slice(0, 7);
+            const from = `${m}-01`;
+            const d = new Date(parseInt(m.split('-')[0]), parseInt(m.split('-')[1]), 0);
+            const to = `${m}-${String(d.getDate()).padStart(2, '0')}`;
+            const p = new URLSearchParams({ date_from: from, date_to: to, fmt: 'excel' });
+            return await fetchAsBlob(`/api/staff/export/attendance?${p}`, `staff_attendance_${from}_to_${to}.xlsx`);
+          }}
+          caption={`Staff Attendance — ${date.slice(0, 7)}`}
+          label="WhatsApp"
+          testId="att-share-whatsapp"
+        />
       </div>
       {loading ? <div className="text-slate-400 text-center py-4">Loading...</div> : (
         <div className="space-y-1">

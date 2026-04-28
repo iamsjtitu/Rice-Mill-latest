@@ -794,13 +794,13 @@ async def share_letter_via_whatsapp(payload: dict = Body(...)):
         phone = (payload.get("phone") or "").strip()
         if not phone:
             raise HTTPException(status_code=400, detail="Phone number daalein")
-        r = await _send_wa_message(phone, caption, pdf_bytes=pdf_bytes, filename=filename)
+        r = await _send_wa_message(phone, caption, file_bytes=pdf_bytes, filename=filename)
         results.append({"target": phone, "success": r.get("success", False), "error": r.get("error", "")})
     elif mode == "group":
         gid = (payload.get("group_id") or "").strip() or wa_settings.get("default_group_id", "") or wa_settings.get("group_id", "")
         if not gid:
             raise HTTPException(status_code=400, detail="Group ID daalein ya default group set karein")
-        r = await _send_wa_to_group(gid, caption, pdf_bytes=pdf_bytes, filename=filename)
+        r = await _send_wa_to_group(gid, caption, file_bytes=pdf_bytes, filename=filename)
         results.append({"target": "group", "success": r.get("success", False), "error": r.get("error", "")})
     else:  # default — send to all default numbers
         nums = wa_settings.get("default_numbers", [])
@@ -809,7 +809,7 @@ async def share_letter_via_whatsapp(payload: dict = Body(...)):
         if not nums:
             raise HTTPException(status_code=400, detail="Default numbers set nahi hai. Settings → WhatsApp mein numbers SAVE karein, ya phone/group choose karein.")
         for num in nums:
-            r = await _send_wa_message(num, caption, pdf_bytes=pdf_bytes, filename=filename)
+            r = await _send_wa_message(num, caption, file_bytes=pdf_bytes, filename=filename)
             results.append({"target": num, "success": r.get("success", False), "error": r.get("error", "")})
 
     success_count = sum(1 for r in results if r["success"])

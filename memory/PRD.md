@@ -1,8 +1,42 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.33.0
+## Current Version: v104.34.0
 
-## 🚀 v104.33.0 — wa.9x.design Direct File Upload (Refactor)
+## 🚀 v104.34.0 — Generic File Upload (Excel/Word/Image/Video → WhatsApp)
+**Build date:** 2026-04-28
+
+### MIME-aware backend helpers
+- `_send_wa_message()` and `_send_wa_to_group()` ab `content_type` param accept karte hain
+- New `_detect_mime(filename)` helper — extension se auto-detect karta hai
+- Supported: PDF, XLSX/XLS, DOCX/DOC, PPTX, CSV, TXT, JPG/PNG/GIF/WebP, MP4/MOV, MP3/OGG
+- Renamed param `pdf_bytes` → `file_bytes` (backward-compatible internally)
+
+### New Generic Endpoint: `POST /api/whatsapp/send-file`
+Frontend ya backend kahin se bhi koi bhi file blob ko WhatsApp pe direct bhej sakta hai:
+- **Form fields:** `file` (binary), `mode` (`phone`|`group`|`default`), `phone`, `group_id`, `caption`
+- **Max:** 100 MB
+- **Returns:** `{success, message, details, filename, size_bytes, mime_type}`
+- Mirror in all 3 backends (Python + Electron Node + Local Express via multer)
+
+### New Reusable Component: `ShareFileViaWhatsApp`
+Path: `/app/frontend/src/components/common/ShareFileViaWhatsApp.jsx`
+- Drop-in button — pass a `getFile` callback that returns `{blob, name}`
+- Opens existing `SendToGroupDialog` with file pre-loaded
+- New `SendToGroupDialog` prop: `fileBlob` + `fileName` (auto-routes to `/send-file` endpoint)
+- New utility `fetchAsBlob(url, filename)` in `/utils/download.js`
+
+### Frontend Integration: Staff Attendance Excel
+- Staff → Attendance section me ab **Excel | PDF | WhatsApp** teeno buttons hain
+- WhatsApp button click: Excel monthly attendance fetch → directly group ya default numbers pe bhej deta hai
+- Pattern reusable — bas import + button drop karke kahin bhi add kar sakte hain
+
+### Verified
+- ✅ `POST /api/whatsapp/send-file` (mode=group, Excel) → 200, file delivered
+- ✅ `POST /api/whatsapp/send-file` (mode=default, default numbers) → 200, file delivered
+- ✅ Frontend Staff Attendance UI — Excel/PDF/WhatsApp buttons render correctly
+- ✅ `data-testid="att-share-whatsapp"` present
+
+## v104.33.0 — wa.9x.design Direct File Upload (Refactor)
 **Build date:** 2026-04-28
 
 ### Eliminated tmpfiles.org middleman for wa.9x.design provider

@@ -5,6 +5,26 @@ const { safeAsync } = require('./safe_handler');
 const { waHostname, waPathPrefix } = require('./wa_helper');
 const router = express.Router();
 
+// MIME type detection from filename extension
+const MIME_OVERRIDES = {
+  pdf: 'application/pdf',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  xls: 'application/vnd.ms-excel',
+  doc: 'application/msword',
+  csv: 'text/csv',
+  txt: 'text/plain',
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp',
+  mp4: 'video/mp4', mov: 'video/quicktime',
+  mp3: 'audio/mpeg', ogg: 'audio/ogg',
+};
+function detectMime(filename) {
+  if (!filename || filename.indexOf('.') < 0) return 'application/octet-stream';
+  const ext = filename.split('.').pop().toLowerCase();
+  return MIME_OVERRIDES[ext] || 'application/octet-stream';
+}
+
 module.exports = function(database) {
 
 // Upload local PDF to tmpfiles.org and get public URL
@@ -113,15 +133,16 @@ function fetchLocalPdfBuffer(pdfUrl) {
 }
 
 // Generic multipart POST helper (used for sendMessageFile and sendGroupFile)
-function sendWaFileMultipart(apiKey, settings, endpoint, fields, fileBuffer, fileName) {
+function sendWaFileMultipart(apiKey, settings, endpoint, fields, fileBuffer, fileName, contentType) {
   return new Promise((resolve) => {
+    const mime = contentType || detectMime(fileName);
     const boundary = '----FormBoundary' + Date.now();
     const parts = [];
     Object.entries(fields).forEach(([k, v]) => {
       if (v === undefined || v === null || v === '') return;
       parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${k}"\r\n\r\n${v}\r\n`));
     });
-    parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: application/pdf\r\n\r\n`));
+    parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: ${mime}\r\n\r\n`));
     parts.push(fileBuffer);
     parts.push(Buffer.from(`\r\n--${boundary}--\r\n`));
     const body = Buffer.concat(parts);
@@ -172,19 +193,19 @@ function cleanPhone(phone, countryCode = '91') {
   return phone;
 }
 
-// Provider-aware: sends to phone. If pdfBuffer given + wa9x → /sendMessageFile; else 360messenger fallback uses tmpfiles + URL flow.
-async function sendWaMessage(apiKey, phone, text, mediaUrl, settings = {}, pdfBuffer = null, fileName = 'report.pdf') {
+// Provider-aware: sends to phone. If fileBuffer given + wa9x → /sendMessageFile (any MIME); else 360messenger fallback uses tmpfiles + URL flow.
+async function sendWaMessage(apiKey, phone, text, mediaUrl, settings = {}, fileBuffer = null, fileName = 'report.pdf', contentType = null) {
   const provider = (settings.wa_provider || '360messenger').toLowerCase();
 
   // Fast path: wa9x + binary file
-  if (pdfBuffer && provider === 'wa9x') {
+  if (fileBuffer && provider === 'wa9x') {
     return await sendWaFileMultipart(apiKey, settings, '/sendMessageFile',
-      { phonenumber: phone, caption: text || '' }, pdfBuffer, fileName);
+      { phonenumber: phone, caption: text || '' }, fileBuffer, fileName, contentType);
   }
 
   // 360messenger fallback: upload bytes to tmpfiles, use URL
-  if (pdfBuffer && !mediaUrl) {
-    const tmpUrl = await uploadPdfBufferToTmpFiles(pdfBuffer, fileName);
+  if (fileBuffer && !mediaUrl) {
+    const tmpUrl = await uploadPdfBufferToTmpFiles(fileBuffer, fileName);
     if (tmpUrl) mediaUrl = tmpUrl;
   }
 
@@ -214,19 +235,19 @@ async function sendWaMessage(apiKey, phone, text, mediaUrl, settings = {}, pdfBu
   });
 }
 
-// Provider-aware: sends to group. If pdfBuffer given + wa9x → /sendGroupFile; else 360messenger fallback.
-async function sendWaToGroup(apiKey, groupId, text, mediaUrl, settings = {}, pdfBuffer = null, fileName = 'report.pdf') {
+// Provider-aware: sends to group. If fileBuffer given + wa9x → /sendGroupFile (any MIME); else 360messenger fallback.
+async function sendWaToGroup(apiKey, groupId, text, mediaUrl, settings = {}, fileBuffer = null, fileName = 'report.pdf', contentType = null) {
   const provider = (settings.wa_provider || '360messenger').toLowerCase();
 
   // Fast path: wa9x + binary file
-  if (pdfBuffer && provider === 'wa9x') {
+  if (fileBuffer && provider === 'wa9x') {
     return await sendWaFileMultipart(apiKey, settings, '/sendGroupFile',
-      { groupId, caption: text || '' }, pdfBuffer, fileName);
+      { groupId, caption: text || '' }, fileBuffer, fileName, contentType);
   }
 
   // 360messenger fallback: upload to tmpfiles
-  if (pdfBuffer && !mediaUrl) {
-    const tmpUrl = await uploadPdfBufferToTmpFiles(pdfBuffer, fileName);
+  if (fileBuffer && !mediaUrl) {
+    const tmpUrl = await uploadPdfBufferToTmpFiles(fileBuffer, fileName);
     if (tmpUrl) mediaUrl = tmpUrl;
   }
 
@@ -285,6 +306,59 @@ function uploadPdfBufferToTmpFiles(pdfBuffer, fileName = 'report.pdf') {
     req.end();
   });
 }
+
+// Multer for file uploads (in-memory) — used by /send-file
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
+
+// Generic file send: any file type (PDF/Excel/Word/image/etc.) — frontend uploads via multipart
+router.post('/api/whatsapp/send-file', upload.single('file'), safeAsync(async (req, res) => {
+  if (!req.file || !req.file.buffer || req.file.buffer.length < 10) {
+    return res.status(400).json({ detail: 'File khaali hai ya bahut chhoti hai' });
+  }
+  const fileBuffer = req.file.buffer;
+  const fileName = req.file.originalname || 'attachment.bin';
+  const contentType = req.file.mimetype || detectMime(fileName);
+
+  const config = getWaSettings();
+  if (!config.api_key) return res.status(400).json({ detail: 'WhatsApp API key set nahi hai. Settings → WhatsApp mein set karein.' });
+
+  const mode = String(req.body.mode || 'default').toLowerCase();
+  const phone = String(req.body.phone || '').trim();
+  const groupIdInput = String(req.body.group_id || '').trim();
+  const caption = String(req.body.caption || '');
+
+  const results = [];
+  if (mode === 'phone') {
+    if (!phone) return res.status(400).json({ detail: 'Phone number daalein' });
+    const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), caption, '', config, fileBuffer, fileName, contentType);
+    results.push({ target: phone, success: r.success, error: r.error || '' });
+  } else if (mode === 'group') {
+    const gid = groupIdInput || (config.default_group_id || config.group_id || '').trim();
+    if (!gid) return res.status(400).json({ detail: 'Group ID daalein ya default group set karein' });
+    const r = await sendWaToGroup(config.api_key, gid, caption, '', config, fileBuffer, fileName, contentType);
+    results.push({ target: 'group', success: r.success, error: r.error || '' });
+  } else {
+    let nums = config.default_numbers || [];
+    if (typeof nums === 'string') nums = nums.split(',').map(n => n.trim()).filter(Boolean);
+    if (!Array.isArray(nums) || !nums.length) return res.status(400).json({ detail: 'Default numbers set nahi hai. Phone ya group choose karein, ya Settings me numbers SAVE karein.' });
+    for (const n of nums) {
+      if (n && n.trim()) {
+        const r = await sendWaMessage(config.api_key, cleanPhone(n.trim(), config.country_code), caption, '', config, fileBuffer, fileName, contentType);
+        results.push({ target: n, success: r.success, error: r.error || '' });
+      }
+    }
+  }
+  const ok = results.filter(r => r.success).length;
+  res.json({
+    success: ok > 0,
+    message: `File ${ok}/${results.length} target(s) pe bhej diya!`,
+    details: results,
+    filename: fileName,
+    size_bytes: fileBuffer.length,
+    mime_type: contentType,
+  });
+}));
 
 // GET settings
 router.get('/api/whatsapp/settings', safeAsync(async (req, res) => {
