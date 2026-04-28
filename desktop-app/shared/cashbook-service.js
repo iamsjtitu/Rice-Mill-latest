@@ -62,18 +62,25 @@ function retroFixPartyType(db, category, partyType) {
  * @returns {Object} The created main transaction (with side effects applied)
  */
 function createCashTxnSideEffects(db, txn, roundOff, username) {
-  // Auto-create ledger entry for cash/bank transactions
-  if ((txn.account === 'cash' || txn.account === 'bank') && txn.category) {
+  // Auto-create ledger entry for cash/bank/owner transactions
+  if ((txn.account === 'cash' || txn.account === 'bank' || txn.account === 'owner') && txn.category) {
     const ledgerAmount = roundOff ? Math.round((txn.amount + roundOff) * 100) / 100 : txn.amount;
     const ledgerEntry = { ...txn, id: _uuid(), account: 'ledger', amount: ledgerAmount, reference: `auto_ledger:${txn.id.substring(0, 8)}` };
     if (!ledgerEntry.description) {
-      const acct = (txn.account || 'cash').charAt(0).toUpperCase() + (txn.account || 'cash').slice(1);
-      ledgerEntry.description = txn.txn_type === 'jama'
-        ? `${acct} received from ${txn.category}`
-        : `${acct} payment to ${txn.category}`;
+      if (txn.account === 'owner') {
+        const owner = txn.owner_name || 'Owner';
+        ledgerEntry.description = txn.txn_type === 'jama'
+          ? `${owner} received from ${txn.category}`
+          : `${owner} paid to ${txn.category}`;
+      } else {
+        const acct = txn.account.charAt(0).toUpperCase() + txn.account.slice(1);
+        ledgerEntry.description = txn.txn_type === 'jama'
+          ? `${acct} received from ${txn.category}`
+          : `${acct} payment to ${txn.category}`;
+      }
     }
     if (roundOff) {
-      ledgerEntry.description += ` (Cash: ${txn.amount}, Round Off: ${roundOff > 0 ? '+' : ''}${roundOff})`;
+      ledgerEntry.description += ` (${txn.account === 'owner' ? 'Owner' : 'Cash'}: ${txn.amount}, Round Off: ${roundOff > 0 ? '+' : ''}${roundOff})`;
     }
     db.data.cash_transactions.push(ledgerEntry);
   }

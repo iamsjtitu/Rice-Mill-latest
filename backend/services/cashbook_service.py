@@ -72,7 +72,7 @@ async def backfill_party_type(category: str, party_type: str):
 async def create_auto_ledger_entry(txn_dict: dict, round_off: float = 0):
     """Auto-create corresponding ledger entry for double-entry accounting."""
     category = txn_dict.get('category', '').strip()
-    if txn_dict.get('account') not in ('cash', 'bank') or not category:
+    if txn_dict.get('account') not in ('cash', 'bank', 'owner') or not category:
         return
     
     ledger_amount = round(txn_dict['amount'] + round_off, 2) if round_off else txn_dict['amount']
@@ -82,9 +82,14 @@ async def create_auto_ledger_entry(txn_dict: dict, round_off: float = 0):
     ledger_entry['amount'] = ledger_amount
     ledger_entry['reference'] = f"auto_ledger:{txn_dict.get('id', '')[:8]}"
     if not ledger_entry.get('description'):
-        acct = txn_dict.get('account', 'cash').capitalize()
-        ttype = txn_dict.get('txn_type', '')
-        ledger_entry['description'] = f"{acct} received from {category}" if ttype == 'jama' else f"{acct} payment to {category}"
+        acct = txn_dict.get('account', 'cash')
+        if acct == 'owner':
+            owner = txn_dict.get('owner_name', 'Owner')
+            ttype = txn_dict.get('txn_type', '')
+            ledger_entry['description'] = f"{owner} received from {category}" if ttype == 'jama' else f"{owner} paid to {category}"
+        else:
+            ttype = txn_dict.get('txn_type', '')
+            ledger_entry['description'] = f"{acct.capitalize()} received from {category}" if ttype == 'jama' else f"{acct.capitalize()} payment to {category}"
     ledger_entry['created_at'] = datetime.now(timezone.utc).isoformat()
     ledger_entry['updated_at'] = datetime.now(timezone.utc).isoformat()
     await db.cash_transactions.insert_one(ledger_entry)

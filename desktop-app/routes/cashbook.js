@@ -68,7 +68,7 @@ module.exports = function(database) {
     
     const txn = { id: uuidv4(), date: d.date, account: d.account || 'cash', txn_type: d.txn_type || 'jama',
       category: category, party_type: partyType, description: d.description || '', amount: +(d.amount || 0),
-      reference: d.reference || '', bank_name: d.bank_name || '', kms_year: d.kms_year || '', season: d.season || '',
+      reference: d.reference || '', bank_name: d.bank_name || '', owner_name: d.owner_name || '', kms_year: d.kms_year || '', season: d.season || '',
       _v: 1, created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     database.data.cash_transactions.push(txn);
     
