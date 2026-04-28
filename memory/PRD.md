@@ -1,6 +1,26 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.33.0 🚀
+## Current Version: v104.33.1
+
+## 🐛 v104.33.1 — Bug Fix: TOTAL Row Double-counting Auto-Ledger Pairs
+**Build date:** 2026-04-28
+
+### Issue
+Cash Book → Cash Transactions → TOTAL row me amounts double ho rahe the. User ne "Titu" ke liye ₹42,500 ka ek transaction banaya tha, lekin TOTAL row Jama ₹85,000 dikhata tha (kyunki real cash txn + auto_ledger pair dono count ho rahe the).
+
+### Root Cause
+`TransactionsTable.jsx` ka `totalJama`/`totalNikasi` computation **saare visible rows** ko sum kar raha tha — including auto_ledger pairs (jo basically same transaction ka hidden duplicate hota hai for double-entry accounting).
+
+### Fix
+- Frontend (`TransactionsTable.jsx`): Added `isAutoLedger` filter → only real txns contribute to totals
+- TOTAL row label updated: `TOTAL (N transactions, M auto-pair excluded)` — transparency ke liye
+- Backend Node Excel/PDF export (`cashbook.js` x 2): Same filter applied to total_jama/total_nikasi calculations
+- Python backend (`cashbook.py`) already had this skip logic (line 482-483, 509)
+
+### Triple-Backend Parity
+- ✅ Python: already correct
+- ✅ Node Desktop: fixed
+- ✅ Node LAN Local: synced
 
 ## v104.33.0 — Major Release: Direct File Upload + Ledger→Owner Convert + Multiple Bug Fixes
 **Build date:** 2026-04-28

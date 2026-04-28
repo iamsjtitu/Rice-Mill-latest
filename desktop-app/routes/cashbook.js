@@ -593,11 +593,13 @@ module.exports = function(database) {
       });
       styleExcelData(ws, 5);
       
-      // Total row
+      // Total row — exclude auto_ledger pairs to avoid double-counting
       const trow = 5 + rows.length;
+      const isAutoLedger = (t) => /^auto_ledger:/.test(String(t.reference || ''));
+      const realTxns = txns.filter(t => !isAutoLedger(t));
       const totals = {
-        total_jama: +txns.filter(t => t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
-        total_nikasi: +txns.filter(t => t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
+        total_jama: +realTxns.filter(t => t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
+        total_nikasi: +realTxns.filter(t => t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
         closing_balance: +runBal.toFixed(2)
       };
       ws.getCell(trow, 1).value = 'TOTAL / कुल'; ws.getCell(trow, 1).font = { name: 'Inter', bold: true, size: 11 };
@@ -668,13 +670,14 @@ module.exports = function(database) {
       const headers = ['Date', 'Account', 'Type', 'Category', 'Party Type', 'Description', 'Jama (Cr)', 'Nikasi (Dr)', 'Balance'];
       const colW = [55, 50, 40, 60, 55, 120, 60, 60, 60];
       
-      // Build data rows with running balance
+      // Build data rows with running balance — exclude auto_ledger from totals (paired duplicates)
       let runBal = 0; let totalJama = 0; let totalNikasi = 0;
+      const isAutoLedgerRef = (t) => /^auto_ledger:/.test(String(t.reference || ''));
       const rows = txns.map(t => {
         const jama = t.txn_type === 'jama' ? (t.amount || 0) : 0;
         const nikasi = t.txn_type === 'nikasi' ? (t.amount || 0) : 0;
         runBal += jama - nikasi;
-        totalJama += jama; totalNikasi += nikasi;
+        if (!isAutoLedgerRef(t)) { totalJama += jama; totalNikasi += nikasi; }
         return [
           fmtDate(t.date || ''), t.account === 'ledger' ? 'Ledger' : (t.account === 'cash' ? 'Cash' : 'Bank'),
           t.txn_type === 'jama' ? 'Jama' : 'Nikasi', t.category || '', t.party_type || '',
