@@ -3,7 +3,7 @@ import { fmtDate } from "@/utils/date";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Wallet, Banknote, Users, RefreshCw, Plus, Trash2, Landmark, Receipt, FileText, Send } from "lucide-react";
+import { Wallet, Banknote, Users, RefreshCw, Plus, Trash2, Landmark, Receipt, FileText, Send, Search } from "lucide-react";
 import SummaryCards from "./cashbook/SummaryCards";
 import CashBookFilters from "./cashbook/CashBookFilters";
 import TransactionsTable from "./cashbook/TransactionsTable";
@@ -155,6 +155,18 @@ const CashBook = ({ filters, user }) => {
     if (cbAbortRef.current) cbAbortRef.current.abort();
     const ctrl = new AbortController();
     cbAbortRef.current = ctrl;
+    // Party Ledgers view: skip default-load — show empty until user types a category/search
+    // (avoids dumping all parties at once which is slow + not useful)
+    if (activeView === 'transactions' && !txnFilters.category && !txnFilters.party_type
+        && !txnFilters.date_from && !txnFilters.date_to && !filterPartySearch) {
+      setTxns([]);
+      setAllTxns([]);
+      setSummary({ total_jama: 0, total_nikasi: 0, balance: 0 });
+      setTotalCount(0);
+      setTotalPages(1);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const p = fetchPage || page;
@@ -195,7 +207,7 @@ const CashBook = ({ filters, user }) => {
       } catch (e) { logger.error(e); }
     } catch (e) { if (!ctrl.signal.aborted) toast.error("Cash book load nahi hua"); }
     finally { if (!ctrl.signal.aborted) setLoading(false); }
-  }, [filters.kms_year, txnFilters, activeView, page]);
+  }, [filters.kms_year, txnFilters, activeView, page, filterPartySearch]);
 
   useEffect(() => {
     const timer = setTimeout(() => fetchData(), 300);
@@ -552,28 +564,27 @@ const CashBook = ({ filters, user }) => {
             data-testid="cashbook-tab-transactions">
             <Wallet className="w-4 h-4 mr-1" /> Party Ledgers
           </Button>
-          <Button onClick={() => setActiveView("party-summary")} variant="ghost" size="sm"
-            className={activeView === "party-summary" ? "bg-amber-500 text-slate-900 hover:bg-amber-600" : "text-slate-300 hover:bg-slate-700"}
-            data-testid="cashbook-tab-party-summary">
-            <Users className="w-4 h-4 mr-1" /> Party Summary
-          </Button>
           <Button onClick={() => setActiveView("gst-ledger")} variant="ghost" size="sm"
             className={activeView === "gst-ledger" ? "bg-purple-500 text-white hover:bg-purple-600" : "text-slate-300 hover:bg-slate-700"}
             data-testid="cashbook-tab-gst-ledger">
             <Receipt className="w-4 h-4 mr-1" /> GST Ledger
           </Button>
         </div>
-        <Button onClick={() => activeView === "party-summary" ? fetchPartySummary() : fetchData()} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700">
+        <Button onClick={() => fetchData()} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700">
           <RefreshCw className="w-4 h-4 mr-1" /> Refresh
         </Button>
         {wa && activeView === "transactions" && (txnFilters.category || filterPartySearch) && (
-          <Button onClick={sendPartyLedgerWA} variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-600/10" data-testid="cashbook-party-ledger-whatsapp">
-            <Send className="w-4 h-4 mr-1" /> WhatsApp
+          <Button onClick={sendPartyLedgerWA} variant="outline" size="sm"
+            title="Party Ledger WhatsApp pe bhejein" aria-label="WhatsApp"
+            className="border-green-600 text-green-400 hover:bg-green-600/10 h-9 w-9 p-0" data-testid="cashbook-party-ledger-whatsapp">
+            <Send className="w-4 h-4" />
           </Button>
         )}
         {wa && activeView === "transactions" && (txnFilters.category || filterPartySearch) && (
-          <Button onClick={openGroupSendCashBook} variant="outline" size="sm" className="border-teal-600 text-teal-400 hover:bg-teal-600/10" data-testid="cashbook-send-to-group">
-            <Users className="w-4 h-4 mr-1" /> Group
+          <Button onClick={openGroupSendCashBook} variant="outline" size="sm"
+            title="Group pe bhejein" aria-label="Group"
+            className="border-teal-600 text-teal-400 hover:bg-teal-600/10 h-9 w-9 p-0" data-testid="cashbook-send-to-group">
+            <Users className="w-4 h-4" />
           </Button>
         )}
       </div>
@@ -607,6 +618,17 @@ const CashBook = ({ filters, user }) => {
           allCategoriesForFilter={allCategoriesForFilter}
         />
         {(() => {
+          // Party Ledgers tab: prompt user to search/select before showing data
+          if (activeView === 'transactions' && !txnFilters.category && !txnFilters.party_type
+              && !txnFilters.date_from && !txnFilters.date_to && !filterPartySearch) {
+            return (
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-12 text-center" data-testid="party-ledger-prompt">
+                <Search className="w-10 h-10 text-slate-500 mx-auto mb-3" />
+                <p className="text-slate-300 text-base">Pehle party ka naam search karein</p>
+                <p className="text-slate-500 text-xs mt-2">Type a party name above to view their ledger</p>
+              </div>
+            );
+          }
           const displayedTxns = (filterPartySearch && !txnFilters.category)
             ? txns.filter(t => (t.category || '').toLowerCase().includes(filterPartySearch.toLowerCase()))
             : txns;

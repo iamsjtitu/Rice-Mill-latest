@@ -305,16 +305,19 @@ const EntriesActionBar = ({
       <FileText className="w-4 h-4 sm:mr-1" /><span className="hidden sm:inline">PDF</span>
     </Button>
     {wa && <Button onClick={handleEntriesWhatsApp} variant="outline" size="sm"
-      className="border-green-600 text-green-400 hover:bg-green-900/30" data-testid="entries-whatsapp-btn">
-      <Send className="w-4 h-4 mr-1" /> WhatsApp
+      title="WhatsApp pe bhejein" aria-label="WhatsApp"
+      className="border-green-600 text-green-400 hover:bg-green-900/30 h-9 w-9 p-0" data-testid="entries-whatsapp-btn">
+      <Send className="w-4 h-4" />
     </Button>}
     {wa && <Button onClick={handleEntriesGroupSend} variant="outline" size="sm"
-      className="border-teal-600 text-teal-400 hover:bg-teal-900/30" data-testid="entries-group-btn">
-      <Users className="w-4 h-4 mr-1" /> Group
+      title="Group pe bhejein" aria-label="Group"
+      className="border-teal-600 text-teal-400 hover:bg-teal-900/30 h-9 w-9 p-0" data-testid="entries-group-btn">
+      <Users className="w-4 h-4" />
     </Button>}
     {tg && <Button onClick={handleEntriesTelegram} disabled={entriesTgSending} variant="outline" size="sm"
-      className="border-blue-600 text-blue-400 hover:bg-blue-900/30" data-testid="entries-telegram-btn">
-      <Send className={`w-4 h-4 mr-1 ${entriesTgSending ? 'animate-pulse' : ''}`} /> Telegram
+      title="Telegram pe bhejein" aria-label="Telegram"
+      className="border-blue-600 text-blue-400 hover:bg-blue-900/30 h-9 w-9 p-0" data-testid="entries-telegram-btn">
+      <Send className={`w-4 h-4 ${entriesTgSending ? 'animate-pulse' : ''}`} />
     </Button>}
     {user.role === 'admin' && (
       <ExcelImport filters={filters} user={user} onImportDone={fetchEntries} />
