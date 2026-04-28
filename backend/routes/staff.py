@@ -42,6 +42,9 @@ class StaffAdvance(BaseModel):
     description: str = ""
     kms_year: str = ""
     season: str = ""
+    account: str = "cash"     # cash / bank / owner
+    bank_name: str = ""
+    owner_name: str = ""
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 class StaffPayment(BaseModel):
@@ -66,6 +69,9 @@ class StaffPayment(BaseModel):
     kms_year: str = ""
     season: str = ""
     round_off: float = 0
+    account: str = "cash"     # cash / bank / owner
+    bank_name: str = ""
+    owner_name: str = ""
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -175,10 +181,15 @@ async def add_advance(adv: StaffAdvance, username: str = ""):
     # Auto-create Cash Book Nikasi entry
     if doc["amount"] > 0:
         staff_name = doc.get("staff_name", "Staff")
+        pay_account = (doc.get("account") or "cash").lower()
+        if pay_account not in ("cash", "bank", "owner"):
+            pay_account = "cash"
         cb_entry = {
             "id": str(uuid.uuid4()),
             "date": doc["date"],
-            "account": "cash",
+            "account": pay_account,
+            "bank_name": doc.get("bank_name", "") if pay_account == "bank" else "",
+            "owner_name": doc.get("owner_name", "") if pay_account == "owner" else "",
             "txn_type": "nikasi",
             "category": staff_name,
             "party_type": "Staff",
@@ -366,10 +377,15 @@ async def settle_salary(pay: StaffPayment):
 
     # Auto-create Cash Book Nikasi entry
     if doc["net_payment"] > 0:
+        pay_account = (doc.get("account") or "cash").lower()
+        if pay_account not in ("cash", "bank", "owner"):
+            pay_account = "cash"
         cb_entry = {
             "id": str(uuid.uuid4()),
             "date": doc["date"],
-            "account": "cash",
+            "account": pay_account,
+            "bank_name": doc.get("bank_name", "") if pay_account == "bank" else "",
+            "owner_name": doc.get("owner_name", "") if pay_account == "owner" else "",
             "txn_type": "nikasi",
             "category": "Staff Salary",
             "description": f"Salary: {doc['staff_name']} ({doc['period_from']} to {doc['period_to']})",

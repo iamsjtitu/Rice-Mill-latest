@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Edit, Users, Calendar, IndianRupee, RefreshCw, Check, X, Clock, Sun, Calculator, Download, FileText } from "lucide-react";
 import RoundOffInput from "./common/RoundOffInput";
+import PaymentAccountSelect from "./common/PaymentAccountSelect";
 import { useConfirm } from "./ConfirmProvider";
 import logger from "../utils/logger";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -407,17 +408,22 @@ const AdvanceSection = ({ staff, filters, fetchAdvances, advances, payments }) =
   const [showAdd, setShowAdd] = useState(false);
   const [filterStaff, setFilterStaff] = useState("");
   const [form, setForm] = useState({ staff_id: "", amount: "", date: new Date().toISOString().split('T')[0], description: "" });
+  const [advAcct, setAdvAcct] = useState({ account: 'cash', bank_name: '', owner_name: '' });
 
   const save = async () => {
     if (!form.staff_id || !form.amount) return toast.error("Staff aur amount bharein");
+    if (advAcct.account === 'bank' && !advAcct.bank_name) return toast.error("Bank select karein");
+    if (advAcct.account === 'owner' && !advAcct.owner_name) return toast.error("Owner account select karein");
     const s = staff.find(x => x.id === form.staff_id);
     try {
       await axios.post(`${API}/staff/advance`, {
         ...form, staff_name: s?.name || "", amount: parseFloat(form.amount),
-        kms_year: filters.kms_year || "", season: filters.season || ""
+        kms_year: filters.kms_year || "", season: filters.season || "",
+        account: advAcct.account, bank_name: advAcct.bank_name, owner_name: advAcct.owner_name,
       });
       toast.success("Advance added"); setShowAdd(false);
       setForm({ staff_id: "", amount: "", date: new Date().toISOString().split('T')[0], description: "" });
+      setAdvAcct({ account: 'cash', bank_name: '', owner_name: '' });
       fetchAdvances();
     } catch (e) { logger.error(e); toast.error("Error"); }
   };
@@ -581,6 +587,7 @@ const AdvanceSection = ({ staff, filters, fetchAdvances, advances, payments }) =
             <div><Label className="text-xs text-slate-400">Description</Label>
               <Input value={form.description} onChange={e => setForm(p => ({...p, description: e.target.value}))}
                 className="bg-slate-700 border-slate-600 text-white" placeholder="Optional" /></div>
+            <PaymentAccountSelect value={advAcct} onChange={setAdvAcct} testId="adv-account-select" />
             <Button onClick={save} className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900" data-testid="adv-save-btn">Save Advance</Button>
           </div>
         </DialogContent>
@@ -602,6 +609,7 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
   const [calculating, setCalculating] = useState(false);
   const [settlingAll, setSettlingAll] = useState(false);
   const [roundOff, setRoundOff] = useState("");
+  const [payAcct, setPayAcct] = useState({ account: 'cash', bank_name: '', owner_name: '' });
 
   const calculate = async () => {
     if (!periodFrom || !periodTo) return toast.error("Period select karein");
@@ -642,6 +650,8 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
     if (!calcData) return;
     const net = calcData.gross_salary - advDeduct;
     if (net < 0) return toast.error("Net payment negative nahi ho sakta");
+    if (payAcct.account === 'bank' && !payAcct.bank_name) return toast.error("Bank select karein");
+    if (payAcct.account === 'owner' && !payAcct.owner_name) return toast.error("Owner account select karein");
     try {
       const s = staff.find(x => x.id === staffId);
       await axios.post(`${API}/staff/payments`, {
@@ -658,10 +668,12 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
         net_payment: net,
         date: new Date().toISOString().split('T')[0],
         kms_year: filters.kms_year || "", season: filters.season || "",
-        round_off: parseFloat(roundOff) || 0
+        round_off: parseFloat(roundOff) || 0,
+        account: payAcct.account, bank_name: payAcct.bank_name, owner_name: payAcct.owner_name,
       });
       toast.success(`₹${net.toLocaleString('en-IN')} payment done + Cash Book entry created!`);
       setCalcData(null); setStaffId(""); setPeriodFrom(""); setPeriodTo(""); setRoundOff("");
+      setPayAcct({ account: 'cash', bank_name: '', owner_name: '' });
       fetchPayments();
     } catch (e) { logger.error(e); toast.error("Payment error"); }
   };
@@ -855,6 +867,9 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
                     onChange={setRoundOff}
                     amount={calcData.gross_salary - advDeduct}
                   />
+                </div>
+                <div className="mt-2">
+                  <PaymentAccountSelect value={payAcct} onChange={setPayAcct} testId="staff-pay-account-select" />
                 </div>
                 <p className="text-[10px] text-slate-500 mt-2">* Cash Book mein auto Nikasi entry banega</p>
               </div>

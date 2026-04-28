@@ -29,6 +29,7 @@ import LeasedTruck from "./LeasedTruck";
 import { MSPPayments } from "./DCTracker";
 import { useConfirm } from "./ConfirmProvider";
 import RoundOffInput from "./common/RoundOffInput";
+import PaymentAccountSelect from "./common/PaymentAccountSelect";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
@@ -62,11 +63,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentNote, setPaymentNote] = useState("");
   const [paymentRoundOff, setPaymentRoundOff] = useState("");
-  const [paymentAccount, setPaymentAccount] = useState("cash");
-  const [paymentBankName, setPaymentBankName] = useState("");
-  const [paymentOwnerName, setPaymentOwnerName] = useState("");
-  const [bankAccounts, setBankAccounts] = useState([]);
-  const [ownerAccounts, setOwnerAccounts] = useState([]);
+  const [payAcct, setPayAcct] = useState({ account: 'cash', bank_name: '', owner_name: '' });
   const [newRate, setNewRate] = useState("");
   const [truckSearchFilter, setTruckSearchFilter] = useState("");
   const [paymentHistory, setPaymentHistory] = useState([]);
@@ -76,7 +73,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   const [selectedOwnerTruck, setSelectedOwnerTruck] = useState(null);
   const [ownerPayAmount, setOwnerPayAmount] = useState("");
   const [ownerPayNote, setOwnerPayNote] = useState("");
-  const [ownerPayMode, setOwnerPayMode] = useState("cash");
+  const [ownerPayAcct, setOwnerPayAcct] = useState({ account: 'cash', bank_name: '', owner_name: '' });
   const [ownerPayRoundOff, setOwnerPayRoundOff] = useState("");
   const [ownerHistory, setOwnerHistory] = useState([]);
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
@@ -110,14 +107,6 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   useEffect(() => {
     fetchPayments();
   }, [fetchPayments]);
-
-  // Load bank + owner accounts for the payment dialog selector
-  useEffect(() => {
-    (async () => {
-      try { const r = await axios.get(`${API}/bank-accounts`); setBankAccounts(r.data || []); } catch (e) { /* ignore */ }
-      try { const r = await axios.get(`${API}/owner-accounts`); setOwnerAccounts(r.data || []); } catch (e) { /* ignore */ }
-    })();
-  }, []);
 
   // Filter truck payments by search
   const filteredTruckPayments = truckSearchFilter
@@ -311,14 +300,22 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   // ==== TRUCK OWNER CONSOLIDATED PAYMENT HANDLERS ====
   const handleOwnerPay = async () => {
     if (!ownerPayAmount || !selectedOwnerTruck) return;
+    if (ownerPayAcct.account === 'bank' && !ownerPayAcct.bank_name) { toast.error("Bank select karein"); return; }
+    if (ownerPayAcct.account === 'owner' && !ownerPayAcct.owner_name) { toast.error("Owner account select karein"); return; }
     try {
       const params = `kms_year=${filters.kms_year||''}&username=${user.username}&role=${user.role}`;
       const res = await axios.post(`${API}/truck-owner/${encodeURIComponent(selectedOwnerTruck.truck_no)}/pay?${params}`, {
-        amount: parseFloat(ownerPayAmount), note: ownerPayNote, payment_mode: ownerPayMode,
+        amount: parseFloat(ownerPayAmount), note: ownerPayNote,
+        payment_mode: ownerPayAcct.account,
+        account: ownerPayAcct.account,
+        bank_name: ownerPayAcct.bank_name,
+        owner_name: ownerPayAcct.owner_name,
         round_off: parseFloat(ownerPayRoundOff) || 0,
       });
       toast.success(res.data.message);
-      setShowOwnerPayDialog(false); setOwnerPayAmount(""); setOwnerPayNote(""); setOwnerPayMode("cash"); setOwnerPayRoundOff("");
+      setShowOwnerPayDialog(false); setOwnerPayAmount(""); setOwnerPayNote("");
+      setOwnerPayAcct({ account: 'cash', bank_name: '', owner_name: '' });
+      setOwnerPayRoundOff("");
       fetchPayments();
     } catch (e) { toast.error(e.response?.data?.detail || "Payment error"); }
   };
@@ -380,15 +377,15 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
 
   const handleMakePayment = async () => {
     if (!paymentAmount || !selectedItem) return;
-    if (paymentAccount === 'bank' && !paymentBankName) { toast.error("Bank select karein"); return; }
-    if (paymentAccount === 'owner' && !paymentOwnerName) { toast.error("Owner account select karein"); return; }
+    if (payAcct.account === 'bank' && !payAcct.bank_name) { toast.error("Bank select karein"); return; }
+    if (payAcct.account === 'owner' && !payAcct.owner_name) { toast.error("Owner account select karein"); return; }
     try {
       const roundOff = parseFloat(paymentRoundOff) || 0;
       const payload = {
         amount: parseFloat(paymentAmount), note: paymentNote, round_off: roundOff,
-        account: paymentAccount,
-        bank_name: paymentAccount === 'bank' ? paymentBankName : "",
-        owner_name: paymentAccount === 'owner' ? paymentOwnerName : "",
+        account: payAcct.account,
+        bank_name: payAcct.bank_name,
+        owner_name: payAcct.owner_name,
       };
       if (activePaymentTab === "truck") {
         await axios.post(
@@ -406,9 +403,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
       setPaymentAmount("");
       setPaymentNote("");
       setPaymentRoundOff("");
-      setPaymentAccount("cash");
-      setPaymentBankName("");
-      setPaymentOwnerName("");
+      setPayAcct({ account: 'cash', bank_name: '', owner_name: '' });
       fetchPayments();
     } catch (error) {
       toast.error(error.response?.data?.detail || "Payment karne mein error");
@@ -1727,32 +1722,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                 className="bg-slate-700 border-slate-600 text-white"
               />
             </div>
-            <div>
-              <Label className="text-slate-300">Payment Account</Label>
-              <Select value={paymentAccount === 'owner' && paymentOwnerName ? `owner:${paymentOwnerName}` : paymentAccount === 'bank' && paymentBankName ? `bank:${paymentBankName}` : paymentAccount}
-                onValueChange={(v) => {
-                  if (v.startsWith('owner:')) { setPaymentAccount('owner'); setPaymentOwnerName(v.slice(6)); setPaymentBankName(""); }
-                  else if (v.startsWith('bank:')) { setPaymentAccount('bank'); setPaymentBankName(v.slice(5)); setPaymentOwnerName(""); }
-                  else { setPaymentAccount(v); setPaymentBankName(""); setPaymentOwnerName(""); }
-                }}>
-                <SelectTrigger className="bg-slate-700 border-slate-600 text-white" data-testid="payment-account-select"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Cash (नकद)</SelectItem>
-                  {bankAccounts.length > 0 && (
-                    <>
-                      <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-indigo-400 font-semibold border-t mt-1">Bank Accounts</div>
-                      {bankAccounts.map(b => (<SelectItem key={b.id} value={`bank:${b.bank_name}`}>{b.bank_name}</SelectItem>))}
-                    </>
-                  )}
-                  {ownerAccounts.length > 0 && (
-                    <>
-                      <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-amber-400 font-semibold border-t mt-1">Owner Accounts</div>
-                      {ownerAccounts.map(o => (<SelectItem key={o.id} value={`owner:${o.name}`}>{o.name} <span className="text-[10px] text-amber-400 ml-1">(मालिक)</span></SelectItem>))}
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
+            <PaymentAccountSelect value={payAcct} onChange={setPayAcct} testId="payment-account-select" />
             <div>
               <Label className="text-slate-300">Note (Optional)</Label>
               <Input
@@ -1850,16 +1820,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                 placeholder={`Max: ${selectedOwnerTruck?.total_balance?.toLocaleString()}`}
                 className="bg-slate-700 border-slate-600 text-white mt-1" data-testid="owner-pay-amount" />
             </div>
-            <div>
-              <Label className="text-slate-300 text-xs">Payment Mode</Label>
-              <Select value={ownerPayMode} onValueChange={setOwnerPayMode}>
-                <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Cash (नकद)</SelectItem>
-                  <SelectItem value="bank">Bank (बैंक)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <PaymentAccountSelect value={ownerPayAcct} onChange={setOwnerPayAcct} label="Payment Mode" testId="owner-pay-account-select" />
             <div>
               <Label className="text-slate-300 text-xs">Note (Optional)</Label>
               <Input value={ownerPayNote} onChange={(e) => setOwnerPayNote(e.target.value)}

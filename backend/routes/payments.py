@@ -1579,14 +1579,22 @@ async def pay_truck_owner(truck_no: str, request: Request, kms_year: str = "", s
         )
         remaining = round(remaining - allot, 2)
     
-    # Create cash book entry (Cash/Bank Nikasi)
+    # Create cash book entry (Cash/Bank/Owner Nikasi)
     round_off = float(body.get("round_off", 0))
     owner_total = round(amount + round_off, 2)
+    # Resolve account: explicit account field beats payment_mode for compatibility
+    pay_account = (body.get("account") or payment_mode or "cash").lower()
+    if pay_account not in ("cash", "bank", "owner"):
+        pay_account = "cash"
+    pay_bank_name = body.get("bank_name", "") if pay_account == "bank" else ""
+    pay_owner_name = body.get("owner_name", "") if pay_account == "owner" else ""
     txn_id = f"txn_{datetime.now().strftime('%Y%m%d%H%M%S')}_{truck_no}"
     cash_txn = {
         "id": txn_id,
         "date": datetime.now().strftime("%Y-%m-%d"),
-        "account": payment_mode,
+        "account": pay_account,
+        "bank_name": pay_bank_name,
+        "owner_name": pay_owner_name,
         "txn_type": "nikasi",
         "category": truck_no,
         "party_type": "Truck",
