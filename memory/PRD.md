@@ -1,25 +1,37 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.36.1
+## Current Version: v104.33.0 🚀
 
-## 🔴 v104.36.1 — Bug Fix: Pending VW Badge Stale After Bulk Delete
+## v104.33.0 — Major Release: Direct File Upload + Ledger→Owner Convert + Multiple Bug Fixes
 **Build date:** 2026-04-28
 
-### Issue
-After bulk-deleting Mill Entries from the entries table, the "Auto Weight Entries" tab badge (pending count) didn't refresh — showed stale count.
+### NEW: Convert Existing Ledger to Owner Account
+- One-click migration: existing party (e.g. "Titu" used as cash category) ko Owner Account me convert karna
+- **Endpoint:** `POST /api/owner-accounts/convert-from-ledger` with `{name, dry_run}`
+- **Logic:**
+  1. Creates owner account if not exists
+  2. Finds all `cash_transactions` with `category=name` and `account in [cash, bank]`
+  3. **Flips txn_type** (Owner accounting is inverted from cash/bank: cash-nikasi to Titu = Owner-jama [withdrew])
+  4. Updates auto-ledger pairs to match
+  5. Returns counts for verification
+- **UI:** CashBook → Owner Accounts dialog → expandable "Pehle se Cash/Bank ledger hai? Convert karein →"
+- **Safety:** Dry-run preview shows match count + total amount before actual conversion. User confirms via popup.
+- **Triple-Backend Parity:** All 3 backends (Python + Electron + LAN Express) implement identical logic
 
-### Root Cause
-In `App.js`, the bulk-delete handler (line 645-672) called `fetchEntries()` and `fetchTotals()` after deletion but **NOT** `fetchPendingVwCount()`. The single-entry delete handler had it (line 818), but bulk delete missed it.
+### v104.33.0 Major Items (Today's Combined Changelog)
+1. wa.9x.design Direct File Upload (sendMessageFile + sendGroupFile, ~70% faster)
+2. Generic File Upload endpoint (`/api/whatsapp/send-file` — any MIME type, max 100 MB)
+3. 8 New WhatsApp icon buttons (Daily Report, Staff Attendance, Stock Summary, Cash Book, Agent/Mandi Report, Gunny Bags, Hemali, Mill Parts, Sale/Purchase Vouchers)
+4. Icon-only action buttons across all reports (cleaner UI)
+5. Ledger → Owner Account converter
+6. Bug fix: Daily Report single WhatsApp also sent to group
+7. Bug fix: Weighbridge stuck at last weight (3-sec staleness timeout)
+8. Bug fix: Weight Report PDF Hindi labels rendering as `||||||||` (font fix)
+9. Bug fix: bp_sale_register CRASH on DELETE (operator precedence)
+10. Bug fix: Auto Weight pending badge stale after bulk delete
+11. WhatsNew + version bump to v104.33.0
 
-### Fix
-Added `fetchPendingVwCount()` call after bulk deletion completes. All deletion paths now refresh the badge:
-- ✅ Single Mill Entry delete
-- ✅ Bulk Mill Entry delete (NEW)
-- ✅ VW entry delete (AutoWeightEntries.jsx)
-- ✅ VW entry delete (VehicleWeight.jsx)
-- ✅ Mill Entry create/edit save
-
-## v104.36.0 — 6 New WhatsApp Locations + 3 Critical Bug Fixes
+## v104.32.0 — wa.9x.design Group Fetch Verified + Dynamic Provider Footer
 **Build date:** 2026-04-28
 
 ### 🔴 Bug Fix #A — bp_sale_register.js: matchRef CRASH on undefined ref

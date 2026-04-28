@@ -7,6 +7,33 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.33.0",
+    date: "Apr 28, 2026",
+    title: "v104.33.0 — 🚀 wa.9x.design Direct File Upload + 8 New WhatsApp Share Buttons + 4 Critical Bug Fixes + Ledger→Owner Convert",
+    items: [
+      { type: "new", text: "📤 **Generic File Upload Endpoint** (`POST /api/whatsapp/send-file`): ab koi bhi file (PDF/Excel/Word/Image/Video, max 100 MB) directly WhatsApp pe bhej sakte ho — MIME type auto-detect hoti hai filename se. tmpfiles.org middleman bypass — wa.9x.design pe direct binary upload (~70% faster, 3-5 sec bachte hain per send)." },
+      { type: "new", text: "🟢 **8 New 'WhatsApp pe bhejein' icon buttons** add hue inn jagah pe (saare green WhatsApp icon, ek-click share):" },
+      { type: "new", text: "   • Daily Report (Group send button)" },
+      { type: "new", text: "   • Staff Attendance (monthly Excel)" },
+      { type: "new", text: "   • Stock Summary (Excel)" },
+      { type: "new", text: "   • Cash Book (PDF — current filters preserved)" },
+      { type: "new", text: "   • Agent / Mandi Report (PDF — current filters preserved)" },
+      { type: "new", text: "   • Gunny Bags Register (PDF)" },
+      { type: "new", text: "   • Hemali Payments + Hemali Monthly Summary (PDF)" },
+      { type: "new", text: "   • Mill Parts Stock (PDF)" },
+      { type: "new", text: "   • Sale Book + Purchase Vouchers (PDF — search/filter preserved)" },
+      { type: "new", text: "🎨 **Sab Excel/PDF action buttons icon-only ho gaye** (text removed, sirf icons + tooltip on hover) — UI clean dikhta hai, har report screen pe consistent layout" },
+      { type: "new", text: "🔄 **Ledger → Owner Account Convert** (NEW): Cash Book → Owner Accounts dialog mein 'Pehle se Cash/Bank ledger hai? Convert karein' option. Existing party (e.g. \"Titu\") ko Owner Account me migrate karne ka tool — Preview pehle dikhata hai (kitne txns, total amount), confirm pe automatic flip+migrate. txn_type bhi automatically inverted hota hai (Owner accounting cash/bank se reversed hoti hai)" },
+      { type: "fix", text: "🐛 **Bug Fix #1 — Single WhatsApp click → group bhi jaata tha**: Daily Report me 'WhatsApp' button click karne pe group me bhi message chala jaata tha (`send_to_group: true` hardcoded tha). Fixed: ab single button sirf phone/default numbers, alag 'Group' button hai group ke liye." },
+      { type: "fix", text: "🐛 **Bug Fix #2 — Weighbridge stuck at last weight**: Truck weighbridge se hatne ke baad bhi UI 'STABLE - LOCKED' state me phasi rehti thi (e.g. 5,850 kg dikhata rahta no truck case me). Fixed: 3-second staleness timeout + periodic checker — bridge idle hote hi auto-reset to 0." },
+      { type: "fix", text: "🐛 **Bug Fix #3 — Weight Report PDF Hindi labels `||||||||`**: PDF me \"गाड़ी / पार्टी / माल / बोरे / दिनांक\" vertical bars/boxes ke roop me dikh rahe the (FreeSans font me Devanagari nahi). Fixed: NotoDeva font use ab — saare Hindi labels properly render hote hain." },
+      { type: "fix", text: "🐛 **Bug Fix #4 — bp_sale_register CRASH on DELETE** (Desktop/LAN): Operator precedence bug — DELETE par `Cannot read properties of undefined` crash. Fixed `matchRef` guard with proper parens." },
+      { type: "fix", text: "🐛 **Bug Fix #5 — Auto Weight pending badge stale**: Bulk delete ke baad red \"1\" badge purana count dikhata rehta tha. Fixed: ab har deletion path (single + bulk + VW + Mill Entry) badge refresh trigger karta hai." },
+      { type: "fix", text: "🌐 **wa.9x.design Provider Production-Ready**: New endpoints `getGroupList`, `sendGroup`, `sendMessageFile`, `sendGroupFile` integrate ho gaye. Settings me provider toggle ke saath dynamic footer (\"wa.9x.design API use hota hai\" vs \"360Messenger\")." },
+      { type: "fix", text: "🔄 **Triple-Backend Parity**: Python web + Desktop App + LAN Local Server teeno me saare changes synced — koi drift nahi. Multer-based multipart upload, owner conversion endpoint, weighbridge staleness — sab teeno backends me available." },
+    ],
+  },
+  {
     version: "104.28.35",
     date: "Apr 2026",
     title: "v104.28.35 — 📋 Dashboard & Summary PDFs: Govt Target vs Agent Cutting Clarity",

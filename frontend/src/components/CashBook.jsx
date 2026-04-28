@@ -77,6 +77,9 @@ const CashBook = ({ filters, user }) => {
   const [isBankMgmtOpen, setIsBankMgmtOpen] = useState(false);
   const [ownerAccounts, setOwnerAccounts] = useState([]);
   const [newOwnerName, setNewOwnerName] = useState("");
+  const [convertLedgerName, setConvertLedgerName] = useState("");
+  const [convertPreview, setConvertPreview] = useState(null);
+  const [convertBusy, setConvertBusy] = useState(false);
   const [isOwnerMgmtOpen, setIsOwnerMgmtOpen] = useState(false);
   const [isObSettingsOpen, setIsObSettingsOpen] = useState(false);
   const [obCash, setObCash] = useState("");
@@ -773,6 +776,66 @@ const CashBook = ({ filters, user }) => {
                 <Plus className="w-3 h-3 mr-1" /> Add
               </Button>
             </div>
+
+            {/* Convert existing ledger to owner account */}
+            <details className="bg-slate-700/30 border border-slate-600/50 rounded p-2">
+              <summary className="text-xs text-amber-300 cursor-pointer hover:text-amber-200 select-none" data-testid="convert-ledger-toggle">
+                Pehle se Cash/Bank ledger hai? Owner account me convert karein →
+              </summary>
+              <div className="mt-2 space-y-2">
+                <p className="text-[10px] text-slate-400 leading-snug">
+                  Saare matching cash/bank transactions ka <code>account</code> "owner" me change ho jayega aur <code>txn_type</code> flip hoga
+                  (kyunki Owner accounting cash/bank se inverted hoti hai). Auto-ledger pairs bhi sync honge.
+                  <br/><strong className="text-amber-300">Pehle Preview check karein, fir Convert dabayein.</strong>
+                </p>
+                <div className="flex gap-2">
+                  <Input value={convertLedgerName} onChange={e => setConvertLedgerName(e.target.value)}
+                    placeholder='Ledger name (e.g. "Titu")' className="bg-slate-700 border-slate-600 text-white h-8 text-xs flex-1" data-testid="convert-ledger-name" />
+                  <Button size="sm" variant="outline" className="border-slate-500 text-slate-300 h-8 text-xs" data-testid="convert-preview-btn"
+                    disabled={!convertLedgerName.trim() || convertBusy}
+                    onClick={async () => {
+                      setConvertBusy(true);
+                      setConvertPreview(null);
+                      try {
+                        const res = await axios.post(`${API}/owner-accounts/convert-from-ledger`,
+                          { name: convertLedgerName.trim(), dry_run: true });
+                        setConvertPreview(res.data.preview);
+                      } catch (e) { toast.error(e.response?.data?.detail || "Preview fail"); }
+                      finally { setConvertBusy(false); }
+                    }}>
+                    Preview
+                  </Button>
+                </div>
+                {convertPreview && (
+                  <div className="bg-slate-900/50 rounded px-2 py-2 text-[11px] text-slate-200 space-y-0.5" data-testid="convert-preview">
+                    <div>Owner already exists: <span className={convertPreview.owner_already_exists ? "text-emerald-400" : "text-amber-300"}>{convertPreview.owner_already_exists ? "Yes" : "No (will be created)"}</span></div>
+                    <div>Matching txns: <span className="text-white font-bold">{convertPreview.matching_txn_count}</span> (Cash: {convertPreview.cash_txn_count}, Bank: {convertPreview.bank_txn_count})</div>
+                    <div>Total amount: <span className="text-white font-bold">Rs.{convertPreview.total_amount.toLocaleString()}</span></div>
+                    {convertPreview.matching_txn_count > 0 && (
+                      <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white h-7 text-xs w-full mt-1.5" data-testid="convert-confirm-btn"
+                        disabled={convertBusy}
+                        onClick={async () => {
+                          if (!await showConfirm("Convert Ledger?", `${convertPreview.matching_txn_count} transactions ko Owner Account me convert karein? Yeh action reversible nahi hai.`)) return;
+                          setConvertBusy(true);
+                          try {
+                            const res = await axios.post(`${API}/owner-accounts/convert-from-ledger`,
+                              { name: convertLedgerName.trim(), dry_run: false });
+                            toast.success(`${res.data.converted} transactions converted to Owner "${res.data.name}"!`);
+                            setConvertLedgerName("");
+                            setConvertPreview(null);
+                            fetchOwnerAccounts();
+                            fetchTxns();
+                          } catch (e) { toast.error(e.response?.data?.detail || "Conversion fail"); }
+                          finally { setConvertBusy(false); }
+                        }}>
+                        Confirm — Convert {convertPreview.matching_txn_count} txns
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </details>
+
             {ownerAccounts.length === 0 && <p className="text-xs text-slate-500 text-center py-4">Koi owner account nahi hai. Upar se add karein.</p>}
             <div className="space-y-1 max-h-60 overflow-auto">
               {ownerAccounts.map(o => (

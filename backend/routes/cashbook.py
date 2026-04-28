@@ -82,6 +82,90 @@ async def delete_owner_account(owner_id: str):
     return {"message": "Owner account deleted", "id": owner_id}
 
 
+@router.post("/owner-accounts/convert-from-ledger")
+async def convert_ledger_to_owner_account(request: Request):
+    """Convert an existing party/ledger (e.g. 'Titu') into an Owner Account.
+
+    Strategy:
+    1. Create the owner account if it doesn't exist
+    2. Find all REAL cashbook txns (account in cash/bank) where category matches the name
+    3. Switch each: account=owner, owner_name=<name>, FLIP txn_type
+       (Owner accounting is inverted from cash/bank — see compute_owner_balances)
+    4. Update auto_ledger pairs to match the flipped txn_type
+    5. Returns counts so user can verify
+
+    Body: {"name": "Titu", "dry_run": false}
+    """
+    data = await request.json()
+    name = (data.get("name") or "").strip()
+    dry_run = bool(data.get("dry_run", False))
+    if not name:
+        raise HTTPException(status_code=400, detail="Ledger name required")
+
+    # 1. Ensure owner account exists
+    existing_owner = await db.owner_accounts.find_one(
+        {"name": {"$regex": f"^{name}$", "$options": "i"}}, {"_id": 0}
+    )
+    owner_id = existing_owner.get("id") if existing_owner else None
+
+    # 2. Find matching real cashbook txns (NOT auto_ledger entries)
+    txns = await db.cash_transactions.find(
+        {
+            "category": {"$regex": f"^{name}$", "$options": "i"},
+            "account": {"$in": ["cash", "bank"]}
+        },
+        {"_id": 0, "id": 1, "txn_type": 1, "amount": 1, "date": 1, "category": 1, "account": 1}
+    ).to_list(50000)
+
+    total_amount = sum(t.get("amount", 0) for t in txns)
+    cash_count = sum(1 for t in txns if t.get("account") == "cash")
+    bank_count = sum(1 for t in txns if t.get("account") == "bank")
+
+    preview = {
+        "owner_already_exists": existing_owner is not None,
+        "matching_txn_count": len(txns),
+        "cash_txn_count": cash_count,
+        "bank_txn_count": bank_count,
+        "total_amount": round(total_amount, 2),
+    }
+
+    if dry_run:
+        return {"success": True, "dry_run": True, "preview": preview}
+
+    if not owner_id:
+        new_doc = {"id": str(uuid.uuid4()), "name": name,
+                   "created_at": datetime.now(timezone.utc).isoformat()}
+        await db.owner_accounts.insert_one(new_doc.copy())
+        owner_id = new_doc["id"]
+
+    # 3. Flip + update each real txn AND its auto_ledger pair
+    converted = 0
+    now_iso = datetime.now(timezone.utc).isoformat()
+    for txn in txns:
+        old_type = txn.get("txn_type", "")
+        new_type = "jama" if old_type == "nikasi" else "nikasi"
+        txn_id = txn["id"]
+        await db.cash_transactions.update_one(
+            {"id": txn_id},
+            {"$set": {"account": "owner", "owner_name": name,
+                      "txn_type": new_type, "updated_at": now_iso}}
+        )
+        # Mirror flip on the auto_ledger pair (same prefix matching)
+        await db.cash_transactions.update_many(
+            {"reference": f"auto_ledger:{txn_id[:8]}"},
+            {"$set": {"txn_type": new_type, "owner_name": name, "updated_at": now_iso}}
+        )
+        converted += 1
+
+    return {
+        "success": True,
+        "owner_id": owner_id,
+        "name": name,
+        "converted": converted,
+        "preview": preview,
+    }
+
+
 # ============ CASH BOOK / DAILY CASH & BANK REGISTER ============
 
 class CashTransaction(BaseModel):
