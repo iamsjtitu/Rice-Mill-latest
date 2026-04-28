@@ -330,7 +330,11 @@ function MessagingTab() {
           )}
 
           <div className="text-center text-slate-500 text-xs">
-            <p>360Messenger API use hota hai | <a href="https://360messenger.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">360messenger.com</a></p>
+            {waForm.wa_provider === "wa9x" ? (
+              <p>wa.9x.design API use hota hai | <a href="https://wa.9x.design" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">wa.9x.design</a></p>
+            ) : (
+              <p>360Messenger API use hota hai | <a href="https://360messenger.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">360messenger.com</a></p>
+            )}
           </div>
         </CardContent>
       </Card>

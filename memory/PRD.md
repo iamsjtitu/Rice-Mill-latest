@@ -1,6 +1,19 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.30.0
+## Current Version: v104.32.0
+
+## 🆕 v104.32.0 — wa.9x.design Group Fetch Verified + Dynamic Provider Footer
+**Build date:** 2026-04-28
+
+### wa.9x.design WhatsApp Provider — User Verification PASSED
+- Backend `GET /api/whatsapp/groups` correctly fetches groups from wa.9x.design's `/api/v2/groupChat/getGroupList` endpoint and returns the group list "Navkar Agro" (id `120363424861931093@g.us`, size 2)
+- Settings → Messaging tab dropdown "Default WhatsApp Group" populates with "Navkar Agro" — verified via Playwright
+- Provider toggle: 360messenger ↔ wa.9x.design works; selected provider shown with orange highlight + tick
+
+### Dynamic Provider Footer (UX Fix)
+- Footer text below WhatsApp section was hardcoded to "360Messenger API use hota hai | 360messenger.com"
+- Fixed: footer now dynamically reads `waForm.wa_provider`. Shows "wa.9x.design API use hota hai | wa.9x.design" when wa9x is selected, otherwise 360messenger
+- File: `/app/frontend/src/components/settings/MessagingTab.jsx` (lines 332-338)
 
 ## 🆕 v104.30.0 — Letter Pad Productivity Suite (3 features)
 **Build date:** 2026-04-26
