@@ -53,7 +53,7 @@ const CashBook = ({ filters, user }) => {
   const [customCategories, setCustomCategories] = useState([]);
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0], account: "cash", txn_type: "jama",
-    category: "", party_type: "", description: "", amount: "", reference: "", bank_name: "",
+    category: "", party_type: "", description: "", amount: "", reference: "", bank_name: "", owner_name: "",
     kms_year: CURRENT_KMS_YEAR, season: "Kharif",
   });
   const [txnFilters, setTxnFilters] = useState({ account: "ledger", txn_type: "", category: "", party_type: "", date_from: new Date().toISOString().split("T")[0], date_to: new Date().toISOString().split("T")[0] });
@@ -204,7 +204,7 @@ const CashBook = ({ filters, user }) => {
 
   const resetForm = () => setForm({
     date: new Date().toISOString().split('T')[0], account: "cash", txn_type: "jama",
-    category: "", party_type: "", description: "", amount: "", reference: "", bank_name: "",
+    category: "", party_type: "", description: "", amount: "", reference: "", bank_name: "", owner_name: "",
     kms_year: filters.kms_year || CURRENT_KMS_YEAR, season: filters.season || "Kharif",
   });
 
@@ -233,7 +233,7 @@ const CashBook = ({ filters, user }) => {
     setForm({
       date: t.date || "", account: t.account || "cash", txn_type: t.txn_type || "jama",
       category: t.category || "", party_type: t.party_type || "", description: t.description || "",
-      amount: String(t.amount || ""), reference: t.reference || "", bank_name: t.bank_name || "",
+      amount: String(t.amount || ""), reference: t.reference || "", bank_name: t.bank_name || "", owner_name: t.owner_name || "",
       kms_year: t.kms_year || CURRENT_KMS_YEAR, season: t.season || "Kharif",
       _v: t._v,
     });

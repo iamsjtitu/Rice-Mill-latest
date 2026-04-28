@@ -42,7 +42,7 @@ const enterNav = (testId) => (e) => {
   }
 };
 
-const HARDCODED_PARTY_TYPES = ["Cash Party", "Pvt Paddy Purchase", "Rice Sale", "Diesel", "Local Party", "Truck", "Agent", "By-Product Sale", "Staff", "BP Sale", "Owner"];
+const HARDCODED_PARTY_TYPES = ["Cash Party", "Pvt Paddy Purchase", "Rice Sale", "Diesel", "Local Party", "Truck", "Agent", "By-Product Sale", "Staff", "BP Sale"];
 
 const TransactionFormDialog = ({
   isOpen, onOpenChange, editingId,
@@ -51,7 +51,8 @@ const TransactionFormDialog = ({
   onSubmit, bankAccounts = [], ownerAccounts = [],
 }) => {
 
-  // Owner account names for auto-detection in autocomplete
+  // Owner account names (used in Account dropdown — selected account routes
+  // money in/out via that owner's virtual ledger).
   const ownerNamesLC = ownerAccounts.map(o => String(o.name || '').toLowerCase());
   const isOwner = (name) => ownerNamesLC.includes(String(name || '').toLowerCase().trim());
 
@@ -59,14 +60,10 @@ const TransactionFormDialog = ({
   const customTypes = [...new Set((allTxns || []).map(t => t.party_type).filter(Boolean))];
   const allPartyTypes = [...new Set([...HARDCODED_PARTY_TYPES, ...customTypes])].sort();
 
-  // Categories augmented with owner account names (so they appear in autocomplete)
-  const ownerCategoryNames = ownerAccounts.map(o => o.name).filter(Boolean);
-  const augmentedCategories = [...new Set([...(categories || []), ...ownerCategoryNames])].sort();
-
   const formRef = useRef(null);
 
   const handleCategoryKeyDown = useCallback((e) => {
-    const filtered = augmentedCategories.filter(c => !form.category || c.toLowerCase().includes(form.category.toLowerCase()));
+    const filtered = categories.filter(c => !form.category || c.toLowerCase().includes(form.category.toLowerCase()));
     const idx = form._highlightIdx ?? -1;
 
     if (e.key === 'ArrowDown' && form._showPartySuggestions && filtered.length > 0) {
@@ -81,8 +78,6 @@ const TransactionFormDialog = ({
       const c = filtered[idx];
       if (form._showManualType) {
         setForm(p => ({ ...p, category: c, _showPartySuggestions: false, _highlightIdx: -1 }));
-      } else if (isOwner(c)) {
-        setForm(p => ({ ...p, category: c, party_type: "Owner", _showPartySuggestions: false, _highlightIdx: -1 }));
       } else {
         const match = allTxns.find(t => t.category && t.category.toLowerCase() === c.toLowerCase() && t.party_type);
         setForm(p => ({ ...p, category: c, party_type: match ? match.party_type : (p.party_type || ""), _showPartySuggestions: false, _highlightIdx: -1 }));
@@ -124,20 +119,49 @@ const TransactionFormDialog = ({
             </div>
             <div>
               <Label className="text-xs text-slate-600">Account</Label>
-              <Select value={form.account} onValueChange={(v) => setForm(p => ({ ...p, account: v, category: "", bank_name: "" }))}>
+              <Select
+                value={form.account === 'owner' && form.owner_name ? `owner:${form.owner_name}` : form.account}
+                onValueChange={(v) => {
+                  if (v.startsWith('owner:')) {
+                    const ownerName = v.slice(6);
+                    setForm(p => ({ ...p, account: 'owner', owner_name: ownerName, bank_name: "", category: "" }));
+                  } else {
+                    setForm(p => ({ ...p, account: v, category: "", bank_name: "", owner_name: "" }));
+                  }
+                }}>
                 <SelectTrigger className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-account"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="cash">Cash (नकद)</SelectItem>
                   <SelectItem value="bank">Bank (बैंक)</SelectItem>
+                  {ownerAccounts.length > 0 && (
+                    <>
+                      <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-amber-600 font-semibold border-t mt-1">Owner Accounts</div>
+                      {ownerAccounts.map(o => (
+                        <SelectItem key={o.id} value={`owner:${o.name}`} data-testid={`cashbook-form-owner-${o.id}`}>
+                          {o.name} <span className="text-[10px] text-amber-700 ml-1">(मालिक)</span>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
-              {summary && (
+              {summary && form.account !== 'owner' && (
                 <p className="text-[10px] mt-1 font-medium" data-testid="cashbook-form-balance">
                   Balance: <span className={`${(form.account === 'cash' ? summary.cash_balance : summary.bank_balance) >= 0 ? 'text-emerald-600' : 'text-red-600'} font-bold`}>
                     Rs.{(form.account === 'cash' ? summary.cash_balance : summary.bank_balance)?.toLocaleString('en-IN')}
                   </span>
                 </p>
               )}
+              {form.account === 'owner' && form.owner_name && (() => {
+                const ownerJama = (allTxns || []).filter(t => t.account === 'owner' && t.owner_name === form.owner_name && t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0);
+                const ownerNikasi = (allTxns || []).filter(t => t.account === 'owner' && t.owner_name === form.owner_name && t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0);
+                const bal = ownerJama - ownerNikasi;
+                return (
+                  <p className="text-[10px] mt-1 font-medium" data-testid="cashbook-form-owner-balance">
+                    {form.owner_name} Balance: <span className={`${bal >= 0 ? 'text-emerald-600' : 'text-red-600'} font-bold`}>Rs.{bal.toLocaleString('en-IN')}</span>
+                  </p>
+                );
+              })()}
             </div>
           </div>
           {form.account === 'bank' && bankAccounts.length > 0 && (
@@ -163,8 +187,6 @@ const TransactionFormDialog = ({
                   const val = e.target.value;
                   if (form._showManualType) {
                     setForm(p => ({ ...p, category: val, _showPartySuggestions: true, _highlightIdx: -1 }));
-                  } else if (isOwner(val)) {
-                    setForm(p => ({ ...p, category: val, party_type: "Owner", _showPartySuggestions: true, _highlightIdx: -1 }));
                   } else {
                     const match = allTxns.find(t => t.category && t.category.toLowerCase() === val.toLowerCase() && t.party_type);
                     setForm(p => ({ ...p, category: val, party_type: match ? match.party_type : (p.party_type || ""), _showPartySuggestions: true, _highlightIdx: -1 }));
@@ -173,19 +195,18 @@ const TransactionFormDialog = ({
                 onFocus={() => setForm(p => ({ ...p, _showPartySuggestions: true, _highlightIdx: -1 }))}
                 onBlur={() => setTimeout(() => setForm(p => ({ ...p, _showPartySuggestions: false, _highlightIdx: -1 })), 200)}
                 onKeyDown={handleCategoryKeyDown}
-                placeholder="Party / Owner name search karein..."
+                placeholder="Party name search karein..."
                 className="border-slate-300 h-8 text-sm"
                 autoComplete="off"
                 data-testid="cashbook-form-category"
               />
               {form._showPartySuggestions && (
                 (() => {
-                  const filtered = augmentedCategories.filter(c => !form.category || c.toLowerCase().includes(form.category.toLowerCase()));
+                  const filtered = categories.filter(c => !form.category || c.toLowerCase().includes(form.category.toLowerCase()));
                   return filtered.length > 0 ? (
                     <div className="absolute z-50 w-full mt-1 max-h-40 overflow-auto bg-slate-800 border border-slate-200 rounded-md shadow-lg">
                       {filtered.map((c, i) => {
-                        const owner = isOwner(c);
-                        const pt = owner ? { party_type: 'Owner' } : allTxns.find(t => t.category === c && t.party_type);
+                        const pt = allTxns.find(t => t.category === c && t.party_type);
                         const isHighlighted = (form._highlightIdx ?? -1) === i;
                         return (
                           <div key={c}
@@ -193,8 +214,6 @@ const TransactionFormDialog = ({
                             onMouseDown={() => {
                               if (form._showManualType) {
                                 setForm(p => ({ ...p, category: c, _showPartySuggestions: false, _highlightIdx: -1 }));
-                              } else if (owner) {
-                                setForm(p => ({ ...p, category: c, party_type: "Owner", _showPartySuggestions: false, _highlightIdx: -1 }));
                               } else {
                                 const match = allTxns.find(t => t.category && t.category.toLowerCase() === c.toLowerCase() && t.party_type);
                                 setForm(p => ({ ...p, category: c, party_type: match ? match.party_type : (p.party_type || ""), _showPartySuggestions: false, _highlightIdx: -1 }));
@@ -207,7 +226,6 @@ const TransactionFormDialog = ({
                               pt.party_type === 'Agent' ? 'bg-purple-100 text-purple-700' :
                               pt.party_type === 'Local Party' ? 'bg-amber-100 text-amber-700' :
                               pt.party_type === 'Diesel' ? 'bg-orange-100 text-orange-700' :
-                              pt.party_type === 'Owner' ? 'bg-emerald-100 text-emerald-700 font-semibold' :
                               'bg-slate-100 text-slate-600'
                             }`}>{pt.party_type}</span>}
                           </div>
@@ -248,7 +266,7 @@ const TransactionFormDialog = ({
                 onChange={(e) => setForm(p => ({ ...p, amount: e.target.value }))}
                 onKeyDown={enterNav('cashbook-form-amount')}
                 placeholder="0.00" className="border-slate-300 h-8 text-sm" required data-testid="cashbook-form-amount" />
-              {summary && form.amount && parseFloat(form.amount) > 0 && (
+              {summary && form.amount && parseFloat(form.amount) > 0 && form.account !== 'owner' && (
                 <p className="text-[10px] mt-1 font-medium" data-testid="cashbook-form-new-balance">
                   After: <span className={`font-bold ${
                     ((form.account === 'cash' ? summary.cash_balance : summary.bank_balance) + (form.txn_type === 'jama' ? 1 : -1) * parseFloat(form.amount)) >= 0
@@ -302,7 +320,7 @@ const TransactionFormDialog = ({
           />
           {parseFloat(form.amount) > 0 && (
             <div className={`p-2 rounded text-sm font-medium ${form.txn_type === 'jama' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
-              {form.account === 'cash' ? 'Cash' : `Bank${form.bank_name ? ` (${form.bank_name})` : ''}`} {form.txn_type === 'jama' ? 'Jama' : 'Nikasi'}: Rs.{parseFloat(form.amount).toLocaleString('en-IN')}
+              {form.account === 'owner' ? `Owner: ${form.owner_name || '?'}` : form.account === 'cash' ? 'Cash' : `Bank${form.bank_name ? ` (${form.bank_name})` : ''}`} {form.txn_type === 'jama' ? 'Jama' : 'Nikasi'}: Rs.{parseFloat(form.amount).toLocaleString('en-IN')}
             </div>
           )}
           <div className="flex gap-2 pt-2">

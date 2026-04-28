@@ -96,6 +96,7 @@ class CashTransaction(BaseModel):
     amount: float = 0
     reference: str = ""
     bank_name: str = ""  # Which bank account (for bank transactions)
+    owner_name: str = ""  # Which owner account (for account=='owner' txns)
     kms_year: str = ""
     season: str = ""
     created_by: str = ""
@@ -148,8 +149,16 @@ async def get_cash_transactions(kms_year: Optional[str] = None, season: Optional
     if season: query["season"] = season
     if account: query["account"] = account
     if txn_type: query["txn_type"] = txn_type
-    if category: query["category"] = category
-    if party_type: query["party_type"] = party_type
+    # Owner-account parties are stored with account="owner" + owner_name=<owner>;
+    # category holds the OTHER party. When frontend sends party_type="Owner",
+    # match owner_name instead of category.
+    if category and party_type == "Owner":
+        query["owner_name"] = category
+        query["account"] = "owner"
+    elif category:
+        query["category"] = category
+    if party_type and not (category and party_type == "Owner"):
+        query["party_type"] = party_type
     if exclude_round_off == "true" and not party_type:
         query["party_type"] = {"$ne": "Round Off"}
     if date_from or date_to:
@@ -399,6 +408,30 @@ async def get_party_summary(kms_year: Optional[str] = None, season: Optional[str
         if not party_map[cat]["party_type"] and t.get("party_type"):
             party_map[cat]["party_type"] = t["party_type"]
     
+    # === Add Owner Accounts as virtual parties (their statement comes from
+    # transactions where account=="owner" and owner_name=<owner>) ===
+    for t in txns:
+        if t.get("account") != "owner":
+            continue
+        owner = (t.get("owner_name") or "").strip()
+        if not owner:
+            continue
+        # Skip auto-ledger entries
+        if "_ledger:" in (t.get("reference") or ""):
+            continue
+        if owner not in party_map:
+            party_map[owner] = {"party_name": owner, "party_type": "Owner",
+                                "total_jama": 0, "total_nikasi": 0,
+                                "balance": 0, "txn_count": 0}
+        else:
+            # Force party_type to Owner if owner_name matches
+            party_map[owner]["party_type"] = "Owner"
+        if t.get("txn_type") == "jama":
+            party_map[owner]["total_jama"] += t.get("amount", 0)
+        else:
+            party_map[owner]["total_nikasi"] += t.get("amount", 0)
+        party_map[owner]["txn_count"] += 1
+
     # Auto-detect party_type for parties with empty type by checking ALL transactions
     empty_type_parties = [cat for cat, p in party_map.items() if not p["party_type"]]
     if empty_type_parties:
@@ -1467,18 +1500,6 @@ async def _generate_cash_book_pdf_bytes(kms_year=None, season=None, account=None
 
     doc.build(elements); buffer.seek(0)
     return buffer.getvalue()
-
-
-@router.get("/cash-book/pdf")
-async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[str] = None,
-                                account: Optional[str] = None, txn_type: Optional[str] = None,
-                                category: Optional[str] = None, party_type: Optional[str] = None,
-                                date_from: Optional[str] = None, date_to: Optional[str] = None):
-    pdf_bytes = await _generate_cash_book_pdf_bytes(
-        kms_year=kms_year, season=season, account=account, txn_type=txn_type,
-        category=category, party_type=party_type, date_from=date_from, date_to=date_to)
-    return Response(content=pdf_bytes, media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=cash_book_{datetime.now().strftime('%Y%m%d')}.pdf"})
 
 
 @router.get("/cash-book/pdf")
