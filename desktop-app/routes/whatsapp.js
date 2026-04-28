@@ -181,7 +181,7 @@ router.put('/api/whatsapp/settings', safeAsync(async (req, res) => {
   res.json({ success: true, message: 'WhatsApp settings save ho gayi!' });
 }));
 
-// GET groups (supports both 360messenger and wa.9x.design response shapes)
+// GET groups — 360messenger and wa.9x.design use identical response shape: {success, data: {groups: [...]}}
 router.get('/api/whatsapp/groups', safeAsync(async (req, res) => {
   const config = getWaSettings();
   const apiKey = config.api_key || '';
@@ -204,14 +204,10 @@ router.get('/api/whatsapp/groups', safeAsync(async (req, res) => {
       req.setTimeout(30000, () => { req.destroy(); resolve({ result: { message: 'Timeout' }, statusCode: 0 }); });
       req.end();
     });
-    if (statusCode >= 400 || statusCode === 0) {
+    if (statusCode >= 400 || statusCode === 0 || result.success === false) {
       return res.json({ success: false, groups: [], error: result.message || result.detail || `HTTP ${statusCode}` });
     }
-    if ('success' in result && result.success === false) {
-      return res.json({ success: false, groups: [], error: result.message || result.detail || 'Group list fetch fail' });
-    }
-    const data = result.data !== undefined ? result.data : result;
-    const groups = Array.isArray(data) ? data : (data.groups || data.list || []);
+    const groups = (result.data && result.data.groups) || [];
     res.json({ success: true, groups });
   } catch (e) {
     res.json({ success: false, groups: [], error: e.message });

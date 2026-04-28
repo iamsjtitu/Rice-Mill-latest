@@ -10,6 +10,13 @@
 - Settings → Messaging tab dropdown "Default WhatsApp Group" populates with "Navkar Agro" — verified via Playwright
 - Provider toggle: 360messenger ↔ wa.9x.design works; selected provider shown with orange highlight + tick
 
+### Code Simplification — Identical Response Shape Across Providers
+- User confirmed both 360messenger AND wa.9x.design return identical JSON shape: `{success, statusCode, data: {groups: [...]}}`
+- Removed defensive shape-detection logic (Array.isArray, `.list` fallback, separate success-flag check) across all 3 backends
+- Now uses single line: `groups = result.data.groups` (with safe `.get()` defaults)
+- Files updated (parity maintained): `/app/backend/routes/whatsapp.py`, `/app/desktop-app/routes/whatsapp.js`, `/app/local-server/routes/whatsapp.js`
+- Regression curl test: `Navkar Agro` group still fetches successfully ✅
+
 ### Dynamic Provider Footer (UX Fix)
 - Footer text below WhatsApp section was hardcoded to "360Messenger API use hota hai | 360messenger.com"
 - Fixed: footer now dynamically reads `waForm.wa_provider`. Shows "wa.9x.design API use hota hai | wa.9x.design" when wa9x is selected, otherwise 360messenger

@@ -153,7 +153,7 @@ async def update_whatsapp_settings(data: dict):
 
 @router.get("/whatsapp/groups")
 async def get_whatsapp_groups():
-    """Fetch list of WhatsApp groups. Supports both 360messenger and wa.9x.design response shapes."""
+    """Fetch list of WhatsApp groups. 360messenger and wa.9x.design use identical response shape: {success, data: {groups: [...]}}."""
     settings = await _get_wa_settings()
     api_key = settings.get("api_key", "")
     if not api_key:
@@ -164,30 +164,16 @@ async def get_whatsapp_groups():
                 f"{_wa_base_url(settings)}/groupChat/getGroupList",
                 headers={"Authorization": f"Bearer {api_key}"}
             )
-            # Try parsing JSON regardless of status code
             try:
                 result = resp.json()
             except Exception:
                 result = {}
 
-            # HTTP-level failure
-            if resp.status_code >= 400:
+            if resp.status_code >= 400 or result.get("success") is False:
                 err = result.get("message") or result.get("detail") or f"HTTP {resp.status_code}"
                 return {"success": False, "groups": [], "error": err}
 
-            # 360messenger style: explicit success flag
-            if "success" in result and not result.get("success"):
-                return {"success": False, "groups": [],
-                        "error": result.get("message") or result.get("detail") or "Group list fetch fail"}
-
-            # Both providers: groups are nested under data.groups (sometimes data is a list)
-            data = result.get("data", result)
-            if isinstance(data, list):
-                groups = data
-            elif isinstance(data, dict):
-                groups = data.get("groups", []) or data.get("list", [])
-            else:
-                groups = []
+            groups = (result.get("data") or {}).get("groups", [])
             return {"success": True, "groups": groups}
     except Exception as e:
         logger.error(f"WhatsApp get groups error: {e}")
