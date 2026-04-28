@@ -73,7 +73,7 @@ module.exports = function(database) {
 
   function deleteBpLedgerEntries(docId) {
     ensureTxn(); ensureTruck(); ensureDiesel(); ensureLP();
-    const matchRef = (ref) => ref && (ref.includes(`bp_sale`) && ref.includes(docId)) || (ref.includes(`bp_truck`) && ref.includes(docId));
+    const matchRef = (ref) => !!ref && ((ref.includes(`bp_sale`) && ref.includes(docId)) || (ref.includes(`bp_truck`) && ref.includes(docId)));
     database.data.cash_transactions = database.data.cash_transactions.filter(t => !matchRef(t.reference));
     database.data.truck_payments = database.data.truck_payments.filter(t => !matchRef(t.reference));
     database.data.diesel_accounts = database.data.diesel_accounts.filter(t => !(t.reference && t.reference.includes(`bp_sale`) && t.reference.includes(docId)));

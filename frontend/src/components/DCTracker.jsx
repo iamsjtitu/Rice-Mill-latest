@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import DCStacks from "./DCStacks";
 import { Label } from "@/components/ui/label";
 import { Trash2, Plus, RefreshCw, Download, FileText, Truck, ClipboardList, ChevronDown, ChevronUp, IndianRupee, Package, Edit, Clock, History, Search } from "lucide-react";
+import { ShareFileViaWhatsApp } from "./common/ShareFileViaWhatsApp";
+import { fetchAsBlob } from "../utils/download";
 import { useConfirm } from "./ConfirmProvider";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -937,8 +939,21 @@ export const GunnyBags = ({ filters, user }) => {
         <div className="flex gap-2 ml-auto">
           <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
           <Button onClick={openNewForm} className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm" data-testid="gunny-add-btn"><Plus className="w-4 h-4 mr-1" /> New Entry</Button>
-          <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="gunny-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
-          <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="gunny-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+          <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700 h-9 w-9 p-0" title="Excel" data-testid="gunny-export-excel"><Download className="w-4 h-4" /></Button>
+          <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700 h-9 w-9 p-0" title="PDF" data-testid="gunny-export-pdf"><FileText className="w-4 h-4" /></Button>
+          <ShareFileViaWhatsApp
+            getFile={async () => {
+              const p = new URLSearchParams();
+              if (filters.kms_year) p.append('kms_year', filters.kms_year);
+              if (filters.season) p.append('season', filters.season);
+              if (bagFilter !== 'all') p.append('bag_filter', bagFilter);
+              if (txnFilter !== 'all') p.append('txn_filter', txnFilter);
+              return await fetchAsBlob(`/api/gunny-bags/pdf?${p}`, 'gunny_bags.pdf');
+            }}
+            caption="Gunny Bags Register"
+            title="Gunny Bags WhatsApp pe bhejein (PDF)"
+            testId="gunny-share-whatsapp"
+          />
           <Button onClick={async () => {
             const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
             try { const { downloadFile } = await import('../utils/download'); downloadFile(`/api/gunny-bags/purchase-report/excel?${p}`, 'gunny_purchase_report.xlsx'); } catch(e) { toast.error("Report export failed"); }

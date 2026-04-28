@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, FileText, IndianRupee, Edit, Download, Search, FileSpreadsheet, Printer, Clock, History, Undo2, Building2, CheckSquare, Receipt, Send, Users } from "lucide-react";
+import { ShareFileViaWhatsApp } from "./common/ShareFileViaWhatsApp";
+import { fetchAsBlob } from "../utils/download";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = `${_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')}/api`;
@@ -334,12 +336,21 @@ export default function SaleBook({ filters, user, category }) {
           <FileText className="w-5 h-5" /> Sale Book (बिक्री खाता)
         </h2>
         <div className="flex gap-2 flex-wrap">
-          <Button onClick={handleExportPDF} variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-900/30" data-testid="sale-book-pdf-btn">
-            <Download className="w-3 h-3 mr-1" /> PDF
+          <Button onClick={handleExportPDF} variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-900/30 h-9 w-9 p-0" title="PDF" data-testid="sale-book-pdf-btn">
+            <Download className="w-4 h-4" />
           </Button>
-          <Button onClick={handleExportExcel} variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-900/30" data-testid="sale-book-excel-btn">
-            <FileSpreadsheet className="w-3 h-3 mr-1" /> Excel
+          <Button onClick={handleExportExcel} variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-900/30 h-9 w-9 p-0" title="Excel" data-testid="sale-book-excel-btn">
+            <FileSpreadsheet className="w-4 h-4" />
           </Button>
+          <ShareFileViaWhatsApp
+            getFile={async () => {
+              const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
+              return await fetchAsBlob(`/api/sale-book/export/pdf?${p}${searchParam}`, `sale_book_${new Date().toISOString().split('T')[0]}.pdf`);
+            }}
+            caption="Sale Book Report"
+            title="Sale Book WhatsApp pe bhejein (PDF)"
+            testId="sale-book-share-whatsapp"
+          />
           <Button onClick={openNewForm} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold" data-testid="sale-book-add-btn">
             <Plus className="w-4 h-4 mr-1" /> New Sale
           </Button>

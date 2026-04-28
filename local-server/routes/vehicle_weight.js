@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const { safeAsync } = require('./safe_handler');
 const { waHostname, waPathPrefix } = require('./wa_helper');
-const { fmtDate, createPdfDoc, registerFonts, F, addPdfHeader } = require('./pdf_helpers');
+const { fmtDate, createPdfDoc, registerFonts, F, autoF, addPdfHeader } = require('./pdf_helpers');
 const router = express.Router();
 
 module.exports = function(database) {
@@ -530,10 +530,10 @@ module.exports = function(database) {
           doc.moveTo(LM + 2 * colW, y).lineTo(LM + 2 * colW, y + rowH).stroke();
           doc.moveTo(LM + 3 * colW, y).lineTo(LM + 3 * colW, y + rowH).stroke();
           const ty = y + 5;
-          doc.font(F('normal')).fontSize(7.5).fillColor('#555').text(lbl1, LM + 3, ty, { width: colW - 6, lineBreak: false });
-          doc.font(F('bold')).fontSize(8.5).fillColor('#000').text(String(val1).substring(0, 26), LM + colW + 3, ty, { width: colW - 6, lineBreak: false });
-          doc.font(F('normal')).fontSize(7.5).fillColor('#555').text(lbl2, LM + 2 * colW + 3, ty, { width: colW - 6, lineBreak: false });
-          doc.font(F('bold')).fontSize(8.5).fillColor('#000').text(String(val2).substring(0, 26), LM + 3 * colW + 3, ty, { width: colW - 6, lineBreak: false });
+          doc.font(autoF(lbl1, 'normal')).fontSize(7.5).fillColor('#555').text(lbl1, LM + 3, ty, { width: colW - 6, lineBreak: false });
+          doc.font(autoF(val1, 'bold')).fontSize(8.5).fillColor('#000').text(String(val1).substring(0, 26), LM + colW + 3, ty, { width: colW - 6, lineBreak: false });
+          doc.font(autoF(lbl2, 'normal')).fontSize(7.5).fillColor('#555').text(lbl2, LM + 2 * colW + 3, ty, { width: colW - 6, lineBreak: false });
+          doc.font(autoF(val2, 'bold')).fontSize(8.5).fillColor('#000').text(String(val2).substring(0, 26), LM + 3 * colW + 3, ty, { width: colW - 6, lineBreak: false });
           y += rowH;
         }
 
@@ -756,15 +756,36 @@ module.exports = function(database) {
   }));
 
   // GET /api/vehicle-weight/by-rst/:rst_no - Lookup by RST (used by Entries form auto-fill)
+  // Query params:
+  //   kms_year — optional financial year filter
+  //   expected_context — "sale" | "purchase" (optional). If provided and trans_type
+  //   does not match, returns 409 conflict so caller can warn the user instead of
+  //   silently pulling the wrong RST data.
   router.get('/api/vehicle-weight/by-rst/:rst_no', safeAsync(async (req, res) => {
     const rstNo = parseInt(req.params.rst_no);
     const kmsYear = req.query.kms_year || '';
+    const expected = (req.query.expected_context || '').toLowerCase();
     const weights = col('vehicle_weights');
-    let entry = kmsYear
+    const entry = kmsYear
       ? weights.find(w => w.rst_no === rstNo && w.kms_year === kmsYear)
       : weights.find(w => w.rst_no === rstNo);
     if (!entry) return res.status(404).json({ detail: 'RST not found in Vehicle Weight' });
-    res.json({ success: true, entry });
+
+    const tt = String(entry.trans_type || '').toLowerCase();
+    const isPurchase = tt.includes('receive') || tt.includes('purchase');
+    const isSale = tt.includes('issue') || tt.includes('sale');
+    const context = isPurchase ? 'purchase' : (isSale ? 'sale' : 'unknown');
+
+    if (expected && context !== 'unknown' && expected !== context) {
+      return res.status(409).json({
+        detail: `Ye RST Number ${context === 'purchase' ? 'Purchase' : 'Sale'} ka hai`,
+        actual_context: context,
+        expected_context: expected,
+        trans_type: entry.trans_type || '',
+        rst_no: rstNo,
+      });
+    }
+    res.json({ success: true, entry, context });
   }));
 
   router.get('/api/vehicle-weight/linked-rst', safeAsync(async (req, res) => {

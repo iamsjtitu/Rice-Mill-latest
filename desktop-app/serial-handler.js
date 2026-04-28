@@ -14,8 +14,10 @@ let mainWin = null;
 let stableBuffer = [];
 let lastWeight = 0;
 let isStable = false;
+let lastUpdateTime = 0; // timestamp of last serial reading — for staleness detection
 const STABLE_COUNT = 3; // 3 consecutive same readings = stable
 const STABLE_TOLERANCE = 10; // +/- 10 KG tolerance for stability
+const STALE_THRESHOLD_MS = 3000; // 3 sec without serial data → reading is STALE (truck moved off bridge)
 
 // Default config
 const DEFAULT_CONFIG = {
@@ -147,6 +149,7 @@ function openPort(config) {
         const parsed = parseWeight(trimmed);
         if (parsed) {
           lastWeight = parsed.weight;
+          lastUpdateTime = Date.now();
           const wasStable = isStable;
           isStable = parsed.hasStableFlag || checkStability(parsed.weight);
 
@@ -169,6 +172,7 @@ function openPort(config) {
         const parsed = parseWeight(rawBuffer);
         if (parsed) {
           lastWeight = parsed.weight;
+          lastUpdateTime = Date.now();
           isStable = parsed.hasStableFlag || checkStability(parsed.weight);
           const payload = {
             weight: parsed.weight,
@@ -285,10 +289,12 @@ function initSerialHandler(window) {
 
   // IPC: Get current status
   ipcMain.handle('serial-get-status', async () => {
+    const stale = lastUpdateTime > 0 && (Date.now() - lastUpdateTime) > STALE_THRESHOLD_MS;
     return {
       connected: activePort && activePort.isOpen,
-      weight: lastWeight,
-      stable: isStable,
+      weight: stale ? 0 : lastWeight,
+      stable: stale ? false : isStable,
+      stale,
     };
   });
 
@@ -300,6 +306,25 @@ function initSerialHandler(window) {
       openPort(config);
     }, 3000);
   }
+
+  // Periodic staleness checker: if no serial data for >3 sec, emit weight=0 to UI
+  // This unfreezes the "STABLE - LOCKED" display when truck moves off the bridge
+  let wasStale = false;
+  setInterval(() => {
+    if (!activePort || !activePort.isOpen) return;
+    const stale = lastUpdateTime > 0 && (Date.now() - lastUpdateTime) > STALE_THRESHOLD_MS;
+    if (stale && !wasStale) {
+      console.log('[Serial] Weight reading STALE — bridge idle, resetting display to 0');
+      isStable = false;
+      stableBuffer = [];
+      const payload = { weight: 0, stable: false, raw: 'STALE', timestamp: Date.now(), stale: true };
+      sendToRenderer('serial-weight', payload);
+      emitWeight(payload);
+      wasStale = true;
+    } else if (!stale && wasStale) {
+      wasStale = false;
+    }
+  }, 1000);
 }
 
 // Cleanup
@@ -321,10 +346,12 @@ function emitWeight(payload) {
 
 // Get current weight status (for REST API / LAN access)
 function getWeightStatus() {
+  const stale = lastUpdateTime > 0 && (Date.now() - lastUpdateTime) > STALE_THRESHOLD_MS;
   return {
     connected: !!(activePort && activePort.isOpen),
-    weight: lastWeight,
-    stable: isStable,
+    weight: stale ? 0 : lastWeight,
+    stable: stale ? false : isStable,
+    stale,
     timestamp: Date.now()
   };
 }

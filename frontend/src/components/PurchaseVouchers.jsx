@@ -18,7 +18,8 @@ import { Label } from "@/components/ui/label";
 import {
   Plus, Trash2, RefreshCw, Search, FileText, FileSpreadsheet, Eye, ShoppingBag, IndianRupee, Receipt, Clock, History, Undo2, Printer,
 } from "lucide-react";
-import { downloadFile } from "../utils/download";
+import { downloadFile, fetchAsBlob } from "../utils/download";
+import { ShareFileViaWhatsApp } from "./common/ShareFileViaWhatsApp";
 import RoundOffInput from "./common/RoundOffInput";
 import { useConfirm } from "./ConfirmProvider";
 import logger from "../utils/logger";
@@ -325,12 +326,24 @@ export default function PurchaseVouchers({ filters, user }) {
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="pv-refresh-btn">
           <RefreshCw className="w-4 h-4 mr-1" /> Refresh
         </Button>
-        <Button onClick={() => handleExport('pdf')} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30" data-testid="pv-export-pdf">
-          <FileText className="w-4 h-4 mr-1" /> PDF
+        <Button onClick={() => handleExport('pdf')} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30 h-9 w-9 p-0" title="PDF" data-testid="pv-export-pdf">
+          <FileText className="w-4 h-4" />
         </Button>
-        <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-green-700 text-green-400 hover:bg-green-900/30" data-testid="pv-export-excel">
-          <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+        <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-green-700 text-green-400 hover:bg-green-900/30 h-9 w-9 p-0" title="Excel" data-testid="pv-export-excel">
+          <FileSpreadsheet className="w-4 h-4" />
         </Button>
+        <ShareFileViaWhatsApp
+          getFile={async () => {
+            const p = new URLSearchParams();
+            if (filters.kms_year) p.append('kms_year', filters.kms_year);
+            if (searchText) p.append('search', searchText);
+            const qs = p.toString() ? `?${p.toString()}` : '';
+            return await fetchAsBlob(`/api/purchase-book/export/pdf${qs}`, 'purchase_book.pdf');
+          }}
+          caption="Purchase Vouchers Report"
+          title="Purchase Vouchers WhatsApp pe bhejein (PDF)"
+          testId="pv-share-whatsapp"
+        />
         <div className="relative ml-auto min-w-[200px]">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input value={searchText} onChange={e => setSearchText(e.target.value)}

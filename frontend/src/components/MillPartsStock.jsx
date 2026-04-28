@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, RefreshCw, Package, ArrowDown, ArrowUp, Download, FileText, AlertTriangle, Settings, Edit, Search, Calendar, Filter, Warehouse } from "lucide-react";
-import { downloadFile } from "../utils/download";
+import { downloadFile, fetchAsBlob } from "../utils/download";
+import { ShareFileViaWhatsApp } from "./common/ShareFileViaWhatsApp";
 import { useConfirm } from "./ConfirmProvider";
 import logger from "../utils/logger";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -265,8 +266,19 @@ export default function MillPartsStock({ filters, user }) {
             </Button>
             <Button onClick={fetchAll} variant="outline" size="sm" className="border-slate-600 text-slate-300"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
             <div className="ml-auto flex gap-2">
-              <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400" data-testid="parts-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
-              <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="parts-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+              <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 h-9 w-9 p-0" title="Excel" data-testid="parts-export-excel"><Download className="w-4 h-4" /></Button>
+              <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-9 w-9 p-0" title="PDF" data-testid="parts-export-pdf"><FileText className="w-4 h-4" /></Button>
+              <ShareFileViaWhatsApp
+                getFile={async () => {
+                  const p = new URLSearchParams();
+                  if (filters.kms_year) p.append('kms_year', filters.kms_year);
+                  if (filters.season) p.append('season', filters.season);
+                  return await fetchAsBlob(`/api/mill-parts/pdf?${p}`, 'mill_parts.pdf');
+                }}
+                caption="Mill Parts Stock"
+                title="Mill Parts WhatsApp pe bhejein (PDF)"
+                testId="parts-share-whatsapp"
+              />
             </div>
           </div>
 

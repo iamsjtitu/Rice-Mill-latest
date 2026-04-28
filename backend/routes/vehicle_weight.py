@@ -1081,10 +1081,10 @@ async def weight_report_pdf(entry_id: str):
     header_els = await get_pdf_header_elements_from_db(f"WEIGHT REPORT — RST #{rst}")
     elements.extend(header_els)
 
-    # Styles
-    lbl_style = ParagraphStyle('lbl', fontName='FreeSans', fontSize=8, textColor=colors.HexColor('#555'))
-    val_style = ParagraphStyle('val', fontName='FreeSansBold', fontSize=9, textColor=colors.HexColor('#000'))
-    small_style = ParagraphStyle('sm', fontName='FreeSans', fontSize=7.5, textColor=colors.HexColor('#666'))
+    # Styles — use NotoDeva (Hindi-capable, also renders Latin) for labels that mix English + Devanagari
+    lbl_style = ParagraphStyle('lbl', fontName='NotoDeva', fontSize=8, textColor=colors.HexColor('#555'))
+    val_style = ParagraphStyle('val', fontName='NotoDevaBold', fontSize=9, textColor=colors.HexColor('#000'))
+    small_style = ParagraphStyle('sm', fontName='NotoDeva', fontSize=7.5, textColor=colors.HexColor('#666'))
 
     # ── Info Table ──
     info_rows = [

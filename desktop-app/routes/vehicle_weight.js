@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const { safeAsync } = require('./safe_handler');
 const { waHostname, waPathPrefix } = require('./wa_helper');
-const { fmtDate, createPdfDoc, registerFonts, F, addPdfHeader } = require('./pdf_helpers');
+const { fmtDate, createPdfDoc, registerFonts, F, autoF, addPdfHeader } = require('./pdf_helpers');
 const router = express.Router();
 
 module.exports = function(database) {
@@ -530,10 +530,10 @@ module.exports = function(database) {
           doc.moveTo(LM + 2 * colW, y).lineTo(LM + 2 * colW, y + rowH).stroke();
           doc.moveTo(LM + 3 * colW, y).lineTo(LM + 3 * colW, y + rowH).stroke();
           const ty = y + 5;
-          doc.font(F('normal')).fontSize(7.5).fillColor('#555').text(lbl1, LM + 3, ty, { width: colW - 6, lineBreak: false });
-          doc.font(F('bold')).fontSize(8.5).fillColor('#000').text(String(val1).substring(0, 26), LM + colW + 3, ty, { width: colW - 6, lineBreak: false });
-          doc.font(F('normal')).fontSize(7.5).fillColor('#555').text(lbl2, LM + 2 * colW + 3, ty, { width: colW - 6, lineBreak: false });
-          doc.font(F('bold')).fontSize(8.5).fillColor('#000').text(String(val2).substring(0, 26), LM + 3 * colW + 3, ty, { width: colW - 6, lineBreak: false });
+          doc.font(autoF(lbl1, 'normal')).fontSize(7.5).fillColor('#555').text(lbl1, LM + 3, ty, { width: colW - 6, lineBreak: false });
+          doc.font(autoF(val1, 'bold')).fontSize(8.5).fillColor('#000').text(String(val1).substring(0, 26), LM + colW + 3, ty, { width: colW - 6, lineBreak: false });
+          doc.font(autoF(lbl2, 'normal')).fontSize(7.5).fillColor('#555').text(lbl2, LM + 2 * colW + 3, ty, { width: colW - 6, lineBreak: false });
+          doc.font(autoF(val2, 'bold')).fontSize(8.5).fillColor('#000').text(String(val2).substring(0, 26), LM + 3 * colW + 3, ty, { width: colW - 6, lineBreak: false });
           y += rowH;
         }
 

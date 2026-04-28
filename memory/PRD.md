@@ -1,8 +1,46 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.35.0
+## Current Version: v104.36.0
 
-## 🚀 v104.35.0 — Icon-Only Buttons + 3 New WhatsApp Share Locations + Bug Fix
+## 🚀 v104.36.0 — 6 New WhatsApp Locations + 3 Critical Bug Fixes
+**Build date:** 2026-04-28
+
+### 🔴 Bug Fix #A — bp_sale_register.js: matchRef CRASH on undefined ref
+- **Issue:** `DELETE /api/bp-sale-register/:id` crashed with `Cannot read properties of undefined (reading 'includes')`
+- **Root cause:** Operator precedence — `&&` binds tighter than `||`, so `ref &&` guard didn't apply to second clause
+- **Old:** `ref && (ref.includes('a') && ref.includes(b)) || (ref.includes('c') && ref.includes(b))`
+- **Fix:** `!!ref && ((ref.includes('a') && ref.includes(b)) || (ref.includes('c') && ref.includes(b)))`
+- **Files:** `desktop-app/routes/bp_sale_register.js`, `local-server/routes/bp_sale_register.js` (Python uses MongoDB regex, not affected)
+- **Verified:** Node test confirms OLD crashes on `undefined`/`null`, NEW returns `false` safely
+
+### 🔴 Bug Fix #B — Weighbridge stuck at 5,850 kg (no truck on bridge)
+- **Issue:** Display showed "STABLE - LOCKED" with 5,850 kg even when no truck on weighbridge
+- **Root cause:** `lastWeight`/`isStable` only updated on serial port data events. If bridge stops streaming (truck moves off), values persist forever.
+- **Fix added in `serial-handler.js`:**
+  - New `lastUpdateTime` timestamp updated on every reading
+  - New `STALE_THRESHOLD_MS = 3000` (3 sec without data → stale)
+  - `getWeightStatus()` returns `{weight: 0, stable: false, stale: true}` if stale
+  - **NEW periodic stale-checker** (1 sec interval): emits `serial-weight` event with `weight=0` to renderer when bridge becomes idle, unfreezing the LOCKED display
+
+### 🔴 Bug Fix #C — Weight Report PDF: Devanagari labels showing as `||||||||`
+- **Issue:** Hindi labels (गाड़ी, पार्टी, माल, बोरे, दिनांक) rendered as vertical bars/boxes
+- **Root cause:** PDF generators used `FreeSans` font which has no Devanagari glyphs
+- **Fix:**
+  - **Python** (`vehicle_weight.py`): `lbl_style`/`val_style` now use `NotoDeva`/`NotoDevaBold` (renders both Latin + Devanagari)
+  - **Node** (`vehicle_weight.js`): `drawGridRow()` switched from `F('normal')` to `autoF(text, 'normal')` — auto-detects Devanagari
+- **Verified:** Generated weight report PDF, AI analysis confirms ALL 5 Hindi labels (गाड़ी/पार्टी/माल/बोरे/दिनांक) render correctly ✅
+
+### 6 New WhatsApp Share Locations (icon-only, drop-in)
+1. **Gunny Bags Register** (DCTracker.jsx) — share `gunny_bags.pdf`
+2. **Hemali Payments** (HemaliPayment.jsx) — main list `hemali_payments.pdf`
+3. **Hemali Monthly Summary** (HemaliPayment.jsx) — month-wise summary `hemali_monthly.pdf`
+4. **Mill Parts Stock** (MillPartsStock.jsx) — `mill_parts.pdf`
+5. **Sale Book** (SaleBook.jsx) — `sale_book.pdf` (with search/filter preserved)
+6. **Purchase Vouchers** (PurchaseVouchers.jsx) — `purchase_book.pdf` (with search preserved)
+
+All existing PDF/Excel buttons in these places also converted to **icon-only** (h-9 w-9 p-0) with title tooltips.
+
+## v104.35.0 — Icon-Only Buttons + 3 Initial WhatsApp Share Locations
 **Build date:** 2026-04-28
 
 ### 🔴 Bug Fix: Single WhatsApp click was ALSO sending to group

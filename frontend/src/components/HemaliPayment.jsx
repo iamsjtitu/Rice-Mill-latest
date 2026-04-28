@@ -12,6 +12,8 @@ import { fmtDate } from "@/utils/date";
 import RoundOffInput from "@/components/common/RoundOffInput";
 import PaymentAccountSelect from "@/components/common/PaymentAccountSelect";
 import { useConfirm } from "./ConfirmProvider";
+import { ShareFileViaWhatsApp } from "./common/ShareFileViaWhatsApp";
+import { fetchAsBlob } from "../utils/download";
 import logger from "../utils/logger";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
@@ -168,12 +170,24 @@ const MonthlySummary = ({ filters }) => {
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700">
           <RefreshCw className="w-4 h-4 mr-1" /> Refresh
         </Button>
-        <Button onClick={() => handleExport("pdf")} variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-900/30" data-testid="monthly-export-pdf">
-          <FileText className="w-4 h-4 mr-1" /> PDF
+        <Button onClick={() => handleExport("pdf")} variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-900/30 h-9 w-9 p-0" title="PDF" data-testid="monthly-export-pdf">
+          <FileText className="w-4 h-4" />
         </Button>
-        <Button onClick={() => handleExport("excel")} variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-900/30" data-testid="monthly-export-excel">
-          <Download className="w-4 h-4 mr-1" /> Excel
+        <Button onClick={() => handleExport("excel")} variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-900/30 h-9 w-9 p-0" title="Excel" data-testid="monthly-export-excel">
+          <Download className="w-4 h-4" />
         </Button>
+        <ShareFileViaWhatsApp
+          getFile={async () => {
+            const params = new URLSearchParams();
+            if (filters.kms_year) params.append("kms_year", filters.kms_year);
+            if (filterSardar) params.append("sardar_name", filterSardar);
+            if (filterMonth) params.append("month", filterMonth);
+            return await fetchAsBlob(`/api/hemali/monthly-summary/pdf?${params}`, "hemali_monthly.pdf");
+          }}
+          caption="Hemali Monthly Summary"
+          title="Monthly Hemali Summary WhatsApp pe bhejein (PDF)"
+          testId="hemali-monthly-share-whatsapp"
+        />
         <div className="flex items-center gap-2 ml-auto">
           <Select value={filterMonth || "all"} onValueChange={v => setFilterMonth(v === "all" ? "" : v)}>
             <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs w-[140px]" data-testid="monthly-filter-month">
@@ -543,12 +557,25 @@ export default function HemaliPayment({ filters, user }) {
             <Button onClick={fetchPayments} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700" data-testid="refresh-hemali-btn">
               <RefreshCw className="w-4 h-4 mr-1" /> Refresh
             </Button>
-            <Button onClick={handleExportPDF} variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-900/30" data-testid="hemali-export-pdf">
-              <FileText className="w-4 h-4 mr-1" /> PDF
+            <Button onClick={handleExportPDF} variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-900/30 h-9 w-9 p-0" title="PDF" data-testid="hemali-export-pdf">
+              <FileText className="w-4 h-4" />
             </Button>
-            <Button onClick={handleExportExcel} variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-900/30" data-testid="hemali-export-excel">
-              <Download className="w-4 h-4 mr-1" /> Excel
+            <Button onClick={handleExportExcel} variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-900/30 h-9 w-9 p-0" title="Excel" data-testid="hemali-export-excel">
+              <Download className="w-4 h-4" />
             </Button>
+            <ShareFileViaWhatsApp
+              getFile={async () => {
+                const params = new URLSearchParams();
+                if (filters.kms_year) params.append("kms_year", filters.kms_year);
+                if (dateFrom) params.append("from_date", dateFrom);
+                if (dateTo) params.append("to_date", dateTo);
+                if (filterSardar) params.append("sardar_name", filterSardar);
+                return await fetchAsBlob(`/api/hemali/export/pdf?${params}`, "hemali_payments.pdf");
+              }}
+              caption="Hemali Payments Report"
+              title="Hemali Report WhatsApp pe bhejein (PDF)"
+              testId="hemali-share-whatsapp"
+            />
 
             {/* Filters */}
             <div className="flex items-center gap-2 ml-auto">
