@@ -7,6 +7,21 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.34.0",
+    date: "Apr 28, 2026 (Late)",
+    title: "v104.34.0 — 🎯 GLOBAL Hindi PDF Fix + Cash Book Cleanup + Bug Fixes",
+    items: [
+      { type: "fix", text: "🎯 **GLOBAL Hindi PDF Rendering Fix** — Saare PDFs (Weight Report, Mill Entries, Stock Summary, Sale Book, Cash Book, Hemali, Mill Parts, Daily Report) me Devanagari labels ab properly render hote hain. Pehle 'मिल एंट्री / गाड़ी / पार्टी / बोरे / नकद / डीजल' jaise labels `||||||||` (vertical bars) ke roop me dikh rahe the. **Root cause:** Internal `FreeSans` font alias Inter ko point kar raha tha jisme Devanagari glyphs nahi hain. **Fix:** `FreeSans` ab NotoSansDevanagari ko point karta hai (Latin + Devanagari dono glyphs available). Saare shared PDF helpers (header, table, totals, summary, section bands) auto-detect karte hain Devanagari aur correct font use karte hain. **No caller code change needed** — har PDF automatic correct render karega." },
+      { type: "fix", text: "🐛 **TOTAL Row Double-Counting Fix** — Cash Book Transactions table me TOTAL row Jama/Nikasi double dikha rahi thi. Example: 'Titu' ke ₹42,500 ke ek transaction par TOTAL Jama ₹85,000 (real cash txn + auto_ledger pair dono count ho rahe the). Fixed: ab auto_ledger pairs ko TOTAL me skip karta hai. Label transparent: 'TOTAL (N transactions, M auto-pair excluded)'." },
+      { type: "fix", text: "🐛 **Auto Weight Pending Badge Fix** — Mill Entries bulk delete ke baad 'Auto Weight Entries' tab ka red badge stale rehta tha (purana count). Fixed: ab har deletion path (single + bulk + VW + Mill Entry) badge refresh trigger karta hai." },
+      { type: "improvement", text: "🧹 **Cash Book — Party Summary tab REMOVED** (kaam ka nahi tha)" },
+      { type: "improvement", text: "🔍 **Party Ledgers — Search-first** — Tab open karte hi ab default sab parties dump nahi hote (slow tha + bekaar tha). Empty state prompt: 'Pehle party ka naam search karein'. API call skip jab tak user search ya filter nahi lagaye → page load fast." },
+      { type: "improvement", text: "🟢 **Entries + Cash Book me WhatsApp + Group icons-only** — sirf icon dikhata hai (text removed) — UI clean. Refresh/Filter/Excel/PDF buttons text+icon ke saath rakhi gayi (jaise pehle they)." },
+      { type: "new", text: "🔄 **Ledger → Owner Account Converter** (NEW): Cash Book → Owner Accounts dialog me 'Pehle se Cash/Bank ledger hai? Convert karein' option. Existing party (e.g. Titu) ko ek click me Owner Capital account me migrate kar do — Preview pehle dikhata hai (kitne txns + total amount), confirm pe automatic flip+migrate (txn_type bhi auto-inverted because Owner accounting cash/bank se reversed hoti hai). Triple-backend parity (Python + Desktop + LAN)." },
+      { type: "fix", text: "🌐 **Triple-Backend Parity** — Saare changes Python web + Electron Desktop + LAN Express teeno me synced. Hindi PDF fix, Owner converter, badge refresh, double-count skip — ek bhi backend me drift nahi." },
+    ],
+  },
+  {
     version: "104.33.0",
     date: "Apr 28, 2026",
     title: "v104.33.0 — 🚀 wa.9x.design Direct File Upload + 8 New WhatsApp Share Buttons + 4 Critical Bug Fixes + Ledger→Owner Convert",
