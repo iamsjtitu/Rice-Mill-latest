@@ -56,7 +56,7 @@ async def _send_wa_message(phone: str, text: str, media_url: str = ""):
         data["url"] = media_url
 
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=90) as client:
             resp = await client.post(
                 f"{_wa_base_url(settings)}/sendMessage",
                 data=data,
@@ -67,9 +67,13 @@ async def _send_wa_message(phone: str, text: str, media_url: str = ""):
                 return {"success": True, "message": "WhatsApp message bhej diya!", "data": result.get("data", {})}
             else:
                 return {"success": False, "error": result.get("message", "Message send fail")}
+    except httpx.TimeoutException:
+        logger.error("WhatsApp send timeout (>90s) — provider response slow")
+        return {"success": False, "error": "Provider timeout (90s). Network slow ya media URL fetch fail. Retry karein."}
     except Exception as e:
-        logger.error(f"WhatsApp send error: {e}")
-        return {"success": False, "error": str(e)}
+        msg = str(e) or e.__class__.__name__
+        logger.error(f"WhatsApp send error: {msg}")
+        return {"success": False, "error": msg}
 
 
 async def _send_wa_to_group(group_id: str, text: str, media_url: str = ""):
@@ -86,7 +90,7 @@ async def _send_wa_to_group(group_id: str, text: str, media_url: str = ""):
         data["url"] = media_url
 
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=90) as client:
             resp = await client.post(
                 f"{_wa_base_url(settings)}/sendGroup",
                 data=data,
@@ -95,11 +99,25 @@ async def _send_wa_to_group(group_id: str, text: str, media_url: str = ""):
             result = resp.json()
             if result.get("success") or resp.status_code == 201:
                 return {"success": True, "message": "Group message bhej diya!"}
-            else:
-                return {"success": False, "error": result.get("message", "Group send fail")}
+            # Surface useful error info for debugging (especially wa.9x.design's empty-error responses)
+            err_parts = []
+            if result.get("message"): err_parts.append(result["message"])
+            if result.get("error"): err_parts.append(result["error"])
+            sc = result.get("statusCode")
+            if sc and sc != resp.status_code: err_parts.append(f"provider statusCode {sc}")
+            sent_id = (result.get("data") or {}).get("groupId")
+            if sent_id and sent_id != group_id:
+                err_parts.append(f"Provider received groupId='{sent_id}' (sent='{group_id}'). Provider API may be stripping special chars like @ or .")
+            err_msg = " | ".join(err_parts) or f"Group send fail (HTTP {resp.status_code})"
+            logger.error(f"WhatsApp group send fail: {err_msg} | full body: {resp.text[:300]}")
+            return {"success": False, "error": err_msg}
+    except httpx.TimeoutException:
+        logger.error("WhatsApp group send timeout (>90s) — provider response slow")
+        return {"success": False, "error": "Provider timeout (90s). PDF media bhejne mein time lag raha hai. Retry karein."}
     except Exception as e:
-        logger.error(f"WhatsApp group send error: {e}")
-        return {"success": False, "error": str(e)}
+        msg = str(e) or e.__class__.__name__
+        logger.error(f"WhatsApp group send error: {msg}")
+        return {"success": False, "error": msg}
 
 
 # ---- Settings ----

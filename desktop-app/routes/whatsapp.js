@@ -131,6 +131,7 @@ function sendWaMessage(apiKey, phone, text, mediaUrl, settings = {}) {
       });
     });
     req.on('error', e => { console.log('[WhatsApp] Network error:', e.message); resolve({ success: false, error: e.message }); });
+    req.setTimeout(90000, () => { req.destroy(); console.log('[WhatsApp] Send timeout (90s)'); resolve({ success: false, error: 'Provider timeout (90s). Retry karein.' }); });
     req.write(postData);
     req.end();
   });
@@ -236,16 +237,17 @@ router.post('/api/whatsapp/send-group', safeAsync(async (req, res) => {
         r.on('data', c => data += c);
         r.on('end', () => {
           try { resolve(JSON.parse(data)); }
-          catch (e) { resolve({ success: false }); }
+          catch (e) { resolve({ success: false, error: 'Parse error' }); }
         });
       });
       req.on('error', e => resolve({ success: false, error: e.message }));
+      req.setTimeout(90000, () => { req.destroy(); resolve({ success: false, error: 'Provider timeout (90s). PDF media bhejne mein time lag raha hai. Retry karein.' }); });
       req.write(postData);
       req.end();
     });
-    res.json({ success: result.success || false, message: result.success ? 'Group message bhej diya!' : '', error: result.error || result.message || '' });
+    res.json({ success: result.success || false, message: result.success ? 'Group message bhej diya!' : '', error: result.error || result.message || 'Group send fail' });
   } catch (e) {
-    res.json({ success: false, error: e.message });
+    res.json({ success: false, error: e.message || 'Group send error' });
   }
 }));
 
