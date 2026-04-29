@@ -43,6 +43,22 @@ async def make_voucher_payment(request: Request):
     if not party:
         raise HTTPException(status_code=400, detail="Voucher mein party name nahi hai")
 
+    # For BP Sale split-billing, route payment to proper sub-ledger:
+    #   bank   → "{party} (Pka)" sub-ledger
+    #   cash   → "{party} (Ka)"
+    #   owner  → "{party} (Ka)"
+    is_bp_split = voucher_type == "bp_sale" and bool(voucher.get("split_billing"))
+    if is_bp_split:
+        if pay_account == "bank":
+            ledger_party = f"{party} (Pka)"
+            ledger_source_type = "bp_sale_pka_payment"
+        else:
+            ledger_party = f"{party} (Ka)"
+            ledger_source_type = "bp_sale_ka_payment"
+    else:
+        ledger_party = party
+        ledger_source_type = "sale_voucher_payment" if voucher_type in ("sale", "bp_sale") else "purchase_voucher_payment"
+
     now_iso = datetime.now(timezone.utc).isoformat()
     base = {"kms_year": kms_year or voucher.get("kms_year", ""), "season": season or voucher.get("season", ""), "created_by": username, "created_at": now_iso, "updated_at": now_iso}
     payment_id = str(uuid.uuid4())
@@ -80,12 +96,12 @@ async def make_voucher_payment(request: Request):
         await db.cash_transactions.insert_one(cash_entry)
         await db.cash_transactions.insert_one(ledger_entry)
 
-        # Local party payment entry (total including round off)
+        # Local party payment entry (total including round off) — routes to sub-ledger if split
         lp_entry = {
-            "id": str(uuid.uuid4()), "date": date, "party_name": party,
+            "id": str(uuid.uuid4()), "date": date, "party_name": ledger_party,
             "txn_type": "payment", "amount": total_settled,
             "description": f"Payment received - {source_label}" + (f" ({notes})" if notes else ""),
-            "source_type": "sale_voucher_payment", "reference": f"voucher_payment:{payment_id}",
+            "source_type": ledger_source_type, "reference": f"voucher_payment:{payment_id}",
             **base
         }
         await db.local_party_accounts.insert_one(lp_entry)

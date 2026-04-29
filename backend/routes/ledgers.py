@@ -252,7 +252,12 @@ async def report_party_ledger(party_name: Optional[str] = None, party_type: Opti
     # Sale Book parties (from local_party_accounts)
     if not party_type or party_type == "sale_book":
         lp_query = dict(query)
-        lp_query["source_type"] = {"$in": ["sale_voucher", "sale_voucher_payment"]}
+        lp_query["source_type"] = {"$in": [
+            "sale_voucher", "sale_voucher_payment",
+            "bp_sale", "bp_sale_advance",
+            "bp_sale_pka", "bp_sale_pka_payment",
+            "bp_sale_ka", "bp_sale_ka_payment", "bp_sale_ka_oil_premium",
+        ]}
         if party_name: lp_query["party_name"] = {"$regex": f"^{party_name}$", "$options": "i"}
         lp_txns = await db.local_party_accounts.find(lp_query, {"_id": 0}).to_list(10000)
         for t in lp_txns:
@@ -260,13 +265,15 @@ async def report_party_ledger(party_name: Optional[str] = None, party_type: Opti
             if not pn: continue
             src = t.get("source_type", "")
             amt = round(t.get("amount", 0), 2)
-            if src == "sale_voucher":
-                # Sale amount: party owes us → Debit
+            tx = (t.get("txn_type") or "").lower()
+            # Map to debit/credit based on txn_type stored:
+            # debit  = party owes us (sale) — Debit column
+            # payment= money received / credit (reduces what party owes) — Credit column
+            if tx == "debit":
                 ledger.append({"date": t.get("date", ""), "party_name": pn, "party_type": "Sale Book",
                     "description": t.get("description", "") or f"Sale: Rs.{amt}",
                     "debit": amt, "credit": 0, "ref": t.get("id", "")[:8]})
-            elif src == "sale_voucher_payment":
-                # Payment received: reduces what party owes → Credit
+            else:
                 ledger.append({"date": t.get("date", ""), "party_name": pn, "party_type": "Sale Book",
                     "description": t.get("description", "") or f"Payment: Rs.{amt}",
                     "debit": 0, "credit": amt, "ref": t.get("id", "")[:8]})

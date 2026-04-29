@@ -8,6 +8,57 @@ router = APIRouter()
 STANDARD_OIL = {"Raw": 22, "Boiled": 25}
 
 
+async def _sync_oil_premium_ledger(op: dict, username: str = "system"):
+    """Sync local_party_accounts entry for oil-premium adjustment.
+
+    - premium_amount > 0  → Party owes us MORE → debit entry
+    - premium_amount < 0  → Party owes us LESS → payment entry (reduces balance)
+    - premium_amount == 0 → remove any existing entry
+
+    Reference: `oil_premium:{op_id}` (one entry per oil_premium record, idempotent)
+    """
+    op_id = op.get("id")
+    if not op_id:
+        return
+    ref = f"oil_premium:{op_id}"
+    party = (op.get("party_name") or "").strip()
+    premium = float(op.get("premium_amount") or 0)
+    voucher_no = op.get("voucher_no") or op.get("rst_no") or ""
+
+    # Always remove existing first (idempotent), then add fresh if non-zero
+    await db.local_party_accounts.delete_many({"reference": ref})
+
+    if not party or premium == 0:
+        return
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    if premium > 0:
+        # Bonus due to better quality → party owes more
+        txn_type = "debit"
+        desc = f"Lab Test Bonus (+{op.get('difference_pct', 0)}%) - Voucher #{voucher_no}"
+        amount = round(premium, 2)
+    else:
+        # Penalty due to lower quality → party owes less (we credit them)
+        txn_type = "payment"
+        desc = f"Lab Test Penalty ({op.get('difference_pct', 0)}%) - Voucher #{voucher_no}"
+        amount = round(abs(premium), 2)
+
+    await db.local_party_accounts.insert_one({
+        "id": str(uuid.uuid4()),
+        "date": op.get("date") or now_iso.split("T")[0],
+        "party_name": f"{party} (Ka)",
+        "txn_type": txn_type,
+        "amount": amount,
+        "description": desc,
+        "source_type": "bp_sale_ka_oil_premium",
+        "reference": ref,
+        "kms_year": op.get("kms_year", ""),
+        "season": op.get("season", ""),
+        "created_by": username or "system",
+        "created_at": now_iso,
+    })
+
+
 @router.get("/oil-premium")
 async def get_oil_premiums(kms_year: str = "", season: str = "", bran_type: str = ""):
     query = {}
@@ -37,6 +88,7 @@ async def create_oil_premium(data: dict, username: str = "", role: str = ""):
 
     await db.oil_premium.insert_one({**data})
     data.pop("_id", None)
+    await _sync_oil_premium_ledger(data, username)
     return data
 
 
@@ -62,11 +114,17 @@ async def update_oil_premium(item_id: str, data: dict, username: str = "", role:
     data.pop("id", None)
     data.pop("_id", None)
     await db.oil_premium.update_one({"id": item_id}, {"$set": data})
+    # Re-sync ledger entry with fresh values
+    fresh = await db.oil_premium.find_one({"id": item_id}, {"_id": 0})
+    if fresh:
+        await _sync_oil_premium_ledger(fresh, username)
     return {"success": True}
 
 
 @router.delete("/oil-premium/{item_id}")
 async def delete_oil_premium(item_id: str, username: str = "", role: str = ""):
+    # Cleanup linked ledger entry first (idempotent — works even if missing)
+    await db.local_party_accounts.delete_many({"reference": f"oil_premium:{item_id}"})
     result = await db.oil_premium.delete_one({"id": item_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Not found")

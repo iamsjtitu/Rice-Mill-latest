@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.40.0",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.40.0 — 📚 Pakka/Kaccha Sub-Ledger (Keshav-Style)",
+    items: [
+      { type: "new", text: "📚 **Auto Sub-Ledger Creation** — BP Sale (Rice Bran etc.) me Split Billing ON ho toh ek hi party ke 2 alag ledger banenge: **'Gayatri Agro (Pka)'** + **'Gayatri Agro (Ka)'**. Pakka amount Pakka ledger me, Kaccha amount Kaccha ledger me. Same party agar dobara sell hua, toh existing same ledger me transactions add honge — naye ledger nahi banenge. ✨" },
+      { type: "new", text: "🧪 **Lab Test Auto-Adjustment in Kaccha Ledger** — Oil Premium (Lab Test) me agar **+** premium aaya (better quality), toh Kaccha ledger me extra **debit** entry (party owes more). Agar **-** premium aaya (lower quality), toh Kaccha ledger me **credit** entry (party owes less). Party ka effective balance automatic maintain rahega." },
+      { type: "new", text: "💳 **Voucher Payment Smart Routing** — Cash Book → Sale Voucher Payment me jab payment record karte hain split-billing voucher ka:\n  - **Bank** select → 'X (Pka)' ledger me payment go karta hai\n  - **Cash / Owner** select → 'X (Ka)' ledger me payment go karta hai\n  Ledger balance correct rehta hai automatically." },
+      { type: "improvement", text: "📋 **Reports/Party Ledger** — Party Ledger report me ab `Pka` aur `Ka` sub-ledgers alag-alag party ke roop me dikhte hain. Filter karke dekho ya All Parties dropdown me dono entries dikhayi denge. Total Debit/Credit dono ledger ka separately dikhega." },
+      { type: "fix", text: "🔄 **Existing Data Migration** — Already-saved split-billing sales aur oil premiums ke ledger entries automatic re-organize ho gaye Pka/Ka format me. Sample test sale (Cash Test Agent ₹6,21,463) ka:\n  - Pka ledger: ₹3,25,500\n  - Ka ledger: ₹2,95,963 - ₹76,086.68 (Lab Test) = ₹2,19,876.32 effective" },
+    ],
+  },
+  {
     version: "104.39.8",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.39.8 — 🚨 Cash Book Helper Restored",
