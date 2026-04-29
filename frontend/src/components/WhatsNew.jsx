@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.37.2",
+    date: "Apr 29, 2026 (Night)",
+    title: "v104.37.2 — ⚖️ By-Product Sale: Kg ↔ Qtl Auto-Convert Field",
+    items: [
+      { type: "new", text: "⚖️ **Two-Way Kg ↔ Qtl Field** — Rice Bran / By-Product Sale form me ab **N/W (Kg)** ke saath **N/W (Qtl)** ka alag field hai. Kg me likho toh Qtl auto-fill, Qtl me likho toh Kg auto-fill (1 Qtl = 100 Kg)." },
+      { type: "improvement", text: "🚀 **Faster Entry** — Slip pe agar weight Qtl me likha hai (e.g. 42.5 Qtl) toh ab calculator ki zaroorat nahi — sidha Qtl field me daalo, Kg automatic 4250 ho jayega. Aur vice-versa." },
+      { type: "improvement", text: "🤖 **RST Auto-Fetch bhi sync** — Jab RST se data fetch hota hai (e.g. 4250 Kg), Qtl field bhi automatically 42.50 dikhata hai. Edit karte time bhi consistent." },
+    ],
+  },
+  {
     version: "104.37.1",
     date: "Apr 29, 2026 (Night)",
     title: "v104.37.1 — 🎨 Light Theme Fix — Settings → Permissions Readable",

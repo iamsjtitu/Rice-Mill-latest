@@ -104,6 +104,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
           party_name: e.party_name || p.party_name,
           destination: e.farmer_name || p.destination,
           net_weight_kg: e.net_weight ? String(e.net_weight) : p.net_weight_kg,
+          net_weight_qtl_display: e.net_weight ? String(Math.round(e.net_weight / 100 * 100) / 100) : p.net_weight_qtl_display,
           bags: e.tot_pkts ? String(e.tot_pkts) : p.bags,
         }));
         toast.success("RST data fetch ho gaya!");
@@ -591,14 +592,26 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             </div>
 
             {!isSplit && (
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-3">
                 <div>
                   <Label className="text-[10px] text-slate-400">N/W (Kg) {stockInfo && <span className={`font-bold ${(effectiveAvailQtl - nwQtl) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((effectiveAvailQtl - nwQtl) * 100) / 100} Qtl)</span>}</Label>
                   <Input type="number" step="0.01" value={form.net_weight_kg}
-                    onChange={e => setForm(p => ({ ...p, net_weight_kg: e.target.value }))}
+                    onChange={e => {
+                      const kg = e.target.value;
+                      setForm(p => ({ ...p, net_weight_kg: kg, net_weight_qtl_display: kg === "" ? "" : String(Math.round((parseFloat(kg) || 0) / 100 * 100) / 100) }));
+                    }}
                     className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-nw" />
-                  {nwKg > 0 && <p className="text-[9px] text-slate-500 mt-0.5">= {nwQtl.toFixed(2)} Qtl</p>}
                   {stockInfo && nwQtl > effectiveAvailQtl && <p className="text-red-400 text-[9px] mt-0.5">Stock se zyada!</p>}
+                </div>
+                <div>
+                  <Label className="text-[10px] text-slate-400">N/W (Qtl)</Label>
+                  <Input type="number" step="0.01"
+                    value={form.net_weight_qtl_display ?? (form.net_weight_kg ? String(Math.round((parseFloat(form.net_weight_kg) || 0) / 100 * 100) / 100) : "")}
+                    onChange={e => {
+                      const qtl = e.target.value;
+                      setForm(p => ({ ...p, net_weight_qtl_display: qtl, net_weight_kg: qtl === "" ? "" : String(Math.round((parseFloat(qtl) || 0) * 100 * 100) / 100) }));
+                    }}
+                    className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-nw-qtl" />
                 </div>
                 <div>
                   <Label className="text-[10px] text-slate-400">Bags</Label>
