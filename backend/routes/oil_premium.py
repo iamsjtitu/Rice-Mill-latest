@@ -27,35 +27,54 @@ async def _sync_oil_premium_ledger(op: dict, username: str = "system"):
 
     # Always remove existing first (idempotent), then add fresh if non-zero
     await db.local_party_accounts.delete_many({"reference": ref})
+    await db.cash_transactions.delete_many({"reference": ref})
 
     if not party or premium == 0:
         return
 
     now_iso = datetime.now(timezone.utc).isoformat()
     if premium > 0:
-        # Bonus due to better quality → party owes more
-        txn_type = "debit"
+        # Bonus due to better quality → party owes more (Kaccha NIKASI in cash book ledger)
+        txn_type_lp = "debit"
+        cb_txn_type = "nikasi"  # Increases what party owes us
         desc = f"Lab Test Bonus (+{op.get('difference_pct', 0)}%) - Voucher #{voucher_no}"
         amount = round(premium, 2)
     else:
-        # Penalty due to lower quality → party owes less (we credit them)
-        txn_type = "payment"
+        # Penalty due to lower quality → party owes less (Kaccha JAMA reduces what they owe)
+        txn_type_lp = "payment"
+        cb_txn_type = "jama"  # Reduces what party owes us
         desc = f"Lab Test Penalty ({op.get('difference_pct', 0)}%) - Voucher #{voucher_no}"
         amount = round(abs(premium), 2)
 
+    base = {
+        "kms_year": op.get("kms_year", ""), "season": op.get("season", ""),
+        "created_by": username or "system",
+        "created_at": now_iso, "updated_at": now_iso,
+    }
+    # 1) Local party accounts entry (Reports → Party Ledger)
     await db.local_party_accounts.insert_one({
         "id": str(uuid.uuid4()),
         "date": op.get("date") or now_iso.split("T")[0],
-        "party_name": f"{party} (Ka)",
-        "txn_type": txn_type,
+        "party_name": f"{party} (KCA)",
+        "txn_type": txn_type_lp,
         "amount": amount,
         "description": desc,
         "source_type": "bp_sale_ka_oil_premium",
         "reference": ref,
-        "kms_year": op.get("kms_year", ""),
-        "season": op.get("season", ""),
-        "created_by": username or "system",
-        "created_at": now_iso,
+        **base,
+    })
+    # 2) Cash transactions ledger entry (Cash Book → Party Ledgers view)
+    await db.cash_transactions.insert_one({
+        "id": str(uuid.uuid4()),
+        "date": op.get("date") or now_iso.split("T")[0],
+        "account": "ledger",
+        "txn_type": cb_txn_type,
+        "amount": amount,
+        "category": f"{party} (KCA)",
+        "party_type": "BP Sale",
+        "description": desc,
+        "reference": ref,
+        **base,
     })
 
 
@@ -123,8 +142,9 @@ async def update_oil_premium(item_id: str, data: dict, username: str = "", role:
 
 @router.delete("/oil-premium/{item_id}")
 async def delete_oil_premium(item_id: str, username: str = "", role: str = ""):
-    # Cleanup linked ledger entry first (idempotent — works even if missing)
+    # Cleanup linked ledger entries first (idempotent — works even if missing)
     await db.local_party_accounts.delete_many({"reference": f"oil_premium:{item_id}"})
+    await db.cash_transactions.delete_many({"reference": f"oil_premium:{item_id}"})
     result = await db.oil_premium.delete_one({"id": item_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Not found")

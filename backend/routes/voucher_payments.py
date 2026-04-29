@@ -50,10 +50,10 @@ async def make_voucher_payment(request: Request):
     is_bp_split = voucher_type == "bp_sale" and bool(voucher.get("split_billing"))
     if is_bp_split:
         if pay_account == "bank":
-            ledger_party = f"{party} (Pka)"
+            ledger_party = f"{party} (PKA)"
             ledger_source_type = "bp_sale_pka_payment"
         else:
-            ledger_party = f"{party} (Ka)"
+            ledger_party = f"{party} (KCA)"
             ledger_source_type = "bp_sale_ka_payment"
     else:
         ledger_party = party

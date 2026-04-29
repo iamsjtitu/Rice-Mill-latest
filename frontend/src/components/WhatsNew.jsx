@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.40.1",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.40.1 — 🚨 Cash Book Party Ledgers me bhi PKA/KCA Split (Critical Fix)",
+    items: [
+      { type: "fix", text: "🚨 **Cash Book → Party Ledgers View Fix** — Pichli release me sirf 'Reports → Party Ledger' me PKA/KCA split dikh raha tha, par actual **Cash Book → Party Ledgers** dropdown ek hi ledger dikha raha tha (jaise 'MBOPL' ek hi). Reason: yeh view `cash_transactions` se aata hai, jise main update karna bhool gaya tha. Ab bp_sale_register dono jagah split ledger entries banata hai." },
+      { type: "new", text: "📋 **Naming Convention** — User ki request ke according: **'(PKA)'** = Pakka (capital), **'(KCA)'** = Kaccha (capital). Jaise 'MBOPL (PKA)', 'MBOPL (KCA)'. Stable naming — same party agar dobara sell ho, toh same ledger me transactions add honge, naye nahi banenge." },
+      { type: "new", text: "🧪 **Lab Test Adjustment Cash Book me bhi** — Oil Premium (Lab Test) ab cash_transactions me bhi ledger entry banata hai:\n  - **+** premium → KCA me **NIKASI** (party owes more)\n  - **-** premium → KCA me **JAMA** (party owes less)\n  Cash Book ke Party Ledgers view me clearly dikhega entries ke saath." },
+      { type: "fix", text: "🔄 **Migration Done** — Existing 2 split-billing sales (Cash Test Agent + MBOPL) ke ledger entries automatic re-create ho gaye PKA/KCA format me. Existing oil premiums bhi re-sync ho gaye." },
+    ],
+  },
+  {
     version: "104.40.0",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.40.0 — 📚 Pakka/Kaccha Sub-Ledger (Keshav-Style)",

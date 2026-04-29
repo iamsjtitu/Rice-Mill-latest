@@ -36,25 +36,50 @@ async def _create_bp_ledger_entries(d, doc_id, username):
     entries = []
 
     # 1. Party Ledger NIKASI: sale amount (humne maal diya - party owes us)
+    # Split-billing: 2 alag ledger entries — `{party} (PKA)` + `{party} (KCA)`
+    # Non-split: single ledger under `{party}`
+    is_split = bool(d.get("split_billing"))
     if party and total > 0:
-        entries.append({
-            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
-            "amount": total, "category": party, "party_type": "BP Sale",
-            "description": f"{product} Sale #{vno}",
-            "reference": f"bp_sale:{doc_id}", **base
-        })
+        if is_split:
+            billed_amt = float(d.get("billed_amount", 0) or 0)
+            tax_amt = float(d.get("tax_amount", 0) or 0)
+            kaccha_amt = float(d.get("kaccha_amount", 0) or 0)
+            pakka_total = round(billed_amt + tax_amt, 2)
+            if pakka_total > 0:
+                entries.append({
+                    "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
+                    "amount": pakka_total, "category": f"{party} (PKA)", "party_type": "BP Sale",
+                    "description": f"{product} Sale #{vno} - Pakka (GST Bill)",
+                    "reference": f"bp_sale_pka:{doc_id}", **base
+                })
+            if kaccha_amt > 0:
+                entries.append({
+                    "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
+                    "amount": round(kaccha_amt, 2), "category": f"{party} (KCA)", "party_type": "BP Sale",
+                    "description": f"{product} Sale #{vno} - Kaccha (Slip)",
+                    "reference": f"bp_sale_ka:{doc_id}", **base
+                })
+        else:
+            entries.append({
+                "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
+                "amount": total, "category": party, "party_type": "BP Sale",
+                "description": f"{product} Sale #{vno}",
+                "reference": f"bp_sale:{doc_id}", **base
+            })
 
     # 2. Advance from party: Party Ledger NIKASI (party ka baki kam hua) + Cash JAMA
+    # Split-billing me advance hamesha Kaccha sub-ledger me jata hai (cash advance)
     if advance > 0 and party:
+        adv_party = f"{party} (KCA)" if is_split else party
         entries.append({
             "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
-            "amount": advance, "category": party, "party_type": "BP Sale",
+            "amount": advance, "category": adv_party, "party_type": "BP Sale",
             "description": f"Advance received - {product} #{vno}",
             "reference": f"bp_sale_adv:{doc_id}", **base
         })
         entries.append({
             "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "cash", "txn_type": "jama",
-            "amount": advance, "category": party, "party_type": "BP Sale",
+            "amount": advance, "category": adv_party, "party_type": "BP Sale",
             "description": f"Advance received - {product} #{vno}",
             "reference": f"bp_sale_adv_cash:{doc_id}", **base
         })
@@ -123,9 +148,8 @@ async def _create_bp_ledger_entries(d, doc_id, username):
         await db.cash_transactions.insert_one({**entry})
 
     # Local party accounts: debit (party owes us)
-    # Split-billing: create 2 separate sub-ledgers — "{party} (Pka)" + "{party} (Ka)"
-    # Non-split: single ledger under "{party}"
-    is_split = bool(d.get("split_billing"))
+    # Split-billing: 2 separate sub-ledgers — `{party} (PKA)` + `{party} (KCA)`
+    # Non-split: single ledger under `{party}`
     if party and total > 0:
         if is_split:
             billed_amt = float(d.get("billed_amount", 0) or 0)
@@ -135,7 +159,7 @@ async def _create_bp_ledger_entries(d, doc_id, username):
             if pakka_total > 0:
                 await db.local_party_accounts.insert_one({
                     "id": str(uuid.uuid4()), "date": d.get('date', ''),
-                    "party_name": f"{party} (Pka)", "txn_type": "debit",
+                    "party_name": f"{party} (PKA)", "txn_type": "debit",
                     "amount": pakka_total,
                     "description": f"{product} Sale #{vno} - Pakka (GST Bill)",
                     "source_type": "bp_sale_pka", "reference": f"bp_sale_pka:{doc_id}",
@@ -145,7 +169,7 @@ async def _create_bp_ledger_entries(d, doc_id, username):
             if kaccha_amt > 0:
                 await db.local_party_accounts.insert_one({
                     "id": str(uuid.uuid4()), "date": d.get('date', ''),
-                    "party_name": f"{party} (Ka)", "txn_type": "debit",
+                    "party_name": f"{party} (KCA)", "txn_type": "debit",
                     "amount": round(kaccha_amt, 2),
                     "description": f"{product} Sale #{vno} - Kaccha (Slip)",
                     "source_type": "bp_sale_ka", "reference": f"bp_sale_ka:{doc_id}",
@@ -163,7 +187,7 @@ async def _create_bp_ledger_entries(d, doc_id, username):
             })
     if advance > 0 and party:
         # Advance always goes to Kaccha sub-ledger when split (cash advance), else to main
-        adv_party = f"{party} (Ka)" if is_split else party
+        adv_party = f"{party} (KCA)" if is_split else party
         lp_adv = {
             "id": str(uuid.uuid4()), "date": d.get('date', ''),
             "party_name": adv_party, "txn_type": "payment",
