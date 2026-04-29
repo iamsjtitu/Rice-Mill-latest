@@ -221,21 +221,7 @@ async def get_bp_sales(product: str = "", kms_year: str = "", season: str = ""):
 
 def _compute_amounts_and_tax(data: dict) -> None:
     """Mutates data with computed fields. Matches desktop/local-server split-billing logic exactly.
-
-    NON-SPLIT (data.split_billing falsy):
-        amount = (net_weight_kg / 100) * rate_per_qtl
-        tax = amount * gst%
-        total = amount + tax
-
-    SPLIT (data.split_billing == True):
-        Pakka portion (GST taxable): billed_weight_kg
-        Kaccha portion (no GST):     kaccha_weight_kg
-        net_weight_kg = billed + kaccha (sum for physical dispatch)
-        billed_amount = billed_qtl * rate_per_qtl
-        kaccha_amount = kaccha_qtl * (kaccha_rate_per_qtl OR rate_per_qtl)
-        tax = billed_amount * gst%
-        total = billed_amount + tax + kaccha_amount
-        amount field stores billed_amount for register/GST compatibility
+    Note: `sauda_amount` is informational only — never used in any calculation.
     """
     rate = float(data.get("rate_per_qtl", 0) or 0)
     raw_kaccha_rate = data.get("kaccha_rate_per_qtl")

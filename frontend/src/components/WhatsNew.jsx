@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.40.3",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.40.3 — 💼 Sauda Amount Field + Lab Test Use",
+    items: [
+      { type: "new", text: "💼 **'Sauda Amount (per Qtl)' Field** — Rice Bran (BP Sale) form me ek naya **info-only** field. Aap yahan apna sauda amount likh sakte ho (e.g. 3700/Qtl) — kisi calculation me use nahi hota, sirf record ke liye. View Detail dialog me bhi cyan color me dikhta hai." },
+      { type: "new", text: "🧪 **Lab Test ab Sauda Amount par calculate** — Oil Premium / Lab Test Report me Rate field ka label ab **'Sauda Amount (per Qtl)'** hai. Voucher select karte hi automatic Sauda Amount fill ho jata hai (agar sale me daala ho), warna fallback rate se. Premium amount ab sauda par calculate hota hai — exact business logic." },
+      { type: "improvement", text: "📋 **Table Header Update** — Lab Test Report ki table me 'Rate' column ka heading ab **'Sauda Amt'** hai." },
+    ],
+  },
+  {
     version: "104.40.2",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.40.2 — 🎯 Smart PKA/KCA Filter in Party Dropdown",

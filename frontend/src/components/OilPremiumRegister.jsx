@@ -67,7 +67,7 @@ export default function OilPremiumRegister({ filters, user }) {
           voucher_no: s.voucher_no || p.voucher_no,
           rst_no: s.rst_no || p.rst_no,
           party_name: s.party_name || "",
-          rate: s.rate_per_qtl ? String(s.rate_per_qtl) : "",
+          rate: (s.sauda_amount != null && s.sauda_amount !== '') ? String(s.sauda_amount) : (s.rate_per_qtl ? String(s.rate_per_qtl) : ""),
           qty_qtl: s.net_weight_qtl ? String(s.net_weight_qtl) : "",
           date: s.date || p.date,
         }));
@@ -253,7 +253,7 @@ export default function OilPremiumRegister({ filters, user }) {
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[50px]">RST</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[55px]">Type</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[100px]">Party</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[55px] text-right">Rate</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px] text-right">Sauda Amt</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[55px] text-right">Qty(Q)</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[50px] text-right">Std%</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[55px] text-right">Actual%</TableHead>
@@ -317,7 +317,7 @@ export default function OilPremiumRegister({ filters, user }) {
                 <div><span className="text-slate-400 text-xs">Party:</span> <span className="text-white font-medium">{viewItem.party_name}</span></div>
               </div>
               <div className="border-t border-slate-600 pt-2 grid grid-cols-2 gap-x-4 gap-y-2">
-                <div><span className="text-slate-400 text-xs">Rate:</span> <span className="text-white">{viewItem.rate}</span></div>
+                <div><span className="text-slate-400 text-xs">Sauda Amount:</span> <span className="text-white">{viewItem.rate}</span></div>
                 <div><span className="text-slate-400 text-xs">Qty:</span> <span className="text-blue-300">{(viewItem.qty_qtl || 0).toFixed(2)} Qtl</span></div>
                 <div><span className="text-slate-400 text-xs">Standard Oil%:</span> <span className="text-slate-300">{viewItem.standard_oil_pct}%</span></div>
                 <div><span className="text-slate-400 text-xs">Actual Oil%:</span> <span className="text-white font-bold">{viewItem.actual_oil_pct}%</span></div>
@@ -391,7 +391,7 @@ export default function OilPremiumRegister({ filters, user }) {
 
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <Label className="text-[10px] text-slate-400">Rate (per Qtl)</Label>
+                <Label className="text-[10px] text-slate-400">Sauda Amount (per Qtl)</Label>
                 <Input type="number" step="0.01" value={form.rate}
                   onChange={e => setForm(p => ({ ...p, rate: e.target.value }))}
                   className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="oil-rate" />

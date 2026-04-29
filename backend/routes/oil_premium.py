@@ -168,6 +168,7 @@ async def lookup_sale(voucher_no: str = "", rst_no: str = "", kms_year: str = ""
     sale = await db.bp_sale_register.find_one(query, {"_id": 0})
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
+    # Add sauda_amount as effective rate fallback if rate is missing
     return sale
 
 

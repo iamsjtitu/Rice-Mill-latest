@@ -38,6 +38,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
     date: new Date().toISOString().split("T")[0], rst_no: "", vehicle_no: "",
     bill_from: "", party_name: "", destination: "",
     net_weight_kg: "", net_weight_qtl_display: "", bags: "", rate_per_qtl: "",
+    sauda_amount: "",
     gst_type: "none", gst_percent: "",
     // Split billing (Pakka + Kaccha single dispatch)
     split_billing: false, billed_weight_kg: "", kaccha_weight_kg: "", kaccha_rate_per_qtl: "",
@@ -194,6 +195,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       billed_weight_kg: s.billed_weight_kg ? String(s.billed_weight_kg) : "",
       kaccha_weight_kg: s.kaccha_weight_kg ? String(s.kaccha_weight_kg) : "",
       kaccha_rate_per_qtl: s.kaccha_rate_per_qtl ? String(s.kaccha_rate_per_qtl) : "",
+      sauda_amount: s.sauda_amount != null ? String(s.sauda_amount) : "",
       billed_weight_qtl_display: s.billed_weight_kg ? String(Math.round(s.billed_weight_kg / 100 * 100) / 100) : "",
       kaccha_weight_qtl_display: s.kaccha_weight_kg ? String(Math.round(s.kaccha_weight_kg / 100 * 100) / 100) : "",
       cash_paid: s.cash_paid ? String(s.cash_paid) : "", diesel_paid: s.diesel_paid ? String(s.diesel_paid) : "",
@@ -493,6 +495,9 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                 {viewSale.vehicle_no && <div><span className="text-slate-400 text-xs">Vehicle:</span> <span className="text-white">{viewSale.vehicle_no}</span></div>}
                 {viewSale.bill_from && <div><span className="text-slate-400 text-xs">Bill From:</span> <span className="text-white">{viewSale.bill_from}</span></div>}
                 {viewSale.party_name && <div><span className="text-slate-400 text-xs">Party:</span> <span className="text-white font-medium">{viewSale.party_name}</span></div>}
+                {viewSale.sauda_amount != null && viewSale.sauda_amount !== '' && Number(viewSale.sauda_amount) > 0 && (
+                  <div><span className="text-slate-400 text-xs">Sauda Amount:</span> <span className="text-cyan-300 font-medium">₹{Number(viewSale.sauda_amount).toLocaleString('en-IN')}/Qtl</span> <span className="text-slate-500 text-[9px]">(info only)</span></div>
+                )}
                 {viewSale.destination && <div><span className="text-slate-400 text-xs">Destination:</span> <span className="text-white">{viewSale.destination}</span></div>}
               </div>
               <div className="border-t border-slate-600 pt-2 grid grid-cols-3 gap-x-4 gap-y-2">
@@ -863,8 +868,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
               </div>
             )}
 
-            {/* GST */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* GST + Sauda Amount (info-only) */}
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label className="text-[10px] text-slate-400">Tax</Label>
                 <Select value={form.gst_type} onValueChange={v => setForm(p => ({ ...p, gst_type: v, gst_percent: v === "none" ? "" : "5" }))}>
@@ -875,7 +880,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   </SelectContent>
                 </Select>
               </div>
-              {form.gst_type !== "none" && (
+              {form.gst_type !== "none" ? (
                 <div>
                   <Label className="text-[10px] text-slate-400">GST %</Label>
                   <Select value={form.gst_percent || "5"} onValueChange={v => setForm(p => ({ ...p, gst_percent: v }))}>
@@ -883,7 +888,16 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     <SelectContent>{[5, 12, 18, 28].map(g => <SelectItem key={g} value={String(g)}>{g}%</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-              )}
+              ) : <div />}
+              <div>
+                <Label className="text-[10px] text-slate-400" title="Sirf jaankari ke liye — kisi calculation mein use nahi hota">
+                  Sauda Amount (per Qtl) <span className="text-slate-500 text-[9px]">(info only)</span>
+                </Label>
+                <Input type="number" step="0.01" value={form.sauda_amount}
+                  onChange={e => setForm(p => ({ ...p, sauda_amount: e.target.value }))}
+                  placeholder="e.g. 3700"
+                  className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-sauda-amount" />
+              </div>
             </div>
 
             {/* Payment section */}
