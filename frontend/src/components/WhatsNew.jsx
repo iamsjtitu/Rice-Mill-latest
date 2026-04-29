@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.39.8",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.39.8 — 🚨 Cash Book Helper Restored",
+    items: [
+      { type: "fix", text: "🚨 **`getVoucherOilAdj is not defined` Fix** — Pichli iteration me helper function search-replace galti se delete ho gaya tha, par usage 2 jagah baki tha. Helper restored at top of CashBook component. Page properly load ho raha hai." },
+    ],
+  },
+  {
     version: "104.39.7",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.39.7 — 🚨 Cash Book Crash Fix (TDZ Error)",

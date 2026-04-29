@@ -422,6 +422,13 @@ const CashBook = ({ filters, user }) => {
   };
   const partyBalance = getPartyBalance(form.category);
 
+  // Helper: get oil-premium adjustment amount (signed) for a voucher (BP Sale by voucher_no or rst_no)
+  const getVoucherOilAdj = (v) => {
+    if (!v || v._source !== 'bp_sale') return 0;
+    const op = oilPremiumMap[`v:${v.voucher_no}`] || oilPremiumMap[`r:${v.rst_no}`];
+    return op && typeof op.premium_amount === 'number' ? op.premium_amount : 0;
+  };
+
   // For typed party, compute aggregated Pakka/Kaccha balances from split-billing BP Sale vouchers
   // (Lab Test/oil-premium adjustment is applied to Kaccha portion)
   const partySplitInfo = (() => {
