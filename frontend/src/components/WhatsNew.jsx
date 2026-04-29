@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.38.0",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.38.0 — 🛍️ VW Sale me Bag Type Selector + Auto Stock Out",
+    items: [
+      { type: "new", text: "🛍️ **Bag Type Dropdown (VW Sale)** — Vehicle Weight form me jab Trans Type **Dispatch(Sale)** select karte ho, ek **Bag Type** dropdown aata hai jisme har category ka current stock dikhta hai: New (Govt), Old (Market), Bran P.Pkt, Broken P.Pkt." },
+      { type: "new", text: "📉 **Auto Stock Out** — Sale entry save karte hi selected bag type ke stock se bags automatically ghatte hain. E.g. Bran P.Pkt me 500 stock tha, sale me 100 bags use kiya — stock turant 400 ho jayega. DCTracker / Bag Stock register me bhi turant reflect hoga." },
+      { type: "new", text: "📊 **Live Stock Indicator** — Bags field ke saath chosen bag type ka **remaining stock** dikhega (jaise 'Stock: 25'). Agar bags > stock toh red warning '⚠ Bag stock se zyada use ho raha hai'." },
+      { type: "fix", text: "🔄 **Cascade Sync** — Edit / Second-weight / Delete sab paths me linked bag entry update/delete hota hai. Bag count ya bag type change karne par turant stock recompute hota hai." },
+      { type: "improvement", text: "🌐 **Triple-Backend Parity** — Same logic Python web + Electron Desktop + LAN Local Server teeno me. Reference key `vw_sale_bag:{rst_no}` ke through linked." },
+    ],
+  },
+  {
     version: "104.37.9",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.37.9 — 🚨 CRITICAL FIX: Split Billing ka Hisab Galat Aa Raha Tha (Web Backend)",

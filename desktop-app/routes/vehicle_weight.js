@@ -869,6 +869,56 @@ module.exports = function(database) {
   }));
 
   // POST /api/vehicle-weight - Create new entry with first weight
+  // ============ Bag Stock Sync (VW Sale → gunny_bags 'out') ============
+  function _isVwSale(transType) {
+    const t = (transType || '').toLowerCase();
+    return t.includes('sale') || t.includes('dispatch') || t.includes('sell');
+  }
+
+  function syncSaleBagOut(vwEntry, username) {
+    const rstNo = vwEntry.rst_no;
+    if (rstNo == null) return;
+    const ref = `vw_sale_bag:${rstNo}`;
+    const isSale = _isVwSale(vwEntry.trans_type);
+    const bagType = (vwEntry.bag_type || '').trim();
+    const qty = parseInt(vwEntry.tot_pkts || 0) || 0;
+    const gb = col('gunny_bags');
+
+    if (!(isSale && bagType && qty > 0)) {
+      // Remove existing linked entry
+      for (let i = gb.length - 1; i >= 0; i--) {
+        if (gb[i].reference === ref) gb.splice(i, 1);
+      }
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const fields = {
+      date: vwEntry.date || '',
+      bag_type: bagType,
+      txn_type: 'out',
+      quantity: qty,
+      source: (vwEntry.party_name || 'VW Sale').trim(),
+      rate: 0,
+      amount: 0,
+      notes: `Auto from VW Sale (RST #${rstNo})`,
+      kms_year: vwEntry.kms_year || '',
+      season: vwEntry.season || 'Kharif',
+      created_by: username || 'system',
+      linked_entry_id: vwEntry.id,
+      reference: ref,
+      rst_no: String(rstNo),
+      truck_no: vwEntry.vehicle_no || '',
+      updated_at: now,
+    };
+    const idx = gb.findIndex(g => g.reference === ref);
+    if (idx >= 0) {
+      gb[idx] = { ...gb[idx], ...fields };
+    } else {
+      gb.push({ id: uuidv4(), created_at: now, ...fields });
+    }
+  }
+
   router.post('/api/vehicle-weight', safeAsync(async (req, res) => {
     const data = req.body;
     const kmsYear = data.kms_year || '';
@@ -914,6 +964,7 @@ module.exports = function(database) {
       farmer_name: (data.farmer_name || '').trim(),
       product: data.product || 'PADDY',
       trans_type: data.trans_type || 'Receive(Purchase)',
+      bag_type: (data.bag_type || '').trim(),
       j_pkts: parseInt(data.j_pkts || 0) || 0,
       p_pkts: parseInt(data.p_pkts || 0) || 0,
       tot_pkts: parseInt(data.tot_pkts || 0) || 0,
@@ -934,6 +985,7 @@ module.exports = function(database) {
     entry.first_wt_side_img = saveImage(entry.id, '1st_side', data.first_wt_side_img || '');
 
     col('vehicle_weights').push(entry);
+    syncSaleBagOut(entry, req.body.username);
     database.save();
     res.json({ success: true, entry, message: `RST #${rstNo} - First weight saved!` });
   }));
@@ -983,6 +1035,7 @@ module.exports = function(database) {
     if ('tp_weight' in req.body) entry.tp_weight = parseFloat(req.body.tp_weight || 0) || 0;
     if ('tot_pkts' in req.body) entry.tot_pkts = parseInt(req.body.tot_pkts || 0) || 0;
 
+    syncSaleBagOut(entry, req.body.username);
     database.save();
     res.json({ success: true, entry, message: `RST #${entry.rst_no} - Net Wt: ${netWt} KG` });
   }));
@@ -1017,6 +1070,12 @@ module.exports = function(database) {
     }
 
     weights.splice(idx, 1);
+    // Cascade: also remove linked sale-bag-out entry
+    if (rstNo !== undefined && rstNo !== null) {
+      const gb2 = col('gunny_bags');
+      const ref = `vw_sale_bag:${rstNo}`;
+      for (let i = gb2.length - 1; i >= 0; i--) { if (gb2[i].reference === ref) gb2.splice(i, 1); }
+    }
     database.save();
     let msg = 'Entry deleted';
     if (cascaded.length) msg += ` + ${cascaded.join(', ')} bhi delete kiya`;
@@ -1029,7 +1088,7 @@ module.exports = function(database) {
     const entry = weights.find(w => w.id === req.params.entry_id);
     if (!entry) return res.status(404).json({ detail: 'Entry not found' });
 
-    const editable = ['vehicle_no', 'party_name', 'farmer_name', 'product', 'tot_pkts', 'cash_paid', 'diesel_paid', 'g_issued', 'tp_no', 'tp_weight', 'remark'];
+    const editable = ['vehicle_no', 'party_name', 'farmer_name', 'product', 'tot_pkts', 'bag_type', 'cash_paid', 'diesel_paid', 'g_issued', 'tp_no', 'tp_weight', 'remark'];
     for (const f of editable) {
       if (f in req.body) {
         if (f === 'cash_paid' || f === 'diesel_paid' || f === 'tp_weight') {
@@ -1063,6 +1122,7 @@ module.exports = function(database) {
       }
     }
 
+    syncSaleBagOut(entry, req.query.username);
     database.save();
     res.json({ success: true, entry });
   }));

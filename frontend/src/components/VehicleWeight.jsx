@@ -507,8 +507,9 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
 });
 
 export default function VehicleWeight({ filters, user, onVwChange }) {
-  const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Purchase)", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "", cash_paid: "", diesel_paid: "", rst_no: "", g_issued: "", tp_no: "", tp_weight: "" };
+  const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Purchase)", bag_type: "", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "", cash_paid: "", diesel_paid: "", rst_no: "", g_issued: "", tp_no: "", tp_weight: "" };
   const [form, setForm] = useState(blank);
+  const [bagStock, setBagStock] = useState({ new: 0, old: 0, bran_plastic: 0, broken_plastic: 0 });
   const [rstEditable, setRstEditable] = useState(false);
   const [entries, setEntries] = useState([]);
   const [pending, setPending] = useState([]);
@@ -641,6 +642,24 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
     return () => { clearTimeout(timer); if (abortRef.current) abortRef.current.abort(); };
   }, [fetchData]);
 
+  // Fetch gunny bag stock per type for the Sale dropdown
+  const fetchBagStock = useCallback(async () => {
+    try {
+      const r = await axios.get(`${API}/gunny-bags`, { params: { kms_year: kms } });
+      const items = Array.isArray(r.data) ? r.data : (r.data?.entries || []);
+      const totals = { new: 0, old: 0, bran_plastic: 0, broken_plastic: 0 };
+      for (const e of items) {
+        const bt = e.bag_type || 'old';
+        if (!(bt in totals)) totals[bt] = 0;
+        const q = parseInt(e.quantity || 0) || 0;
+        if (e.txn_type === 'in') totals[bt] += q;
+        else if (e.txn_type === 'out') totals[bt] -= q;
+      }
+      setBagStock(totals);
+    } catch (e) { /* silent */ }
+  }, [kms]);
+  useEffect(() => { fetchBagStock(); }, [fetchBagStock]);
+
   const capFirst = () => { if (scale.stable && scale.weight > 0) { setForm(p => ({ ...p, first_wt: String(scale.weight) })); toast.success(`Captured: ${scale.weight} KG`); scale.scheduleNext(); } };
   const capSecond = () => {
     if (scale.stable && scale.weight > 0) {
@@ -659,6 +678,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
       farmer_name: entry.farmer_name || "",
       product: entry.product || "GOVT PADDY",
       trans_type: entry.trans_type || "Receive(Purchase)",
+      bag_type: entry.bag_type || "",
       tot_pkts: entry.tot_pkts || "",
       j_pkts: entry.j_pkts || "",
       p_pkts: entry.p_pkts || "",
@@ -704,6 +724,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
         sendAutoNotify(secondWtMode.id, "2nd");
         clearSecondWtMode();
         fetchData();
+        fetchBagStock();
         if (onVwChange) onVwChange();
       }
     } catch (e) { toast.error(e.response?.data?.detail || "Error"); }
@@ -746,6 +767,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
         setRstEditable(false);
         setTpWarning("");
         fetchData();
+        fetchBagStock();
         if (onVwChange) onVwChange();
         // After 1st weight saved, focus the pending list so user can Arrow/Enter to pick next vehicle for 2nd weight
         setTimeout(() => {
@@ -758,7 +780,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
     } catch (e) { toast.error(e.response?.data?.detail || "Save error"); }
   };
 
-  const handleDelete = async (id) => { if (!await showConfirm("Delete", "Kya aap ye VW entry delete karna chahte hain?\n\nNote: Isse linked Mill Entry + Cash/Diesel transactions bhi delete ho jayenge!")) return; try { const res = await axios.delete(`${API}/vehicle-weight/${id}`); toast.success(res.data?.message || "Deleted"); fetchData(); if (onVwChange) onVwChange(); } catch (err) { toast.error(err?.response?.data?.detail || "Error"); } };
+  const handleDelete = async (id) => { if (!await showConfirm("Delete", "Kya aap ye VW entry delete karna chahte hain?\n\nNote: Isse linked Mill Entry + Cash/Diesel transactions bhi delete ho jayenge!")) return; try { const res = await axios.delete(`${API}/vehicle-weight/${id}`); toast.success(res.data?.message || "Deleted"); fetchData(); fetchBagStock(); if (onVwChange) onVwChange(); } catch (err) { toast.error(err?.response?.data?.detail || "Error"); } };
 
   // Auto-notify: images already saved with entry, just trigger notify
   const sendAutoNotify = async (entryId, weightType = "1st") => {
@@ -1181,11 +1203,42 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                     )}
                   </div>
                   <div>
-                    <Label className="text-slate-400 text-[10px] mb-0.5 block">Bags</Label>
+                    <Label className="text-slate-400 text-[10px] mb-0.5 block">
+                      Bags
+                      {form.trans_type === "Dispatch(Sale)" && form.bag_type && bagStock[form.bag_type] !== undefined && (
+                        <span className={`ml-1 font-bold ${(bagStock[form.bag_type] - (parseInt(form.tot_pkts || 0) || 0)) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          (Stock: {bagStock[form.bag_type] - (parseInt(form.tot_pkts || 0) || 0)})
+                        </span>
+                      )}
+                    </Label>
                     <Input type="number" value={form.tot_pkts} onChange={e => setForm(p => ({ ...p, tot_pkts: e.target.value }))}
                       placeholder="0" className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-bags" />
                   </div>
                 </div>
+                {form.trans_type === "Dispatch(Sale)" && (
+                  <div className="grid grid-cols-1 gap-2">
+                    <div>
+                      <Label className="text-slate-400 text-[10px] mb-0.5 block">
+                        Bag Type <span className="text-amber-400">*</span>
+                        <span className="text-slate-500 text-[9px] ml-1">(stock se ghatega)</span>
+                      </Label>
+                      <Select value={form.bag_type || ""} onValueChange={v => setForm(p => ({ ...p, bag_type: v }))}>
+                        <SelectTrigger className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-bag-type">
+                          <SelectValue placeholder="Select bag type..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="new">New (Govt) — Stock: {bagStock.new ?? 0}</SelectItem>
+                          <SelectItem value="old">Old (Market) — Stock: {bagStock.old ?? 0}</SelectItem>
+                          <SelectItem value="bran_plastic">Bran P.Pkt — Stock: {bagStock.bran_plastic ?? 0}</SelectItem>
+                          <SelectItem value="broken_plastic">Broken P.Pkt — Stock: {bagStock.broken_plastic ?? 0}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {form.tot_pkts > 0 && form.bag_type && bagStock[form.bag_type] !== undefined && (parseInt(form.tot_pkts) > bagStock[form.bag_type]) && (
+                        <p className="text-red-400 text-[10px] mt-0.5">⚠ Bag stock se zyada use ho raha hai</p>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className={`grid gap-2 ${form.trans_type === "Dispatch(Sale)" ? "grid-cols-3" : "grid-cols-6"}`}>
                   {form.trans_type !== "Dispatch(Sale)" && (
                   <div>

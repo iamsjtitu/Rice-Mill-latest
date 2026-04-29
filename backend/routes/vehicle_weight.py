@@ -18,6 +18,61 @@ IMG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "vw_i
 os.makedirs(IMG_DIR, exist_ok=True)
 
 
+def _is_sale(trans_type: str) -> bool:
+    """VW Sale dispatch detection — handles current and legacy labels."""
+    t = (trans_type or "").lower()
+    return "sale" in t or "dispatch" in t or "sell" in t
+
+
+async def _sync_sale_bag_out(vw_entry_id: str, vw_entry: dict, username: str = "system"):
+    """Sync linked gunny_bags 'out' entry for a VW sale dispatch.
+
+    Creates / updates / deletes the bag-stock-out entry based on:
+        trans_type is sale + tot_pkts > 0 + bag_type set
+    Reference key: `vw_sale_bag:{rst_no}`
+    """
+    rst_no = vw_entry.get("rst_no")
+    if rst_no is None:
+        return
+    ref = f"vw_sale_bag:{rst_no}"
+    is_sale = _is_sale(vw_entry.get("trans_type", ""))
+    bag_type = (vw_entry.get("bag_type") or "").strip()
+    qty = int(vw_entry.get("tot_pkts", 0) or 0)
+
+    # Conditions to KEEP a bag entry: must be sale, must have type, must have qty
+    if not (is_sale and bag_type and qty > 0):
+        # Remove any existing linked entry (sale switched off, qty cleared, etc.)
+        await db.gunny_bags.delete_many({"reference": ref})
+        return
+
+    existing = await db.gunny_bags.find_one({"reference": ref}, {"_id": 0})
+    now = datetime.now(timezone.utc).isoformat()
+    fields = {
+        "date": vw_entry.get("date", ""),
+        "bag_type": bag_type,
+        "txn_type": "out",
+        "quantity": qty,
+        "source": (vw_entry.get("party_name") or "VW Sale").strip(),
+        "rate": 0,
+        "amount": 0,
+        "notes": f"Auto from VW Sale (RST #{rst_no})",
+        "kms_year": vw_entry.get("kms_year", ""),
+        "season": vw_entry.get("season", "Kharif"),
+        "created_by": username or "system",
+        "linked_entry_id": vw_entry_id,
+        "reference": ref,
+        "rst_no": str(rst_no),
+        "truck_no": vw_entry.get("vehicle_no", ""),
+        "updated_at": now,
+    }
+    if existing:
+        await db.gunny_bags.update_one({"reference": ref}, {"$set": fields})
+    else:
+        fields["id"] = str(uuid.uuid4())
+        fields["created_at"] = now
+        await db.gunny_bags.insert_one(fields)
+
+
 def _save_image(entry_id: str, tag: str, b64data) -> str:
     try:
         if not b64data or not isinstance(b64data, str):
@@ -567,6 +622,7 @@ async def create_weight_entry(data: dict):
         "farmer_name": (data.get("farmer_name", "") or "").strip(),
         "product": data.get("product", "PADDY"),
         "trans_type": data.get("trans_type", "Receive(Pur)"),
+        "bag_type": (data.get("bag_type", "") or "").strip(),
         "j_pkts": int(data.get("j_pkts", 0) or 0),
         "p_pkts": int(data.get("p_pkts", 0) or 0),
         "tot_pkts": int(data.get("tot_pkts", 0) or 0),
@@ -588,6 +644,8 @@ async def create_weight_entry(data: dict):
 
     await db["vehicle_weights"].insert_one(entry)
     entry.pop("_id", None)
+    # Sync gunny bag stock-out for sale dispatches
+    await _sync_sale_bag_out(entry["id"], entry, data.get("username", "system"))
     return {"success": True, "entry": entry, "message": f"RST #{rst_no} - First weight saved!"}
 
 
@@ -686,6 +744,9 @@ async def delete_weight_entry(entry_id: str, username: str = "", role: str = "")
             cascade_deleted.append(f"Mill Entry RST #{rst_no}")
 
     await db["vehicle_weights"].delete_one({"id": entry_id})
+    # Cascade: also remove linked sale-bag-out entry if any
+    if rst_no is not None:
+        await db.gunny_bags.delete_many({"reference": f"vw_sale_bag:{rst_no}"})
     msg = "Entry deleted"
     if cascade_deleted:
         msg += f" + {', '.join(cascade_deleted)} bhi delete kiya"
@@ -704,7 +765,7 @@ async def edit_weight_entry(entry_id: str, data: dict, username: str = "", role:
         raise HTTPException(status_code=403, detail=message)
 
     update_fields = {}
-    editable = ["vehicle_no", "party_name", "farmer_name", "product", "tot_pkts", "cash_paid", "diesel_paid", "g_issued", "tp_no", "tp_weight", "remark"]
+    editable = ["vehicle_no", "party_name", "farmer_name", "product", "tot_pkts", "bag_type", "cash_paid", "diesel_paid", "g_issued", "tp_no", "tp_weight", "remark"]
     for f in editable:
         if f in data:
             if f in ("cash_paid", "diesel_paid", "tp_weight"):
@@ -751,6 +812,8 @@ async def edit_weight_entry(entry_id: str, data: dict, username: str = "", role:
             await db.mill_entries.update_many(mill_q, {"$set": mill_update})
 
     updated = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
+    # Re-sync bag stock-out (in case bag_type / tot_pkts edited)
+    await _sync_sale_bag_out(entry_id, updated, username or "system")
     return {"success": True, "entry": updated}
 
 
