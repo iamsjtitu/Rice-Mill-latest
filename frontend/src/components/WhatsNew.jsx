@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.39.7",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.39.7 — 🚨 Cash Book Crash Fix (TDZ Error)",
+    items: [
+      { type: "fix", text: "🚨 **Crash Fix** — Cash Book page open karte hi error aa raha tha: `Can't access lexical declaration 'getVoucherOilAdj' before initialization`. Reason: helper function declaration partySplitInfo ke baad thi. Ab function partySplitInfo se pehle declared hai — page properly load hota hai." },
+    ],
+  },
+  {
     version: "104.39.6",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.39.6 — 🔗 Lab Test Adjustment Cash Book Payment Dialogs me bhi",
