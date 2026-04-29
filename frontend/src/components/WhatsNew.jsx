@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.39.1",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.39.1 — 🪟 Voucher Payment Dialog Width Fix (Overflow)",
+    items: [
+      { type: "fix", text: "🪟 **Dialog Overflow Fix** — Sale & Purchase Voucher Payment dialogs me long voucher names (e.g. '[Rice Bran] Cash Test Agent - #e5bf48 | Bal: Rs.6,21,463') select karne par dialog right side se overflow ho rahi thi. Width responsive kiya — `max-w-md`, `w-[calc(100vw-2rem)]`, `overflow-hidden` ke saath. Ab desktop/tablet/mobile sab pe properly fit hota hai." },
+    ],
+  },
+  {
     version: "104.39.0",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.39.0 — 💳 Sale/Purchase Voucher Payment: Owner Account + Pakka/Kaccha Auto Split",

@@ -966,21 +966,21 @@ const CashBook = ({ filters, user }) => {
       </Dialog>
       {/* Sale Voucher Payment Dialog */}
       <Dialog open={isSvPayOpen} onOpenChange={setIsSvPayOpen}>
-        <DialogContent className="max-w-sm bg-slate-800 border-slate-700 text-white" data-testid="sv-payment-dialog">
+        <DialogContent className="max-w-md sm:max-w-lg w-[calc(100vw-2rem)] bg-slate-800 border-slate-700 text-white overflow-hidden" data-testid="sv-payment-dialog">
           <DialogHeader>
             <DialogTitle className="text-emerald-400 flex items-center gap-2">
               <FileText className="w-5 h-5" /> Sale Voucher Payment / बिक्री भुगतान
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div>
+          <div className="space-y-3 min-w-0">
+            <div className="min-w-0">
               <Label className="text-xs text-slate-400">Sale Voucher Select Karein *</Label>
               <Select value={svPayForm.voucher_id} onValueChange={v => {
                 const sv = svVouchers.find(x => x.id === v);
                 setSvPayForm(p => ({ ...p, voucher_id: v, party_name: sv?.party_name || "" }));
               }}>
-                <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-pay-select-voucher">
-                  <SelectValue placeholder="Voucher select karein..." />
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm w-full max-w-full" data-testid="sv-pay-select-voucher">
+                  <SelectValue placeholder="Voucher select karein..." className="truncate" />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-600 max-h-60">
                   {svVouchers.length === 0 ? (
@@ -1072,7 +1072,7 @@ const CashBook = ({ filters, user }) => {
 
       {/* Purchase Voucher Payment Dialog */}
       <Dialog open={isPvPayOpen} onOpenChange={setIsPvPayOpen}>
-        <DialogContent className="max-w-sm bg-slate-800 border-slate-700 text-white" data-testid="pv-payment-dialog">
+        <DialogContent className="max-w-md sm:max-w-lg w-[calc(100vw-2rem)] bg-slate-800 border-slate-700 text-white overflow-hidden" data-testid="pv-payment-dialog">
           <DialogHeader>
             <DialogTitle className="text-orange-400 flex items-center gap-2">
               <FileText className="w-5 h-5" /> Purchase Voucher Payment / खरीद भुगतान
