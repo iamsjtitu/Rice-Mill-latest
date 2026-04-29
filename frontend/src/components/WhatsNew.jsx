@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.40.7",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.40.7 — 📎 Smart PDF Filenames (Context-Aware) for WhatsApp + Downloads",
+    items: [
+      { type: "improvement", text: "📎 **WhatsApp PDF ka naam Context-Aware** — Pehle har PDF 'cashbook.pdf' ya 'report.pdf' jata tha. Ab jis context se bhej rahe ho us ke according naam ata hai:\n  - Cash Book pe Party 'MBOPL' ke ledger ka PDF → **`MBOPL_party_ledger.pdf`**\n  - Reports → Party Ledger 'Gayatri Agro' → **`Gayatri_Agro_party_ledger.pdf`**\n  - Stock Register → **`stock_register.pdf`**\n  - Lab Test → **`labtest_report.pdf`**\n  - Hemali, Staff, BP Sale, VW etc. — sab apne descriptive naam ke saath" },
+      { type: "improvement", text: "🧹 **Filename Auto-Sanitization** — Special characters, spaces, slashes safe characters me convert hote hain (underscore). Example: 'Cash Test Agent (KCA)' → 'Cash_Test_Agent_KCA.pdf'. WhatsApp + filesystem dono pe valid filenames." },
+      { type: "improvement", text: "🌐 **Backend Auto-Detect** — Agar frontend filename na bheje toh backend khud `pdf_url` se context detect karke proper naam set karta hai. /api/cash-book → cash_book, /party-ledger → party_ledger, /bp-sale → rice_bran_sale, etc." },
+    ],
+  },
+  {
     version: "104.40.6",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.40.6 — 📅 Transactions Chronological Order (Oldest Top, Newest Bottom)",

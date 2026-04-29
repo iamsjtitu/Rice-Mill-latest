@@ -355,7 +355,32 @@ async def send_to_whatsapp_group(data: dict):
     if pdf_url and not media_url:
         pdf_bytes = await _fetch_local_pdf_bytes(pdf_url)
 
-    result = await _send_wa_to_group(group_id, text, media_url, file_bytes=pdf_bytes or None)
+    # Context-aware filename derived from pdf_url (matches send-pdf logic)
+    fname = (data.get("filename") or "").strip()
+    if not fname and pdf_url:
+        try:
+            from urllib.parse import urlparse, parse_qs
+            qs = parse_qs(urlparse(pdf_url).query)
+            party = (qs.get("party_name", [""])[0] or qs.get("category", [""])[0]).strip()
+            base = "report"
+            if "/party-ledger" in pdf_url: base = f"{party}_party_ledger" if party else "party_ledger"
+            elif "/cash-book" in pdf_url: base = f"{party}_cash_book" if party else "cash_book"
+            elif "/sale-book" in pdf_url: base = "sale_book"
+            elif "/bp-sale" in pdf_url: base = "rice_bran_sale"
+            elif "/stock-register" in pdf_url: base = "stock_register"
+            elif "/hemali" in pdf_url: base = "hemali_register"
+            elif "/staff" in pdf_url: base = "staff_register"
+            elif "/oil-premium" in pdf_url: base = "labtest_report"
+            elif "/vehicle-weight" in pdf_url: base = "vw_report"
+            fname = base
+        except Exception:
+            fname = "report"
+    import re as _re
+    fname = (_re.sub(r'[^\w\-\.]+', '_', fname or "report").strip('_') or "report")
+    if not fname.lower().endswith('.pdf'):
+        fname += '.pdf'
+
+    result = await _send_wa_to_group(group_id, text, media_url, file_bytes=pdf_bytes or None, filename=fname)
     return result
 
 
@@ -645,6 +670,11 @@ async def send_party_ledger(data: dict):
                 date_to=pdf_params.get("date_to", ""),
             )
             fname = f"party_ledger_{party_name}.pdf"
+        # Sanitize filename for filesystem (replace spaces, special chars)
+        import re as _re
+        fname = _re.sub(r'[^\w\-\.]+', '_', fname).strip('_') or "party_ledger.pdf"
+        if not fname.lower().endswith('.pdf'):
+            fname += '.pdf'
         if not pdf_bytes or len(pdf_bytes) <= 100:
             logger.error("PDF generation returned empty/small data")
             pdf_bytes = b""
@@ -934,6 +964,36 @@ async def send_pdf_via_whatsapp(data: dict):
     if not pdf_bytes:
         raise HTTPException(status_code=500, detail="PDF fetch fail hua")
 
+    # Context-aware filename — use caller's hint or derive from pdf_url
+    raw_name = (data.get("filename") or "").strip()
+    if not raw_name:
+        # Best-effort: parse query params from pdf_url to build descriptive name
+        try:
+            from urllib.parse import urlparse, parse_qs
+            qs = parse_qs(urlparse(pdf_url).query)
+            party = (qs.get("party_name", [""])[0] or qs.get("category", [""])[0]).strip()
+            ptype = (qs.get("party_type", [""])[0]).strip()
+            base = "report"
+            if "/party-ledger" in pdf_url: base = f"{party}_party_ledger" if party else "party_ledger"
+            elif "/cash-book" in pdf_url: base = f"{party}_cash_book" if party else "cash_book"
+            elif "/sale-book" in pdf_url: base = "sale_book"
+            elif "/bp-sale" in pdf_url: base = "rice_bran_sale"
+            elif "/stock-register" in pdf_url: base = "stock_register"
+            elif "/hemali" in pdf_url: base = "hemali_register"
+            elif "/staff" in pdf_url: base = "staff_register"
+            elif "/oil-premium" in pdf_url: base = "labtest_report"
+            elif "/vehicle-weight" in pdf_url: base = "vw_report"
+            elif "/agent" in pdf_url or "agent_payment" in pdf_url: base = "agent_payments"
+            elif "/truck" in pdf_url: base = "truck_payments"
+            raw_name = base
+        except Exception:
+            raw_name = "report"
+    # Sanitize for filesystem (replace illegal chars + spaces)
+    import re as _re
+    safe = _re.sub(r'[^\w\-\.]+', '_', raw_name).strip('_') or "report"
+    if not safe.lower().endswith('.pdf'):
+        safe += '.pdf'
+
     default_numbers = settings.get("default_numbers", [])
     if isinstance(default_numbers, str):
         default_numbers = [n.strip() for n in default_numbers.split(",") if n.strip()]
@@ -941,15 +1001,15 @@ async def send_pdf_via_whatsapp(data: dict):
 
     results = []
     if group_id:
-        r = await _send_wa_to_group(group_id, caption, file_bytes=pdf_bytes, filename="report.pdf")
+        r = await _send_wa_to_group(group_id, caption, file_bytes=pdf_bytes, filename=safe)
         results.append({"target": "group", "success": r.get("success", False)})
     for num in default_numbers:
         if num and num.strip():
-            r = await _send_wa_message(num.strip(), caption, file_bytes=pdf_bytes, filename="report.pdf")
+            r = await _send_wa_message(num.strip(), caption, file_bytes=pdf_bytes, filename=safe)
             results.append({"target": num, "success": r.get("success", False)})
 
     if not results:
         return {"success": False, "error": "Koi number ya group set nahi hai."}
 
     sent = sum(1 for r in results if r["success"])
-    return {"success": sent > 0, "message": f"{sent}/{len(results)} recipients ko bhej diya!"}
+    return {"success": sent > 0, "message": f"{sent}/{len(results)} recipients ko bhej diya!", "filename": safe}

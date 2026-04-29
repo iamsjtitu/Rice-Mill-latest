@@ -652,7 +652,16 @@ const CashBook = ({ filters, user }) => {
               if (txnFilters.party_type) params.append('party_type', txnFilters.party_type);
               if (txnFilters.date_from) params.append('date_from', txnFilters.date_from);
               if (txnFilters.date_to) params.append('date_to', txnFilters.date_to);
-              return await fetchAsBlob(`/api/cash-book/pdf?${params}`, 'cash_book.pdf');
+              // Build context-aware filename
+              let fname = "cash_book";
+              if (activeView === 'cash-transactions') fname = "cash_in_hand";
+              else if (txnFilters.account === 'bank') fname = "bank_book";
+              else if (txnFilters.account === 'ledger') fname = "party_ledger";
+              if (txnFilters.category) fname = `${txnFilters.category}_${fname}`;
+              if (txnFilters.date_from && txnFilters.date_to && txnFilters.date_from === txnFilters.date_to) fname = `${fname}_${txnFilters.date_from}`;
+              else if (txnFilters.date_from) fname = `${fname}_${txnFilters.date_from}_to_${txnFilters.date_to || 'today'}`;
+              fname = fname.replace(/[^\w\-.]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') + '.pdf';
+              return await fetchAsBlob(`/api/cash-book/pdf?${params}`, fname);
             }}
             caption="Cash Book Report"
             title="Cash Book WhatsApp pe bhejein (PDF)"

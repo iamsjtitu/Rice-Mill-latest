@@ -301,7 +301,9 @@ const PartyLedger = ({ filters }) => {
     if (dateFrom) p.append('date_from', dateFrom);
     if (dateTo) p.append('date_to', dateTo);
     const { downloadFile } = await import('../utils/download');
-    downloadFile(`/api/reports/party-ledger/${format}?${p}`, `party_ledger.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
+    const safe = (selectedParty || 'all_parties').replace(/[^\w\-.]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+    const fname = `${safe}_party_ledger.${format === 'pdf' ? 'pdf' : 'xlsx'}`;
+    downloadFile(`/api/reports/party-ledger/${format}?${p}`, fname);
   };
 
   const sendLedgerWhatsApp = async () => {
