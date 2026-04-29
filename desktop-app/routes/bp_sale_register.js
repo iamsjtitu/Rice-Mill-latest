@@ -110,6 +110,9 @@ module.exports = function(database) {
    */
   function computeAmountsAndTax(data) {
     const rate = parseFloat(data.rate_per_qtl || 0);
+    const kacchaRate = (data.kaccha_rate_per_qtl !== undefined && data.kaccha_rate_per_qtl !== null && data.kaccha_rate_per_qtl !== "")
+      ? (parseFloat(data.kaccha_rate_per_qtl) || 0)
+      : rate;
     const isSplit = !!data.split_billing;
 
     if (isSplit) {
@@ -118,13 +121,14 @@ module.exports = function(database) {
       const billedQtl = +(billedKg / 100).toFixed(4);
       const kacchaQtl = +(kacchaKg / 100).toFixed(4);
       const billedAmt = +(billedQtl * rate).toFixed(2);
-      const kacchaAmt = +(kacchaQtl * rate).toFixed(2);
+      const kacchaAmt = +(kacchaQtl * kacchaRate).toFixed(2);
       data.net_weight_kg = +(billedKg + kacchaKg).toFixed(3); // sum for physical dispatch
       data.net_weight_qtl = +(billedQtl + kacchaQtl).toFixed(4);
       data.billed_weight_qtl = billedQtl;
       data.kaccha_weight_qtl = kacchaQtl;
       data.billed_amount = billedAmt;
       data.kaccha_amount = kacchaAmt;
+      data.kaccha_rate_per_qtl = kacchaRate;
       data.amount = billedAmt; // GST-taxable portion (field kept same name for register compatibility)
       const taxAmt = data.gst_percent ? +(billedAmt * parseFloat(data.gst_percent || 0) / 100).toFixed(2) : 0;
       data.tax_amount = taxAmt;
@@ -138,6 +142,7 @@ module.exports = function(database) {
       // Clear split fields if toggled off
       data.billed_weight_kg = 0; data.billed_weight_qtl = 0; data.billed_amount = 0;
       data.kaccha_weight_kg = 0; data.kaccha_weight_qtl = 0; data.kaccha_amount = 0;
+      data.kaccha_rate_per_qtl = 0;
       const taxAmt = data.gst_percent ? +(amount * parseFloat(data.gst_percent || 0) / 100).toFixed(2) : 0;
       data.tax_amount = taxAmt;
       data.total = +(amount + taxAmt).toFixed(2);

@@ -40,7 +40,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
     net_weight_kg: "", bags: "", rate_per_qtl: "",
     gst_type: "none", gst_percent: "",
     // Split billing (Pakka + Kaccha single dispatch)
-    split_billing: false, billed_weight_kg: "", kaccha_weight_kg: "",
+    split_billing: false, billed_weight_kg: "", kaccha_weight_kg: "", kaccha_rate_per_qtl: "",
     cash_paid: "", diesel_paid: "", advance: "", remark: "",
     product, kms_year: filters.kms_year || "", season: filters.season || "",
   };
@@ -126,12 +126,16 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const isSplit = !!form.split_billing;
   const billedKg = parseFloat(form.billed_weight_kg) || 0;
   const kacchaKg = parseFloat(form.kaccha_weight_kg) || 0;
+  // Kaccha rate falls back to main rate when not provided
+  const kacchaRate = form.kaccha_rate_per_qtl !== "" && form.kaccha_rate_per_qtl != null
+    ? (parseFloat(form.kaccha_rate_per_qtl) || 0)
+    : rate;
   const nwKg = isSplit ? (billedKg + kacchaKg) : (parseFloat(form.net_weight_kg) || 0);
   const nwQtl = nwKg / 100;
   const billedQtl = billedKg / 100;
   const kacchaQtl = kacchaKg / 100;
   const billedAmount = Math.round(billedQtl * rate * 100) / 100;
-  const kacchaAmount = Math.round(kacchaQtl * rate * 100) / 100;
+  const kacchaAmount = Math.round(kacchaQtl * kacchaRate * 100) / 100;
   const amount = isSplit ? billedAmount : Math.round(nwQtl * rate * 100) / 100; // GST-taxable portion
   const gstPct = form.gst_type !== "none" ? (parseFloat(form.gst_percent) || 0) : 0;
   const taxAmt = Math.round(amount * gstPct / 100 * 100) / 100;
@@ -166,6 +170,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       split_billing: !!s.split_billing,
       billed_weight_kg: s.billed_weight_kg ? String(s.billed_weight_kg) : "",
       kaccha_weight_kg: s.kaccha_weight_kg ? String(s.kaccha_weight_kg) : "",
+      kaccha_rate_per_qtl: s.kaccha_rate_per_qtl ? String(s.kaccha_rate_per_qtl) : "",
       cash_paid: s.cash_paid ? String(s.cash_paid) : "", diesel_paid: s.diesel_paid ? String(s.diesel_paid) : "",
       advance: s.advance ? String(s.advance) : "", remark: s.remark || "",
       product: s.product || product, kms_year: s.kms_year || "", season: s.season || "",
@@ -190,6 +195,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
         split_billing: !!form.split_billing,
         billed_weight_kg: form.split_billing ? billedKg : 0,
         kaccha_weight_kg: form.split_billing ? kacchaKg : 0,
+        kaccha_rate_per_qtl: form.split_billing ? kacchaRate : 0,
       };
       if (editingId) {
         await axios.put(`${API}/bp-sale-register/${editingId}?username=${user.username}&role=${user.role}`, payload);
@@ -474,7 +480,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   <>
                     <div className="flex justify-between"><span className="text-emerald-400 text-xs">Pakka ({((viewSale.billed_weight_kg || 0)/100).toFixed(2)} Q × {viewSale.rate_per_qtl})</span><span className="text-emerald-400 font-bold">₹{(viewSale.billed_amount || 0).toLocaleString('en-IN')}</span></div>
                     {viewSale.tax_amount > 0 && <div className="flex justify-between"><span className="text-slate-400 text-xs">GST ({viewSale.gst_percent || 0}% on Pakka)</span><span className="text-orange-400">₹{(viewSale.tax_amount || 0).toLocaleString('en-IN')}</span></div>}
-                    <div className="flex justify-between"><span className="text-amber-400 text-xs">Kaccha ({((viewSale.kaccha_weight_kg || 0)/100).toFixed(2)} Q × {viewSale.rate_per_qtl})</span><span className="text-amber-400 font-bold">₹{(viewSale.kaccha_amount || 0).toLocaleString('en-IN')}</span></div>
+                    <div className="flex justify-between"><span className="text-amber-400 text-xs">Kaccha ({((viewSale.kaccha_weight_kg || 0)/100).toFixed(2)} Q × {viewSale.kaccha_rate_per_qtl || viewSale.rate_per_qtl})</span><span className="text-amber-400 font-bold">₹{(viewSale.kaccha_amount || 0).toLocaleString('en-IN')}</span></div>
                   </>
                 ) : (
                   <>
@@ -651,8 +657,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 p-2 rounded bg-amber-900/20 border border-amber-500/30">
-                  <div className="col-span-3">
+                <div className="grid grid-cols-4 gap-3 p-2 rounded bg-amber-900/20 border border-amber-500/30">
+                  <div className="col-span-4">
                     <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Kaccha (Slip — No GST)</p>
                   </div>
                   <div>
@@ -661,6 +667,13 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       onChange={e => setForm(p => ({ ...p, kaccha_weight_kg: e.target.value }))}
                       className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-kaccha-kg" />
                     {kacchaKg > 0 && <p className="text-[9px] text-slate-500 mt-0.5">= {kacchaQtl.toFixed(2)} Qtl</p>}
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-slate-400">Rate (per Qtl)</Label>
+                    <Input type="number" step="0.01" value={form.kaccha_rate_per_qtl}
+                      onChange={e => setForm(p => ({ ...p, kaccha_rate_per_qtl: e.target.value }))}
+                      placeholder={rate ? String(rate) : "Same as Pakka"}
+                      className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-kaccha-rate" />
                   </div>
                   <div>
                     <Label className="text-[10px] text-slate-400">Bags (total)</Label>
@@ -693,7 +706,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   <>
                     <div className="flex justify-between"><span className="text-slate-400">Pakka Amount ({billedQtl.toFixed(2)} Q × {rate})</span><span className="text-emerald-400 font-bold">₹{billedAmount.toLocaleString('en-IN')}</span></div>
                     {taxAmt > 0 && <div className="flex justify-between"><span className="text-slate-400">GST ({gstPct}% on Pakka)</span><span className="text-orange-400">₹{taxAmt.toLocaleString('en-IN')}</span></div>}
-                    <div className="flex justify-between"><span className="text-slate-400">Kaccha Amount ({kacchaQtl.toFixed(2)} Q × {rate})</span><span className="text-amber-400 font-bold">₹{kacchaAmount.toLocaleString('en-IN')}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-400">Kaccha Amount ({kacchaQtl.toFixed(2)} Q × {kacchaRate})</span><span className="text-amber-400 font-bold">₹{kacchaAmount.toLocaleString('en-IN')}</span></div>
                   </>
                 ) : (
                   <>

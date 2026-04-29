@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.37.5",
+    date: "Apr 29, 2026 (Night)",
+    title: "v104.37.5 — 💰 Kaccha (Slip) ka Alag Rate (per Qtl)",
+    items: [
+      { type: "new", text: "💰 **Kaccha section me alag Rate field** — By-Product Sale ke Split Billing me Pakka aur Kaccha ka rate alag-alag set kar sakte hain. Pehle dono same rate use karte the. Ab Kaccha (slip) ka rate Pakka se zyada/kam ho sakta hai (e.g. Pakka ₹2200/Qtl + Kaccha ₹2300/Qtl)." },
+      { type: "improvement", text: "🧮 **Smart Default** — Kaccha Rate field me agar kuch nahi daala, toh apne aap Pakka ke same rate use ho jayega (`Same as Pakka` placeholder dikhata hai). Aapka old workflow disturb nahi hoga." },
+      { type: "improvement", text: "💵 **Kaccha Amount Auto-Update** — Kaccha rate change karte hi 'Kaccha Amount' field tatkaal recalculate ho jata hai. GST sirf Pakka portion par lagega (jaise pehle)." },
+    ],
+  },
+  {
     version: "104.37.4",
     date: "Apr 29, 2026 (Night)",
     title: "v104.37.4 — 🔒 N/W (Kg) Field Locked — Sirf Qtl Editable",
