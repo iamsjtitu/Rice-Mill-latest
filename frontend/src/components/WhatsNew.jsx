@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.39.5",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.39.5 — 🧪 Lab Test Adjustment Kaccha se Minus Hoga",
+    items: [
+      { type: "new", text: "🧪 **Lab Test Adjustment in Sale Detail** — Rice Bran Sale Detail dialog me agar uss sale ka **Lab Test Report** (Oil Premium) hai aur Diff% se premium amount aaya hai (positive ya negative), toh ye amount ab **Kaccha portion se adjust** hota hai. Pakka + GST safe rahta hai (govt bill pe asar nahi)." },
+      { type: "improvement", text: "📋 **Effective Kaccha Display** — Original Kaccha amount dikhega, fir ek line 'Lab Test Adj.' jo ±X dikhati hai (red if minus, green if plus), aur fir **Effective Kaccha** highlight me. Total bhi original strikethrough + Effective Total dikhega." },
+      { type: "improvement", text: "💰 **Effective Balance** — 'Balance (Party par baki)' me ab Lab Test adjustment shaamil hota hai. E.g. Total ₹6,21,463 - Lab Test ₹76,086 = **Effective Balance ₹5,45,376** Party par." },
+      { type: "improvement", text: "🟢🔴 **Smart Color Coding** — Negative adjustment red me (kaccha kam ho raha), positive adjustment green me (bonus due to better quality)." },
+    ],
+  },
+  {
     version: "104.39.4",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.39.4 — 🏷️ Rice Bran: 'Oil Premium' Tab → 'Labtest Report'",

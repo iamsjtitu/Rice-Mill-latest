@@ -501,28 +501,70 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                 {viewSale.rate_per_qtl > 0 && <div><span className="text-slate-400 text-xs">Rate/Q:</span> <span className="text-white">{viewSale.rate_per_qtl}</span></div>}
               </div>
               <div className="border-t border-slate-600 pt-2 space-y-1">
-                {viewSale.split_billing ? (
-                  <>
-                    <div className="flex justify-between"><span className="text-emerald-400 text-xs">Pakka ({((viewSale.billed_weight_kg || 0)/100).toFixed(2)} Q × {viewSale.rate_per_qtl})</span><span className="text-emerald-400 font-bold">₹{(viewSale.billed_amount || 0).toLocaleString('en-IN')}</span></div>
-                    {viewSale.tax_amount > 0 && <div className="flex justify-between"><span className="text-slate-400 text-xs">GST ({viewSale.gst_percent || 0}% on Pakka)</span><span className="text-orange-400">₹{(viewSale.tax_amount || 0).toLocaleString('en-IN')}</span></div>}
-                    <div className="flex justify-between"><span className="text-amber-400 text-xs">Kaccha ({((viewSale.kaccha_weight_kg || 0)/100).toFixed(2)} Q × {viewSale.kaccha_rate_per_qtl || viewSale.rate_per_qtl})</span><span className="text-amber-400 font-bold">₹{(viewSale.kaccha_amount || 0).toLocaleString('en-IN')}</span></div>
-                  </>
-                ) : (
-                  <>
-                    {viewSale.amount > 0 && <div className="flex justify-between"><span className="text-slate-400">Amount</span><span className="text-emerald-400">{(viewSale.amount || 0).toLocaleString()}</span></div>}
-                    {viewSale.tax_amount > 0 && <div className="flex justify-between"><span className="text-slate-400">Tax ({viewSale.gst_percent || 0}%)</span><span className="text-orange-400">{(viewSale.tax_amount || 0).toLocaleString()}</span></div>}
-                  </>
-                )}
-                <div className="flex justify-between font-bold"><span className="text-white">Total</span><span className="text-emerald-400 text-base">{(viewSale.total || 0).toLocaleString()}</span></div>
+                {(() => {
+                  const op = getOilPremium(viewSale);
+                  const premiumAdj = op && typeof op.premium_amount === 'number' ? op.premium_amount : 0;
+                  const baseKaccha = parseFloat(viewSale.kaccha_amount || 0);
+                  const effectiveKaccha = +(baseKaccha + premiumAdj).toFixed(2);
+                  const baseTotal = parseFloat(viewSale.total || 0);
+                  const effectiveTotal = +(baseTotal + premiumAdj).toFixed(2);
+                  if (viewSale.split_billing) {
+                    return (
+                      <>
+                        <div className="flex justify-between"><span className="text-emerald-400 text-xs">Pakka ({((viewSale.billed_weight_kg || 0)/100).toFixed(2)} Q × {viewSale.rate_per_qtl})</span><span className="text-emerald-400 font-bold">₹{(viewSale.billed_amount || 0).toLocaleString('en-IN')}</span></div>
+                        {viewSale.tax_amount > 0 && <div className="flex justify-between"><span className="text-slate-400 text-xs">GST ({viewSale.gst_percent || 0}% on Pakka)</span><span className="text-orange-400">₹{(viewSale.tax_amount || 0).toLocaleString('en-IN')}</span></div>}
+                        <div className="flex justify-between"><span className="text-amber-400 text-xs">Kaccha ({((viewSale.kaccha_weight_kg || 0)/100).toFixed(2)} Q × {viewSale.kaccha_rate_per_qtl || viewSale.rate_per_qtl})</span><span className="text-amber-400 font-bold">₹{baseKaccha.toLocaleString('en-IN')}</span></div>
+                        {premiumAdj !== 0 && (
+                          <>
+                            <div className="flex justify-between"><span className={`text-xs ${premiumAdj < 0 ? 'text-red-400' : 'text-emerald-400'}`}>↳ Lab Test Adj. ({op.bran_type}: {(op.difference_pct||0) > 0 ? '+' : ''}{(op.difference_pct||0).toFixed(2)}%)</span><span className={`font-bold ${premiumAdj < 0 ? 'text-red-400' : 'text-emerald-400'}`}>{premiumAdj > 0 ? '+' : ''}₹{premiumAdj.toLocaleString('en-IN')}</span></div>
+                            <div className="flex justify-between border-t border-slate-700 pt-1"><span className="text-amber-300 text-xs font-semibold">Effective Kaccha</span><span className="text-amber-300 font-bold">₹{effectiveKaccha.toLocaleString('en-IN')}</span></div>
+                          </>
+                        )}
+                      </>
+                    );
+                  }
+                  return (
+                    <>
+                      {viewSale.amount > 0 && <div className="flex justify-between"><span className="text-slate-400">Amount</span><span className="text-emerald-400">{(viewSale.amount || 0).toLocaleString()}</span></div>}
+                      {viewSale.tax_amount > 0 && <div className="flex justify-between"><span className="text-slate-400">Tax ({viewSale.gst_percent || 0}%)</span><span className="text-orange-400">{(viewSale.tax_amount || 0).toLocaleString()}</span></div>}
+                      {premiumAdj !== 0 && (
+                        <div className="flex justify-between"><span className={`text-xs ${premiumAdj < 0 ? 'text-red-400' : 'text-emerald-400'}`}>↳ Lab Test Adj. ({op.bran_type}: {(op.difference_pct||0) > 0 ? '+' : ''}{(op.difference_pct||0).toFixed(2)}%)</span><span className={`font-bold ${premiumAdj < 0 ? 'text-red-400' : 'text-emerald-400'}`}>{premiumAdj > 0 ? '+' : ''}₹{premiumAdj.toLocaleString('en-IN')}</span></div>
+                      )}
+                    </>
+                  );
+                })()}
+                {(() => {
+                  const op = getOilPremium(viewSale);
+                  const premiumAdj = op && typeof op.premium_amount === 'number' ? op.premium_amount : 0;
+                  const baseTotal = parseFloat(viewSale.total || 0);
+                  const effectiveTotal = +(baseTotal + premiumAdj).toFixed(2);
+                  if (premiumAdj === 0) {
+                    return <div className="flex justify-between font-bold"><span className="text-white">Total</span><span className="text-emerald-400 text-base">{(viewSale.total || 0).toLocaleString()}</span></div>;
+                  }
+                  return (
+                    <>
+                      <div className="flex justify-between text-xs"><span className="text-slate-400">Original Total</span><span className="text-slate-300 line-through">₹{baseTotal.toLocaleString('en-IN')}</span></div>
+                      <div className="flex justify-between font-bold"><span className="text-white">Effective Total (after Lab Test)</span><span className="text-emerald-400 text-base">₹{effectiveTotal.toLocaleString('en-IN')}</span></div>
+                    </>
+                  );
+                })()}
               </div>
               <div className="border-t border-slate-600 pt-2 grid grid-cols-2 gap-x-4 gap-y-1">
                 {viewSale.cash_paid > 0 && <div className="flex justify-between"><span className="text-green-400 text-xs">Cash (Truck ko)</span><span className="text-green-300">{(viewSale.cash_paid || 0).toLocaleString()}</span></div>}
                 {viewSale.diesel_paid > 0 && <div className="flex justify-between"><span className="text-orange-400 text-xs">Diesel (Pump se)</span><span className="text-orange-300">{(viewSale.diesel_paid || 0).toLocaleString()}</span></div>}
                 {viewSale.advance > 0 && <div className="flex justify-between"><span className="text-sky-400 text-xs">Advance (Party se)</span><span className="text-sky-300">{(viewSale.advance || 0).toLocaleString()}</span></div>}
-                <div className="flex justify-between font-bold col-span-2 border-t border-slate-600 pt-1 mt-1">
-                  <span className="text-slate-300">Balance (Party par baki)</span>
-                  <span className={`text-base ${(viewSale.balance || 0) > 0 ? 'text-red-400' : 'text-green-400'}`}>{(viewSale.balance || 0).toLocaleString()}</span>
-                </div>
+                {(() => {
+                  const op = getOilPremium(viewSale);
+                  const premiumAdj = op && typeof op.premium_amount === 'number' ? op.premium_amount : 0;
+                  const baseBal = parseFloat(viewSale.balance || 0);
+                  const effectiveBal = +(baseBal + premiumAdj).toFixed(2);
+                  return (
+                    <div className="flex justify-between font-bold col-span-2 border-t border-slate-600 pt-1 mt-1">
+                      <span className="text-slate-300">Balance (Party par baki)</span>
+                      <span className={`text-base ${effectiveBal > 0 ? 'text-red-400' : 'text-green-400'}`}>{effectiveBal.toLocaleString('en-IN')}{premiumAdj !== 0 && <span className="text-[10px] text-slate-500 ml-1">(Lab Test adj.)</span>}</span>
+                    </div>
+                  );
+                })()}
               </div>
               {viewSale.remark && <div className="border-t border-slate-600 pt-2"><span className="text-slate-400 text-xs">Remark:</span> <span className="text-slate-300">{viewSale.remark}</span></div>}
               {(() => { const op = getOilPremium(viewSale); return op ? (
