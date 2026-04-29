@@ -69,6 +69,58 @@ async def backfill_party_type(category: str, party_type: str):
     )
 
 
+async def upsert_jama_ledger(*, query: dict, doc: dict, allow_delete_on_zero: bool = False):
+    """Upsert a ledger jama/nikasi entry.
+
+    Used by truck/agent payment routes that previously had repetitive
+    "find existing -> update OR insert new" blocks.
+
+    Args:
+        query: MongoDB query to find existing entry
+            e.g. {"linked_entry_id": eid, "reference": {"$regex": "^pvt_truck_jama:"}}
+        doc: Full document fields for insert. For an existing entry, only
+            mutable fields are patched: amount, description, updated_at,
+            kms_year, season, created_by.
+        allow_delete_on_zero: If True and `doc["amount"] <= 0`, delete the
+            existing matching entry instead of upserting (used by truck rate
+            reset to 0).
+
+    Returns: {"action": "updated"|"inserted"|"deleted"|"skipped", "id": str|None}
+    """
+    amount = doc.get("amount", 0)
+
+    if allow_delete_on_zero and (amount is None or amount <= 0):
+        result = await db.cash_transactions.delete_many(query)
+        return {"action": "deleted", "count": result.deleted_count, "id": None}
+
+    existing = await db.cash_transactions.find_one(query, {"_id": 0})
+    now = datetime.now(timezone.utc).isoformat()
+
+    if existing:
+        update_fields = {
+            "amount": amount,
+            "description": doc.get("description", existing.get("description", "")),
+            "updated_at": doc.get("updated_at", now),
+        }
+        for k in ("kms_year", "season", "created_by"):
+            if k in doc:
+                update_fields[k] = doc[k]
+        await db.cash_transactions.update_one({"id": existing["id"]}, {"$set": update_fields})
+        return {"action": "updated", "id": existing["id"]}
+
+    # Insert new
+    new_doc = dict(doc)
+    new_doc.setdefault("id", str(uuid.uuid4()))
+    new_doc.setdefault("created_at", now)
+    new_doc.setdefault("updated_at", now)
+    new_doc.setdefault("account", "ledger")
+    new_doc.setdefault("txn_type", "jama")
+    new_doc.setdefault("bank_name", "")
+    await db.cash_transactions.insert_one(new_doc)
+    new_doc.pop("_id", None)
+    return {"action": "inserted", "id": new_doc["id"]}
+
+
 async def create_auto_ledger_entry(txn_dict: dict, round_off: float = 0):
     """Auto-create corresponding ledger entry for double-entry accounting."""
     category = txn_dict.get('category', '').strip()

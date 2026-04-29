@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
 from models import TruckPaymentStatus, AgentPaymentStatus, SetRateRequest, MakePaymentRequest, round_amount
 from utils.commission import capped_tp_for_commission
+from services.cashbook_service import upsert_jama_ledger
 import uuid, io, csv
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -496,36 +497,21 @@ async def set_truck_rate(entry_id: str, request: SetRateRequest, username: str =
         )
         if final_qntl > 0 and pvt_truck:
             new_gross = round(final_qntl * request.rate_per_qntl, 2)
-            base_fields = {
-                "kms_year": entry.get("kms_year", ""), "season": entry.get("season", ""),
-                "created_by": username or "system", "updated_at": datetime.now(timezone.utc).isoformat()
-            }
-            existing_jama = await db.cash_transactions.find_one(
-                {"linked_entry_id": entry_id, "reference": {"$regex": "^pvt_truck_jama:"}}, {"_id": 0}
-            )
             party = entry.get("party_name", "")
             mandi_n = entry.get("mandi_name", "")
             party_label = f"{party} - {mandi_n}" if party and mandi_n else party
-            if existing_jama:
-                await db.cash_transactions.update_one(
-                    {"id": existing_jama["id"]},
-                    {"$set": {
-                        "amount": new_gross,
-                        "description": f"Pvt Paddy Truck: {pvt_truck} - {party_label} - {final_qntl}Q @ Rs.{request.rate_per_qntl}",
-                        **base_fields
-                    }}
-                )
-            else:
-                await db.cash_transactions.insert_one({
-                    "id": str(uuid.uuid4()), "date": entry.get("date", ""),
-                    "account": "ledger", "txn_type": "jama",
-                    "category": pvt_truck, "party_type": "Truck",
+            await upsert_jama_ledger(
+                query={"linked_entry_id": entry_id, "reference": {"$regex": "^pvt_truck_jama:"}},
+                doc={
+                    "date": entry.get("date", ""), "category": pvt_truck, "party_type": "Truck",
                     "description": f"Pvt Paddy Truck: {pvt_truck} - {party_label} - {final_qntl}Q @ Rs.{request.rate_per_qntl}",
-                    "amount": new_gross, "bank_name": "",
+                    "amount": new_gross,
                     "reference": f"pvt_truck_jama:{entry_id[:8]}",
                     "linked_entry_id": entry_id,
-                    "created_at": datetime.now(timezone.utc).isoformat(), **base_fields
-                })
+                    "kms_year": entry.get("kms_year", ""), "season": entry.get("season", ""),
+                    "created_by": username or "system",
+                },
+            )
         updated_count = 1
     elif source == "sale_book":
         # For sale book entries, set rate and create/update Jama (credit) ledger entry
@@ -537,40 +523,18 @@ async def set_truck_rate(entry_id: str, request: SetRateRequest, username: str =
         )
         if final_qntl > 0 and sb_truck:
             new_gross = round(final_qntl * request.rate_per_qntl, 2)
-            cash_taken = float(entry.get("cash_paid", 0) or 0)
-            diesel_taken = float(entry.get("diesel_paid", 0) or 0)
-            deductions = cash_taken + diesel_taken
-            net = round(new_gross - deductions, 2)
-            # Upsert Jama entry in ledger
-            existing_jama = await db.cash_transactions.find_one(
-                {"linked_entry_id": entry_id, "reference": {"$regex": "^sale_truck_jama:"}}, {"_id": 0}
-            )
-            base_fields = {
-                "kms_year": entry.get("kms_year", ""), "season": entry.get("season", ""),
-                "created_by": username or "system", "updated_at": datetime.now(timezone.utc).isoformat()
-            }
-            if existing_jama:
-                await db.cash_transactions.update_one(
-                    {"id": existing_jama["id"]},
-                    {"$set": {
-                        "amount": new_gross,
-                        "description": f"Sale Truck: {sb_truck} - {final_qntl}Q @ Rs.{request.rate_per_qntl}",
-                        **base_fields
-                    }}
-                )
-            else:
-                jama_entry = {
-                    "id": str(uuid.uuid4()), "date": entry.get("date", ""),
-                    "account": "ledger", "txn_type": "jama",
-                    "category": sb_truck, "party_type": "Truck",
+            await upsert_jama_ledger(
+                query={"linked_entry_id": entry_id, "reference": {"$regex": "^sale_truck_jama:"}},
+                doc={
+                    "date": entry.get("date", ""), "category": sb_truck, "party_type": "Truck",
                     "description": f"Sale Truck: {sb_truck} - {final_qntl}Q @ Rs.{request.rate_per_qntl}",
-                    "amount": new_gross, "bank_name": "",
+                    "amount": new_gross,
                     "reference": f"sale_truck_jama:{entry_id[:8]}",
                     "linked_entry_id": entry_id,
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    **base_fields
-                }
-                await db.cash_transactions.insert_one(jama_entry)
+                    "kms_year": entry.get("kms_year", ""), "season": entry.get("season", ""),
+                    "created_by": username or "system",
+                },
+            )
         updated_count = 1
     elif source == "purchase_voucher":
         # Same logic as sale_book
@@ -582,32 +546,18 @@ async def set_truck_rate(entry_id: str, request: SetRateRequest, username: str =
         )
         if final_qntl > 0 and pv_truck:
             new_gross = round(final_qntl * request.rate_per_qntl, 2)
-            cash_taken = float(entry.get("cash_paid", 0) or 0)
-            diesel_taken = float(entry.get("diesel_paid", 0) or 0)
-            deductions = cash_taken + diesel_taken
-            base_fields = {
-                "kms_year": entry.get("kms_year", ""), "season": entry.get("season", ""),
-                "created_by": username or "system", "updated_at": datetime.now(timezone.utc).isoformat()
-            }
-            existing_jama = await db.cash_transactions.find_one(
-                {"linked_entry_id": entry_id, "reference": {"$regex": "^purchase_truck_jama:"}}, {"_id": 0}
-            )
-            if existing_jama:
-                await db.cash_transactions.update_one(
-                    {"id": existing_jama["id"]},
-                    {"$set": {"amount": new_gross, "description": f"Purchase Truck: {pv_truck} - {final_qntl}Q @ Rs.{request.rate_per_qntl}", **base_fields}}
-                )
-            else:
-                await db.cash_transactions.insert_one({
-                    "id": str(uuid.uuid4()), "date": entry.get("date", ""),
-                    "account": "ledger", "txn_type": "jama",
-                    "category": pv_truck, "party_type": "Truck",
+            await upsert_jama_ledger(
+                query={"linked_entry_id": entry_id, "reference": {"$regex": "^purchase_truck_jama:"}},
+                doc={
+                    "date": entry.get("date", ""), "category": pv_truck, "party_type": "Truck",
                     "description": f"Purchase Truck: {pv_truck} - {final_qntl}Q @ Rs.{request.rate_per_qntl}",
-                    "amount": new_gross, "bank_name": "",
+                    "amount": new_gross,
                     "reference": f"purchase_truck_jama:{entry_id[:8]}",
                     "linked_entry_id": entry_id,
-                    "created_at": datetime.now(timezone.utc).isoformat(), **base_fields
-                })
+                    "kms_year": entry.get("kms_year", ""), "season": entry.get("season", ""),
+                    "created_by": username or "system",
+                },
+            )
         updated_count = 1
     elif source == "dc_delivery":
         # For DC delivery, set rate and create/update Jama (credit) ledger entry
@@ -622,37 +572,18 @@ async def set_truck_rate(entry_id: str, request: SetRateRequest, username: str =
             cash_taken = float(entry.get("cash_paid", 0) or 0)
             diesel_taken = float(entry.get("diesel_paid", 0) or 0)
             deductions = cash_taken + diesel_taken
-            net = round(new_gross - deductions, 2)
-            # Upsert Jama entry in ledger
-            existing_jama = await db.cash_transactions.find_one(
-                {"linked_entry_id": entry_id, "reference": {"$regex": "^delivery_jama:"}}, {"_id": 0}
-            )
-            base_fields = {
-                "kms_year": entry.get("kms_year", ""), "season": entry.get("season", ""),
-                "created_by": username or "system", "updated_at": datetime.now(timezone.utc).isoformat()
-            }
-            if existing_jama:
-                await db.cash_transactions.update_one(
-                    {"id": existing_jama["id"]},
-                    {"$set": {
-                        "amount": new_gross,
-                        "description": f"DC Delivery: {dc_truck} - {final_qntl}Q @ Rs.{request.rate_per_qntl}" + (f" (Ded: Rs.{deductions})" if deductions > 0 else ""),
-                        **base_fields
-                    }}
-                )
-            else:
-                jama_entry = {
-                    "id": str(uuid.uuid4()), "date": entry.get("date", ""),
-                    "account": "ledger", "txn_type": "jama",
-                    "category": dc_truck, "party_type": "Truck",
-                    "description": f"DC Delivery: {dc_truck} - {final_qntl}Q @ Rs.{request.rate_per_qntl}" + (f" (Ded: Rs.{deductions})" if deductions > 0 else ""),
-                    "amount": new_gross, "bank_name": "",
+            description = f"DC Delivery: {dc_truck} - {final_qntl}Q @ Rs.{request.rate_per_qntl}" + (f" (Ded: Rs.{deductions})" if deductions > 0 else "")
+            await upsert_jama_ledger(
+                query={"linked_entry_id": entry_id, "reference": {"$regex": "^delivery_jama:"}},
+                doc={
+                    "date": entry.get("date", ""), "category": dc_truck, "party_type": "Truck",
+                    "description": description, "amount": new_gross,
                     "reference": f"delivery_jama:{entry_id[:8]}",
                     "linked_entry_id": entry_id,
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    **base_fields
-                }
-                await db.cash_transactions.insert_one(jama_entry)
+                    "kms_year": entry.get("kms_year", ""), "season": entry.get("season", ""),
+                    "created_by": username or "system",
+                },
+            )
         updated_count = 1
     elif truck_no and mandi_name:
         # Find all entries with same truck_no + mandi_name
@@ -673,36 +604,19 @@ async def set_truck_rate(entry_id: str, request: SetRateRequest, username: str =
                 diesel_taken = float(m.get("diesel_paid", 0) or 0)
                 deductions = cash_taken + diesel_taken
                 description = f"Truck Entry: {truck_no} - {final_qntl}Q @ Rs.{request.rate_per_qntl}" + (f" (Ded: Rs.{deductions})" if deductions > 0 else "")
-                if request.rate_per_qntl > 0:
-                    # Upsert: update if exists, otherwise create the jama ledger entry
-                    existing_jama = await db.cash_transactions.find_one(
-                        {"linked_entry_id": m["id"], "reference": {"$regex": "^truck_entry:"}}, {"_id": 0}
-                    )
-                    if existing_jama:
-                        await db.cash_transactions.update_one(
-                            {"linked_entry_id": m["id"], "reference": {"$regex": "^truck_entry:"}},
-                            {"$set": {"amount": new_gross, "description": description,
-                                      "updated_at": datetime.now(timezone.utc).isoformat()}}
-                        )
-                    else:
-                        new_jama = {
-                            "id": str(uuid.uuid4()),
-                            "date": m.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
-                            "account": "ledger", "txn_type": "jama", "category": truck_no,
-                            "party_type": "Truck",
-                            "description": description, "amount": new_gross,
-                            "reference": f"truck_entry:{m['id'][:8]}",
-                            "kms_year": m.get("kms_year", ""), "season": m.get("season", ""),
-                            "created_by": username or "system", "linked_entry_id": m["id"],
-                            "created_at": datetime.now(timezone.utc).isoformat(),
-                            "updated_at": datetime.now(timezone.utc).isoformat()
-                        }
-                        await db.cash_transactions.insert_one(new_jama)
-                else:
-                    # Rate cleared back to 0 — remove the stale ledger entry
-                    await db.cash_transactions.delete_many(
-                        {"linked_entry_id": m["id"], "reference": {"$regex": "^truck_entry:"}}
-                    )
+                await upsert_jama_ledger(
+                    query={"linked_entry_id": m["id"], "reference": {"$regex": "^truck_entry:"}},
+                    doc={
+                        "date": m.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+                        "category": truck_no, "party_type": "Truck",
+                        "description": description, "amount": new_gross,
+                        "reference": f"truck_entry:{m['id'][:8]}",
+                        "linked_entry_id": m["id"],
+                        "kms_year": m.get("kms_year", ""), "season": m.get("season", ""),
+                        "created_by": username or "system",
+                    },
+                    allow_delete_on_zero=True,
+                )
         updated_count = len(matching)
     else:
         await db.truck_payments.update_one(
