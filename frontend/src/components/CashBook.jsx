@@ -217,6 +217,32 @@ const CashBook = ({ filters, user }) => {
   useEffect(() => { fetchAgentNames(); }, [fetchAgentNames]);
   useEffect(() => { fetchBankAccounts(); }, [fetchBankAccounts]);
   useEffect(() => { fetchOwnerAccounts(); }, [fetchOwnerAccounts]);
+
+  // Load split-billing pending vouchers on mount + filter change so that
+  // the New Transaction dialog can show Pakka/Kaccha hint for typed party
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [saleRes, bpRes] = await Promise.all([
+          axios.get(`${API}/sale-book?kms_year=${filters.kms_year || ''}`),
+          axios.get(`${API}/bp-sale-register?kms_year=${filters.kms_year || ''}`),
+        ]);
+        if (cancelled) return;
+        const salePending = (saleRes.data || []).filter(v => {
+          const bal = v.ledger_balance != null ? v.ledger_balance : (v.balance || 0);
+          return bal > 0;
+        }).map(v => ({ ...v, _source: 'sale' }));
+        const bpPending = (bpRes.data || []).filter(v => {
+          const bal = v.ledger_balance != null ? v.ledger_balance : (v.balance || 0);
+          return bal > 0;
+        }).map(v => ({ ...v, _source: 'bp_sale' }));
+        setSvVouchers([...salePending, ...bpPending]);
+      } catch (e) { /* silent */ }
+    })();
+    return () => { cancelled = true; };
+  }, [filters.kms_year, filters.season]);
+
   useEffect(() => { if (activeView === "party-summary") fetchPartySummary(); }, [activeView, fetchPartySummary]);
 
   const resetForm = () => setForm({
@@ -386,6 +412,31 @@ const CashBook = ({ filters, user }) => {
     return { totalIn: Math.round(totalIn * 100) / 100, totalOut: Math.round(totalOut * 100) / 100, balance: Math.round((totalIn - totalOut) * 100) / 100, count: partyTxns.length };
   };
   const partyBalance = getPartyBalance(form.category);
+
+  // For typed party, compute aggregated Pakka/Kaccha balances from split-billing BP Sale vouchers
+  const partySplitInfo = (() => {
+    const name = (form.category || '').trim().toLowerCase();
+    if (!name) return null;
+    let pakka = 0, kaccha = 0, matched = 0;
+    for (const v of svVouchers) {
+      if (!v.split_billing) continue;
+      if ((v.party_name || '').toLowerCase() !== name) continue;
+      matched++;
+      const billed = parseFloat(v.billed_amount || 0);
+      const tax = parseFloat(v.tax_amount || 0);
+      const kacchaAmt = parseFloat(v.kaccha_amount || 0);
+      const pakkaTotal = billed + tax;
+      const fullTotal = pakkaTotal + kacchaAmt;
+      const totalBal = parseFloat((v.ledger_balance != null ? v.ledger_balance : v.balance) || 0);
+      if (fullTotal <= 0 || totalBal <= 0) continue;
+      const ratio = totalBal / fullTotal;
+      pakka += pakkaTotal * ratio;
+      kaccha += kacchaAmt * ratio;
+    }
+    if (matched === 0) return null;
+    if (pakka <= 0 && kaccha <= 0) return null;
+    return { pakka: +pakka.toFixed(2), kaccha: +kaccha.toFixed(2) };
+  })();
 
   const handlePartyClick = (p) => {
     setActiveView("transactions");
@@ -706,6 +757,7 @@ const CashBook = ({ filters, user }) => {
         isOpen={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingId(null); }}
         editingId={editingId} form={form} setForm={setForm} summary={summary}
         categories={categories} allTxns={allTxns} partyBalance={partyBalance}
+        partySplitInfo={partySplitInfo}
         onSubmit={handleSubmit} bankAccounts={bankAccounts} ownerAccounts={ownerAccounts}
       />
 

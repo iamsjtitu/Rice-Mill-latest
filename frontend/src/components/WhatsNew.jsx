@@ -7,6 +7,25 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.39.3",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.39.3 — 🟢🟡 New Transaction me Pakka/Kaccha Live Hint",
+    items: [
+      { type: "fix", text: "🐛 **Prop Wiring Bug Fix** — Pichle release me `partySplitInfo` prop New Transaction dialog ko pass nahi ho raha tha. Logic compute hota tha but UI render nahi karta tha. Ab properly wired — split billing card show ho raha hai." },
+      { type: "new", text: "🟢🟡 **Cash Book → New Transaction me Split Hint** — Manual transaction add karne par jab aap Party / Category mein kisi BP Sale split-billing party (e.g. Cash Test Agent) ka naam type/select karte ho, ek **Split Billing Pending** card automatic dikhta hai with Pakka (Bank) + Kaccha (Cash/Owner) balance breakdown." },
+      { type: "improvement", text: "💡 **Smart Tip** — Card ke neeche tip dikhta hai: 'Bank account select hai → ye Pakka portion ka payment hai' ya 'Cash → Kaccha'. Galti se galat channel me record karne ka chance kam." },
+    ],
+  },
+  {
+    version: "104.39.2",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.39.2 — 🟢🟡 New Transaction Dialog: Pakka/Kaccha Split Display",
+    items: [
+      { type: "new", text: "🟢🟡 **Cash Book → New Transaction me Split Hint** — Manual transaction add karne par jab aap Party / Category mein koi naam (e.g. 'Cash Test Agent') type karte ho, agar uss party ke split-billing BP Sale vouchers pending hain, toh **'Split Billing Pending'** card automatic dikhta hai with Pakka (Bank) + Kaccha (Cash/Owner) balance breakdown." },
+      { type: "improvement", text: "💡 **Smart Tip** — Card ke neeche tip dikhta hai jo aapke selected Account ke hisaab se guidance deta hai: 'Bank account select hai → ye Pakka portion ka payment hai' ya 'Cash → Kaccha'. Galti se galat channel me record karne ka chance kam." },
+    ],
+  },
+  {
     version: "104.39.1",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.39.1 — 🪟 Voucher Payment Dialog Width Fix (Overflow)",

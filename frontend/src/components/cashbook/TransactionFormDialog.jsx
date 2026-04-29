@@ -47,7 +47,7 @@ const HARDCODED_PARTY_TYPES = ["Cash Party", "Pvt Paddy Purchase", "Rice Sale", 
 const TransactionFormDialog = ({
   isOpen, onOpenChange, editingId,
   form, setForm, summary,
-  categories, allTxns, partyBalance,
+  categories, allTxns, partyBalance, partySplitInfo,
   onSubmit, bankAccounts = [], ownerAccounts = [],
 }) => {
 
@@ -277,6 +277,18 @@ const TransactionFormDialog = ({
                   Balance: Rs.{(partyBalance.balance || 0).toLocaleString('en-IN')}
                 </span>
                 <span className="text-slate-500 ml-1">({partyBalance.count} txns)</span>
+              </div>
+            )}
+            {partySplitInfo && (
+              <div className="mt-1 p-2 bg-amber-100 dark:bg-amber-900/40 border border-amber-400 dark:border-amber-700 rounded text-[10px]" data-testid="cashbook-party-split-info">
+                <p className="font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider text-[9px] mb-0.5">Split Billing Pending</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <span className="text-slate-700 dark:text-slate-200">→ <b>Pakka</b> (Bank): <br/><span className="text-emerald-700 dark:text-emerald-300 font-bold">Rs.{partySplitInfo.pakka.toLocaleString('en-IN')}</span></span>
+                  <span className="text-slate-700 dark:text-slate-200">→ <b>Kaccha</b> (Cash/Owner): <br/><span className="text-amber-700 dark:text-amber-300 font-bold">Rs.{partySplitInfo.kaccha.toLocaleString('en-IN')}</span></span>
+                </div>
+                <p className="text-[9px] text-slate-600 dark:text-slate-400 mt-1">
+                  💡 Tip: <b>{form.account === 'bank' ? 'Bank' : (form.account === 'owner' ? 'Owner' : 'Cash')}</b> select hai → ye <b>{form.account === 'bank' ? 'Pakka' : 'Kaccha'}</b> portion ka payment hai
+                </p>
               </div>
             )}
             <p className="text-[9px] text-amber-600 mt-0.5">* Yahan jo name doge wo Party Ledger mein automatically aayega</p>
