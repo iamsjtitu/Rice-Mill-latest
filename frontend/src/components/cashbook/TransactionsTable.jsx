@@ -23,10 +23,11 @@ const TransactionsTable = ({
 
   // Auto-ledger entries are paired duplicates (one cash + one ledger row). Excluding them from totals
   // prevents the same amount being counted twice. Display rows still show them for transparency.
-  const isAutoLedger = (t) => /^auto_ledger:/.test(String(t.reference || ''));
-  const realTxns = txns.filter(t => !isAutoLedger(t));
-  const totalJama = realTxns.filter(t => t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0);
-  const totalNikasi = realTxns.filter(t => t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0);
+  // Each visible transaction is a real ledger/cash entry; sum all for totals.
+  // (Earlier we excluded `auto_ledger:` prefix entries to avoid double counting,
+  //  but that broke party-ledger views where ledger side is the only visible entry.)
+  const totalJama = txns.filter(t => t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0);
+  const totalNikasi = txns.filter(t => t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0);
   const restBalance = totalJama - totalNikasi;
 
   return (
@@ -139,7 +140,7 @@ const TransactionsTable = ({
           <tfoot>
             <tr className="border-t-2 border-slate-300 bg-slate-50">
               {user.role === 'admin' && <td></td>}
-              <td colSpan={6} className="px-3 py-2.5 text-xs font-bold text-slate-700">TOTAL ({realTxns.length} transactions{txns.length > realTxns.length ? `, ${txns.length - realTxns.length} auto-pair excluded` : ''})</td>
+              <td colSpan={6} className="px-3 py-2.5 text-xs font-bold text-slate-700">TOTAL ({txns.length} transactions)</td>
               <td className="px-3 py-2.5 text-right text-xs font-bold text-green-700" data-testid="cashbook-total-jama">₹{totalJama.toLocaleString('en-IN')}</td>
               <td className="px-3 py-2.5 text-right text-xs font-bold text-red-600" data-testid="cashbook-total-nikasi">₹{totalNikasi.toLocaleString('en-IN')}</td>
               <td className={`px-3 py-2.5 text-right text-xs font-bold ${restBalance >= 0 ? 'text-amber-700' : 'text-red-700'}`} data-testid="cashbook-rest-balance">₹{restBalance.toLocaleString('en-IN')}</td>

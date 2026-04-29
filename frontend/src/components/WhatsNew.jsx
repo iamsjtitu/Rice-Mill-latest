@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.40.5",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.40.5 — 🐛 TOTAL Row Balance Fix (Sale + Payment = ₹0)",
+    items: [
+      { type: "fix", text: "🐛 **Critical TOTAL Row Fix** — Cash Book transactions table me TOTAL galat dikha raha tha. Example: ₹3,15,000 ka sale + ₹3,15,000 ka payment hone par balance ₹0 ana chahiye, lekin TOTAL row sirf Nikasi ₹3,15,000 dikha raha tha (Jama auto-pair ke naam pe galat exclude ho raha tha). Fixed: ab TOTAL all visible transactions sum karta hai — net balance correctly aata hai." },
+      { type: "improvement", text: "🧹 **Cleaner Label** — Pehla 'auto-pair excluded' label hata diya — har transaction sahi count hota hai." },
+    ],
+  },
+  {
     version: "104.40.4",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.40.4 — 🏷️ 'Lab Test Penalty' → 'Lab Test Premium' + 'All Parties' Hata Diya",
