@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.37.1",
+    date: "Apr 29, 2026 (Night)",
+    title: "v104.37.1 — 🎨 Light Theme Fix — Settings → Permissions Readable",
+    items: [
+      { type: "fix", text: "🎨 **Light Theme Bug Fix** — Settings → Permissions tab me 'Edit Window Lock' card light theme me dark grey background ke saath dikh raha tha, jisme text barely visible tha. Fixed: ab card white background pe clean black text dikhata hai. Toggle, duration buttons (2/5/10/30/60 min), custom input — sab clearly visible." },
+      { type: "improvement", text: "🌐 **Global CSS Fix** — Light theme me `bg-slate-800/60`, `bg-slate-900/50`, `bg-slate-800/30` ke missing overrides add kiye. Jahan bhi yeh classes use ho rahi thi (saare modules), light theme me automatically clean hue. Future cards bhi safe." },
+    ],
+  },
+  {
     version: "104.37.0",
     date: "Apr 29, 2026 (Evening)",
     title: "v104.37.0 — 🛠️ Internal Stability — Auto-Ledger Logic Centralized",
