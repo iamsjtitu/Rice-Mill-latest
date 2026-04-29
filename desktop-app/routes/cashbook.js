@@ -84,10 +84,24 @@ module.exports = function(database) {
     let txns = [...database.data.cash_transactions];
     if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
     if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
-    if (req.query.account) txns = txns.filter(t => t.account === req.query.account);
     if (req.query.txn_type) txns = txns.filter(t => t.txn_type === req.query.txn_type);
-    if (req.query.category) txns = txns.filter(t => t.category === req.query.category);
-    if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
+    // Owner-account parties: combine account=owner + cash/bank txns with category=<owner>.
+    // Exclude auto_ledger duplicates so each real txn shows exactly once.
+    // (account filter ignored for Owner view — handled inside the OR clause)
+    const isOwnerView = !!(req.query.category && req.query.party_type === 'Owner');
+    if (isOwnerView) {
+      const owner = req.query.category;
+      txns = txns.filter(t =>
+        !/^auto_ledger:/.test(String(t.reference || '')) && (
+          (t.owner_name === owner && t.account === 'owner') ||
+          (t.category === owner && t.party_type === 'Owner' && (t.account === 'cash' || t.account === 'bank'))
+        )
+      );
+    } else {
+      if (req.query.account) txns = txns.filter(t => t.account === req.query.account);
+      if (req.query.category) txns = txns.filter(t => t.category === req.query.category);
+      if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
+    }
     if (req.query.exclude_round_off === 'true' && !req.query.party_type) txns = txns.filter(t => t.party_type !== 'Round Off');
     if (req.query.date_from) txns = txns.filter(t => t.date >= req.query.date_from);
     if (req.query.date_to) txns = txns.filter(t => t.date <= req.query.date_to);
@@ -533,10 +547,27 @@ module.exports = function(database) {
       let txns = [...database.data.cash_transactions];
       if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
       if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
-      if (req.query.account) txns = txns.filter(t => t.account === req.query.account);
       if (req.query.txn_type) txns = txns.filter(t => t.txn_type === req.query.txn_type);
-      if (req.query.category) txns = txns.filter(t => t.category === req.query.category);
-      if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
+      // Owner-account parties: combine account=owner + cash/bank txns with category=<owner>.
+      // Flip txn_type only for account=owner entries (cash/bank already in Owner perspective).
+      // (account filter ignored for Owner view — handled inside the OR clause)
+      const isOwnerView = !!(req.query.category && req.query.party_type === 'Owner');
+      if (isOwnerView) {
+        const owner = req.query.category;
+        txns = txns.filter(t =>
+          !/^auto_ledger:/.test(String(t.reference || '')) && (
+            (t.owner_name === owner && t.account === 'owner') ||
+            (t.category === owner && t.party_type === 'Owner' && (t.account === 'cash' || t.account === 'bank'))
+          )
+        ).map(t => t.account === 'owner'
+          ? { ...t, txn_type: t.txn_type === 'nikasi' ? 'jama' : 'nikasi' }
+          : t
+        );
+      } else {
+        if (req.query.account) txns = txns.filter(t => t.account === req.query.account);
+        if (req.query.category) txns = txns.filter(t => t.category === req.query.category);
+        if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
+      }
       if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
       if (req.query.date_to) txns = txns.filter(t => (t.date || '') <= req.query.date_to);
       txns.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
@@ -637,10 +668,27 @@ module.exports = function(database) {
       let txns = [...database.data.cash_transactions];
       if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
       if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
-      if (req.query.account) txns = txns.filter(t => t.account === req.query.account);
       if (req.query.txn_type) txns = txns.filter(t => t.txn_type === req.query.txn_type);
-      if (req.query.category) txns = txns.filter(t => t.category === req.query.category);
-      if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
+      // Owner-account parties: combine account=owner + cash/bank txns with category=<owner>.
+      // Flip txn_type only for account=owner entries.
+      // (account filter ignored for Owner view — handled inside the OR clause)
+      const isOwnerView = !!(req.query.category && req.query.party_type === 'Owner');
+      if (isOwnerView) {
+        const owner = req.query.category;
+        txns = txns.filter(t =>
+          !/^auto_ledger:/.test(String(t.reference || '')) && (
+            (t.owner_name === owner && t.account === 'owner') ||
+            (t.category === owner && t.party_type === 'Owner' && (t.account === 'cash' || t.account === 'bank'))
+          )
+        ).map(t => t.account === 'owner'
+          ? { ...t, txn_type: t.txn_type === 'nikasi' ? 'jama' : 'nikasi' }
+          : t
+        );
+      } else {
+        if (req.query.account) txns = txns.filter(t => t.account === req.query.account);
+        if (req.query.category) txns = txns.filter(t => t.category === req.query.category);
+        if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
+      }
       if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
       if (req.query.date_to) txns = txns.filter(t => (t.date || '') <= req.query.date_to);
       txns.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));

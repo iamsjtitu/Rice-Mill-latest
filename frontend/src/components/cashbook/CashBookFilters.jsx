@@ -110,7 +110,7 @@ const CashBookFilters = ({
           <div className="relative">
             <Input
               value={txnFilters.category ? txnFilters.category : filterPartySearch}
-              onChange={(e) => { setFilterPartySearch(e.target.value); setTxnFilters(p => ({ ...p, category: "" })); setShowFilterPartyDropdown(true); setHighlightIdx(-1); }}
+              onChange={(e) => { setFilterPartySearch(e.target.value); setTxnFilters(p => ({ ...p, category: "", party_type: "" })); setShowFilterPartyDropdown(true); setHighlightIdx(-1); }}
               onFocus={() => { setShowFilterPartyDropdown(true); setHighlightIdx(-1); }}
               onBlur={() => setTimeout(() => { setShowFilterPartyDropdown(false); setHighlightIdx(-1); }, 200)}
               onKeyDown={handlePartyKeyDown}
@@ -120,7 +120,7 @@ const CashBookFilters = ({
               data-testid="cashbook-filter-category"
             />
             {txnFilters.category && (
-              <button onClick={() => { setTxnFilters(p => ({ ...p, category: "" })); setFilterPartySearch(""); }}
+              <button onClick={() => { setTxnFilters(p => ({ ...p, category: "", party_type: "" })); setFilterPartySearch(""); }}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
                 <X className="w-3 h-3" />
               </button>

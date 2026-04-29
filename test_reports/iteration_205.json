@@ -1,0 +1,69 @@
+{
+  "summary": "Tested Owner Ledger fix for Titu's JAMA entries and party clear button functionality. All backend API tests passed (10/10). Frontend UI tests confirmed both bugs are fixed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_owner_ledger.py",
+    "/app/test_reports/pytest/pytest_results_iteration205.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "The fix correctly implements $and/$or query for owner ledger views combining account=owner and cash/bank entries",
+    "Auto-ledger entries are properly excluded using reference NOT REGEX ^auto_ledger:",
+    "Frontend effectiveType() correctly flips txn_type only for account=owner entries",
+    "X clear button now resets both category AND party_type as expected"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_owner_ledger.py"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "test_credentials": "admin / admin123",
+  "seed_data_creation": "Created and cleaned up test transaction for owner expense verification",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Owner ledger fix verified. Titu's ledger shows combined entries from account=owner (owner_name=Titu) and account=cash/bank (category=Titu, party_type=Owner). The X clear button properly resets party_type filter allowing search for other parties like MBOPL.",
+  "tests_executed": {
+    "backend_api_tests": [
+      "test_owner_ledger_returns_combined_entries - PASSED: GET /api/cash-book with category=Titu&party_type=Owner returns both owner and cash/bank entries",
+      "test_owner_ledger_txn_type_not_flipped_at_api - PASSED: API returns raw txn_type (frontend handles flip)",
+      "test_owner_ledger_pdf_export - PASSED: PDF export returns valid PDF >2KB",
+      "test_owner_ledger_excel_export - PASSED: Excel export returns valid xlsx",
+      "test_create_owner_expense_and_verify - PASSED: Created owner expense appears in Titu's ledger",
+      "test_non_owner_party_query - PASSED: Non-owner queries work normally",
+      "test_query_without_category - PASSED: Queries without category return all txns",
+      "test_query_with_date_range - PASSED: Date range filtering works",
+      "test_verify_titu_data_exists - PASSED: Titu's test data exists",
+      "test_get_owner_accounts - PASSED: Owner accounts API returns list"
+    ],
+    "frontend_ui_tests": [
+      "Login and navigate to Cash Book & Ledgers - PASSED",
+      "Party Ledgers tab shows Titu's combined entries - PASSED",
+      "Cash entries with category=Titu show as Jama (green) - PASSED",
+      "Owner entries show with Owner badge - PASSED",
+      "X clear button resets party_type to All Types - PASSED",
+      "After clearing Titu, MBOPL can be searched - PASSED"
+    ]
+  },
+  "bug_verification": {
+    "bug_1_titu_jama_not_showing": {
+      "status": "FIXED",
+      "description": "Titu's owner ledger now shows BOTH account=owner entries AND cash/bank entries with category=Titu",
+      "evidence": "UI shows 5 transactions including Cash received from Titu (₹1,00,000 and ₹50,000) and Owner payment entries"
+    },
+    "bug_2_party_type_stuck_on_owner": {
+      "status": "FIXED",
+      "description": "After clicking X to clear Titu, party_type resets to All Types and other parties can be searched",
+      "evidence": "After clearing Titu, typing MBOPL shows MBOPL entries with BP Sale party type in dropdown"
+    }
+  }
+}

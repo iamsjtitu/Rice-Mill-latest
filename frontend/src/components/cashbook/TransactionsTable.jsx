@@ -11,7 +11,19 @@ const TransactionsTable = ({
   txns, loading, user,
   selectedIds, toggleSelect, toggleSelectAll, handleBulkDelete,
   handleEdit, handleDelete,
+  isOwnerLedger = false,
 }) => {
+  // Owner Ledger view → Owner ki perspective se direction flip:
+  // Only entries stored with account=='owner' need flipping (cashbook stores them in mill perspective):
+  //   stored nikasi (Owner ne mill ke liye paisa diya) = JAMA in Owner's ledger (Owner contribution ↑)
+  //   stored jama   (Owner ne mill se paisa liya)      = NIKASI in Owner's ledger (Owner withdrawal ↓)
+  // Cash/Bank entries with category=<Owner> + party_type=Owner already in Owner perspective — no flip needed.
+  const effectiveType = (t) => {
+    if (!isOwnerLedger) return t.txn_type;
+    if (t.account !== 'owner') return t.txn_type;
+    return t.txn_type === 'jama' ? 'nikasi' : 'jama';
+  };
+
   // Display oldest first → newest last (chronological order)
   // (DB returns DESC by date+created_at; we reverse for display)
   const displayTxns = [...txns].reverse();
@@ -19,7 +31,7 @@ const TransactionsTable = ({
   const balMap = {};
   let runBal = 0;
   for (const t of displayTxns) {
-    runBal += t.txn_type === 'jama' ? (t.amount || 0) : -(t.amount || 0);
+    runBal += effectiveType(t) === 'jama' ? (t.amount || 0) : -(t.amount || 0);
     balMap[t.id] = Math.round(runBal * 100) / 100;
   }
 
@@ -28,8 +40,8 @@ const TransactionsTable = ({
   // Each visible transaction is a real ledger/cash entry; sum all for totals.
   // (Earlier we excluded `auto_ledger:` prefix entries to avoid double counting,
   //  but that broke party-ledger views where ledger side is the only visible entry.)
-  const totalJama = txns.filter(t => t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0);
-  const totalNikasi = txns.filter(t => t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0);
+  const totalJama = txns.filter(t => effectiveType(t) === 'jama').reduce((s, t) => s + (t.amount || 0), 0);
+  const totalNikasi = txns.filter(t => effectiveType(t) === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0);
   const restBalance = totalJama - totalNikasi;
 
   return (
@@ -81,8 +93,10 @@ const TransactionsTable = ({
         <tbody>
           {loading ? <tr><td colSpan={12} className="text-center text-slate-500 py-8">Loading...</td></tr>
           : txns.length === 0 ? <tr><td colSpan={12} className="text-center text-slate-500 py-8">Koi transaction nahi hai. "New Transaction" click karein.</td></tr>
-          : displayTxns.map(t => (
-            <tr key={t.id} className={`border-b border-slate-100 ${t.txn_type === 'jama' ? 'bg-green-50/50' : 'bg-red-50/50'} ${selectedIds.includes(t.id) ? 'ring-1 ring-amber-400' : ''}`} data-testid={`txn-row-${t.id}`}>
+          : displayTxns.map(t => {
+            const eType = effectiveType(t);
+            return (
+            <tr key={t.id} className={`border-b border-slate-100 ${eType === 'jama' ? 'bg-green-50/50' : 'bg-red-50/50'} ${selectedIds.includes(t.id) ? 'ring-1 ring-amber-400' : ''}`} data-testid={`txn-row-${t.id}`}>
               {user.role === 'admin' && (
                 <td className="px-2 py-2.5">
                   <input type="checkbox" checked={selectedIds.includes(t.id)} onChange={() => toggleSelect(t.id)}
@@ -91,14 +105,14 @@ const TransactionsTable = ({
               )}
               <td className="px-3 py-2.5 text-slate-800 text-xs font-medium whitespace-nowrap">{fmtDate(t.date)}</td>
               <td className="px-3 py-2.5 text-xs">
-                <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${t.account === 'cash' ? 'bg-green-100 text-green-700' : t.account === 'bank' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                  {t.account === 'cash' ? 'Cash' : t.account === 'bank' ? 'Bank' : 'Ledger'}
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${t.account === 'cash' ? 'bg-green-100 text-green-700' : t.account === 'bank' ? 'bg-blue-100 text-blue-700' : t.account === 'owner' ? 'bg-emerald-100 text-emerald-700' : 'bg-purple-100 text-purple-700'}`}>
+                  {t.account === 'cash' ? 'Cash' : t.account === 'bank' ? 'Bank' : t.account === 'owner' ? `Owner${t.owner_name ? ` (${t.owner_name})` : ''}` : 'Ledger'}
                 </span>
               </td>
               <td className="px-3 py-2.5 text-xs">
-                <span className={`flex items-center gap-1 font-medium ${t.txn_type === 'jama' ? 'text-green-700' : 'text-red-600'}`}>
-                  {t.txn_type === 'jama' ? <ArrowDownCircle className="w-3 h-3" /> : <ArrowUpCircle className="w-3 h-3" />}
-                  {t.txn_type === 'jama' ? 'Jama' : 'Nikasi'}
+                <span className={`flex items-center gap-1 font-medium ${eType === 'jama' ? 'text-green-700' : 'text-red-600'}`}>
+                  {eType === 'jama' ? <ArrowDownCircle className="w-3 h-3" /> : <ArrowUpCircle className="w-3 h-3" />}
+                  {eType === 'jama' ? 'Jama' : 'Nikasi'}
                 </span>
               </td>
               <td className="px-3 py-2.5 text-slate-700 text-xs font-semibold truncate">{t.category}</td>
@@ -113,16 +127,16 @@ const TransactionsTable = ({
               </td>
               <td className="px-3 py-2.5 text-slate-600 text-xs truncate">{t.description}</td>
               <td className="px-3 py-2.5 text-right text-xs font-medium text-green-700">
-                {t.txn_type === 'jama' ? `₹${(t.amount || 0).toLocaleString('en-IN')}` : '-'}
+                {eType === 'jama' ? `₹${(t.amount || 0).toLocaleString('en-IN')}` : '-'}
               </td>
               <td className="px-3 py-2.5 text-right text-xs font-medium text-red-600">
-                {t.txn_type === 'nikasi' ? `₹${(t.amount || 0).toLocaleString('en-IN')}` : '-'}
+                {eType === 'nikasi' ? `₹${(t.amount || 0).toLocaleString('en-IN')}` : '-'}
               </td>
               <td className={`px-3 py-2.5 text-right text-xs font-bold ${balanceColorClass(balMap[t.id])}`} data-testid={`txn-balance-${t.id}`}>
                 {formatBalanceDrCr(balMap[t.id])}
               </td>
               <td className="px-3 py-2.5 text-slate-500 text-xs truncate">{t.reference}</td>
-              <td className={`px-3 py-2.5 sticky right-0 border-l border-slate-200 ${t.txn_type === 'jama' ? 'bg-green-50/90' : 'bg-red-50/90'} ${selectedIds.includes(t.id) ? 'ring-1 ring-amber-400' : ''}`}>
+              <td className={`px-3 py-2.5 sticky right-0 border-l border-slate-200 ${eType === 'jama' ? 'bg-green-50/90' : 'bg-red-50/90'} ${selectedIds.includes(t.id) ? 'ring-1 ring-amber-400' : ''}`}>
                 {user.role === 'admin' && (
                   <div className="flex gap-0.5 items-center justify-center">
                     <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-500 hover:text-blue-700" onClick={() => handleEdit(t)} data-testid={`txn-edit-${t.id}`}>
@@ -136,7 +150,8 @@ const TransactionsTable = ({
                 )}
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
         {txns.length > 0 && (
           <tfoot>

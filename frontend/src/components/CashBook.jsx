@@ -774,6 +774,7 @@ const CashBook = ({ filters, user }) => {
               txns={displayedTxns} loading={loading} user={user}
               selectedIds={selectedIds} toggleSelect={toggleSelect} toggleSelectAll={toggleSelectAll}
               handleBulkDelete={handleBulkDelete} handleEdit={handleEdit} handleDelete={handleDelete}
+              isOwnerLedger={txnFilters.party_type === 'Owner' && !!txnFilters.category}
             />
             <PaginationBar page={page} totalPages={totalPages} total={totalCount} pageSize={PAGE_SIZE}
               onPageChange={(p) => { setPage(p); fetchData(p); }} />

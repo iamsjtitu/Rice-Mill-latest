@@ -231,18 +231,28 @@ async def get_cash_transactions(kms_year: Optional[str] = None, season: Optional
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
-    if account: query["account"] = account
     if txn_type: query["txn_type"] = txn_type
     # Owner-account parties are stored with account="owner" + owner_name=<owner>;
     # category holds the OTHER party. When frontend sends party_type="Owner",
-    # match owner_name instead of category.
-    if category and party_type == "Owner":
-        query["owner_name"] = category
-        query["account"] = "owner"
-    elif category:
-        query["category"] = category
-    if party_type and not (category and party_type == "Owner"):
-        query["party_type"] = party_type
+    # match owner_name OR direct category=Owner txns (e.g. mill cash from Titu).
+    # Exclude auto_ledger duplicates so each real txn shows exactly once.
+    is_owner_query = bool(category and party_type == "Owner")
+    if is_owner_query:
+        query["$and"] = [
+            {"$or": [
+                {"owner_name": category, "account": "owner"},
+                {"category": category, "party_type": "Owner", "account": {"$in": ["cash", "bank"]}},
+            ]},
+            {"reference": {"$not": {"$regex": "^auto_ledger:"}}},
+        ]
+    else:
+        # Account filter ignored for owner ledger views (handled inside $or above)
+        if account:
+            query["account"] = account
+        if category:
+            query["category"] = category
+        if party_type:
+            query["party_type"] = party_type
     if exclude_round_off == "true" and not party_type:
         query["party_type"] = {"$ne": "Round Off"}
     if date_from or date_to:
@@ -1320,16 +1330,36 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
-    if account: query["account"] = account
     if txn_type: query["txn_type"] = txn_type
-    if category: query["category"] = category
-    if party_type: query["party_type"] = party_type
+    # Owner-account parties: combine account=owner + cash/bank txns with category=<owner>.
+    is_owner_view = bool(category and party_type == "Owner")
+    if is_owner_view:
+        query["$and"] = [
+            {"$or": [
+                {"owner_name": category, "account": "owner"},
+                {"category": category, "party_type": "Owner", "account": {"$in": ["cash", "bank"]}},
+            ]},
+            {"reference": {"$not": {"$regex": "^auto_ledger:"}}},
+        ]
+    else:
+        if account:
+            query["account"] = account
+        if category:
+            query["category"] = category
+        if party_type:
+            query["party_type"] = party_type
     if date_from or date_to:
         date_q = {}
         if date_from: date_q["$gte"] = date_from
         if date_to: date_q["$lte"] = date_to
         query["date"] = date_q
     txns = await db.cash_transactions.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
+    # Owner ledger view → flip txn_type for display ONLY for account=owner entries
+    # (cash/bank entries with category=<owner> are already in Owner perspective).
+    if is_owner_view:
+        for t in txns:
+            if t.get("account") == "owner":
+                t["txn_type"] = "jama" if t.get("txn_type") == "nikasi" else "nikasi"
     summary = await get_cash_book_summary(kms_year=kms_year, season=season)
     
     run_bal = 0
@@ -1340,7 +1370,7 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
         run_bal += jama - nikasi
         rows.append({
             "date": t.get("date", ""),
-            "account_label": "Ledger" if t.get("account") == "ledger" else ("Cash" if t.get("account") == "cash" else "Bank"),
+            "account_label": "Ledger" if t.get("account") == "ledger" else ("Cash" if t.get("account") == "cash" else ("Owner" if t.get("account") == "owner" else "Bank")),
             "type_label": "Jama" if t.get("txn_type") == "jama" else "Nikasi",
             "category": t.get("category", ""),
             "party_type": t.get("party_type", ""),
@@ -1471,16 +1501,35 @@ async def _generate_cash_book_pdf_bytes(kms_year=None, season=None, account=None
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
-    if account: query["account"] = account
     if txn_type: query["txn_type"] = txn_type
-    if category: query["category"] = category
-    if party_type: query["party_type"] = party_type
+    # Owner-account parties: combine account=owner + cash/bank txns with category=<owner>.
+    is_owner_view = bool(category and party_type == "Owner")
+    if is_owner_view:
+        query["$and"] = [
+            {"$or": [
+                {"owner_name": category, "account": "owner"},
+                {"category": category, "party_type": "Owner", "account": {"$in": ["cash", "bank"]}},
+            ]},
+            {"reference": {"$not": {"$regex": "^auto_ledger:"}}},
+        ]
+    else:
+        if account:
+            query["account"] = account
+        if category:
+            query["category"] = category
+        if party_type:
+            query["party_type"] = party_type
     if date_from or date_to:
         date_q = {}
         if date_from: date_q["$gte"] = date_from
         if date_to: date_q["$lte"] = date_to
         query["date"] = date_q
     txns = await db.cash_transactions.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
+    # Owner ledger view → flip txn_type for display ONLY for account=owner entries
+    if is_owner_view:
+        for t in txns:
+            if t.get("account") == "owner":
+                t["txn_type"] = "jama" if t.get("txn_type") == "nikasi" else "nikasi"
     summary = await get_cash_book_summary(kms_year=kms_year, season=season)
     
     run_bal = 0
@@ -1491,7 +1540,7 @@ async def _generate_cash_book_pdf_bytes(kms_year=None, season=None, account=None
         run_bal += jama - nikasi
         rows.append({
             "date": t.get("date", ""),
-            "account_label": "Ledger" if t.get("account") == "ledger" else ("Cash" if t.get("account") == "cash" else "Bank"),
+            "account_label": "Ledger" if t.get("account") == "ledger" else ("Cash" if t.get("account") == "cash" else ("Owner" if t.get("account") == "owner" else "Bank")),
             "type_label": "Jama" if t.get("txn_type") == "jama" else "Nikasi",
             "category": t.get("category", ""),
             "party_type": t.get("party_type", ""),

@@ -7,6 +7,19 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.41.2",
+    date: "Feb 16, 2026",
+    title: "v104.41.2 — 🚨 Owner Expense Payment Ledger Fix (Titu's JAMA)",
+    items: [
+      { type: "fix", text: "🚨 **Owner Expense Ledger Fix** — Reported issue: 'Titu ne 1000 pay kiya Rakhad Fikai ko, par Titu ke ledger me JAMA nahi hua.' Cause: backend tha returning `txn_type='nikasi'` (mill perspective) when querying Titu's owner ledger. Fix: jab Cash Book me Owner ledger filter (party_type=Owner + Titu) lagta hai, ab automatically direction flip hoti hai sirf account=owner entries ke liye — **Owner ne mill ke liye paisa diya = JAMA (CR, green)**, **Owner ne mill se paisa liya = NIKASI (DR, red)**. Running balance bhi sahi compute hota hai (mill ka karz Owner ki taraf = positive CR)." },
+      { type: "fix", text: "🚨 **Combined Owner Ledger View** — Pichle fix ke baad Owner ledger me sirf `account=owner` wali entries dikhti thi, aur **Cash/Bank se Titu ko diya/liya 1,00,000 jama nahi dikha raha tha**. Fix: ab Owner ledger me dono sources combine hote hain — (1) `account=owner` (Titu ne mill expense paid) jo flip ke saath dikhta hai, aur (2) `account=cash/bank` jisme `category=Titu, party_type=Owner` ho (mill ne Titu se cash liya / Titu ko diya), jo direct dikhta hai. **Auto-ledger duplicates exclude** kiye taaki double-counting na ho." },
+      { type: "fix", text: "🔄 **Select Party Clear Bug Fix** — Pichle fix me jab user 'Titu' ke X button par click karta tha, sirf party name clear hota tha par **'Party Type: Owner' filter lock reh jaata tha** — uske baad doosri party (e.g. MBOPL) search nahi dikhti thi dropdown me. Fix: X click karne par OR fresh text type karne par dono `category` aur `party_type` clear ho jaate hain — koi bhi party search ho sakta hai." },
+      { type: "improvement", text: "📄 **PDF + Excel + WhatsApp PDF bhi sahi** — Titu ke owner ledger ka PDF/Excel export bhi same combined+flipped view dikhata hai (Cash Book ke saath consistent)." },
+      { type: "improvement", text: "🎨 **Owner Account Badge** — Cash Book transactions table me owner txns ka 'Account' column ab green '**Owner (Titu)**' badge dikhata hai (pehle 'Ledger' purple dikhata tha)." },
+      { type: "improvement", text: "🔄 **Triple-Backend Parity** — Fix Python (web), Electron desktop-app aur local-server teeno backends me apply kiya gaya hai (cash-book GET + Excel + PDF endpoints)." },
+    ],
+  },
+  {
     version: "104.41.1",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.41.1 — 🚨 Owner Ledger (Titu) Party Search me Visible Fix",
