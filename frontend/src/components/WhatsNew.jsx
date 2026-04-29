@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.37.6",
+    date: "Apr 29, 2026 (Night)",
+    title: "v104.37.6 — ⚖️ Split Billing — Total N/W + Smart Auto-Divide (Pakka↔Kaccha)",
+    items: [
+      { type: "new", text: "⚖️ **Total N/W Field (Top of Split)** — Split Billing ON karne par sabse upar ek **Total N/W (Qtl + Kg)** field hai. RST se fetch karne par total weight yahan auto-fill hota hai (e.g. 100 Qtl). Yahi truck ka actual dispatch weight hai." },
+      { type: "new", text: "🤖 **Auto-Divide Pakka ↔ Kaccha** — Total 100 Qtl me Pakka 60 Qtl daalo, **Kaccha automatic 40 Qtl** ho jayega. Aur vice-versa: Kaccha 30 daalo toh Pakka 70 ho jayega. Manual calculator ki zaroorat nahi." },
+      { type: "new", text: "📐 **Pakka + Kaccha dono mein Qtl Field** — Pehle sirf Kg fields the. Ab dono section me **Qtl primary input** hai aur Kg auto-calculated read-only. Pakka Wt (Qtl) + Kg, Kaccha Wt (Qtl) + Kg." },
+      { type: "improvement", text: "📋 **RST Auto-Fetch Sync** — RST number daalne par jab data fetch hota hai (e.g. 4250 Kg = 42.5 Qtl), agar Split Billing ON hai toh Total N/W me weight aa jayega. User fir Pakka/Kaccha me divide karega." },
+      { type: "fix", text: "⚠️ **Mismatch Warning** — Agar Pakka + Kaccha ka total Total N/W se match nahi karta, toh small amber warning dikhta hai. Auto-balance se yeh kabhi nahi hoga, lekin manual edit pe safety net rahega." },
+    ],
+  },
+  {
     version: "104.37.5",
     date: "Apr 29, 2026 (Night)",
     title: "v104.37.5 — 💰 Kaccha (Slip) ka Alag Rate (per Qtl)",

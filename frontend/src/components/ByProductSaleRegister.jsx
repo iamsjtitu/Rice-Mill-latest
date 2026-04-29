@@ -37,10 +37,12 @@ export default function ByProductSaleRegister({ filters, user, product }) {
     bill_number: "", billing_date: new Date().toISOString().split("T")[0],
     date: new Date().toISOString().split("T")[0], rst_no: "", vehicle_no: "",
     bill_from: "", party_name: "", destination: "",
-    net_weight_kg: "", bags: "", rate_per_qtl: "",
+    net_weight_kg: "", net_weight_qtl_display: "", bags: "", rate_per_qtl: "",
     gst_type: "none", gst_percent: "",
     // Split billing (Pakka + Kaccha single dispatch)
     split_billing: false, billed_weight_kg: "", kaccha_weight_kg: "", kaccha_rate_per_qtl: "",
+    // Helper Qtl displays for split mode (auto-synced with kg)
+    billed_weight_qtl_display: "", kaccha_weight_qtl_display: "",
     cash_paid: "", diesel_paid: "", advance: "", remark: "",
     product, kms_year: filters.kms_year || "", season: filters.season || "",
   };
@@ -130,7 +132,11 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const kacchaRate = form.kaccha_rate_per_qtl !== "" && form.kaccha_rate_per_qtl != null
     ? (parseFloat(form.kaccha_rate_per_qtl) || 0)
     : rate;
-  const nwKg = isSplit ? (billedKg + kacchaKg) : (parseFloat(form.net_weight_kg) || 0);
+  // In split mode: total N/W is user-supplied (from RST or manual). Pakka+Kaccha are splits of it.
+  // In non-split mode: net_weight_kg is the dispatch weight directly.
+  const totalSplitKg = parseFloat(form.net_weight_kg) || 0;
+  const totalSplitQtl = totalSplitKg / 100;
+  const nwKg = isSplit ? totalSplitKg : (parseFloat(form.net_weight_kg) || 0);
   const nwQtl = nwKg / 100;
   const billedQtl = billedKg / 100;
   const kacchaQtl = kacchaKg / 100;
@@ -165,12 +171,15 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       rst_no: s.rst_no || "", vehicle_no: s.vehicle_no || "",
       bill_from: s.bill_from || "", party_name: s.party_name || "", destination: s.destination || "",
       net_weight_kg: s.net_weight_kg ? String(s.net_weight_kg) : "",
+      net_weight_qtl_display: s.net_weight_kg ? String(Math.round(s.net_weight_kg / 100 * 100) / 100) : "",
       bags: s.bags ? String(s.bags) : "", rate_per_qtl: s.rate_per_qtl ? String(s.rate_per_qtl) : "",
       gst_type: s.gst_type || "none", gst_percent: s.gst_percent ? String(s.gst_percent) : "",
       split_billing: !!s.split_billing,
       billed_weight_kg: s.billed_weight_kg ? String(s.billed_weight_kg) : "",
       kaccha_weight_kg: s.kaccha_weight_kg ? String(s.kaccha_weight_kg) : "",
       kaccha_rate_per_qtl: s.kaccha_rate_per_qtl ? String(s.kaccha_rate_per_qtl) : "",
+      billed_weight_qtl_display: s.billed_weight_kg ? String(Math.round(s.billed_weight_kg / 100 * 100) / 100) : "",
+      kaccha_weight_qtl_display: s.kaccha_weight_kg ? String(Math.round(s.kaccha_weight_kg / 100 * 100) / 100) : "",
       cash_paid: s.cash_paid ? String(s.cash_paid) : "", diesel_paid: s.diesel_paid ? String(s.diesel_paid) : "",
       advance: s.advance ? String(s.advance) : "", remark: s.remark || "",
       product: s.product || product, kms_year: s.kms_year || "", season: s.season || "",
@@ -632,16 +641,67 @@ export default function ByProductSaleRegister({ filters, user, product }) {
 
             {isSplit && (
               <div className="space-y-2">
-                <div className="grid grid-cols-3 gap-3 p-2 rounded bg-emerald-900/20 border border-emerald-500/30">
-                  <div className="col-span-3">
+                {/* TOTAL N/W (top of split section) — RST se ya manual fill */}
+                <div className="grid grid-cols-2 gap-3 p-2 rounded bg-blue-900/20 border border-blue-500/30">
+                  <div>
+                    <Label className="text-[10px] text-blue-300 font-bold uppercase tracking-wider">Total N/W (Qtl) {stockInfo && <span className={`font-bold ${(effectiveAvailQtl - totalSplitQtl) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((effectiveAvailQtl - totalSplitQtl) * 100) / 100} Qtl)</span>}</Label>
+                    <Input type="number" step="0.01"
+                      value={form.net_weight_qtl_display ?? (form.net_weight_kg ? String(Math.round((parseFloat(form.net_weight_kg) || 0) / 100 * 100) / 100) : "")}
+                      onChange={e => {
+                        const qtl = e.target.value;
+                        const newTotalKg = qtl === "" ? "" : String(Math.round((parseFloat(qtl) || 0) * 100 * 100) / 100);
+                        const newTotalQtl = parseFloat(qtl) || 0;
+                        // If Pakka already set, recalc Kaccha = Total - Pakka. Else keep current.
+                        const curPakkaQtl = parseFloat(form.billed_weight_qtl_display) || 0;
+                        let newKacchaQtl = curPakkaQtl > 0 ? Math.max(0, Math.round((newTotalQtl - curPakkaQtl) * 100) / 100) : 0;
+                        setForm(p => ({
+                          ...p,
+                          net_weight_qtl_display: qtl,
+                          net_weight_kg: newTotalKg,
+                          kaccha_weight_qtl_display: curPakkaQtl > 0 ? String(newKacchaQtl) : p.kaccha_weight_qtl_display,
+                          kaccha_weight_kg: curPakkaQtl > 0 ? String(Math.round(newKacchaQtl * 100 * 100) / 100) : p.kaccha_weight_kg,
+                        }));
+                      }}
+                      className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-split-total-qtl" />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-blue-300 font-bold uppercase tracking-wider">Total N/W (Kg) <span className="text-slate-500 text-[9px]">(auto)</span></Label>
+                    <Input type="number" step="0.01" value={form.net_weight_kg}
+                      readOnly tabIndex={-1}
+                      className="bg-slate-800 border-slate-700 text-slate-300 h-8 text-xs cursor-not-allowed" data-testid="bp-split-total-kg" />
+                  </div>
+                </div>
+
+                {/* PAKKA */}
+                <div className="grid grid-cols-5 gap-3 p-2 rounded bg-emerald-900/20 border border-emerald-500/30">
+                  <div className="col-span-5">
                     <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Pakka (GST Bill)</p>
                   </div>
                   <div>
-                    <Label className="text-[10px] text-slate-400">Billed Weight (Kg)</Label>
+                    <Label className="text-[10px] text-slate-400">Pakka Wt (Qtl)</Label>
+                    <Input type="number" step="0.01"
+                      value={form.billed_weight_qtl_display}
+                      onChange={e => {
+                        const pq = e.target.value;
+                        const pakkaQtl = parseFloat(pq) || 0;
+                        const totalQtl = parseFloat(form.net_weight_qtl_display) || (parseFloat(form.net_weight_kg) || 0) / 100;
+                        // Auto-balance: Kaccha = Total - Pakka
+                        const kacchaQ = Math.max(0, Math.round((totalQtl - pakkaQtl) * 100) / 100);
+                        setForm(p => ({
+                          ...p,
+                          billed_weight_qtl_display: pq,
+                          billed_weight_kg: pq === "" ? "" : String(Math.round(pakkaQtl * 100 * 100) / 100),
+                          kaccha_weight_qtl_display: totalQtl > 0 ? String(kacchaQ) : p.kaccha_weight_qtl_display,
+                          kaccha_weight_kg: totalQtl > 0 ? String(Math.round(kacchaQ * 100 * 100) / 100) : p.kaccha_weight_kg,
+                        }));
+                      }}
+                      className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-billed-qtl" />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-slate-400">Pakka Wt (Kg) <span className="text-slate-500 text-[9px]">(auto)</span></Label>
                     <Input type="number" step="0.01" value={form.billed_weight_kg}
-                      onChange={e => setForm(p => ({ ...p, billed_weight_kg: e.target.value }))}
-                      className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-billed-kg" />
-                    {billedKg > 0 && <p className="text-[9px] text-slate-500 mt-0.5">= {billedQtl.toFixed(2)} Qtl</p>}
+                      readOnly tabIndex={-1}
+                      className="bg-slate-800 border-slate-700 text-slate-300 h-8 text-xs cursor-not-allowed" data-testid="bp-billed-kg" />
                   </div>
                   <div>
                     <Label className="text-[10px] text-slate-400">Rate (per Qtl)</Label>
@@ -649,24 +709,44 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       onChange={e => setForm(p => ({ ...p, rate_per_qtl: e.target.value }))}
                       className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-rate" />
                   </div>
-                  <div>
-                    <Label className="text-[10px] text-slate-400">Billed Amount</Label>
+                  <div className="col-span-2">
+                    <Label className="text-[10px] text-slate-400">Pakka Amount</Label>
                     <div className="h-8 px-2 rounded bg-slate-900/60 border border-slate-700 flex items-center text-xs text-emerald-300 font-mono" data-testid="bp-billed-amount">
                       ₹{billedAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-4 gap-3 p-2 rounded bg-amber-900/20 border border-amber-500/30">
-                  <div className="col-span-4">
+                {/* KACCHA */}
+                <div className="grid grid-cols-5 gap-3 p-2 rounded bg-amber-900/20 border border-amber-500/30">
+                  <div className="col-span-5">
                     <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Kaccha (Slip — No GST)</p>
                   </div>
                   <div>
-                    <Label className="text-[10px] text-slate-400">Kaccha Weight (Kg)</Label>
+                    <Label className="text-[10px] text-slate-400">Kaccha Wt (Qtl)</Label>
+                    <Input type="number" step="0.01"
+                      value={form.kaccha_weight_qtl_display}
+                      onChange={e => {
+                        const kq = e.target.value;
+                        const kacchaQ = parseFloat(kq) || 0;
+                        const totalQtl = parseFloat(form.net_weight_qtl_display) || (parseFloat(form.net_weight_kg) || 0) / 100;
+                        // Auto-balance: Pakka = Total - Kaccha
+                        const pakkaQ = Math.max(0, Math.round((totalQtl - kacchaQ) * 100) / 100);
+                        setForm(p => ({
+                          ...p,
+                          kaccha_weight_qtl_display: kq,
+                          kaccha_weight_kg: kq === "" ? "" : String(Math.round(kacchaQ * 100 * 100) / 100),
+                          billed_weight_qtl_display: totalQtl > 0 ? String(pakkaQ) : p.billed_weight_qtl_display,
+                          billed_weight_kg: totalQtl > 0 ? String(Math.round(pakkaQ * 100 * 100) / 100) : p.billed_weight_kg,
+                        }));
+                      }}
+                      className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-kaccha-qtl" />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-slate-400">Kaccha Wt (Kg) <span className="text-slate-500 text-[9px]">(auto)</span></Label>
                     <Input type="number" step="0.01" value={form.kaccha_weight_kg}
-                      onChange={e => setForm(p => ({ ...p, kaccha_weight_kg: e.target.value }))}
-                      className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-kaccha-kg" />
-                    {kacchaKg > 0 && <p className="text-[9px] text-slate-500 mt-0.5">= {kacchaQtl.toFixed(2)} Qtl</p>}
+                      readOnly tabIndex={-1}
+                      className="bg-slate-800 border-slate-700 text-slate-300 h-8 text-xs cursor-not-allowed" data-testid="bp-kaccha-kg" />
                   </div>
                   <div>
                     <Label className="text-[10px] text-slate-400">Rate (per Qtl)</Label>
@@ -688,14 +768,21 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   </div>
                 </div>
 
+                {/* Mismatch warning */}
+                {totalSplitQtl > 0 && Math.abs((billedQtl + kacchaQtl) - totalSplitQtl) > 0.01 && (
+                  <p className="text-amber-400 text-[10px] text-right">
+                    ⚠ Pakka + Kaccha = {(billedQtl + kacchaQtl).toFixed(2)} Q, Total N/W = {totalSplitQtl.toFixed(2)} Q (mismatch)
+                  </p>
+                )}
+
                 <div className="flex items-center justify-between px-2 py-1.5 rounded bg-slate-700/50 text-[11px]">
                   <span className="text-slate-400">Total Physical Dispatch:</span>
-                  <span className={`font-bold ${stockInfo && nwQtl > effectiveAvailQtl ? 'text-red-400' : 'text-blue-300'}`}>
-                    {nwKg.toFixed(2)} Kg = {nwQtl.toFixed(2)} Qtl
-                    {stockInfo && <span className="text-slate-500 ml-2">(Stock: {Math.round((effectiveAvailQtl - nwQtl) * 100) / 100} Qtl remaining)</span>}
+                  <span className={`font-bold ${stockInfo && totalSplitQtl > effectiveAvailQtl ? 'text-red-400' : 'text-blue-300'}`}>
+                    {totalSplitKg.toFixed(2)} Kg = {totalSplitQtl.toFixed(2)} Qtl
+                    {stockInfo && <span className="text-slate-500 ml-2">(Stock: {Math.round((effectiveAvailQtl - totalSplitQtl) * 100) / 100} Qtl remaining)</span>}
                   </span>
                 </div>
-                {stockInfo && nwQtl > effectiveAvailQtl && <p className="text-red-400 text-[10px] text-right">⚠ Physical dispatch stock se zyada hai</p>}
+                {stockInfo && totalSplitQtl > effectiveAvailQtl && <p className="text-red-400 text-[10px] text-right">⚠ Physical dispatch stock se zyada hai</p>}
               </div>
             )}
 
