@@ -83,7 +83,7 @@ export default function Vouchers({ filters, user, onNavigate }) {
               <button onClick={() => setBranSubTab("oil_premium")}
                 className={`px-3 py-1 rounded text-xs font-medium transition-colors ${branSubTab === "oil_premium" ? "bg-emerald-600/30 text-emerald-400 border border-emerald-500/50" : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"}`}
                 data-testid="bran-subtab-oil-premium">
-                Oil Premium
+                Labtest Report
               </button>
             </div>
           )}

@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.39.4",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.39.4 — 🏷️ Rice Bran: 'Oil Premium' Tab → 'Labtest Report'",
+    items: [
+      { type: "improvement", text: "🏷️ **Tab Rename** — Rice Bran section me 'Oil Premium' tab ka naam badal ke **'Labtest Report'** kar diya. Functionality wahi rahegi — sirf label clearer hai (lab oil/quality test reports yahan store hote hain)." },
+    ],
+  },
+  {
     version: "104.39.3",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.39.3 — 🟢🟡 New Transaction me Pakka/Kaccha Live Hint",
