@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.39.6",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.39.6 — 🔗 Lab Test Adjustment Cash Book Payment Dialogs me bhi",
+    items: [
+      { type: "fix", text: "🔗 **Sale Voucher Payment me Lab Test Adj.** — Cash Book → 'Sale Voucher Payment' dialog ab Lab Test (Oil Premium) adjustment automatically pull karta hai. Voucher select karne par: Original Total (strikethrough) → Lab Test Adj. ±X → **Effective Total** + adjusted **Pakka/Kaccha balances** dikhata hai." },
+      { type: "fix", text: "🔗 **New Transaction me bhi same** — Manual transaction dialog me party type karne par jo Pakka/Kaccha hint dikhta hai, woh bhi Lab Test adjustment honor karta hai. Cash/Owner select karne par effective Kaccha balance dikhta hai." },
+      { type: "improvement", text: "🌐 **CashBook ab oil-premium fetch karta** hai mount par — `oilPremiumMap` build hota hai (rst_no aur voucher_no se lookup possible)." },
+    ],
+  },
+  {
     version: "104.39.5",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.39.5 — 🧪 Lab Test Adjustment Kaccha se Minus Hoga",

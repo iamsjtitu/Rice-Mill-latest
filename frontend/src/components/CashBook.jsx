@@ -86,6 +86,7 @@ const CashBook = ({ filters, user }) => {
   const [obBankDetails, setObBankDetails] = useState({});
   const [isSvPayOpen, setIsSvPayOpen] = useState(false);
   const [svVouchers, setSvVouchers] = useState([]);
+  const [oilPremiumMap, setOilPremiumMap] = useState({});
   const [svPayForm, setSvPayForm] = useState({ voucher_id: "", party_name: "", amount: "", date: new Date().toISOString().split('T')[0], notes: "", account: "cash", bank_name: "" });
   const [isPvPayOpen, setIsPvPayOpen] = useState(false);
   const [pvVouchers, setPvVouchers] = useState([]);
@@ -224,9 +225,10 @@ const CashBook = ({ filters, user }) => {
     let cancelled = false;
     (async () => {
       try {
-        const [saleRes, bpRes] = await Promise.all([
+        const [saleRes, bpRes, opRes] = await Promise.all([
           axios.get(`${API}/sale-book?kms_year=${filters.kms_year || ''}`),
           axios.get(`${API}/bp-sale-register?kms_year=${filters.kms_year || ''}`),
+          axios.get(`${API}/oil-premium?kms_year=${filters.kms_year || ''}`).catch(() => ({ data: [] })),
         ]);
         if (cancelled) return;
         const salePending = (saleRes.data || []).filter(v => {
@@ -238,6 +240,13 @@ const CashBook = ({ filters, user }) => {
           return bal > 0;
         }).map(v => ({ ...v, _source: 'bp_sale' }));
         setSvVouchers([...salePending, ...bpPending]);
+        // Build oil-premium map for adjustment lookups
+        const opMap = {};
+        for (const op of (opRes.data || [])) {
+          if (op.voucher_no) opMap[`v:${op.voucher_no}`] = op;
+          if (op.rst_no) opMap[`r:${op.rst_no}`] = op;
+        }
+        setOilPremiumMap(opMap);
       } catch (e) { /* silent */ }
     })();
     return () => { cancelled = true; };
@@ -414,6 +423,7 @@ const CashBook = ({ filters, user }) => {
   const partyBalance = getPartyBalance(form.category);
 
   // For typed party, compute aggregated Pakka/Kaccha balances from split-billing BP Sale vouchers
+  // (Lab Test/oil-premium adjustment is applied to Kaccha portion)
   const partySplitInfo = (() => {
     const name = (form.category || '').trim().toLowerCase();
     if (!name) return null;
@@ -425,13 +435,15 @@ const CashBook = ({ filters, user }) => {
       const billed = parseFloat(v.billed_amount || 0);
       const tax = parseFloat(v.tax_amount || 0);
       const kacchaAmt = parseFloat(v.kaccha_amount || 0);
+      const oilAdj = getVoucherOilAdj(v);
+      const effKaccha = kacchaAmt + oilAdj;
       const pakkaTotal = billed + tax;
-      const fullTotal = pakkaTotal + kacchaAmt;
+      const baseFullTotal = pakkaTotal + kacchaAmt;
       const totalBal = parseFloat((v.ledger_balance != null ? v.ledger_balance : v.balance) || 0);
-      if (fullTotal <= 0 || totalBal <= 0) continue;
-      const ratio = totalBal / fullTotal;
+      if (baseFullTotal <= 0 || totalBal <= 0) continue;
+      const ratio = totalBal / baseFullTotal;
       pakka += pakkaTotal * ratio;
-      kaccha += kacchaAmt * ratio;
+      kaccha += effKaccha * ratio;
     }
     if (matched === 0) return null;
     if (pakka <= 0 && kaccha <= 0) return null;
@@ -518,21 +530,35 @@ const CashBook = ({ filters, user }) => {
 
   const selectedSvVoucher = svVouchers.find(v => v.id === svPayForm.voucher_id);
 
+  // Helper: get oil-premium adjustment amount (signed) for a voucher (BP Sale by voucher_no or rst_no)
+  const getVoucherOilAdj = (v) => {
+    if (!v || v._source !== 'bp_sale') return 0;
+    const op = oilPremiumMap[`v:${v.voucher_no}`] || oilPremiumMap[`r:${v.rst_no}`];
+    return op && typeof op.premium_amount === 'number' ? op.premium_amount : 0;
+  };
+
   // For BP Sale split-billing vouchers, compute Pakka vs Kaccha balance hints
+  // Lab Test (oil premium) adjustment is applied to Kaccha portion.
   const svSplitInfo = (() => {
     const v = selectedSvVoucher;
     if (!v || !v.split_billing) return null;
     const billed = parseFloat(v.billed_amount || 0);
     const tax = parseFloat(v.tax_amount || 0);
     const kaccha = parseFloat(v.kaccha_amount || 0);
+    const oilAdj = getVoucherOilAdj(v);
+    const effKaccha = +(kaccha + oilAdj).toFixed(2);
     const pakkaTotal = +(billed + tax).toFixed(2);
+    // ledger_balance (if present) excludes original total of voucher minus payments. We need effective balance
     const totalBal = parseFloat((v.ledger_balance != null ? v.ledger_balance : v.balance) || 0);
-    const fullTotal = +(pakkaTotal + kaccha).toFixed(2);
-    // If voucher fully unpaid, both balances = full. If partially paid, scale proportionally.
-    const ratio = fullTotal > 0 ? totalBal / fullTotal : 0;
+    const fullTotal = +(pakkaTotal + effKaccha).toFixed(2); // effective full
+    const baseFullTotal = +(pakkaTotal + kaccha).toFixed(2); // pre-adj total stored as voucher.total
+    // Distribute totalBal proportionally over effective Pakka and effective Kaccha
+    const ratio = baseFullTotal > 0 ? totalBal / baseFullTotal : 0;
     return {
       pakka: +(pakkaTotal * ratio).toFixed(2),
-      kaccha: +(kaccha * ratio).toFixed(2),
+      kaccha: +(effKaccha * ratio).toFixed(2),
+      oilAdj,
+      effectiveTotal: fullTotal,
     };
   })();
   const svMaxForMode = (() => {
@@ -1049,11 +1075,22 @@ const CashBook = ({ filters, user }) => {
               <div className="bg-slate-900 p-3 rounded border border-slate-700 text-xs space-y-1">
                 <p><span className="text-slate-400">Party:</span> <span className="text-white font-medium">{selectedSvVoucher.party_name}</span></p>
                 <p><span className="text-slate-400">Invoice:</span> <span className="text-white">{selectedSvVoucher.invoice_no || '-'}</span></p>
-                <p><span className="text-slate-400">Total:</span> <span className="text-emerald-400 font-bold">Rs.{selectedSvVoucher.total?.toLocaleString('en-IN')}</span></p>
-                <p><span className="text-slate-400">Balance Due:</span> <span className="text-red-400 font-bold">Rs.{(selectedSvVoucher.ledger_balance != null ? selectedSvVoucher.ledger_balance : selectedSvVoucher.balance)?.toLocaleString('en-IN')}</span></p>
+                {svSplitInfo && svSplitInfo.oilAdj !== 0 ? (
+                  <>
+                    <p><span className="text-slate-400">Original Total:</span> <span className="text-slate-400 line-through">Rs.{selectedSvVoucher.total?.toLocaleString('en-IN')}</span></p>
+                    <p><span className={`text-xs ${svSplitInfo.oilAdj < 0 ? 'text-red-400' : 'text-emerald-400'}`}>↳ Lab Test Adj.: {svSplitInfo.oilAdj > 0 ? '+' : ''}Rs.{svSplitInfo.oilAdj.toLocaleString('en-IN')}</span></p>
+                    <p><span className="text-slate-400">Effective Total:</span> <span className="text-emerald-400 font-bold">Rs.{svSplitInfo.effectiveTotal.toLocaleString('en-IN')}</span></p>
+                    <p><span className="text-slate-400">Balance Due:</span> <span className="text-red-400 font-bold">Rs.{(+(svSplitInfo.pakka + svSplitInfo.kaccha).toFixed(2)).toLocaleString('en-IN')}</span></p>
+                  </>
+                ) : (
+                  <>
+                    <p><span className="text-slate-400">Total:</span> <span className="text-emerald-400 font-bold">Rs.{selectedSvVoucher.total?.toLocaleString('en-IN')}</span></p>
+                    <p><span className="text-slate-400">Balance Due:</span> <span className="text-red-400 font-bold">Rs.{(selectedSvVoucher.ledger_balance != null ? selectedSvVoucher.ledger_balance : selectedSvVoucher.balance)?.toLocaleString('en-IN')}</span></p>
+                  </>
+                )}
                 {svSplitInfo && (
                   <div className="mt-1 pt-1 border-t border-slate-700">
-                    <p className="text-amber-400 text-[10px] font-semibold uppercase tracking-wider mb-0.5">Split Billing</p>
+                    <p className="text-amber-400 text-[10px] font-semibold uppercase tracking-wider mb-0.5">Split Billing{svSplitInfo.oilAdj !== 0 ? ' (Lab Test Adjusted)' : ''}</p>
                     <p><span className="text-slate-400">→ Pakka (Bank):</span> <span className="text-emerald-300 font-bold">Rs.{svSplitInfo.pakka.toLocaleString('en-IN')}</span></p>
                     <p><span className="text-slate-400">→ Kaccha (Cash/Owner):</span> <span className="text-amber-300 font-bold">Rs.{svSplitInfo.kaccha.toLocaleString('en-IN')}</span></p>
                   </div>
