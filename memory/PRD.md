@@ -1,6 +1,50 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.36.0
+## Current Version: v104.41.2
+
+## 🚨 v104.41.2 — Owner Expense Payment Ledger Fix (Titu's JAMA)
+**Build date:** 2026-02-16
+
+### Reported Issues (User)
+1. **Bug 1**: "Titu ne 1000 pay kiya Rakhad Fikai ko, par Titu ke ledger me JAMA nahi hua" — Owner expense not reflecting in Owner's ledger.
+2. **Bug 2 (after first attempt)**: "1000 dikha raha par 1,00,000 jama jo Titu ne diya tha wo nahi aaraha" — only `account=owner` entries showed; cash/bank entries with `category=Titu, party_type=Owner` were missing.
+3. **Bug 3**: "Titu ko clear karke koi aur party search kiya toh nahi aati. Party Type Owner me lock reh jaata hai" — X-clear of Select Party didn't reset `party_type`.
+
+### Root Cause
+- Cashbook stores Owner txns in **mill perspective** (`account=owner, owner_name=Titu, txn_type=nikasi` = mill paid via Titu). Owner ledger needs **owner perspective** (Titu contributed = JAMA).
+- Pre-fix, GET `/api/cash-book?category=Titu&party_type=Owner` only matched `category=Titu` which yielded zero owner-account txns.
+- Combined ledger needed **both** sources: (a) `account=owner, owner_name=<o>` AND (b) `account in [cash,bank], category=<o>, party_type=Owner`.
+- X-clear handler reset `category` but not `party_type`, locking the dropdown to Owner-only parties.
+
+### Fix
+**Backend (Python `/app/backend/routes/cashbook.py`)** — `get_cash_transactions`, `_generate_cash_book_pdf_bytes`, `export_cash_book_excel`:
+```python
+if category and party_type == "Owner":
+    query["$and"] = [
+        {"$or": [
+            {"owner_name": category, "account": "owner"},
+            {"category": category, "party_type": "Owner",
+             "account": {"$in": ["cash", "bank"]}},
+        ]},
+        {"reference": {"$not": {"$regex": "^auto_ledger:"}}},
+    ]
+# Account filter from query string is IGNORED for owner view.
+```
+For Excel/PDF exports: txn_type is **flipped only for `account=owner` entries** (cash/bank entries are already in Owner perspective).
+
+**Frontend (`TransactionsTable.jsx`)** — `effectiveType()` flips `txn_type` for display only when `isOwnerLedger=true` AND `account=='owner'`. Running balance, totals, badges all use `effectiveType`.
+
+**Frontend (`CashBookFilters.jsx`)** — X clear button + onChange handler now reset both `category` AND `party_type`.
+
+**Triple-Backend Parity** — Same fix mirrored in `/app/desktop-app/routes/cashbook.js` and `/app/local-server/routes/cashbook.js` (lowDB JS filtering).
+
+### Test Results (testing_agent_v3_fork iteration 205)
+- Backend: **100%** (10/10 API tests passed)
+- Frontend: **100%** (6/6 UI tests passed)
+- Verified: Titu's ledger now shows 5 entries (2 cash jama, 1 cash nikasi, 2 owner-paid expenses flipped to jama), Total **₹78,000 CR** (mill owes Titu).
+- Verified: After X-clear, MBOPL can be searched — party_type unblocked.
+
+---
 
 ## ♻️ Refactor (Apr 29, 2026) — `upsert_jama_ledger()` Helper for Truck Rate + Agent Commission Logic
 
