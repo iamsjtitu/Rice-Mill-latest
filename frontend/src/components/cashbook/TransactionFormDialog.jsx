@@ -63,7 +63,19 @@ const TransactionFormDialog = ({
   // Categories augmented with owner account names (so they show in autocomplete
   // with green "Owner" badge; selecting auto-sets party_type='Owner').
   const ownerCategoryNames = ownerAccounts.map(o => o.name).filter(Boolean);
-  const augmentedCategories = [...new Set([...(categories || []), ...ownerCategoryNames])].sort();
+  const baseCategories = [...new Set([...(categories || []), ...ownerCategoryNames])].sort();
+
+  // Smart sub-ledger filter: hide irrelevant (PKA)/(KCA) sub-ledgers based on payment Account
+  // - account === 'bank'             → hide (KCA), keep (PKA) and plain
+  // - account === 'cash' or 'owner'  → hide (PKA), keep (KCA) and plain
+  const augmentedCategories = baseCategories.filter(c => {
+    const upper = String(c).toUpperCase();
+    const isPka = upper.endsWith("(PKA)");
+    const isKca = upper.endsWith("(KCA)");
+    if (form.account === "bank") return !isKca;
+    // cash / owner / other
+    return !isPka;
+  });
 
   const formRef = useRef(null);
 

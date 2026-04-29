@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.40.2",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.40.2 — 🎯 Smart PKA/KCA Filter in Party Dropdown",
+    items: [
+      { type: "new", text: "🎯 **Account-Based Smart Filter** — New Transaction dialog me Party / Category dropdown ab payment Account ke according filter karta hai:\n  - **Cash / Owner Account** select hai → sirf **(KCA)** sub-ledgers dikhte hain (Pakka filter ho jata hai)\n  - **Bank** select hai → sirf **(PKA)** sub-ledgers dikhte hain (Kaccha filter ho jata hai)\n  - Plain (non-split) parties hamesha dikhti hain dono cases me\n  Galti se galat sub-ledger me record hone ka chance khatam." },
+    ],
+  },
+  {
     version: "104.40.1",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.40.1 — 🚨 Cash Book Party Ledgers me bhi PKA/KCA Split (Critical Fix)",
