@@ -325,6 +325,36 @@ router.get('/api/mill-parts/summary', safeSync(async (req, res) => {
   res.json(getStockSummary(req.query));
 }));
 
+// ============ LOW STOCK ALERTS ============
+router.get('/api/mill-parts/low-stock-alerts', safeSync(async (req, res) => {
+  const summary = getStockSummary(req.query);
+  const alerts = [];
+  for (const s of summary) {
+    const minStock = parseFloat(s.min_stock) || 0;
+    if (minStock <= 0) continue;
+    const cur = parseFloat(s.current_stock) || 0;
+    if (cur <= minStock) {
+      alerts.push({
+        part_name: s.part_name || '',
+        category: s.category || '',
+        unit: s.unit || 'Pcs',
+        store_room_name: s.store_room_name || '',
+        min_stock: minStock,
+        current_stock: cur,
+        shortage: Math.round((minStock - cur) * 100) / 100,
+        is_out_of_stock: cur <= 0,
+      });
+    }
+  }
+  // Out-of-stock first, then by largest shortage
+  alerts.sort((a, b) => {
+    if (a.is_out_of_stock !== b.is_out_of_stock) return a.is_out_of_stock ? -1 : 1;
+    if (a.shortage !== b.shortage) return b.shortage - a.shortage;
+    return a.part_name.localeCompare(b.part_name);
+  });
+  res.json({ count: alerts.length, alerts });
+}));
+
 // ============ STORE ROOM WISE REPORT ============
 router.get('/api/mill-parts/store-room-report', safeSync(async (req, res) => {
   if (!database.data.mill_parts_stock) database.data.mill_parts_stock = [];

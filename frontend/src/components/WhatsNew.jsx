@@ -7,6 +7,19 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.36.0",
+    date: "Apr 29, 2026",
+    title: "v104.36.0 — 🔔 Mill Parts Low Stock Notification (Header Bell)",
+    items: [
+      { type: "new", text: "🔔 **Low Stock Bell — Header me Notification Bell** — Header me naya 🔔 Bell icon. Jab koi Mill Part stock low (`current_stock <= min_stock`) ya **out of stock** hota hai, toh red badge me count dikhta hai. Bell pulse karta hai jab alerts hote hain — bina Mill Parts page khole turant pata chal jata hai." },
+      { type: "new", text: "📋 **Click Karo, List Dekho** — Bell pe click karne se ek dropdown khulta hai jo har low/out-of-stock part dikhata hai: Part name, current stock vs min stock, unit, store room aur category. **Out of stock** items red highlight + 'OUT' badge ke saath sabse upar dikhte hain. Critical first." },
+      { type: "new", text: "🔁 **Auto-Refresh** — Har **60 seconds** me background me refresh hota hai (aur jab dropdown khulta hai). KMS/Season filter respect karta hai — current FY ke alerts hi dikhte hain." },
+      { type: "new", text: "🚪 **One-Click Navigate** — Dropdown ke neeche 'Mill Parts Stock kholein' button — sidha Mill Parts tab par jaata hai jahan aap restock kar sakte ho." },
+      { type: "improvement", text: "💡 **Smart Filter** — Sirf un parts ke liye alert dikhta hai jinka `min_stock > 0` set hai. Master me min_stock 0 ho toh noise nahi hota — aap khud control karte ho kis part ke liye alert chahiye." },
+      { type: "fix", text: "🌐 **Triple-Backend Parity** — Naya `GET /api/mill-parts/low-stock-alerts` endpoint Python web + Electron Desktop + LAN Local Server teeno me synced. Same logic, same response format." },
+    ],
+  },
+  {
     version: "104.35.0",
     date: "Apr 28, 2026 (Night)",
     title: "v104.35.0 — 🔒 Edit Lock Across ALL Modules + Custom Duration",

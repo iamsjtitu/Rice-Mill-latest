@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import SessionIndicator from "@/components/SessionIndicator";
+import LowStockBell from "@/components/LowStockBell";
 import { ShortcutsDialog, BackupReminderDialog, PasswordChangeDialog } from "@/components/entries/HeaderDialogs";
 import DiagnosticsPanel from "@/components/DiagnosticsPanel";
 import QuickSearch from "@/components/QuickSearch";
@@ -140,6 +141,8 @@ export const AppHeader = ({
             </div>
 
             <SessionIndicator onDataRefresh={() => { fetchEntries(); fetchTotals(); }} />
+
+            <LowStockBell filters={filters} onNavigate={(tab) => setActiveTabSafe(tab)} />
 
             <button
               onClick={() => setQuickSearchOpen(true)}

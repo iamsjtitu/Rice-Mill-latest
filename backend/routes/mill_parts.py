@@ -259,6 +259,34 @@ async def update_stock_entry(entry_id: str, data: dict):
 
 # ============ STOCK SUMMARY ============
 
+@router.get("/mill-parts/low-stock-alerts")
+async def get_low_stock_alerts(kms_year: Optional[str] = None, season: Optional[str] = None):
+    """Return mill parts where current_stock <= min_stock (and min_stock > 0).
+    Sorted by severity (out-of-stock first, then how close to min).
+    """
+    summary = await get_stock_summary(kms_year, season)
+    alerts = []
+    for s in summary:
+        min_stock = float(s.get("min_stock") or 0)
+        if min_stock <= 0:
+            continue
+        cur = float(s.get("current_stock") or 0)
+        if cur <= min_stock:
+            alerts.append({
+                "part_name": s.get("part_name", ""),
+                "category": s.get("category", ""),
+                "unit": s.get("unit", "Pcs"),
+                "store_room_name": s.get("store_room_name", "") or "",
+                "min_stock": min_stock,
+                "current_stock": cur,
+                "shortage": round(min_stock - cur, 2),
+                "is_out_of_stock": cur <= 0,
+            })
+    # Out-of-stock first, then by largest shortage (most critical first)
+    alerts.sort(key=lambda x: (not x["is_out_of_stock"], -x["shortage"], x["part_name"]))
+    return {"count": len(alerts), "alerts": alerts}
+
+
 @router.get("/mill-parts/summary")
 async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str] = None):
     query = {}

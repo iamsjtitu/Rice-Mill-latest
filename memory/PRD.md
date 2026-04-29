@@ -1,6 +1,54 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.34.0
+## Current Version: v104.36.0
+
+## 🔔 v104.36.0 — Mill Parts Low Stock Notification (Header Bell)
+**Build date:** 2026-04-29
+
+### Feature
+Header me global 🔔 Bell icon — jab koi Mill Part stock low ho ya khatam (`current_stock <= min_stock`), red badge me alert count dikhata hai. User ko bina Mill Parts page khole pata chal jaata hai ki kaunsa part restock chahiye.
+
+### Behavior
+- **Trigger:** `min_stock > 0 AND current_stock <= min_stock` (sirf un parts ke liye jinka min_stock master me set hai)
+- **Out of Stock first:** `current_stock <= 0` items sabse upar (most critical)
+- **Then by shortage:** `min_stock - current_stock` zyada ho woh upar
+- **Auto-refresh:** Har 60 seconds me background poll + dropdown khulne pe instant fetch
+- **Filter respect:** Global KMS year + Season ke according filter hota hai
+- **Animated:** Bell icon pulse karta hai jab alerts hote hain
+
+### UI
+- **Position:** Header me, SessionIndicator ke baad — har tab pe global
+- **Badge:** Red circle with white count (99+ if too many)
+- **Dropdown:** 340px wide, max 480px tall, scrollable list
+  - Each item: Part name + OUT/LOW badge + current/min stock + unit + store room + category
+  - Out-of-stock rows: Red background + red icon (PackageX)
+  - Low-stock rows: Amber background + amber icon (AlertTriangle)
+- **Footer:** "Mill Parts Stock kholein" → Mill Parts tab pe navigate
+
+### API
+`GET /api/mill-parts/low-stock-alerts?kms_year=&season=` → `{count: int, alerts: [...]}`
+
+Each alert: `{part_name, category, unit, store_room_name, min_stock, current_stock, shortage, is_out_of_stock}`
+
+### Triple-Backend Parity
+- ✅ Python: `/app/backend/routes/mill_parts.py` — uses `get_stock_summary()` then filters
+- ✅ Desktop Electron: `/app/desktop-app/routes/mill_parts.js` — uses `getStockSummary()` then filters
+- ✅ LAN Express: `/app/local-server/routes/mill_parts.js` — uses `getStockSummary()` then filters
+
+### Files Changed
+- Python: `/app/backend/routes/mill_parts.py` (added endpoint before summary)
+- Node: `/app/desktop-app/routes/mill_parts.js` + `/app/local-server/routes/mill_parts.js`
+- React: NEW `/app/frontend/src/components/LowStockBell.jsx`
+- React: `/app/frontend/src/components/entries/AppHeader.jsx` (mounted bell)
+- Version: `constants-version.js` + 2× `package.json` → 104.36.0
+- Changelog: `WhatsNew.jsx` (top entry added)
+
+### Testing
+- ✅ Curl: Created 2 test parts (TEST_LOW_STOCK_BELT, TEST_OUT_BEARING) — endpoint returned 2 alerts in correct order (out-of-stock first by shortage)
+- ✅ Frontend: Bell shows red "2" badge, dropdown opens with both items, OUT badges + counts visible
+- ✅ Test data cleaned up
+
+---
 
 ## 🔒 v104.34.0+ — 5-Minute Edit Lock Across ALL Modules + Settings Toggle + Custom Duration
 **Build date:** 2026-04-28 (Late evening, refined)
