@@ -102,15 +102,29 @@ export default function ByProductSaleRegister({ filters, user, product }) {
         const e = res.data.entry;
         // Backend stores as `net_wt`, but some legacy contexts may return `net_weight`. Try both.
         const nw = e.net_wt != null ? e.net_wt : (e.net_weight != null ? e.net_weight : null);
-        setForm(p => ({
-          ...p,
-          vehicle_no: e.vehicle_no || p.vehicle_no,
-          party_name: e.party_name || p.party_name,
-          destination: e.farmer_name || p.destination,
-          net_weight_kg: nw != null ? String(nw) : p.net_weight_kg,
-          net_weight_qtl_display: nw != null ? String(Math.round(nw / 100 * 100) / 100) : p.net_weight_qtl_display,
-          bags: e.tot_pkts ? String(e.tot_pkts) : p.bags,
-        }));
+        const nwQtl = nw != null ? Math.round(nw / 100 * 100) / 100 : null;
+        setForm(p => {
+          const splitOn = !!p.split_billing;
+          // In split mode, default Pakka = full total (100% billed), Kaccha = 0.
+          // User can shift portion to Kaccha as needed (auto-balance handles it).
+          const pakkaKgDefault = splitOn && nw != null ? String(nw) : p.billed_weight_kg;
+          const pakkaQtlDefault = splitOn && nwQtl != null ? String(nwQtl) : p.billed_weight_qtl_display;
+          const kacchaKgDefault = splitOn ? "0" : p.kaccha_weight_kg;
+          const kacchaQtlDefault = splitOn ? "0" : p.kaccha_weight_qtl_display;
+          return {
+            ...p,
+            vehicle_no: e.vehicle_no || p.vehicle_no,
+            party_name: e.party_name || p.party_name,
+            destination: e.farmer_name || p.destination,
+            net_weight_kg: nw != null ? String(nw) : p.net_weight_kg,
+            net_weight_qtl_display: nwQtl != null ? String(nwQtl) : p.net_weight_qtl_display,
+            bags: e.tot_pkts ? String(e.tot_pkts) : p.bags,
+            billed_weight_kg: pakkaKgDefault,
+            billed_weight_qtl_display: pakkaQtlDefault,
+            kaccha_weight_kg: kacchaKgDefault,
+            kaccha_weight_qtl_display: kacchaQtlDefault,
+          };
+        });
         toast.success("RST data fetch ho gaya!");
       }
     } catch (e) {

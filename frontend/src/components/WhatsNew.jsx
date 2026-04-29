@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.37.8",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.37.8 — 🤖 Split Billing me RST Auto-Fill (Pakka 100% Default)",
+    items: [
+      { type: "improvement", text: "🤖 **RST Fetch in Split Mode** — Jab Split Billing ON ho aur RST number daalein, ab Total N/W ke saath-saath **Pakka Wt automatic full weight** se pre-fill ho jata hai (100% billed default), Kaccha Wt = 0. User chahe toh Kaccha me kuch shift kar de — auto-balance turant Pakka kam kar dega." },
+      { type: "improvement", text: "💡 **Smart Default** — Most common scenario me poora dispatch GST bill pe jata hai (Pakka). Agar customer Kaccha slip chahiye, toh user manually Kaccha me amount shift karega — 1-2 click me ho jayega bina manual division ke." },
+    ],
+  },
+  {
     version: "104.37.7",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.37.7 — 🐛 RST Auto-Fetch Bug Fix in By-Product Sale",
