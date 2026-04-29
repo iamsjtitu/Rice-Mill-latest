@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.41.0",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.41.0 — 🎨 DR=Red, CR=Green + PDF/Excel/WhatsApp Order Confirm",
+    items: [
+      { type: "improvement", text: "🎨 **Color Convention Update** — User feedback ke according:\n  - **DR (lena hai, pending receivable)** → **RED** (chinta — paisa pending hai chase karna hai)\n  - **CR (dena hai ya advance received)** → **GREEN** (settled / safe)\n  Cash Book + Reports → Party Ledger dono jagah lagu." },
+      { type: "fix", text: "📅 **PDF + Excel + WhatsApp PDF Chronological Verified** — Backend `cash-book/pdf`, `cash-book/excel`, `party-ledger/pdf`, `party-ledger/excel` saare endpoints `sort('date', 1)` use karte hain (oldest top → newest bottom). WhatsApp pe bheja PDF bhi same backend se aata hai — agar aapko abhi bhi ulta dikha, toh purana cached PDF hoga, refresh karke check karein." },
+    ],
+  },
+  {
     version: "104.40.9",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.40.9 — 🚨 DR/CR Inverted Fix (Lena=DR, Dena=CR)",

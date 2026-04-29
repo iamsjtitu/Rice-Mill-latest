@@ -26,12 +26,12 @@ export function formatBalanceDrCr(amount, opts = {}) {
 
 /**
  * Tailwind color classes for a DR/CR balance.
- *   DR (negative — party owes us) → emerald (good — money coming)
- *   CR (positive — we owe party) → amber (caution — money going out)
+ *   DR (negative — party owes us, lena hai pending) → red (caution — outstanding receivable)
+ *   CR (positive — we owe party / settled) → emerald (OK — paid up or advance)
  *   0 → slate (settled)
  */
 export function balanceColorClass(amount) {
   const num = Number(amount) || 0;
   if (num === 0) return "text-slate-600";
-  return num < 0 ? "text-emerald-700" : "text-amber-700";
+  return num < 0 ? "text-red-600" : "text-emerald-700";
 }
