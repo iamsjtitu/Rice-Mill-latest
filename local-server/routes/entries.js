@@ -2,19 +2,20 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { safeSync, roundAmount } = require('./safe_handler');
 const { cappedTpForCommission } = require('../utils/commission');
-const { checkEditLock, isEditLockEnabled, setEditLockEnabled } = require('./edit_lock_helper');
+const { checkEditLock, isEditLockEnabled, setEditLockEnabled, setEditWindowSettings, getEditWindowSettings } = require('./edit_lock_helper');
 const router = express.Router();
 
 module.exports = function(database) {
 
-  // ===== EDIT WINDOW SETTINGS (5-min lock toggle) =====
+  // ===== EDIT WINDOW SETTINGS (5-min lock toggle + custom duration) =====
   router.get('/api/settings/edit-window', safeSync(async (req, res) => {
-    res.json({ enabled: isEditLockEnabled(database) });
+    res.json(getEditWindowSettings(database));
   }));
   router.put('/api/settings/edit-window', safeSync(async (req, res) => {
     const enabled = !!req.body.enabled;
-    setEditLockEnabled(database, enabled);
-    res.json({ success: true, enabled });
+    const duration = req.body.duration_minutes;
+    const updated = setEditWindowSettings(database, enabled, duration);
+    res.json({ success: true, ...updated });
   }));
 
   const logAudit = (collection, recordId, action, username, oldData, newData, summary) => {

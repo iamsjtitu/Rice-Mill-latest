@@ -31,19 +31,18 @@ async def get_company_name():
 
 @router.get("/settings/edit-window")
 async def get_edit_window_setting():
-    """Get the 5-minute edit lock toggle. When enabled, non-admin users can only
-    edit/delete their own entries within 5 minutes of creation across ALL modules."""
-    from services.edit_lock import is_edit_lock_enabled
-    enabled = await is_edit_lock_enabled()
-    return {"enabled": enabled}
+    """Get the edit-lock toggle + duration. When enabled, non-admin users can only
+    edit/delete their own entries within N minutes of creation across ALL modules."""
+    from services.edit_lock import get_edit_window_settings
+    return await get_edit_window_settings()
 
 
 @router.put("/settings/edit-window")
 async def update_edit_window_setting(data: dict):
-    from services.edit_lock import set_edit_lock_enabled
+    from services.edit_lock import set_edit_window_settings
     enabled = bool(data.get("enabled", True))
-    await set_edit_lock_enabled(enabled)
-    return {"success": True, "enabled": enabled}
+    duration = data.get("duration_minutes", None)
+    return {"success": True, **(await set_edit_window_settings(enabled, duration))}
 
 
 # ----- Helper for agent ledger recomputation -----

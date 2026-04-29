@@ -4,27 +4,59 @@ Centralizes the "can this entry be edited/deleted now" logic so:
 1. Admin always overrides the lock
 2. Non-admin can only edit/delete their OWN entries
 3. Lock can be toggled on/off via Settings (key: "edit_window")
-4. Default: lock is ENABLED (5 minutes from creation)
+4. Duration is configurable (default 5 minutes, range 1-1440)
 """
 from datetime import datetime, timezone, timedelta
 from database import db
 
 
-async def is_edit_lock_enabled() -> bool:
-    """Returns True if the 5-min edit window is currently enforced. Default: True."""
+DEFAULT_DURATION_MIN = 5
+
+
+async def get_edit_window_settings() -> dict:
+    """Returns {'enabled': bool, 'duration_minutes': int}. Defaults: enabled=True, 5 min."""
     doc = await db["settings"].find_one({"key": "edit_window"}, {"_id": 0})
     if not doc:
-        return True  # Default ON for safety (existing behaviour for Mill Entries)
-    return bool(doc.get("enabled", True))
+        return {"enabled": True, "duration_minutes": DEFAULT_DURATION_MIN}
+    raw = doc.get("duration_minutes", DEFAULT_DURATION_MIN)
+    try:
+        dur = int(raw)
+    except (ValueError, TypeError):
+        dur = DEFAULT_DURATION_MIN
+    if dur < 1:
+        dur = 1
+    if dur > 1440:
+        dur = 1440
+    return {"enabled": bool(doc.get("enabled", True)), "duration_minutes": dur}
 
 
-async def set_edit_lock_enabled(enabled: bool) -> None:
+async def is_edit_lock_enabled() -> bool:
+    return (await get_edit_window_settings())["enabled"]
+
+
+async def set_edit_window_settings(enabled: bool, duration_minutes: int = None) -> dict:
+    """Update edit window settings. Pass duration_minutes=None to keep existing."""
+    update = {"key": "edit_window", "enabled": bool(enabled),
+              "updated_at": datetime.now(timezone.utc).isoformat()}
+    if duration_minutes is not None:
+        try:
+            d = int(duration_minutes)
+        except (ValueError, TypeError):
+            d = DEFAULT_DURATION_MIN
+        if d < 1:
+            d = 1
+        if d > 1440:
+            d = 1440
+        update["duration_minutes"] = d
     await db["settings"].update_one(
-        {"key": "edit_window"},
-        {"$set": {"key": "edit_window", "enabled": bool(enabled),
-                   "updated_at": datetime.now(timezone.utc).isoformat()}},
-        upsert=True
+        {"key": "edit_window"}, {"$set": update}, upsert=True
     )
+    return await get_edit_window_settings()
+
+
+# Back-compat alias (older Python code calls set_edit_lock_enabled)
+async def set_edit_lock_enabled(enabled: bool) -> None:
+    await set_edit_window_settings(enabled)
 
 
 async def check_edit_lock(entry: dict, username: str, role: str) -> tuple[bool, str]:
@@ -32,7 +64,7 @@ async def check_edit_lock(entry: dict, username: str, role: str) -> tuple[bool, 
 
     Rules:
     - Admin: always allowed
-    - Non-admin: must be the creator AND within 5 min if lock is enabled
+    - Non-admin: must be the creator AND within configured duration if lock is enabled
     - If lock is disabled (Settings toggle OFF): only ownership check applies
     """
     if (role or "").lower() == "admin":
@@ -42,9 +74,10 @@ async def check_edit_lock(entry: dict, username: str, role: str) -> tuple[bool, 
     if created_by and username and created_by != username:
         return False, "Aap sirf apni entry edit/delete kar sakte hain"
 
-    enabled = await is_edit_lock_enabled()
-    if not enabled:
+    settings_doc = await get_edit_window_settings()
+    if not settings_doc["enabled"]:
         return True, "Edit lock disabled in Settings"
+    duration_min = settings_doc["duration_minutes"]
 
     created_at = entry.get("created_at") or entry.get("createdAt") or ""
     if not created_at:
@@ -58,9 +91,9 @@ async def check_edit_lock(entry: dict, username: str, role: str) -> tuple[bool, 
             created_time = created_time.replace(tzinfo=timezone.utc)
         now = datetime.now(timezone.utc)
         delta = now - created_time
-        if delta > timedelta(minutes=5):
+        if delta > timedelta(minutes=duration_min):
             mins = int(delta.total_seconds() / 60)
-            return False, f"5 minute se zyada ho gaye ({mins} min) — ab edit/delete nahi kar sakte. Admin se contact karein."
+            return False, f"{duration_min} minute se zyada ho gaye ({mins} min) — ab edit/delete nahi kar sakte. Admin se contact karein."
     except Exception:
         return True, "Timestamp parse fail — lock skipped"
 

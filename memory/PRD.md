@@ -2,44 +2,53 @@
 
 ## Current Version: v104.34.0
 
-## 🔒 v104.34.0+ — 5-Minute Edit Lock Across ALL Modules + Settings Toggle
-**Build date:** 2026-04-28 (Late evening)
+## 🔒 v104.34.0+ — 5-Minute Edit Lock Across ALL Modules + Settings Toggle + Custom Duration
+**Build date:** 2026-04-28 (Late evening, refined)
 
 ### Feature
-Existing 5-min edit window (jo Mill Entries me tha) ab **saare transactional modules** me apply hota hai with a global Settings toggle.
+Existing 5-min edit window (jo Mill Entries me tha) ab **saare transactional modules** me apply hota hai with a global Settings toggle AND **custom duration** (1-1440 min).
+
+### NEW: Custom Duration
+- Settings → Permissions me preset buttons: **2 / 5 / 10 / 30 / 60 minutes**
+- Custom number input (1-1440 range = up to 24 hours)
+- Both `enabled` and `duration_minutes` saved together
+- All 8+ modules respect this duration dynamically
 
 ### Modules Covered
-- ✅ Mill Entries (already had it — now respects toggle)
-- ✅ Cash Book Transactions (PUT + DELETE)
-- ✅ Vehicle Weight Entries (DELETE + edit)
-- ✅ Hemali Payments (PUT + DELETE)
-- ✅ Sale Vouchers (PUT + DELETE)
-- ✅ Purchase Vouchers (PUT + DELETE)
-- ✅ BP Sale Register (PUT + DELETE)
+- ✅ Mill Entries
+- ✅ Cash Book Transactions
+- ✅ Vehicle Weight Entries
+- ✅ Hemali Payments
+- ✅ Sale Vouchers
+- ✅ Purchase Vouchers
+- ✅ BP Sale Register
+- ✅ **Staff Payments** (NEW)
+- 🟢 Truck Payments — already admin-only (different protection)
+- 🟢 Agent Payments — already admin-only
 
-### New Centralized Helper
-- **Python:** `services/edit_lock.py` — `check_edit_lock()`, `is_edit_lock_enabled()`, `set_edit_lock_enabled()`
-- **Node:** `routes/edit_lock_helper.js` — same API surface (mirrored)
+### API Schema
+- `GET /api/settings/edit-window` → `{enabled: bool, duration_minutes: int}`
+- `PUT /api/settings/edit-window` body `{enabled: bool, duration_minutes: int}` → updates atomically
 
-### New Endpoints
-- `GET /api/settings/edit-window` → `{enabled: boolean}`
-- `PUT /api/settings/edit-window` body `{enabled: bool}` → toggles globally
+### Files Updated
+**Python:**
+- `services/edit_lock.py`: `get_edit_window_settings()`, `set_edit_window_settings()` with duration support
+- `routes/entries.py`: GET/PUT endpoints updated for duration
+- `routes/staff.py`: delete_payment now uses check_edit_lock
 
-### Frontend UI
-- New **Permissions** tab in Settings (between Users and Audit Log)
-- Path: `/app/frontend/src/components/settings/PermissionsTab.jsx`
-- Switch toggle with live status banner
-- Admin Override + "Why 5 minutes?" info cards
+**Node (Desktop + LAN, parity-synced):**
+- `routes/edit_lock_helper.js`: `getEditWindowSettings()`, `setEditWindowSettings()` with duration
+- `routes/entries.js`: GET/PUT endpoints updated
 
-### Behavior
-- **Toggle ON (default):** Non-admin can only edit/delete their own entries within 5 min of creation
-- **Toggle OFF:** Lock disabled, only ownership check applies (still can't edit other user's entries)
-- **Admin always overrides** — can edit/delete anytime regardless of toggle
+**Frontend:**
+- `components/settings/PermissionsTab.jsx`: 5 preset buttons + custom number input + live status banner
 
-### Triple-Backend Parity
-- ✅ Python web (FastAPI + MongoDB)
-- ✅ Electron Desktop (Node + JSON store)
-- ✅ LAN Local Server (Node + JSON store, copied identically)
+### Verified
+- ✅ curl GET returns `{enabled: true, duration_minutes: 5}`
+- ✅ curl PUT 2 min → 30 min → 5 min — all save correctly
+- ✅ UI shows preset buttons highlighting active value
+- ✅ Custom input accepts any value in [1, 1440]
+- ✅ All lints pass
 
 ## v104.33.2 — GLOBAL Fix: All PDFs Hindi/Devanagari Rendering
 **Build date:** 2026-04-28

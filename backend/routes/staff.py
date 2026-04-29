@@ -404,10 +404,14 @@ async def settle_salary(pay: StaffPayment):
     return doc
 
 @router.delete("/staff/payments/{payment_id}")
-async def delete_payment(payment_id: str):
+async def delete_payment(payment_id: str, username: str = "", role: str = ""):
+    from services.edit_lock import check_edit_lock
     payment = await db.staff_payments.find_one({"id": payment_id}, {"_id": 0})
     if not payment:
         raise HTTPException(404, "Payment not found")
+    can_edit, message = await check_edit_lock(payment, username, role)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=message)
     # Delete cash book entry too
     await db.cash_transactions.delete_one({"reference": f"staff_payment:{payment_id}"})
     await db.staff_payments.delete_one({"id": payment_id})
