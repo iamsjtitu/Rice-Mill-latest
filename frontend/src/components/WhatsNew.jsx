@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.40.4",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.40.4 — 🏷️ 'Lab Test Penalty' → 'Lab Test Premium' + 'All Parties' Hata Diya",
+    items: [
+      { type: "improvement", text: "🏷️ **Description Rename** — Ledger me jab oil-premium negative aata tha (lower quality), description 'Lab Test Penalty (-3.00%)' likhta tha — ab **'Lab Test Premium (-3.00%)'** likhta hai. Existing 3 entries automatically migrate ho gayi." },
+      { type: "fix", text: "🗑️ **'All Parties' Option Removed** — Cash Book → Party Ledgers view ke party search dropdown me 'All Parties' option tha jo abhi koi kaam nahi karta tha. Hata diya — dropdown ab clean hai, sirf actual parties dikhti hain." },
+    ],
+  },
+  {
     version: "104.40.3",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.40.3 — 💼 Sauda Amount Field + Lab Test Use",

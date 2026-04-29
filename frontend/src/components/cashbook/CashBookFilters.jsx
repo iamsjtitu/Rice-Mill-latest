@@ -27,12 +27,16 @@ const CashBookFilters = ({
   const handlePartyKeyDown = (e) => {
     if (!showFilterPartyDropdown) return;
     const items = getFilteredItems();
-    const totalItems = items.length + 1; // +1 for "All Parties"
+    const totalItems = items.length;
+
+    if (totalItems === 0) {
+      if (e.key === "Escape") { setShowFilterPartyDropdown(false); setHighlightIdx(-1); }
+      return;
+    }
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setHighlightIdx(prev => (prev + 1) % totalItems);
-      // Scroll into view
       setTimeout(() => {
         const el = dropdownRef.current?.querySelector(`[data-idx="${(highlightIdx + 1) % totalItems}"]`);
         el?.scrollIntoView({ block: "nearest" });
@@ -46,12 +50,8 @@ const CashBookFilters = ({
       }, 0);
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (highlightIdx === 0) {
-        // "All Parties"
-        setTxnFilters(p => ({ ...p, category: "" }));
-        setFilterPartySearch("");
-      } else if (highlightIdx > 0 && highlightIdx <= items.length) {
-        setTxnFilters(p => ({ ...p, category: items[highlightIdx - 1] }));
+      if (highlightIdx >= 0 && highlightIdx < items.length) {
+        setTxnFilters(p => ({ ...p, category: items[highlightIdx] }));
         setFilterPartySearch("");
       }
       setShowFilterPartyDropdown(false);
@@ -130,15 +130,11 @@ const CashBookFilters = ({
                 const items = getFilteredItems();
                 return items.length > 0 ? (
                   <div ref={dropdownRef} className="absolute z-50 w-56 mt-1 max-h-48 overflow-auto bg-slate-800 border border-slate-200 rounded-md shadow-lg">
-                    <div data-idx="0" className={`px-3 py-1.5 text-xs cursor-pointer flex justify-between items-center text-slate-500 font-medium border-b border-slate-100 ${highlightIdx === 0 ? 'bg-amber-100' : 'hover:bg-amber-50'}`}
-                      onMouseDown={() => { setTxnFilters(p => ({ ...p, category: "" })); setFilterPartySearch(""); setShowFilterPartyDropdown(false); }}>
-                      All Parties
-                    </div>
                     {items.map((c, i) => {
                       const pt = allTxns.find(t => t.category === c && t.party_type);
                       return (
-                        <div key={c} data-idx={i + 1}
-                          className={`px-3 py-1.5 text-xs cursor-pointer flex justify-between items-center ${highlightIdx === i + 1 ? 'bg-amber-100' : 'hover:bg-amber-50'}`}
+                        <div key={c} data-idx={i}
+                          className={`px-3 py-1.5 text-xs cursor-pointer flex justify-between items-center ${highlightIdx === i ? 'bg-amber-100' : 'hover:bg-amber-50'}`}
                           onMouseDown={() => { setTxnFilters(p => ({ ...p, category: c })); setFilterPartySearch(""); setShowFilterPartyDropdown(false); }}>
                           <span className="text-slate-800">{c}</span>
                           {pt && pt.party_type && <span className={`text-[9px] px-1 py-0.5 rounded ${

@@ -43,7 +43,7 @@ async def _sync_oil_premium_ledger(op: dict, username: str = "system"):
         # Penalty due to lower quality → party owes less (Kaccha JAMA reduces what they owe)
         txn_type_lp = "payment"
         cb_txn_type = "jama"  # Reduces what party owes us
-        desc = f"Lab Test Penalty ({op.get('difference_pct', 0)}%) - Voucher #{voucher_no}"
+        desc = f"Lab Test Premium ({op.get('difference_pct', 0)}%) - Voucher #{voucher_no}"
         amount = round(abs(premium), 2)
 
     base = {
