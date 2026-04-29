@@ -7,6 +7,19 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.35.0",
+    date: "Apr 28, 2026 (Night)",
+    title: "v104.35.0 — 🔒 Edit Lock Across ALL Modules + Custom Duration",
+    items: [
+      { type: "new", text: "🔒 **5-Minute Edit Lock Feature** — Pehle yeh sirf Mill Entries me tha, ab **saare modules** me apply hota hai: Cash Book, Vehicle Weight, Hemali Payments, Sale Vouchers, Purchase Vouchers, BP Sale Register, Staff Payments. Ek hi centralized check, ek hi setting." },
+      { type: "new", text: "⚙️ **NEW Settings Tab — 'Permissions'** (Settings → Permissions): Edit Window Lock toggle ON/OFF + custom duration. Lock ON hone par non-admin sirf apni entries N min ke andar edit/delete kar sakte hain." },
+      { type: "new", text: "⏱️ **Custom Duration** — Preset buttons: **2 / 5 / 10 / 30 / 60 minutes** ya custom number input (1-1440 min = up to 24 hours). Aap apne workflow ke hisaab se set kar sakte ho — tight control ke liye 2 min, comfortable ke liye 30 min, ya OFF kar do test data ke liye." },
+      { type: "improvement", text: "🛡️ **Admin Override** — Admin kabhi bhi koi bhi entry edit/delete kar sakte hain — yeh setting unhe affect nahi karti. Sirf non-admin users pe lock apply hota hai." },
+      { type: "improvement", text: "📍 **Ownership Check** — Lock OFF hone par bhi non-admin sirf apni entries edit kar sakte hain (dusre user ki entries kabhi nahi). Yeh hamesha active rehta hai." },
+      { type: "fix", text: "🌐 **Triple-Backend Parity** — Python web + Electron Desktop + LAN Local Server teeno me synced. Naya `services/edit_lock.py` (Python) aur `edit_lock_helper.js` (Node) ke through centralized check." },
+    ],
+  },
+  {
     version: "104.34.0",
     date: "Apr 28, 2026 (Late)",
     title: "v104.34.0 — 🎯 GLOBAL Hindi PDF Fix + Cash Book Cleanup + Bug Fixes",
