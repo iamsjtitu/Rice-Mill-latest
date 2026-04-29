@@ -7,6 +7,26 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.40.9",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.40.9 — 🚨 DR/CR Inverted Fix (Lena=DR, Dena=CR)",
+    items: [
+      { type: "fix", text: "🚨 **DR/CR Convention Sahi Kiya** — Pichli release me galti se invert ho gaya tha. Sahi accounting standard:\n  - **Lena hai (party owes us / receivable)** → **DR** (Debit)\n  - **Dena hai (we owe party / payable)** → **CR** (Credit)\n  - Settled (₹0) → no suffix\n\nExample: MBOPL ka balance ₹1,07,804.55 jisme aapne maal becha aur party ne pura nahi diya — yeh **DR** hai (lena hai). Pehle galti se 'CR' dikha raha tha, ab 'DR' dikhayega." },
+      { type: "improvement", text: "🎨 **Color Convention** — DR (lena hai, paisa aane wala) → emerald/green (good news), CR (dena hai, paisa jaane wala) → amber (caution). Cash Book + Reports → Party Ledger dono jagah uniform." },
+    ],
+  },
+  {
+    version: "104.40.8",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.40.8 — 💼 Professional DR/CR Balance Display (Indian Accounting Standard)",
+    items: [
+      { type: "improvement", text: "💼 **Negative Balance → DR/CR Format** — Pehle balance column me '₹-1,07,804.55' minus sign ke saath dikhta tha (galat-galat lagta tha). Ab Indian accounting standard ke according:\n  - Positive balance → **'₹1,07,804.55 DR'** (Debit — party owes us, amber color)\n  - Negative balance → **'₹1,07,804.55 CR'** (Credit — we owe them, emerald color)\n  - Zero → **'₹0.00'** (settled, slate color)" },
+      { type: "improvement", text: "🎨 **Color Coding Update** — Color sirf positive/negative ke according nahi, ab DR amber + CR emerald (green) hai. Professional accountant-style instant readability." },
+      { type: "improvement", text: "📋 **Cash Book + Reports → Party Ledger** — Dono jagah running balance + final balance DR/CR format me dikhte hain. Reports me '(Dr)/(Cr)' lowercase tha → ab uppercase 'DR/CR' standard." },
+      { type: "improvement", text: "🛠️ **Reusable Helper** — Naya `formatBalanceDrCr()` utility — future me kahin bhi balance dikhana ho toh consistent format ke liye use ho sakta hai." },
+    ],
+  },
+  {
     version: "104.40.7",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.40.7 — 📎 Smart PDF Filenames (Context-Aware) for WhatsApp + Downloads",

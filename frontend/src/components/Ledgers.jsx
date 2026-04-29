@@ -513,8 +513,8 @@ const PartyLedger = ({ filters }) => {
                       <TableCell className="text-right text-emerald-400 font-semibold">
                         {item.credit > 0 ? `₹${item.credit.toLocaleString()}` : '-'}
                       </TableCell>
-                      <TableCell className={`text-right text-xs font-bold ${(balByOrigIdx[idx] || 0) >= 0 ? 'text-amber-400' : 'text-red-400'}`} data-testid={`ledger-running-balance-${idx}`}>
-                        ₹{Math.abs(balByOrigIdx[idx] || 0).toLocaleString()} {(balByOrigIdx[idx] || 0) >= 0 ? '(Dr)' : '(Cr)'}
+                      <TableCell className={`text-right text-xs font-bold ${(balByOrigIdx[idx] || 0) >= 0 ? 'text-emerald-400' : 'text-amber-400'}`} data-testid={`ledger-running-balance-${idx}`}>
+                        {(balByOrigIdx[idx] || 0) === 0 ? '₹0.00' : `₹${Math.abs(balByOrigIdx[idx] || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${(balByOrigIdx[idx] || 0) >= 0 ? 'DR' : 'CR'}`}
                       </TableCell>
                       <TableCell className="text-slate-500 text-xs">{item.ref}</TableCell>
                     </TableRow>
@@ -524,8 +524,8 @@ const PartyLedger = ({ filters }) => {
                     <TableCell colSpan={4} className="text-amber-400 font-bold">TOTAL</TableCell>
                     <TableCell className="text-right text-red-400 font-bold">₹{(data.total_debit || 0).toLocaleString()}</TableCell>
                     <TableCell className="text-right text-emerald-400 font-bold">₹{(data.total_credit || 0).toLocaleString()}</TableCell>
-                    <TableCell className={`text-right font-bold ${balance >= 0 ? 'text-amber-400' : 'text-emerald-400'}`} data-testid="ledger-final-balance">
-                      ₹{Math.abs(balance).toLocaleString()} {balance >= 0 ? '(Dr)' : '(Cr)'}
+                    <TableCell className={`text-right font-bold ${balance >= 0 ? 'text-emerald-400' : 'text-amber-400'}`} data-testid="ledger-final-balance">
+                      {balance === 0 ? '₹0.00 (Settled)' : `₹${Math.abs(balance).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${balance >= 0 ? 'DR' : 'CR'}`}
                     </TableCell>
                     <TableCell></TableCell>
                   </TableRow>

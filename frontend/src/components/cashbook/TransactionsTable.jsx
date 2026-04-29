@@ -5,6 +5,8 @@ import RecordHistory from "@/components/RecordHistory";
 
 import { fmtDate } from "@/utils/date";
 
+import { formatBalanceDrCr, balanceColorClass } from "../../utils/balance-format";
+
 const TransactionsTable = ({
   txns, loading, user,
   selectedIds, toggleSelect, toggleSelectAll, handleBulkDelete,
@@ -116,8 +118,8 @@ const TransactionsTable = ({
               <td className="px-3 py-2.5 text-right text-xs font-medium text-red-600">
                 {t.txn_type === 'nikasi' ? `₹${(t.amount || 0).toLocaleString('en-IN')}` : '-'}
               </td>
-              <td className={`px-3 py-2.5 text-right text-xs font-bold ${(balMap[t.id] || 0) >= 0 ? 'text-amber-700' : 'text-red-700'}`} data-testid={`txn-balance-${t.id}`}>
-                ₹{(balMap[t.id] || 0).toLocaleString('en-IN')}
+              <td className={`px-3 py-2.5 text-right text-xs font-bold ${balanceColorClass(balMap[t.id])}`} data-testid={`txn-balance-${t.id}`}>
+                {formatBalanceDrCr(balMap[t.id])}
               </td>
               <td className="px-3 py-2.5 text-slate-500 text-xs truncate">{t.reference}</td>
               <td className={`px-3 py-2.5 sticky right-0 border-l border-slate-200 ${t.txn_type === 'jama' ? 'bg-green-50/90' : 'bg-red-50/90'} ${selectedIds.includes(t.id) ? 'ring-1 ring-amber-400' : ''}`}>
@@ -143,7 +145,7 @@ const TransactionsTable = ({
               <td colSpan={6} className="px-3 py-2.5 text-xs font-bold text-slate-700">TOTAL ({txns.length} transactions)</td>
               <td className="px-3 py-2.5 text-right text-xs font-bold text-green-700" data-testid="cashbook-total-jama">₹{totalJama.toLocaleString('en-IN')}</td>
               <td className="px-3 py-2.5 text-right text-xs font-bold text-red-600" data-testid="cashbook-total-nikasi">₹{totalNikasi.toLocaleString('en-IN')}</td>
-              <td className={`px-3 py-2.5 text-right text-xs font-bold ${restBalance >= 0 ? 'text-amber-700' : 'text-red-700'}`} data-testid="cashbook-rest-balance">₹{restBalance.toLocaleString('en-IN')}</td>
+              <td className={`px-3 py-2.5 text-right text-xs font-bold ${balanceColorClass(restBalance)}`} data-testid="cashbook-rest-balance">{formatBalanceDrCr(restBalance)}</td>
               <td></td>
               <td className="sticky right-0 bg-slate-50 border-l border-slate-200"></td>
             </tr>
