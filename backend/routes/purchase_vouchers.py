@@ -282,8 +282,12 @@ async def create_purchase_voucher(input: PurchaseVoucherCreate, username: str = 
 
 @router.put("/purchase-book/{voucher_id}")
 async def update_purchase_voucher(voucher_id: str, input: PurchaseVoucherCreate, username: str = "", role: str = ""):
+    from services.edit_lock import check_edit_lock
     existing = await db.purchase_vouchers.find_one({"id": voucher_id}, {"_id": 0})
     if not existing: raise HTTPException(status_code=404, detail="Voucher not found")
+    can_edit, message = await check_edit_lock(existing, username, role)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=message)
 
     d = input.model_dump()
     items = []
@@ -324,8 +328,12 @@ async def update_purchase_voucher(voucher_id: str, input: PurchaseVoucherCreate,
 
 @router.delete("/purchase-book/{voucher_id}")
 async def delete_purchase_voucher(voucher_id: str, username: str = "", role: str = ""):
+    from services.edit_lock import check_edit_lock
     existing = await db.purchase_vouchers.find_one({"id": voucher_id}, {"_id": 0})
     if not existing: raise HTTPException(status_code=404, detail="Voucher not found")
+    can_edit, message = await check_edit_lock(existing, username, role)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=message)
     await db.purchase_vouchers.delete_one({"id": voucher_id})
     await db.cash_transactions.delete_many({"reference": {"$regex": f"purchase_voucher.*:{voucher_id}"}})
     await db.diesel_accounts.delete_many({"reference": {"$regex": f"purchase_voucher.*:{voucher_id}"}})

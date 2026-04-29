@@ -368,12 +368,17 @@ async def delete_cash_transactions_bulk(request: Request):
 
 
 @router.delete("/cash-book/{txn_id}")
-async def delete_cash_transaction(txn_id: str, username: str = ""):
+async def delete_cash_transaction(txn_id: str, username: str = "", role: str = ""):
     from services.cashbook_service import revert_pvt_paddy_payment, revert_rice_sale_payment, revert_linked_payments, revert_hemali_payment
+    from services.edit_lock import check_edit_lock
     txn = await db.cash_transactions.find_one({"id": txn_id}, {"_id": 0})
     if not txn:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    
+
+    can_edit, message = await check_edit_lock(txn, username, role)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=message)
+
     await log_audit("cash_transactions", txn_id, "delete", username, old_data=txn)
     
     party_type = txn.get("party_type", "")
@@ -399,11 +404,17 @@ async def delete_cash_transaction(txn_id: str, username: str = ""):
 
 @router.put("/cash-book/{txn_id}")
 async def update_cash_transaction(txn_id: str, request: Request, username: str = "", role: str = ""):
+    from services.edit_lock import check_edit_lock
     body = await request.json()
     client_v = body.pop("_v", None)
     body.pop("_id", None)
     body.pop("id", None)
     old_txn = await db.cash_transactions.find_one({"id": txn_id}, {"_id": 0})
+    if not old_txn:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    can_edit, message = await check_edit_lock(old_txn, username, role)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=message)
     body["updated_at"] = datetime.now(timezone.utc).isoformat()
     body["updated_by"] = username or body.get("updated_by", "")
     if "amount" in body:

@@ -4,6 +4,7 @@ from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
 from models import MillEntryCreate, MillEntry, TotalsResponse, MandiTargetCreate, MandiTarget, MandiTargetUpdate, MandiTargetSummary, round_amount, calculate_auto_fields, can_edit_entry
+from services.edit_lock import check_edit_lock
 from utils.optimistic_lock import optimistic_update, stamp_version
 from utils.audit import log_audit
 from utils.date_format import fmt_date
@@ -24,6 +25,28 @@ async def get_company_name():
     return "NAVKAR AGRO", "JOLKO, KESINGA"
 
 # ============ MILL ENTRIES CRUD ============
+
+
+# ----- Edit Window (5 min lock) Settings -----
+
+@router.get("/settings/edit-window")
+async def get_edit_window_setting():
+    """Get the 5-minute edit lock toggle. When enabled, non-admin users can only
+    edit/delete their own entries within 5 minutes of creation across ALL modules."""
+    from services.edit_lock import is_edit_lock_enabled
+    enabled = await is_edit_lock_enabled()
+    return {"enabled": enabled}
+
+
+@router.put("/settings/edit-window")
+async def update_edit_window_setting(data: dict):
+    from services.edit_lock import set_edit_lock_enabled
+    enabled = bool(data.get("enabled", True))
+    await set_edit_lock_enabled(enabled)
+    return {"success": True, "enabled": enabled}
+
+
+# ----- Helper for agent ledger recomputation -----
 
 async def recompute_agent_ledger(mandi_name: str, kms_year: str, season: str, username: str = "system"):
     """Recompute consolidated Agent ledger jama for (mandi, kms_year, season).
@@ -832,8 +855,8 @@ async def delete_entry(entry_id: str, username: str = "", role: str = ""):
     if not existing:
         raise HTTPException(status_code=404, detail="Entry not found")
     
-    # Check permission
-    can_edit, message = can_edit_entry(existing, username, role)
+    # Check permission (5-min edit window — toggle in Settings)
+    can_edit, message = await check_edit_lock(existing, username, role)
     if not can_edit:
         raise HTTPException(status_code=403, detail=message)
     

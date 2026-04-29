@@ -378,13 +378,17 @@ async def undo_hemali_payment(payment_id: str):
 
 
 @router.put("/hemali/payments/{payment_id}")
-async def update_hemali_payment(payment_id: str, request: Request):
+async def update_hemali_payment(payment_id: str, request: Request, username: str = "", role: str = ""):
     """Edit an unpaid hemali payment (items, sardar, date etc.)"""
+    from services.edit_lock import check_edit_lock
     p = await db.hemali_payments.find_one({"id": payment_id}, {"_id": 0})
     if not p:
         raise HTTPException(status_code=404, detail="Payment not found")
     if p.get("status") == "paid":
         raise HTTPException(status_code=400, detail="Paid payment edit nahi ho sakti. Pehle undo karein.")
+    can_edit, message = await check_edit_lock(p, username, role)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=message)
 
     d = await request.json()
     sardar_name = (d.get("sardar_name") or p.get("sardar_name", "")).strip()
@@ -427,10 +431,14 @@ async def update_hemali_payment(payment_id: str, request: Request):
 
 
 @router.delete("/hemali/payments/{payment_id}")
-async def delete_hemali_payment(payment_id: str):
+async def delete_hemali_payment(payment_id: str, username: str = "", role: str = ""):
+    from services.edit_lock import check_edit_lock
     p = await db.hemali_payments.find_one({"id": payment_id})
     if not p:
         raise HTTPException(status_code=404, detail="Payment not found")
+    can_edit, message = await check_edit_lock(p, username, role)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=message)
     await _remove_cash_entries(payment_id)
     # Full delete: also remove the work ledger entry + debit
     await db.cash_transactions.delete_many({"reference": f"hemali_work:{payment_id}"})

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Calculator, HardDrive, ShieldCheck, Send, Package, Scale,
-  Camera, AlertCircle, Key, Users, History, Droplets, ExternalLink, ShieldAlert,
+  Camera, AlertCircle, Key, Users, History, Droplets, ExternalLink, ShieldAlert, Lock,
 } from "lucide-react";
 
 import BrandingTab from "./settings/BrandingTab";
@@ -18,9 +18,11 @@ import AuditLogTab from "./settings/AuditLogTab";
 import WatermarkTab from "./settings/WatermarkTab";
 import GovtLinksTab from "./settings/GovtLinksTab";
 import LicenseTab from "./settings/LicenseTab";
+import PermissionsTab from "./settings/PermissionsTab";
 
 const SUB_TABS = [
   { id: "users", label: "Users", icon: Users },
+  { id: "permissions", label: "Permissions", icon: Lock },
   { id: "audit", label: "Audit Log", icon: History },
   { id: "branding", label: "Branding", icon: Key },
   { id: "watermark", label: "Watermark", icon: Droplets },
@@ -57,6 +59,7 @@ export default function Settings({ user, setUser, kmsYear, onBrandingUpdate }) {
           </TabsList>
 
           <TabsContent value="users"><UsersTab user={user} setUser={setUser} /></TabsContent>
+          <TabsContent value="permissions"><PermissionsTab /></TabsContent>
           <TabsContent value="audit"><AuditLogTab user={user} /></TabsContent>
           <TabsContent value="branding"><BrandingTab user={user} onBrandingUpdate={onBrandingUpdate} /></TabsContent>
           <TabsContent value="watermark"><WatermarkTab /></TabsContent>

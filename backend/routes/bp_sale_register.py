@@ -202,9 +202,14 @@ async def create_bp_sale(data: dict, username: str = "", role: str = ""):
 
 @router.put("/bp-sale-register/{sale_id}")
 async def update_bp_sale(sale_id: str, data: dict, username: str = "", role: str = ""):
+    from services.edit_lock import check_edit_lock
     existing = await db.bp_sale_register.find_one({"id": sale_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Sale not found")
+    existing_clean = {k: v for k, v in existing.items() if k != "_id"}
+    can_edit, message = await check_edit_lock(existing_clean, username, role)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=message)
 
     data["updated_at"] = datetime.now(timezone.utc).isoformat()
     data["updated_by"] = username
@@ -243,9 +248,14 @@ async def update_bp_sale(sale_id: str, data: dict, username: str = "", role: str
 
 @router.delete("/bp-sale-register/{sale_id}")
 async def delete_bp_sale(sale_id: str, username: str = "", role: str = ""):
-    result = await db.bp_sale_register.delete_one({"id": sale_id})
-    if result.deleted_count == 0:
+    from services.edit_lock import check_edit_lock
+    existing = await db.bp_sale_register.find_one({"id": sale_id}, {"_id": 0})
+    if not existing:
         raise HTTPException(status_code=404, detail="Sale not found")
+    can_edit, message = await check_edit_lock(existing, username, role)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=message)
+    await db.bp_sale_register.delete_one({"id": sale_id})
     await _delete_bp_ledger_entries(sale_id)
     return {"success": True}
 

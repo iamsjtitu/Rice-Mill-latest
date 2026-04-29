@@ -1,8 +1,47 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.33.2
+## Current Version: v104.34.0
 
-## 🎯 v104.33.2 — GLOBAL Fix: All PDFs Hindi/Devanagari Rendering
+## 🔒 v104.34.0+ — 5-Minute Edit Lock Across ALL Modules + Settings Toggle
+**Build date:** 2026-04-28 (Late evening)
+
+### Feature
+Existing 5-min edit window (jo Mill Entries me tha) ab **saare transactional modules** me apply hota hai with a global Settings toggle.
+
+### Modules Covered
+- ✅ Mill Entries (already had it — now respects toggle)
+- ✅ Cash Book Transactions (PUT + DELETE)
+- ✅ Vehicle Weight Entries (DELETE + edit)
+- ✅ Hemali Payments (PUT + DELETE)
+- ✅ Sale Vouchers (PUT + DELETE)
+- ✅ Purchase Vouchers (PUT + DELETE)
+- ✅ BP Sale Register (PUT + DELETE)
+
+### New Centralized Helper
+- **Python:** `services/edit_lock.py` — `check_edit_lock()`, `is_edit_lock_enabled()`, `set_edit_lock_enabled()`
+- **Node:** `routes/edit_lock_helper.js` — same API surface (mirrored)
+
+### New Endpoints
+- `GET /api/settings/edit-window` → `{enabled: boolean}`
+- `PUT /api/settings/edit-window` body `{enabled: bool}` → toggles globally
+
+### Frontend UI
+- New **Permissions** tab in Settings (between Users and Audit Log)
+- Path: `/app/frontend/src/components/settings/PermissionsTab.jsx`
+- Switch toggle with live status banner
+- Admin Override + "Why 5 minutes?" info cards
+
+### Behavior
+- **Toggle ON (default):** Non-admin can only edit/delete their own entries within 5 min of creation
+- **Toggle OFF:** Lock disabled, only ownership check applies (still can't edit other user's entries)
+- **Admin always overrides** — can edit/delete anytime regardless of toggle
+
+### Triple-Backend Parity
+- ✅ Python web (FastAPI + MongoDB)
+- ✅ Electron Desktop (Node + JSON store)
+- ✅ LAN Local Server (Node + JSON store, copied identically)
+
+## v104.33.2 — GLOBAL Fix: All PDFs Hindi/Devanagari Rendering
 **Build date:** 2026-04-28
 
 ### Issue

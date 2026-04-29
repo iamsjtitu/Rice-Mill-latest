@@ -657,11 +657,15 @@ async def update_second_weight(entry_id: str, data: dict):
 
 
 @router.delete("/vehicle-weight/{entry_id}")
-async def delete_weight_entry(entry_id: str):
+async def delete_weight_entry(entry_id: str, username: str = "", role: str = ""):
     """Delete a weight entry + cascade delete linked mill entry & transactions."""
+    from services.edit_lock import check_edit_lock
     vw = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
     if not vw:
         raise HTTPException(status_code=404, detail="Entry not found")
+    can_edit, message = await check_edit_lock(vw, username, role)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=message)
     rst_no = vw.get("rst_no")
     kms_year = vw.get("kms_year", "")
 
@@ -689,11 +693,15 @@ async def delete_weight_entry(entry_id: str):
 
 
 @router.put("/vehicle-weight/{entry_id}/edit")
-async def edit_weight_entry(entry_id: str, data: dict):
+async def edit_weight_entry(entry_id: str, data: dict, username: str = "", role: str = ""):
     """Edit completed weight entry (Vehicle, Party, Product, Pkts, Cash, Diesel)."""
+    from services.edit_lock import check_edit_lock
     entry = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
+    can_edit, message = await check_edit_lock(entry, username, role)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=message)
 
     update_fields = {}
     editable = ["vehicle_no", "party_name", "farmer_name", "product", "tot_pkts", "cash_paid", "diesel_paid", "g_issued", "tp_no", "tp_weight", "remark"]

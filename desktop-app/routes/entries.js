@@ -2,9 +2,20 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { safeSync, roundAmount } = require('./safe_handler');
 const { cappedTpForCommission } = require('../utils/commission');
+const { checkEditLock, isEditLockEnabled, setEditLockEnabled } = require('./edit_lock_helper');
 const router = express.Router();
 
 module.exports = function(database) {
+
+  // ===== EDIT WINDOW SETTINGS (5-min lock toggle) =====
+  router.get('/api/settings/edit-window', safeSync(async (req, res) => {
+    res.json({ enabled: isEditLockEnabled(database) });
+  }));
+  router.put('/api/settings/edit-window', safeSync(async (req, res) => {
+    const enabled = !!req.body.enabled;
+    setEditLockEnabled(database, enabled);
+    res.json({ success: true, enabled });
+  }));
 
   const logAudit = (collection, recordId, action, username, oldData, newData, summary) => {
     if (!database.data.audit_log) database.data.audit_log = [];
@@ -89,6 +100,10 @@ module.exports = function(database) {
   router.put('/api/entries/:id', safeSync(async (req, res) => {
     const oldEntry = database.data.entries.find(e => e.id === req.params.id);
     if (!oldEntry) return res.status(404).json({ detail: 'Entry not found' });
+    const username = req.query.username || req.body.username || '';
+    const role = req.query.role || req.body.role || '';
+    const lockResult = checkEditLock(oldEntry, username, role, database);
+    if (!lockResult.allowed) return res.status(403).json({ detail: lockResult.message });
     const oldCopy = { ...oldEntry };
     // Duplicate RST/TP check (exclude self)
     const kms = req.body.kms_year || oldEntry.kms_year || '';
@@ -112,7 +127,12 @@ module.exports = function(database) {
 
   router.delete('/api/entries/:id', safeSync(async (req, res) => {
     const oldEntry = database.data.entries.find(e => e.id === req.params.id);
-    if (oldEntry) logAudit('mill_entries', req.params.id, 'delete', req.query.username || '', oldEntry, null);
+    if (!oldEntry) return res.status(404).json({ detail: 'Entry not found' });
+    const username = req.query.username || '';
+    const role = req.query.role || '';
+    const lockResult = checkEditLock(oldEntry, username, role, database);
+    if (!lockResult.allowed) return res.status(403).json({ detail: lockResult.message });
+    if (oldEntry) logAudit('mill_entries', req.params.id, 'delete', username, oldEntry, null);
     database.deleteEntry(req.params.id);
     res.json({ success: true });
   }));

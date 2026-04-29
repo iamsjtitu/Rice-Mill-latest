@@ -422,8 +422,12 @@ async def create_sale_voucher(input: SaleVoucherCreate, username: str = "", role
 
 @router.delete("/sale-book/{voucher_id}")
 async def delete_sale_voucher(voucher_id: str, username: str = "", role: str = ""):
+    from services.edit_lock import check_edit_lock
     existing = await db.sale_vouchers.find_one({"id": voucher_id}, {"_id": 0})
     if not existing: raise HTTPException(status_code=404, detail="Voucher not found")
+    can_edit, message = await check_edit_lock(existing, username, role)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=message)
     await db.sale_vouchers.delete_one({"id": voucher_id})
     await db.cash_transactions.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
     await db.diesel_accounts.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
@@ -453,9 +457,13 @@ async def bulk_delete_sale_vouchers(request: Request):
 
 @router.put("/sale-book/{voucher_id}")
 async def update_sale_voucher(voucher_id: str, input: SaleVoucherCreate, username: str = "", role: str = ""):
+    from services.edit_lock import check_edit_lock
     existing = await db.sale_vouchers.find_one({"id": voucher_id}, {"_id": 0})
     if not existing: raise HTTPException(status_code=404, detail="Voucher not found")
-    
+    can_edit, message = await check_edit_lock(existing, username, role)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=message)
+
     d = input.model_dump()
     items = _compute_sale_gst(d)
     d['updated_at'] = datetime.now(timezone.utc).isoformat()
