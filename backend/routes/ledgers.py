@@ -300,7 +300,7 @@ async def report_party_ledger(party_name: Optional[str] = None, party_type: Opti
                     "description": t.get("description", "") or f"Payment: Rs.{amt}",
                     "debit": amt, "credit": 0, "ref": t.get("id", "")[:8]})
 
-    ledger.sort(key=lambda x: x.get("date", ""), reverse=True)
+    ledger.sort(key=lambda x: x.get("date", ""))
 
     # Party list for filter
     parties = set()

@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.40.6",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.40.6 — 📅 Transactions Chronological Order (Oldest Top, Newest Bottom)",
+    items: [
+      { type: "improvement", text: "📅 **Cash Book Transactions Order Fixed** — Pehle latest transaction sabse upar dikhta tha, ab **chronological order** me dikhta hai: pehla hua transaction sabse upar, latest sabse niche. Example: Pehle Sale (₹3,15,000 nikasi) hua → fir Payment (₹3,15,000 jama) aaya — ab usi order me dikhega aur balance running calculate hoga." },
+      { type: "improvement", text: "📊 **Reports → Party Ledger bhi same** — Party Ledger report me bhi entries chronologically dikhti hain (oldest first → latest bottom). Running balance correctly compute hota hai." },
+      { type: "fix", text: "🧮 **Running Balance Sahi** — Har row me dikhne wala 'Balance' ab cumulative balance hai us point tak ki saari transactions ka. Last row me final balance dikhta hai." },
+    ],
+  },
+  {
     version: "104.40.5",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.40.5 — 🐛 TOTAL Row Balance Fix (Sale + Payment = ₹0)",

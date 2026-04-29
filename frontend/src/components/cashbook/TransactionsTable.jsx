@@ -10,15 +10,15 @@ const TransactionsTable = ({
   selectedIds, toggleSelect, toggleSelectAll, handleBulkDelete,
   handleEdit, handleDelete,
 }) => {
-  // Compute running balance (oldest to newest, then display newest first)
+  // Display oldest first → newest last (chronological order)
+  // (DB returns DESC by date+created_at; we reverse for display)
+  const displayTxns = [...txns].reverse();
+  // Compute running balance in same order (cumulative)
   const balMap = {};
-  if (txns.length > 0) {
-    const sorted = [...txns].reverse();
-    let runBal = 0;
-    for (const t of sorted) {
-      runBal += t.txn_type === 'jama' ? (t.amount || 0) : -(t.amount || 0);
-      balMap[t.id] = Math.round(runBal * 100) / 100;
-    }
+  let runBal = 0;
+  for (const t of displayTxns) {
+    runBal += t.txn_type === 'jama' ? (t.amount || 0) : -(t.amount || 0);
+    balMap[t.id] = Math.round(runBal * 100) / 100;
   }
 
   // Auto-ledger entries are paired duplicates (one cash + one ledger row). Excluding them from totals
@@ -79,7 +79,7 @@ const TransactionsTable = ({
         <tbody>
           {loading ? <tr><td colSpan={12} className="text-center text-slate-500 py-8">Loading...</td></tr>
           : txns.length === 0 ? <tr><td colSpan={12} className="text-center text-slate-500 py-8">Koi transaction nahi hai. "New Transaction" click karein.</td></tr>
-          : txns.map(t => (
+          : displayTxns.map(t => (
             <tr key={t.id} className={`border-b border-slate-100 ${t.txn_type === 'jama' ? 'bg-green-50/50' : 'bg-red-50/50'} ${selectedIds.includes(t.id) ? 'ring-1 ring-amber-400' : ''}`} data-testid={`txn-row-${t.id}`}>
               {user.role === 'admin' && (
                 <td className="px-2 py-2.5">

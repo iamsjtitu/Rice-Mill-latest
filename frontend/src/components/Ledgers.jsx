@@ -463,21 +463,14 @@ const PartyLedger = ({ filters }) => {
         </CardHeader>
         <CardContent className="pt-0">
           {(data.ledger || []).length > 0 ? (() => {
-            // Compute running balance (oldest first, then display as-is since API returns date-sorted)
+            // Backend returns chronological (oldest first → newest last). Use as-is.
             const ledger = data.ledger;
-            // Sort chronologically (oldest first) for balance calc
-            const chronological = [...ledger].reverse();
             let runBal = 0;
-            const balMap = {};
-            for (let i = 0; i < chronological.length; i++) {
-              const item = chronological[i];
-              runBal += (item.debit || 0) - (item.credit || 0);
-              balMap[i] = Math.round(runBal * 100) / 100;
-            }
-            // Map original index to balance (reverse mapping)
             const balByOrigIdx = {};
             for (let i = 0; i < ledger.length; i++) {
-              balByOrigIdx[i] = balMap[ledger.length - 1 - i];
+              const item = ledger[i];
+              runBal += (item.debit || 0) - (item.credit || 0);
+              balByOrigIdx[i] = Math.round(runBal * 100) / 100;
             }
             return (
             <div className="overflow-x-auto">
