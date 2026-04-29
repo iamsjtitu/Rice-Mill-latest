@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.39.0",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.39.0 — 💳 Sale/Purchase Voucher Payment: Owner Account + Pakka/Kaccha Auto Split",
+    items: [
+      { type: "new", text: "💳 **Owner Account** option ab Sale aur Purchase Voucher Payment dropdown me. Cash + Bank ke baad teesra option — jab koi owner (e.g. Gayatri Agro) apne pocket se payment kare/le, toh ye select karke owner ledger me record kar sakte ho." },
+      { type: "new", text: "🟢🟡 **Auto Pakka/Kaccha Split Display** — Split-billing ke voucher (BP Sale) ke liye payment dialog me 2 alag balance dikhte hain: 'Pakka (Bank): Rs X' aur 'Kaccha (Cash/Owner): Rs Y'. Total balance ke saath-saath dono channels alag-alag dikhte hain." },
+      { type: "new", text: "🎯 **Smart Max Hint** — Jab **Cash** ya **Owner Account** select karte ho, Amount field ka 'Max' placeholder Kaccha balance dikhata hai. **Bank** select karne par Max Pakka+GST balance dikhata hai. Galti se zyada amount nahi dalega." },
+      { type: "improvement", text: "🏷️ **Mode Indicators** — Payment Mode dropdown me dikhega 'Cash → Kaccha', 'Bank → Pakka+GST', 'Owner Account → Kaccha' (sirf split vouchers ke liye). Workflow obvious." },
+      { type: "improvement", text: "🌐 **Backend Owner Support** — Web backend ka `/api/voucher-payment` endpoint ab `account: 'owner'` + `owner_account: 'Gayatri Agro'` accept karta hai. Cash transactions me proper owner field record hota hai." },
+    ],
+  },
+  {
     version: "104.38.0",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.38.0 — 🛍️ VW Sale me Bag Type Selector + Auto Stock Out",

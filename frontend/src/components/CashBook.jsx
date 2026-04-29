@@ -437,7 +437,7 @@ const CashBook = ({ filters, user }) => {
         return bal > 0;
       }).map(v => ({ ...v, _source: 'bp_sale' }));
       setSvVouchers([...salePending, ...bpPending]);
-      setSvPayForm({ voucher_id: "", party_name: "", amount: "", date: new Date().toISOString().split('T')[0], notes: "", account: "cash", bank_name: "" });
+      setSvPayForm({ voucher_id: "", party_name: "", amount: "", date: new Date().toISOString().split('T')[0], notes: "", account: "cash", bank_name: "", owner_account: "" });
       setIsSvPayOpen(true);
     } catch (e) { logger.error(e); toast.error("Sale vouchers load nahi hue"); }
   };
@@ -447,6 +447,7 @@ const CashBook = ({ filters, user }) => {
     const amt = parseFloat(svPayForm.amount);
     if (!amt || amt <= 0) { toast.error("Amount daalna zaroori hai"); return; }
     if (svPayForm.account === "bank" && !svPayForm.bank_name) { toast.error("Bank account select karein"); return; }
+    if (svPayForm.account === "owner" && !svPayForm.owner_account) { toast.error("Owner account select karein"); return; }
     const sv = svVouchers.find(x => x.id === svPayForm.voucher_id);
     const voucherType = sv?._source === 'bp_sale' ? 'bp_sale' : 'sale';
     try {
@@ -454,7 +455,9 @@ const CashBook = ({ filters, user }) => {
         voucher_type: voucherType, voucher_id: svPayForm.voucher_id, amount: amt,
         date: svPayForm.date, notes: svPayForm.notes, username: user.username,
         kms_year: filters.kms_year || "", season: filters.season || "",
-        account: svPayForm.account, bank_name: svPayForm.account === "bank" ? svPayForm.bank_name : "",
+        account: svPayForm.account,
+        bank_name: svPayForm.account === "bank" ? svPayForm.bank_name : "",
+        owner_account: svPayForm.account === "owner" ? svPayForm.owner_account : "",
       });
       toast.success("Sale Voucher Payment record ho gayi!");
       setIsSvPayOpen(false);
@@ -464,6 +467,34 @@ const CashBook = ({ filters, user }) => {
 
   const selectedSvVoucher = svVouchers.find(v => v.id === svPayForm.voucher_id);
 
+  // For BP Sale split-billing vouchers, compute Pakka vs Kaccha balance hints
+  const svSplitInfo = (() => {
+    const v = selectedSvVoucher;
+    if (!v || !v.split_billing) return null;
+    const billed = parseFloat(v.billed_amount || 0);
+    const tax = parseFloat(v.tax_amount || 0);
+    const kaccha = parseFloat(v.kaccha_amount || 0);
+    const pakkaTotal = +(billed + tax).toFixed(2);
+    const totalBal = parseFloat((v.ledger_balance != null ? v.ledger_balance : v.balance) || 0);
+    const fullTotal = +(pakkaTotal + kaccha).toFixed(2);
+    // If voucher fully unpaid, both balances = full. If partially paid, scale proportionally.
+    const ratio = fullTotal > 0 ? totalBal / fullTotal : 0;
+    return {
+      pakka: +(pakkaTotal * ratio).toFixed(2),
+      kaccha: +(kaccha * ratio).toFixed(2),
+    };
+  })();
+  const svMaxForMode = (() => {
+    if (!selectedSvVoucher) return 0;
+    const totalBal = parseFloat((selectedSvVoucher.ledger_balance != null ? selectedSvVoucher.ledger_balance : selectedSvVoucher.balance) || 0);
+    if (svSplitInfo) {
+      if (svPayForm.account === "bank") return svSplitInfo.pakka;
+      // cash or owner → kaccha
+      return svSplitInfo.kaccha;
+    }
+    return totalBal;
+  })();
+
   const openPvPayDialog = async () => {
     try {
       const res = await axios.get(`${API}/purchase-book?kms_year=${filters.kms_year || ''}`);
@@ -472,7 +503,7 @@ const CashBook = ({ filters, user }) => {
         return bal > 0;
       });
       setPvVouchers(pending);
-      setPvPayForm({ voucher_id: "", party_name: "", amount: "", date: new Date().toISOString().split('T')[0], notes: "", account: "cash", bank_name: "" });
+      setPvPayForm({ voucher_id: "", party_name: "", amount: "", date: new Date().toISOString().split('T')[0], notes: "", account: "cash", bank_name: "", owner_account: "" });
       setIsPvPayOpen(true);
     } catch (e) { logger.error(e); toast.error("Purchase vouchers load nahi hue"); }
   };
@@ -482,12 +513,15 @@ const CashBook = ({ filters, user }) => {
     const amt = parseFloat(pvPayForm.amount);
     if (!amt || amt <= 0) { toast.error("Amount daalna zaroori hai"); return; }
     if (pvPayForm.account === "bank" && !pvPayForm.bank_name) { toast.error("Bank account select karein"); return; }
+    if (pvPayForm.account === "owner" && !pvPayForm.owner_account) { toast.error("Owner account select karein"); return; }
     try {
       await axios.post(`${API}/voucher-payment`, {
         voucher_type: "purchase", voucher_id: pvPayForm.voucher_id, amount: amt,
         date: pvPayForm.date, notes: pvPayForm.notes, username: user.username,
         kms_year: filters.kms_year || "", season: filters.season || "",
-        account: pvPayForm.account, bank_name: pvPayForm.account === "bank" ? pvPayForm.bank_name : "",
+        account: pvPayForm.account,
+        bank_name: pvPayForm.account === "bank" ? pvPayForm.bank_name : "",
+        owner_account: pvPayForm.account === "owner" ? pvPayForm.owner_account : "",
       });
       toast.success("Purchase Voucher Payment record ho gayi!");
       setIsPvPayOpen(false);
@@ -965,19 +999,27 @@ const CashBook = ({ filters, user }) => {
                 <p><span className="text-slate-400">Invoice:</span> <span className="text-white">{selectedSvVoucher.invoice_no || '-'}</span></p>
                 <p><span className="text-slate-400">Total:</span> <span className="text-emerald-400 font-bold">Rs.{selectedSvVoucher.total?.toLocaleString('en-IN')}</span></p>
                 <p><span className="text-slate-400">Balance Due:</span> <span className="text-red-400 font-bold">Rs.{(selectedSvVoucher.ledger_balance != null ? selectedSvVoucher.ledger_balance : selectedSvVoucher.balance)?.toLocaleString('en-IN')}</span></p>
+                {svSplitInfo && (
+                  <div className="mt-1 pt-1 border-t border-slate-700">
+                    <p className="text-amber-400 text-[10px] font-semibold uppercase tracking-wider mb-0.5">Split Billing</p>
+                    <p><span className="text-slate-400">→ Pakka (Bank):</span> <span className="text-emerald-300 font-bold">Rs.{svSplitInfo.pakka.toLocaleString('en-IN')}</span></p>
+                    <p><span className="text-slate-400">→ Kaccha (Cash/Owner):</span> <span className="text-amber-300 font-bold">Rs.{svSplitInfo.kaccha.toLocaleString('en-IN')}</span></p>
+                  </div>
+                )}
               </div>
             )}
             <div><Label className="text-xs text-slate-400">Date</Label>
               <Input type="date" value={svPayForm.date} onChange={e => setSvPayForm(p => ({ ...p, date: e.target.value }))}
                 className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-pay-cb-date" /></div>
             <div><Label className="text-xs text-slate-400">Payment Mode</Label>
-              <Select value={svPayForm.account} onValueChange={v => setSvPayForm(p => ({ ...p, account: v, bank_name: v === "cash" ? "" : p.bank_name }))}>
+              <Select value={svPayForm.account} onValueChange={v => setSvPayForm(p => ({ ...p, account: v, bank_name: v === "bank" ? p.bank_name : "", owner_account: v === "owner" ? p.owner_account : "" }))}>
                 <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-pay-cb-account">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-600">
-                  <SelectItem value="cash" className="text-white">Cash (नकद)</SelectItem>
-                  <SelectItem value="bank" className="text-white">Bank (बैंक)</SelectItem>
+                  <SelectItem value="cash" className="text-white">Cash (नकद){svSplitInfo ? ' → Kaccha' : ''}</SelectItem>
+                  <SelectItem value="bank" className="text-white">Bank (बैंक){svSplitInfo ? ' → Pakka+GST' : ''}</SelectItem>
+                  <SelectItem value="owner" className="text-white">Owner Account{svSplitInfo ? ' → Kaccha' : ''}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -995,16 +1037,34 @@ const CashBook = ({ filters, user }) => {
                 </Select>
               </div>
             )}
+            {svPayForm.account === "owner" && (
+              <div><Label className="text-xs text-slate-400">Owner Account</Label>
+                <Select value={svPayForm.owner_account} onValueChange={v => setSvPayForm(p => ({ ...p, owner_account: v }))}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-pay-cb-owner">
+                    <SelectValue placeholder="Owner select karein" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-600">
+                    {ownerAccounts.length === 0 ? (
+                      <div className="text-slate-400 text-xs text-center py-2">Koi owner account nahi hai</div>
+                    ) : ownerAccounts.map(o => (
+                      <SelectItem key={o.id} value={o.name} className="text-white">{o.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div><Label className="text-xs text-slate-400">Amount (Rs.) *</Label>
               <Input type="number" step="0.01" value={svPayForm.amount} onChange={e => setSvPayForm(p => ({ ...p, amount: e.target.value }))}
-                placeholder={selectedSvVoucher ? `Max: ${selectedSvVoucher.ledger_balance != null ? selectedSvVoucher.ledger_balance : selectedSvVoucher.balance}` : "0"}
+                placeholder={selectedSvVoucher ? `Max: ${svMaxForMode}${svSplitInfo ? ` (${svPayForm.account === 'bank' ? 'Pakka' : 'Kaccha'})` : ''}` : "0"}
                 className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-pay-cb-amount" /></div>
             <div><Label className="text-xs text-slate-400">Notes</Label>
               <Input value={svPayForm.notes} onChange={e => setSvPayForm(p => ({ ...p, notes: e.target.value }))}
                 placeholder="Optional" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-pay-cb-notes" /></div>
             <Button onClick={handleSvPaySubmit} disabled={!svPayForm.voucher_id}
               className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold" data-testid="sv-pay-cb-submit">
-              {svPayForm.account === "bank" && svPayForm.bank_name ? `Bank (${svPayForm.bank_name}) mein Record` : "Cash mein Record"}
+              {svPayForm.account === "bank" && svPayForm.bank_name ? `Bank (${svPayForm.bank_name}) mein Record` :
+               svPayForm.account === "owner" && svPayForm.owner_account ? `Owner (${svPayForm.owner_account}) mein Record` :
+               "Cash mein Record"}
             </Button>
           </div>
         </DialogContent>
@@ -1051,13 +1111,14 @@ const CashBook = ({ filters, user }) => {
               <Input type="date" value={pvPayForm.date} onChange={e => setPvPayForm(p => ({ ...p, date: e.target.value }))}
                 className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-pay-cb-date" /></div>
             <div><Label className="text-xs text-slate-400">Payment Mode</Label>
-              <Select value={pvPayForm.account} onValueChange={v => setPvPayForm(p => ({ ...p, account: v, bank_name: v === "cash" ? "" : p.bank_name }))}>
+              <Select value={pvPayForm.account} onValueChange={v => setPvPayForm(p => ({ ...p, account: v, bank_name: v === "bank" ? p.bank_name : "", owner_account: v === "owner" ? p.owner_account : "" }))}>
                 <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-pay-cb-account">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-600">
                   <SelectItem value="cash" className="text-white">Cash (नकद)</SelectItem>
                   <SelectItem value="bank" className="text-white">Bank (बैंक)</SelectItem>
+                  <SelectItem value="owner" className="text-white">Owner Account</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1075,6 +1136,22 @@ const CashBook = ({ filters, user }) => {
                 </Select>
               </div>
             )}
+            {pvPayForm.account === "owner" && (
+              <div><Label className="text-xs text-slate-400">Owner Account</Label>
+                <Select value={pvPayForm.owner_account} onValueChange={v => setPvPayForm(p => ({ ...p, owner_account: v }))}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-pay-cb-owner">
+                    <SelectValue placeholder="Owner select karein" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-600">
+                    {ownerAccounts.length === 0 ? (
+                      <div className="text-slate-400 text-xs text-center py-2">Koi owner account nahi hai</div>
+                    ) : ownerAccounts.map(o => (
+                      <SelectItem key={o.id} value={o.name} className="text-white">{o.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div><Label className="text-xs text-slate-400">Amount (Rs.) *</Label>
               <Input type="number" step="0.01" value={pvPayForm.amount} onChange={e => setPvPayForm(p => ({ ...p, amount: e.target.value }))}
                 placeholder={selectedPvVoucher ? `Max: ${selectedPvVoucher.ledger_balance != null ? selectedPvVoucher.ledger_balance : selectedPvVoucher.balance}` : "0"}
@@ -1084,7 +1161,9 @@ const CashBook = ({ filters, user }) => {
                 placeholder="Optional" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-pay-cb-notes" /></div>
             <Button onClick={handlePvPaySubmit} disabled={!pvPayForm.voucher_id}
               className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold" data-testid="pv-pay-cb-submit">
-              {pvPayForm.account === "bank" && pvPayForm.bank_name ? `Bank (${pvPayForm.bank_name}) mein Record` : "Cash mein Record"}
+              {pvPayForm.account === "bank" && pvPayForm.bank_name ? `Bank (${pvPayForm.bank_name}) mein Record` :
+               pvPayForm.account === "owner" && pvPayForm.owner_account ? `Owner (${pvPayForm.owner_account}) mein Record` :
+               "Cash mein Record"}
             </Button>
           </div>
         </DialogContent>

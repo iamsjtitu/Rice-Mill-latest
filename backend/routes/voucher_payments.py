@@ -21,8 +21,9 @@ async def make_voucher_payment(request: Request):
     username = data.get("username", "system")
     kms_year = data.get("kms_year", "")
     season = data.get("season", "")
-    pay_account = data.get("account", "cash")  # cash or bank
+    pay_account = data.get("account", "cash")  # cash / bank / owner
     bank_name = data.get("bank_name", "")
+    owner_account = data.get("owner_account", "")
 
     if not voucher_id or amount <= 0:
         raise HTTPException(status_code=400, detail="Voucher ID aur amount (>0) required hai")
@@ -58,15 +59,17 @@ async def make_voucher_payment(request: Request):
             source_label = f"Sale #{voucher.get('voucher_no', '')}"
             party_type = "Sale Book"
 
-        # Cash/Bank JAMA - payment coming in (actual cash)
+        # Cash/Bank/Owner JAMA - payment coming in (actual cash)
         cash_entry = {
             "id": str(uuid.uuid4()), "date": date, "account": pay_account, "txn_type": "jama",
             "amount": round_amount(amount), "category": party, "party_type": party_type,
-            "description": f"Payment received - {source_label} - {party}" + (f" ({notes})" if notes else ""),
+            "description": f"Payment received - {source_label} - {party}" + (f" via Owner: {owner_account}" if pay_account == "owner" and owner_account else "") + (f" ({notes})" if notes else ""),
             "reference": f"voucher_payment:{payment_id}", **base
         }
         if pay_account == "bank" and bank_name:
             cash_entry["bank_name"] = bank_name
+        if pay_account == "owner" and owner_account:
+            cash_entry["owner_account"] = owner_account
         # Ledger NIKASI - reduces what party owes us (total including round off)
         ledger_entry = {
             "id": str(uuid.uuid4()), "date": date, "account": "ledger", "txn_type": "nikasi",
@@ -102,15 +105,17 @@ async def make_voucher_payment(request: Request):
             source_label = f"Gunny Bag ({voucher.get('date', '')})"
             party_type = "Gunny Bag"
 
-        # Cash/Bank NIKASI - payment going out (actual cash)
+        # Cash/Bank/Owner NIKASI - payment going out (actual cash)
         cash_entry = {
             "id": str(uuid.uuid4()), "date": date, "account": pay_account, "txn_type": "nikasi",
             "amount": round_amount(amount), "category": party, "party_type": party_type,
-            "description": f"Payment made - {source_label} - {party}" + (f" ({notes})" if notes else ""),
+            "description": f"Payment made - {source_label} - {party}" + (f" via Owner: {owner_account}" if pay_account == "owner" and owner_account else "") + (f" ({notes})" if notes else ""),
             "reference": f"voucher_payment:{payment_id}", **base
         }
         if pay_account == "bank" and bank_name:
             cash_entry["bank_name"] = bank_name
+        if pay_account == "owner" and owner_account:
+            cash_entry["owner_account"] = owner_account
         # Ledger NIKASI - reduces what we owe (total including round off)
         ledger_entry = {
             "id": str(uuid.uuid4()), "date": date, "account": "ledger", "txn_type": "nikasi",
