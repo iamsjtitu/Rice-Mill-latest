@@ -100,13 +100,15 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       const res = await axios.get(`${API}/vehicle-weight/by-rst/${rstNo}?kms_year=${filters.kms_year || ""}&expected_context=sale`);
       if (res.data?.entry) {
         const e = res.data.entry;
+        // Backend stores as `net_wt`, but some legacy contexts may return `net_weight`. Try both.
+        const nw = e.net_wt != null ? e.net_wt : (e.net_weight != null ? e.net_weight : null);
         setForm(p => ({
           ...p,
           vehicle_no: e.vehicle_no || p.vehicle_no,
           party_name: e.party_name || p.party_name,
           destination: e.farmer_name || p.destination,
-          net_weight_kg: e.net_weight ? String(e.net_weight) : p.net_weight_kg,
-          net_weight_qtl_display: e.net_weight ? String(Math.round(e.net_weight / 100 * 100) / 100) : p.net_weight_qtl_display,
+          net_weight_kg: nw != null ? String(nw) : p.net_weight_kg,
+          net_weight_qtl_display: nw != null ? String(Math.round(nw / 100 * 100) / 100) : p.net_weight_qtl_display,
           bags: e.tot_pkts ? String(e.tot_pkts) : p.bags,
         }));
         toast.success("RST data fetch ho gaya!");

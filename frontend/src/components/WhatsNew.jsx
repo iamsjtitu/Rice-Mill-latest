@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.37.7",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.37.7 — 🐛 RST Auto-Fetch Bug Fix in By-Product Sale",
+    items: [
+      { type: "fix", text: "🐛 **RST Auto-Fetch Fix** — By-Product Sale form me RST number daalne par weight auto-fill nahi ho raha tha. Backend `vehicle_weights` me field name `net_wt` hai, jabki frontend `net_weight` dhoondh raha tha — typo fix kiya. Ab RST se Party Name, Vehicle, Destination, **N/W (Kg) + N/W (Qtl)**, Bags sab auto-fill hote hain." },
+      { type: "improvement", text: "🛡️ **Backward Compat** — Frontend ab dono field names support karta hai (`net_wt` aur legacy `net_weight`) — koi bhi backend variant ho, kaam karega." },
+    ],
+  },
+  {
     version: "104.37.6",
     date: "Apr 29, 2026 (Night)",
     title: "v104.37.6 — ⚖️ Split Billing — Total N/W + Smart Auto-Divide (Pakka↔Kaccha)",
