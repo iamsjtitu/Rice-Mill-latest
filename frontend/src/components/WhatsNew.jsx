@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.37.0",
+    date: "Apr 29, 2026 (Evening)",
+    title: "v104.37.0 — 🛠️ Internal Stability — Auto-Ledger Logic Centralized",
+    items: [
+      { type: "improvement", text: "🛠️ **Behind-the-Scenes Cleanup** — Truck rate aur Agent commission ke time jo Cash Book me automatically Jama entry banti hai (auto-ledger), uss code ko ek hi central jagah laaya gaya. Pehle 7 jagah duplicate logic tha — ab sirf 1 helper function. **App ka behaviour bilkul wahi hai** — koi UI/feature change nahi, sirf code zyada reliable hai." },
+      { type: "improvement", text: "🧪 **Regression Tests** — Naye `test_truck_rate_refactor.py` me 4 automated tests jo verify karte hain ki: nayi entry banti hai, edit pe duplicate nahi banti, rate=0 pe entry safely delete hoti hai. Future me koi bhi change accidentally is logic ko nahi tod sakega." },
+      { type: "fix", text: "📉 **payments.py** — 2146 → 2039 lines (-107 lines, ~5% chhota). Future bug fixes aur improvements ab faster ho sakte hain." },
+      { type: "improvement", text: "🌐 **Triple-Backend Parity** — Python web + Electron Desktop + LAN Local Server teeno me API contract bilkul same. Aapke desktop app ka behaviour bhi unchanged." },
+    ],
+  },
+  {
     version: "104.36.0",
     date: "Apr 29, 2026",
     title: "v104.36.0 — 🔔 Mill Parts Low Stock Notification (Header Bell)",
