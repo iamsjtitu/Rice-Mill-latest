@@ -977,29 +977,19 @@ async def make_agent_payment(mandi_name: str, request: MakePaymentRequest, kms_y
             total_amount = round((capped_tp * base_rate) + (cutting_qntl * cutting_rate), 2)
             
             linked_id = f"agent_jama:{mandi_name}:{kms_year}:{season}"
-            existing_jama = await db.cash_transactions.find_one({"linked_payment_id": linked_id}, {"_id": 0})
-            if not existing_jama and total_amount > 0:
-                jama_entry = {
-                    "id": str(uuid.uuid4()),
-                    "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-                    "account": "ledger", "txn_type": "jama",
-                    "category": mandi_name, "party_type": "Agent",
-                    "description": f"Agent Commission: {mandi_name} @ Rs.{base_rate}",
-                    "amount": round_amount(total_amount),
-                    "reference": f"agent_comm:{mandi_name[:10]}",
-                    "kms_year": kms_year, "season": season,
-                    "created_by": username or "system",
-                    "linked_payment_id": linked_id,
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                }
-                await db.cash_transactions.insert_one(jama_entry)
-            elif existing_jama and total_amount > 0:
-                await db.cash_transactions.update_one(
-                    {"linked_payment_id": linked_id},
-                    {"$set": {"amount": round_amount(total_amount),
-                              "description": f"Agent Commission: {mandi_name} @ Rs.{base_rate}",
-                              "updated_at": datetime.now(timezone.utc).isoformat()}}
+            if total_amount > 0:
+                await upsert_jama_ledger(
+                    query={"linked_payment_id": linked_id},
+                    doc={
+                        "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                        "category": mandi_name, "party_type": "Agent",
+                        "description": f"Agent Commission: {mandi_name} @ Rs.{base_rate}",
+                        "amount": round_amount(total_amount),
+                        "reference": f"agent_comm:{mandi_name[:10]}",
+                        "kms_year": kms_year, "season": season,
+                        "created_by": username or "system",
+                        "linked_payment_id": linked_id,
+                    },
                 )
         
         # NIKASI (Cash/Bank/Owner) - Agent Payment
@@ -1124,12 +1114,10 @@ async def mark_agent_paid(mandi_name: str, kms_year: str = "", season: str = "",
         cutting_qntl = round(achieved_qntl * target.get("cutting_percent", 0) / 100, 2) if target.get("cutting_percent", 0) > 0 else 0
 
         linked_jama_id = f"agent_jama:{mandi_name}:{kms_year}:{season}"
-        existing_jama = await db.cash_transactions.find_one({"linked_payment_id": linked_jama_id}, {"_id": 0})
-        if not existing_jama:
-            jama_entry = {
-                "id": str(uuid.uuid4()),
+        await upsert_jama_ledger(
+            query={"linked_payment_id": linked_jama_id},
+            doc={
                 "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-                "account": "ledger", "txn_type": "jama",
                 "category": mandi_name, "party_type": "Agent",
                 "description": f"Agent Commission: {mandi_name} @ Rs.{base_rate}",
                 "amount": round_amount(total_amount),
@@ -1137,17 +1125,8 @@ async def mark_agent_paid(mandi_name: str, kms_year: str = "", season: str = "",
                 "kms_year": kms_year, "season": season,
                 "created_by": username or "system",
                 "linked_payment_id": linked_jama_id,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }
-            await db.cash_transactions.insert_one(jama_entry)
-        elif existing_jama:
-            await db.cash_transactions.update_one(
-                {"linked_payment_id": linked_jama_id},
-                {"$set": {"amount": round_amount(total_amount),
-                          "description": f"Agent Commission: {mandi_name} @ Rs.{base_rate}",
-                          "updated_at": datetime.now(timezone.utc).isoformat()}}
-            )
+            },
+        )
 
         # NIKASI (Cash) - Agent Payment
         cb_entry = {

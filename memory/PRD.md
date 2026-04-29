@@ -2,29 +2,30 @@
 
 ## Current Version: v104.36.0
 
-## ♻️ Refactor (Apr 29, 2026) — `upsert_jama_ledger()` Helper for Truck Rate Logic
+## ♻️ Refactor (Apr 29, 2026) — `upsert_jama_ledger()` Helper for Truck Rate + Agent Commission Logic
 
-**What:** Pulled out the repetitive "find existing jama → update OR insert new ledger entry" pattern from `payments.py` `set_truck_rate` endpoint into a new helper function.
+**What:** Pulled out the repetitive "find existing jama → update OR insert new ledger entry" pattern from `payments.py` into a single helper function, applied across **both** `set_truck_rate` and `record_agent_payment` + `mark_agent_paid` endpoints.
 
 **Files:**
 - New helper: `/app/backend/services/cashbook_service.py` → `upsert_jama_ledger(query, doc, allow_delete_on_zero=False)`
-- Refactored: `/app/backend/routes/payments.py` `set_truck_rate` (lines 476-595)
+- Refactored: `/app/backend/routes/payments.py`
+  - `set_truck_rate` — 5 duplicate truck-jama blocks (pvt/sale/purchase/dc/multi)
+  - `record_agent_payment` — agent_jama upsert
+  - `mark_agent_paid` — agent_jama upsert
 - Tests: `/app/backend/tests/test_truck_rate_refactor.py` (4 tests, all pass)
 
 **Impact:**
-- 5 duplicate blocks (pvt_truck, sale_truck, purchase_truck, dc_delivery, multi-truck) → 5 helper calls
-- payments.py: 2146 → 2060 lines (**-86 lines**)
-- Future bug fixes / param changes → 1 file edit instead of 5
-- Clear contract: `query` to find existing, `doc` to insert if missing, optional delete on zero
+- 7 duplicate upsert blocks → 7 helper calls
+- payments.py: 2146 → 2039 lines (**-107 lines, ~5% smaller**)
+- Future bug fixes / param changes → 1 file edit instead of 7
+- Zero remaining `existing_jama = await db.cash_transactions.find_one(...)` upsert patterns in payments.py
 
-**API behaviour:** UNCHANGED. Same field names, same response, same reference prefixes. All 4 regression tests pass.
+**API behaviour:** UNCHANGED. Same field names, same response, same reference prefixes. All 4 regression tests pass + manual end-to-end test (rate 50→75→0 confirmed insert→update→delete works).
 
-**Triple-Backend Parity:** Node backends (`desktop-app`, `local-server`) only have **1 occurrence** of this pattern (single `truck_entry:` block) — refactoring there would be over-engineering. API contract unchanged → parity preserved at the API level.
+**Triple-Backend Parity:** Node backends (`desktop-app`, `local-server`) only have **1 occurrence** of these patterns each — refactoring there would be over-engineering. API contract unchanged → parity preserved at the API level.
 
-**Skipped (not refactored):**
-- `agent_jama` upsert (1 occurrence in payments.py — single-use, not duplication)
-- `hemali.py`, `staff.py` cash_transactions inserts — single inserts, no upsert pattern
-- These can be refactored later if more duplication emerges
+**Skipped (intentional):**
+- `hemali.py`, `staff.py` cash_transactions inserts — single inserts, no upsert pattern, no benefit from refactoring.
 
 ---
 
