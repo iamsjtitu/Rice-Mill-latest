@@ -156,16 +156,23 @@ const CashBook = ({ filters, user }) => {
     if (cbAbortRef.current) cbAbortRef.current.abort();
     const ctrl = new AbortController();
     cbAbortRef.current = ctrl;
-    // Party Ledgers view: skip default-load — show empty until user types a category/search
-    // (avoids dumping all parties at once which is slow + not useful)
+    // Party Ledgers view: skip heavy filtered txn fetch — show empty until user types a category/search.
+    // BUT: always fetch the full lightweight allTxns list so Party Type + Select Party dropdowns
+    // can suggest options.
     if (activeView === 'transactions' && !txnFilters.category && !txnFilters.party_type
         && !txnFilters.date_from && !txnFilters.date_to && !filterPartySearch) {
       setTxns([]);
-      setAllTxns([]);
       setSummary({ total_jama: 0, total_nikasi: 0, balance: 0 });
       setTotalCount(0);
       setTotalPages(1);
-      setLoading(false);
+      try {
+        const allParams = new URLSearchParams();
+        if (filters.kms_year) allParams.append('kms_year', filters.kms_year);
+        allParams.append('page_size', '0');
+        const allRes = await axios.get(`${API}/cash-book?${allParams}`, { signal: ctrl.signal });
+        if (!ctrl.signal.aborted) setAllTxns((allRes.data.transactions || allRes.data) || []);
+      } catch (e) { /* ignore — dropdowns will be empty until next refresh */ }
+      if (!ctrl.signal.aborted) setLoading(false);
       return;
     }
     try {

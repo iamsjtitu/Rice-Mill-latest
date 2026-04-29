@@ -129,7 +129,7 @@ const CashBookFilters = ({
               (() => {
                 const items = getFilteredItems();
                 return items.length > 0 ? (
-                  <div ref={dropdownRef} className="absolute z-50 w-56 mt-1 max-h-48 overflow-auto bg-slate-800 border border-slate-200 rounded-md shadow-lg">
+                  <div ref={dropdownRef} className="absolute z-50 w-56 mt-1 max-h-48 overflow-auto bg-white border border-slate-300 rounded-md shadow-lg">
                     {items.map((c, i) => {
                       // Detect if this name is an OWNER (matches any txn.owner_name with account=owner)
                       const ownerTxn = allTxns.find(t => t.account === 'owner' && t.owner_name === c);
@@ -148,7 +148,7 @@ const CashBookFilters = ({
                             setFilterPartySearch("");
                             setShowFilterPartyDropdown(false);
                           }}>
-                          <span className="text-slate-800">{c}</span>
+                          <span className="text-slate-800 font-medium">{c}</span>
                           {isOwner ? (
                             <span className="text-[9px] px-1 py-0.5 rounded bg-purple-100 text-purple-700">Owner</span>
                           ) : pt && pt.party_type && <span className={`text-[9px] px-1 py-0.5 rounded ${

@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.41.3",
+    date: "Feb 16, 2026",
+    title: "v104.41.3 — 🔍 Cash Book Filter Dropdowns Always Populated",
+    items: [
+      { type: "fix", text: "🔍 **Party Type dropdown empty fix** — Reported: 'Party Type me kuch nahi aata, sirf All Types dikhta hai.' Cause: Cash Book ke Party Ledgers view me jab tak user filter nahi lagata, backend se `allTxns` fetch nahi hota tha (performance ke liye), lekin **dropdowns ko `allTxns` chahiye party_type aur party names list karne ke liye**. Fix: ab `allTxns` lightweight call hamesha hota hai (page=0 lightweight list), lekin filtered txn fetch + summary tabhi hota hai jab user filter daale. Heavy ledger view fast bhi rahegi aur dropdowns turant populated honge." },
+      { type: "fix", text: "🔍 **Select Party — All parties suggestion on focus** — Reported: 'Select Party pe click karte hi sab parties dikhna chahiye, search karne par hi nahi.' Fix: ab Select Party input pe click/focus karte hi (kuch type karne se pehle bhi) **complete party list dikhti hai** (Owner badge, Truck/Agent/Local Party badge ke saath). Type karne par filtered list. Search clear karne par wapas full list." },
+    ],
+  },
+  {
     version: "104.41.2",
     date: "Feb 16, 2026",
     title: "v104.41.2 — 🚨 Owner Expense Payment Ledger Fix (Titu's JAMA)",
