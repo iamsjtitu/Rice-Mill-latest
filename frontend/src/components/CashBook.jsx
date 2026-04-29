@@ -404,12 +404,18 @@ const CashBook = ({ filters, user }) => {
   const entryNames = [...(agentSuggestions.mandi_names || []), ...(agentSuggestions.truck_numbers || [])];
   const categories = [...new Set([...defaultCats, ...customCats.map(c => c.name), ...txnCategories, ...entryNames])].sort();
 
-  const allCategoriesForFilter = [...new Set(
-    allTxns
+  // Include both `category` (other party) AND `owner_name` (owner accounts) so
+  // owner ledgers like "Titu" also show up in the party-search dropdown.
+  const allCategoriesForFilter = [...new Set([
+    ...allTxns
       .filter(t => !txnFilters.party_type || t.party_type === txnFilters.party_type)
       .map(t => t.category)
-      .filter(Boolean)
-  )].sort();
+      .filter(Boolean),
+    ...allTxns
+      .filter(t => t.account === 'owner' && t.owner_name)
+      .filter(t => !txnFilters.party_type || txnFilters.party_type === 'Owner')
+      .map(t => t.owner_name),
+  ])].sort();
 
   const getPartyBalance = (partyName) => {
     if (!partyName) return null;

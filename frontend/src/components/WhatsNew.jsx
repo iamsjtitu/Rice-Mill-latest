@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.41.1",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.41.1 — 🚨 Owner Ledger (Titu) Party Search me Visible Fix",
+    items: [
+      { type: "fix", text: "🚨 **Owner Ledger Search Fix** — Cash Book → Party Ledgers ke search dropdown me Owner accounts (Titu, etc.) nahi dikh rahe the. Reason: backend search sirf `category` field aggregate karta tha, par owner txns ka name `owner_name` field me hota hai (category me 'Rakhad Fikai' hota hai jo wo owner ne pay kiya). Fix: dropdown me ab owner_name bhi shaamil hai, **purple 'Owner' badge** ke saath. Click karne par automatic `party_type='Owner'` filter set ho jata hai aur Titu ka complete ledger dikhata hai." },
+      { type: "improvement", text: "💡 **Tip** — Titu ne kisi vendor ko 1000 pay kiya mill ke liye → Titu ke ledger me yeh entry **JAMA (CR)** show karega (mill ne Titu se 1000 le liya — owe karta hai). Search 'Titu' karke confirm kar sakte ho." },
+    ],
+  },
+  {
     version: "104.41.0",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.41.0 — 🎨 DR=Red, CR=Green + PDF/Excel/WhatsApp Order Confirm",

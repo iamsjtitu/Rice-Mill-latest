@@ -131,13 +131,27 @@ const CashBookFilters = ({
                 return items.length > 0 ? (
                   <div ref={dropdownRef} className="absolute z-50 w-56 mt-1 max-h-48 overflow-auto bg-slate-800 border border-slate-200 rounded-md shadow-lg">
                     {items.map((c, i) => {
+                      // Detect if this name is an OWNER (matches any txn.owner_name with account=owner)
+                      const ownerTxn = allTxns.find(t => t.account === 'owner' && t.owner_name === c);
                       const pt = allTxns.find(t => t.category === c && t.party_type);
+                      const isOwner = !!ownerTxn;
                       return (
                         <div key={c} data-idx={i}
                           className={`px-3 py-1.5 text-xs cursor-pointer flex justify-between items-center ${highlightIdx === i ? 'bg-amber-100' : 'hover:bg-amber-50'}`}
-                          onMouseDown={() => { setTxnFilters(p => ({ ...p, category: c })); setFilterPartySearch(""); setShowFilterPartyDropdown(false); }}>
+                          onMouseDown={() => {
+                            // Owner ledger: filter via party_type='Owner' so backend routes to owner_name match
+                            if (isOwner) {
+                              setTxnFilters(p => ({ ...p, category: c, party_type: 'Owner' }));
+                            } else {
+                              setTxnFilters(p => ({ ...p, category: c }));
+                            }
+                            setFilterPartySearch("");
+                            setShowFilterPartyDropdown(false);
+                          }}>
                           <span className="text-slate-800">{c}</span>
-                          {pt && pt.party_type && <span className={`text-[9px] px-1 py-0.5 rounded ${
+                          {isOwner ? (
+                            <span className="text-[9px] px-1 py-0.5 rounded bg-purple-100 text-purple-700">Owner</span>
+                          ) : pt && pt.party_type && <span className={`text-[9px] px-1 py-0.5 rounded ${
                             pt.party_type === 'Truck' ? 'bg-blue-100 text-blue-700' :
                             pt.party_type === 'Agent' ? 'bg-purple-100 text-purple-700' :
                             pt.party_type === 'Local Party' ? 'bg-amber-100 text-amber-700' :
