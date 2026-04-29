@@ -594,17 +594,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             {!isSplit && (
               <div className="grid grid-cols-4 gap-3">
                 <div>
-                  <Label className="text-[10px] text-slate-400">N/W (Kg) {stockInfo && <span className={`font-bold ${(effectiveAvailQtl - nwQtl) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((effectiveAvailQtl - nwQtl) * 100) / 100} Qtl)</span>}</Label>
-                  <Input type="number" step="0.01" value={form.net_weight_kg}
-                    onChange={e => {
-                      const kg = e.target.value;
-                      setForm(p => ({ ...p, net_weight_kg: kg, net_weight_qtl_display: kg === "" ? "" : String(Math.round((parseFloat(kg) || 0) / 100 * 100) / 100) }));
-                    }}
-                    className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-nw" />
-                  {stockInfo && nwQtl > effectiveAvailQtl && <p className="text-red-400 text-[9px] mt-0.5">Stock se zyada!</p>}
-                </div>
-                <div>
-                  <Label className="text-[10px] text-slate-400">N/W (Qtl)</Label>
+                  <Label className="text-[10px] text-slate-400">N/W (Qtl) {stockInfo && <span className={`font-bold ${(effectiveAvailQtl - nwQtl) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((effectiveAvailQtl - nwQtl) * 100) / 100} Qtl)</span>}</Label>
                   <Input type="number" step="0.01"
                     value={form.net_weight_qtl_display ?? (form.net_weight_kg ? String(Math.round((parseFloat(form.net_weight_kg) || 0) / 100 * 100) / 100) : "")}
                     onChange={e => {
@@ -612,6 +602,13 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       setForm(p => ({ ...p, net_weight_qtl_display: qtl, net_weight_kg: qtl === "" ? "" : String(Math.round((parseFloat(qtl) || 0) * 100 * 100) / 100) }));
                     }}
                     className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-nw-qtl" />
+                  {stockInfo && nwQtl > effectiveAvailQtl && <p className="text-red-400 text-[9px] mt-0.5">Stock se zyada!</p>}
+                </div>
+                <div>
+                  <Label className="text-[10px] text-slate-400">N/W (Kg) <span className="text-slate-500 text-[9px]">(auto)</span></Label>
+                  <Input type="number" step="0.01" value={form.net_weight_kg}
+                    readOnly tabIndex={-1}
+                    className="bg-slate-800 border-slate-700 text-slate-300 h-8 text-xs cursor-not-allowed" data-testid="bp-nw" />
                 </div>
                 <div>
                   <Label className="text-[10px] text-slate-400">Bags</Label>

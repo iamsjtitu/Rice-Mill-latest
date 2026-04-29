@@ -7,6 +7,22 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.37.4",
+    date: "Apr 29, 2026 (Night)",
+    title: "v104.37.4 — 🔒 N/W (Kg) Field Locked — Sirf Qtl Editable",
+    items: [
+      { type: "improvement", text: "🔒 **N/W (Kg) ab Read-Only** — Rice Bran / By-Product Sale form me **N/W (Kg)** field ab locked hai (auto-calculated). User sirf **N/W (Qtl)** me daalega, Kg automatic dikhega. Mistake by accident Kg me typing ka chance zero." },
+    ],
+  },
+  {
+    version: "104.37.3",
+    date: "Apr 29, 2026 (Night)",
+    title: "v104.37.3 — 🔄 By-Product Sale: N/W (Qtl) Field First, Then Kg",
+    items: [
+      { type: "improvement", text: "🔄 **Field Order Swapped** — Rice Bran / By-Product Sale form me ab **N/W (Qtl)** field pehle aata hai aur **N/W (Kg)** baad me — kyunki workflow me Qtl primary hota hai. Stock indicator + warning bhi ab Qtl field ke saath dikhta hai." },
+    ],
+  },
+  {
     version: "104.37.2",
     date: "Apr 29, 2026 (Night)",
     title: "v104.37.2 — ⚖️ By-Product Sale: Kg ↔ Qtl Auto-Convert Field",
