@@ -110,8 +110,8 @@ module.exports = function(database) {
    */
   function computeAmountsAndTax(data) {
     const rate = parseFloat(data.rate_per_qtl || 0);
-    const kacchaRate = (data.kaccha_rate_per_qtl !== undefined && data.kaccha_rate_per_qtl !== null && data.kaccha_rate_per_qtl !== "")
-      ? (parseFloat(data.kaccha_rate_per_qtl) || 0)
+    const kacchaRate = (data.kaccha_rate_per_qtl !== undefined && data.kaccha_rate_per_qtl !== null && data.kaccha_rate_per_qtl !== "" && parseFloat(data.kaccha_rate_per_qtl) > 0)
+      ? parseFloat(data.kaccha_rate_per_qtl)
       : rate;
     const isSplit = !!data.split_billing;
 

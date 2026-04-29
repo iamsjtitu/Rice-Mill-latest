@@ -91,6 +91,46 @@ module.exports = function(database) {
     res.json(sales);
   });
 
+  function computeAmountsAndTax(data) {
+    const rate = parseFloat(data.rate_per_qtl || 0);
+    const kacchaRate = (data.kaccha_rate_per_qtl !== undefined && data.kaccha_rate_per_qtl !== null && data.kaccha_rate_per_qtl !== "" && parseFloat(data.kaccha_rate_per_qtl) > 0)
+      ? parseFloat(data.kaccha_rate_per_qtl)
+      : rate;
+    const isSplit = !!data.split_billing;
+
+    if (isSplit) {
+      const billedKg = parseFloat(data.billed_weight_kg || 0);
+      const kacchaKg = parseFloat(data.kaccha_weight_kg || 0);
+      const billedQtl = +(billedKg / 100).toFixed(4);
+      const kacchaQtl = +(kacchaKg / 100).toFixed(4);
+      const billedAmt = +(billedQtl * rate).toFixed(2);
+      const kacchaAmt = +(kacchaQtl * kacchaRate).toFixed(2);
+      data.net_weight_kg = +(billedKg + kacchaKg).toFixed(3);
+      data.net_weight_qtl = +(billedQtl + kacchaQtl).toFixed(4);
+      data.billed_weight_qtl = billedQtl;
+      data.kaccha_weight_qtl = kacchaQtl;
+      data.billed_amount = billedAmt;
+      data.kaccha_amount = kacchaAmt;
+      data.kaccha_rate_per_qtl = kacchaRate;
+      data.amount = billedAmt;
+      const taxAmt = data.gst_percent ? +(billedAmt * parseFloat(data.gst_percent || 0) / 100).toFixed(2) : 0;
+      data.tax_amount = taxAmt;
+      data.total = +(billedAmt + taxAmt + kacchaAmt).toFixed(2);
+    } else {
+      const nw = parseFloat(data.net_weight_kg || 0);
+      const nwQtl = +(nw / 100).toFixed(4);
+      const amount = +(nwQtl * rate).toFixed(2);
+      data.net_weight_qtl = nwQtl;
+      data.amount = amount;
+      data.billed_weight_kg = 0; data.billed_weight_qtl = 0; data.billed_amount = 0;
+      data.kaccha_weight_kg = 0; data.kaccha_weight_qtl = 0; data.kaccha_amount = 0;
+      data.kaccha_rate_per_qtl = 0;
+      const taxAmt = data.gst_percent ? +(amount * parseFloat(data.gst_percent || 0) / 100).toFixed(2) : 0;
+      data.tax_amount = taxAmt;
+      data.total = +(amount + taxAmt).toFixed(2);
+    }
+  }
+
   router.post('/api/bp-sale-register', (req, res) => {
     ensure();
     const data = { ...req.body };
@@ -99,17 +139,7 @@ module.exports = function(database) {
     data.updated_at = data.created_at;
     data.created_by = req.query.username || '';
 
-    const nw = parseFloat(data.net_weight_kg || 0);
-    const rate = parseFloat(data.rate_per_qtl || 0);
-    const nwQtl = +(nw / 100).toFixed(4);
-    const amount = +(nwQtl * rate).toFixed(2);
-    data.net_weight_qtl = nwQtl;
-    data.amount = amount;
-
-    let taxAmt = 0;
-    if (data.gst_percent) { taxAmt = +(amount * parseFloat(data.gst_percent || 0) / 100).toFixed(2); }
-    data.tax_amount = taxAmt;
-    data.total = +(amount + taxAmt).toFixed(2);
+    computeAmountsAndTax(data);
 
     const cash = parseFloat(data.cash_paid || 0);
     const diesel = parseFloat(data.diesel_paid || 0);
@@ -135,17 +165,7 @@ module.exports = function(database) {
     data.updated_at = new Date().toISOString();
     data.updated_by = req.query.username || '';
 
-    const nw = parseFloat(data.net_weight_kg || 0);
-    const rate = parseFloat(data.rate_per_qtl || 0);
-    const nwQtl = +(nw / 100).toFixed(4);
-    const amount = +(nwQtl * rate).toFixed(2);
-    data.net_weight_qtl = nwQtl;
-    data.amount = amount;
-
-    let taxAmt = 0;
-    if (data.gst_percent) { taxAmt = +(amount * parseFloat(data.gst_percent || 0) / 100).toFixed(2); }
-    data.tax_amount = taxAmt;
-    data.total = +(amount + taxAmt).toFixed(2);
+    computeAmountsAndTax(data);
 
     const cash = parseFloat(data.cash_paid || 0);
     const diesel = parseFloat(data.diesel_paid || 0);

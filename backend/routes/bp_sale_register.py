@@ -165,6 +165,68 @@ async def get_bp_sales(product: str = "", kms_year: str = "", season: str = ""):
     return sales
 
 
+def _compute_amounts_and_tax(data: dict) -> None:
+    """Mutates data with computed fields. Matches desktop/local-server split-billing logic exactly.
+
+    NON-SPLIT (data.split_billing falsy):
+        amount = (net_weight_kg / 100) * rate_per_qtl
+        tax = amount * gst%
+        total = amount + tax
+
+    SPLIT (data.split_billing == True):
+        Pakka portion (GST taxable): billed_weight_kg
+        Kaccha portion (no GST):     kaccha_weight_kg
+        net_weight_kg = billed + kaccha (sum for physical dispatch)
+        billed_amount = billed_qtl * rate_per_qtl
+        kaccha_amount = kaccha_qtl * (kaccha_rate_per_qtl OR rate_per_qtl)
+        tax = billed_amount * gst%
+        total = billed_amount + tax + kaccha_amount
+        amount field stores billed_amount for register/GST compatibility
+    """
+    rate = float(data.get("rate_per_qtl", 0) or 0)
+    raw_kaccha_rate = data.get("kaccha_rate_per_qtl")
+    kaccha_rate = (float(raw_kaccha_rate) if raw_kaccha_rate not in (None, "", 0, "0") else rate)
+    is_split = bool(data.get("split_billing"))
+
+    if is_split:
+        billed_kg = float(data.get("billed_weight_kg", 0) or 0)
+        kaccha_kg = float(data.get("kaccha_weight_kg", 0) or 0)
+        billed_qtl = round(billed_kg / 100, 4)
+        kaccha_qtl = round(kaccha_kg / 100, 4)
+        billed_amt = round(billed_qtl * rate, 2)
+        kaccha_amt = round(kaccha_qtl * kaccha_rate, 2)
+        data["net_weight_kg"] = round(billed_kg + kaccha_kg, 3)  # sum for physical dispatch
+        data["net_weight_qtl"] = round(billed_qtl + kaccha_qtl, 4)
+        data["billed_weight_qtl"] = billed_qtl
+        data["kaccha_weight_qtl"] = kaccha_qtl
+        data["billed_amount"] = billed_amt
+        data["kaccha_amount"] = kaccha_amt
+        data["kaccha_rate_per_qtl"] = kaccha_rate
+        data["amount"] = billed_amt  # GST-taxable portion (kept under same key for register compat)
+        gst_pct = float(data.get("gst_percent") or 0)
+        tax_amt = round(billed_amt * gst_pct / 100, 2) if gst_pct else 0
+        data["tax_amount"] = tax_amt
+        data["total"] = round(billed_amt + tax_amt + kaccha_amt, 2)
+    else:
+        nw = float(data.get("net_weight_kg", 0) or 0)
+        nw_qtl = round(nw / 100, 4)
+        amount = round(nw_qtl * rate, 2)
+        data["net_weight_qtl"] = nw_qtl
+        data["amount"] = amount
+        # Clear split fields if toggled off (or never on)
+        data["billed_weight_kg"] = 0
+        data["billed_weight_qtl"] = 0
+        data["billed_amount"] = 0
+        data["kaccha_weight_kg"] = 0
+        data["kaccha_weight_qtl"] = 0
+        data["kaccha_amount"] = 0
+        data["kaccha_rate_per_qtl"] = 0
+        gst_pct = float(data.get("gst_percent") or 0)
+        tax_amt = round(amount * gst_pct / 100, 2) if gst_pct else 0
+        data["tax_amount"] = tax_amt
+        data["total"] = round(amount + tax_amt, 2)
+
+
 @router.post("/bp-sale-register")
 async def create_bp_sale(data: dict, username: str = "", role: str = ""):
     data["id"] = str(uuid.uuid4())[:12]
@@ -172,19 +234,7 @@ async def create_bp_sale(data: dict, username: str = "", role: str = ""):
     data["updated_at"] = data["created_at"]
     data["created_by"] = username
 
-    nw = float(data.get("net_weight_kg", 0) or 0)
-    rate = float(data.get("rate_per_qtl", 0) or 0)
-    nw_qtl = round(nw / 100, 4)
-    amount = round(nw_qtl * rate, 2)
-    data["net_weight_qtl"] = nw_qtl
-    data["amount"] = amount
-
-    tax_amount = 0
-    if data.get("gst_percent"):
-        gst = float(data["gst_percent"] or 0)
-        tax_amount = round(amount * gst / 100, 2)
-    data["tax_amount"] = tax_amount
-    data["total"] = round(amount + tax_amount, 2)
+    _compute_amounts_and_tax(data)
 
     cash = float(data.get("cash_paid", 0) or 0)
     diesel = float(data.get("diesel_paid", 0) or 0)
@@ -214,19 +264,7 @@ async def update_bp_sale(sale_id: str, data: dict, username: str = "", role: str
     data["updated_at"] = datetime.now(timezone.utc).isoformat()
     data["updated_by"] = username
 
-    nw = float(data.get("net_weight_kg", 0) or 0)
-    rate = float(data.get("rate_per_qtl", 0) or 0)
-    nw_qtl = round(nw / 100, 4)
-    amount = round(nw_qtl * rate, 2)
-    data["net_weight_qtl"] = nw_qtl
-    data["amount"] = amount
-
-    tax_amount = 0
-    if data.get("gst_percent"):
-        gst = float(data["gst_percent"] or 0)
-        tax_amount = round(amount * gst / 100, 2)
-    data["tax_amount"] = tax_amount
-    data["total"] = round(amount + tax_amount, 2)
+    _compute_amounts_and_tax(data)
 
     cash = float(data.get("cash_paid", 0) or 0)
     diesel = float(data.get("diesel_paid", 0) or 0)

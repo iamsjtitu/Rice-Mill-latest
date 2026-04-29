@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.37.9",
+    date: "Apr 29, 2026 (Late Night)",
+    title: "v104.37.9 — 🚨 CRITICAL FIX: Split Billing ka Hisab Galat Aa Raha Tha (Web Backend)",
+    items: [
+      { type: "fix", text: "🚨 **Split Billing Math Fix (Critical)** — Web/Cloud backend (Python) me Split Billing ki logic missing thi. Pakka ₹0 dikhata tha, Kaccha ₹0 dikhata tha, lekin Total kuch aur tha. Yeh sirf desktop app me thik tha. Ab teeno backends (web/desktop/LAN) me **same exact split logic** hai." },
+      { type: "fix", text: "✅ **Sahi Calculations** — Test verified: Pakka 100Q × ₹3100 = ₹3,10,000, Kaccha 79.99Q × ₹3700 = ₹2,95,963, GST 5% on Pakka = ₹15,500, **Total = ₹6,21,463**. Sab fields properly compute hote hain aur ledger entries bhi sahi banti hain." },
+      { type: "improvement", text: "🛠️ **Purani galat entries fix karein** — Agar pehle se koi split sale ka hisab galat dikha raha tha, toh use **Edit karke save** kar do — backend automatically recompute karega aur sahi values save kar lega." },
+    ],
+  },
+  {
     version: "104.37.8",
     date: "Apr 29, 2026 (Late Night)",
     title: "v104.37.8 — 🤖 Split Billing me RST Auto-Fill (Pakka 100% Default)",
