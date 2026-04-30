@@ -1,6 +1,65 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.3
+## Current Version: v104.44.4
+
+## 🛻 v104.44.4 — Truck Owner Per-Trip Bhada (Production Ready)
+**Build date:** 2026-04-30
+
+### Feature
+New **`Payments → Per-Trip Bhada`** subtab — truck-wise drill-down view that joins `vehicle_weights.bhada` (Sale + Purchase) with `cash_transactions` NIKASI payments and applies **FIFO settlement** to derive per-trip Settled / Partial / Pending status.
+
+### Endpoints (Triple-Backend Parity)
+- `GET /api/truck-owner/per-trip-trucks` — List trucks with bhada > 0
+- `GET /api/truck-owner/{vehicle_no}/per-trip` — Per-trip breakdown with FIFO + summary KPIs
+- `POST /api/truck-owner/{vehicle_no}/settle/{rst_no}` — One-click settle → auto NIKASI entry
+- `GET /api/truck-owner/{vehicle_no}/per-trip-pdf?filter_status=...` — PDF export (color-coded status)
+- `GET /api/truck-owner/{vehicle_no}/per-trip-excel` — Excel export
+- `GET /api/truck-owner/{vehicle_no}/whatsapp-text?filter_status=pending` — Formatted WhatsApp text
+
+### UI Highlights
+- Truck dropdown with trip count + total bhada per row
+- 4 Live KPI tiles: Total Trips (Sale/Purchase split), Total Bhada, Settled, Pending
+- Filters: All/Sale/Purchase + All/Pending/Partial/Settled
+- Per-trip table: RST · Date · Type tag · Party · Net Wt · Bhada · Paid · Pending · Status badge · Action
+- **Pay button** on Pending/Partial trips → real backend NIKASI → instant refresh
+- **Pending PDF / Excel / WhatsApp** export buttons (all functional)
+
+### Architecture (FIFO Algorithm)
+1. Fetch all VW entries for truck with `bhada > 0` (chronological asc)
+2. Fetch all `cash_transactions` (account=ledger, party_type=Truck, category=vehicle_no, txn_type=nikasi)
+3. Sum nikasis → `pool`
+4. For each trip (oldest first):
+   - If pool ≥ bhada → fully Settled, pool -= bhada
+   - Else if pool > 0 → Partial (paid=pool), pool=0
+   - Else → Pending
+
+### Triple-Backend Parity (Core Endpoints)
+- ✅ Python: `/app/backend/routes/vehicle_weight.py` (lines ~1955-2300)
+- ✅ Node Desktop: `/app/desktop-app/routes/vehicle_weight.js`
+- ✅ Node LAN: `/app/local-server/routes/vehicle_weight.js`
+- ⚠️ Export endpoints (PDF/Excel/WhatsApp) — Python only in this release; Node parity pending for next release.
+
+### Verification (testing_agent_v3_fork — iteration_207)
+- **Backend**: 22/22 PASSED (100%)
+- **Frontend**: All UI elements verified (truck dropdown, KPIs, filters, Pay button, exports, WhatsNew)
+- **FIFO**: Verified — settling RST #1006 (₹4,000) correctly redistributed pool, status changed to Partial with ₹2,000 paid
+
+### Demo Data
+Seeded via `/app/backend/scripts/seed_truck_pertrip_demo.py`:
+- `OD-15-DEMO-1234` — 7 trips (4 Sale + 3 Purchase) + 3 partial nikasis → mix of settled/partial/pending
+- `OD-21-DEMO-5678` — 3 trips, all pending
+
+### Files Updated
+- `/app/backend/routes/vehicle_weight.py` (6 new endpoints)
+- `/app/desktop-app/routes/vehicle_weight.js` (3 core endpoints — parity)
+- `/app/local-server/routes/vehicle_weight.js` (same parity)
+- `/app/frontend/src/components/Payments.jsx` (new tab + lazy import)
+- `/app/frontend/src/components/TruckOwnerPerTripPanel.jsx` (NEW — main UI, ~310 lines)
+- `/app/backend/scripts/seed_truck_pertrip_demo.py` (NEW — demo seed script)
+- `/app/backend/tests/test_pertrip_bhada_v104_44_4.py` (NEW — testing agent created)
+- Versions: 104.44.3 → 104.44.4
+
+---
 
 ## 🚛 v104.44.3 — Bhada (Lumpsum) Across All Sale/Purchase Forms
 **Build date:** 2026-04-30
