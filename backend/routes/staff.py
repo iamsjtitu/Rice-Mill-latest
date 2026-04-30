@@ -851,6 +851,9 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
         ws2.page_setup.fitToHeight = 1
 
         buf = io.BytesIO()
+        # 🎯 v104.44.9 — Apply consolidated multi-record polish
+        from utils.export_helpers import apply_consolidated_excel_polish
+        apply_consolidated_excel_polish(ws)
         wb.save(buf); buf.seek(0)
         return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": f"attachment; filename=staff_attendance_{date_from}_to_{date_to}.xlsx"})
@@ -963,6 +966,9 @@ async def export_payments(fmt: str = "excel", kms_year: Optional[str] = None, se
         for w, col in [(12,'A'),(16,'B'),(24,'C'),(8,'D'),(12,'E'),(12,'F'),(12,'G')]:
             ws.column_dimensions[col].width = w
 
+        # 🎯 v104.44.9 — Apply consolidated multi-record polish
+        from utils.export_helpers import apply_consolidated_excel_polish
+        apply_consolidated_excel_polish(ws)
         buf = io.BytesIO(); wb.save(buf); buf.seek(0)
         return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": "attachment; filename=staff_payments.xlsx"})
@@ -1035,6 +1041,9 @@ async def export_advance_ledger(req: LedgerExportRequest):
     for w, col in [(5,'A'),(12,'B'),(16,'C'),(30,'D'),(14,'E'),(14,'F'),(14,'G')]:
         ws.column_dimensions[col].width = w
 
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=advance_ledger_{req.staff_name}.xlsx"})

@@ -898,6 +898,10 @@ async def export_purchase_book_excel(kms_year: Optional[str] = None, season: Opt
             ]
             add_excel_summary_banner(ws, tr + 2, ncols, sum_stats)
 
+        # 🎯 v104.44.9 — Apply consolidated multi-record polish (purchase book)
+        from utils.export_helpers import apply_consolidated_excel_polish
+        apply_consolidated_excel_polish(ws)
+
         buf = io.BytesIO()
         wb.save(buf)
         buf.seek(0)
@@ -1271,6 +1275,10 @@ async def export_stock_summary_excel(kms_year: Optional[str] = None, season: Opt
             {'label': 'Neg. Stock', 'value': str(neg_items)},
         ]
         add_excel_summary_banner(ws, row + 1, ncols, sum_stats)
+
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish (stock summary)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
 
     buf = io.BytesIO()
     wb.save(buf)

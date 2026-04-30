@@ -505,6 +505,9 @@ async def export_store_room_excel(kms_year: Optional[str] = None, season: Option
     ws.page_setup.fitToWidth = 1
 
     buf = io.BytesIO()
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     wb.save(buf); buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=store_room_report_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -613,6 +616,9 @@ async def export_stock_excel(kms_year: Optional[str] = None, season: Optional[st
     ws.page_setup.orientation = 'landscape'
     ws.page_setup.fitToWidth = 1
 
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=mill_parts_stock_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -728,6 +734,9 @@ async def export_transactions_excel(kms_year: Optional[str] = None, season: Opti
     ws.page_setup.orientation = 'landscape'
     ws.page_setup.fitToWidth = 1
 
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=mill_parts_transactions_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -923,6 +932,9 @@ async def export_part_summary_excel(part_name: str, kms_year: Optional[str] = No
         ws.column_dimensions[chr(65 + i)].width = w
 
     buf = io.BytesIO()
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     wb.save(buf)
     buf.seek(0)
     fname = f"{part_name.replace(' ', '_')}_summary_{datetime.now().strftime('%Y%m%d')}.xlsx"

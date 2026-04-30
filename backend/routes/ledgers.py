@@ -384,7 +384,11 @@ async def export_outstanding_excel(kms_year: Optional[str] = None, season: Optio
         ws.column_dimensions[get_column_letter(i)].width = 18
     ws.page_setup.orientation = 'landscape'
     ws.page_setup.fitToWidth = 1
-    
+
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + gridlines)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
+
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=outstanding_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -489,7 +493,11 @@ async def export_party_ledger_excel(party_name: Optional[str] = None, party_type
         ws.column_dimensions[get_column_letter(i)].width = w
     ws.page_setup.orientation = 'landscape'
     ws.page_setup.fitToWidth = 1
-    
+
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
+
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=party_ledger_{datetime.now().strftime('%Y%m%d')}.xlsx"})

@@ -586,6 +586,12 @@ async def export_dc_excel(kms_year: Optional[str] = None, season: Optional[str] 
     for letter in 'ABCDEFGHIJKLMNO':
         ws.column_dimensions[letter].width = 16; ws2.column_dimensions[letter].width = 16
     ws.page_setup.orientation = 'landscape'; ws.page_setup.fitToWidth = 1
+
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish (both DC sheets)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
+    apply_consolidated_excel_polish(ws2)
+
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=dc_register_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -770,6 +776,11 @@ async def export_msp_excel(kms_year: Optional[str] = None, season: Optional[str]
     ws.cell(row=row, column=5, value=round(sum(p.get("amount",0) for p in payments),2))
     style_excel_total_row(ws, row, ncols)
     for letter in ['A','B','C','D','E','F','G']: ws.column_dimensions[letter].width = 18
+
+    # 🎯 v104.44.9 — Apply consolidated polish (MSP payments)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
+
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=msp_payments_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -1230,6 +1241,11 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
     ws.column_dimensions['J'].width = 10
     ws.column_dimensions['K'].width = 14
     ws.column_dimensions['L'].width = 20
+
+    # 🎯 v104.44.9 — Apply consolidated polish (gunny bags register)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
+
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=gunny_bags_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -1439,6 +1455,10 @@ async def export_gunny_purchase_report_excel(kms_year: Optional[str] = None, sea
 
     for col, w in enumerate([30, 8, 10, 12, 12, 12, 12, 12, 14, 12, 12, 14], 1):
         ws.column_dimensions[chr(64 + col)].width = w
+
+    # 🎯 v104.44.9 — Apply consolidated polish (gunny purchase report)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
 
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

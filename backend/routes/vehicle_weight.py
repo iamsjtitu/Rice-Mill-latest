@@ -1605,6 +1605,10 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
         max_len = max((len(str(c.value or "")) for c in cells), default=8)
         ws.column_dimensions[cells[0].column_letter].width = min(max_len + 3, 25)
 
+    # 🎯 v104.44.9 — Apply consolidated polish (vehicle weight register)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
+
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
@@ -2483,6 +2487,10 @@ async def truck_owner_per_trip_excel(vehicle_no: str, kms_year: str = "", season
     widths = {1: 10, 2: 14, 3: 12, 4: 32, 5: 14, 6: 14, 7: 14, 8: 14, 9: 14}
     for k, w in widths.items():
         ws.column_dimensions[chr(64 + k)].width = w
+
+    # 🎯 v104.44.9 — Apply consolidated polish (single-truck per-trip)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
 
     buf = io.BytesIO()
     wb.save(buf)

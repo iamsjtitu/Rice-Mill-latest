@@ -648,7 +648,11 @@ async def export_milling_report_excel(kms_year: Optional[str] = None, season: Op
         ws.column_dimensions[get_column_letter(i)].width = 14
     ws.page_setup.orientation = 'landscape'
     ws.page_setup.fitToWidth = 1
-    
+
+    # 🎯 v104.44.9 — Apply consolidated polish (milling report)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
+
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     fn = f"milling_report_{datetime.now().strftime('%Y%m%d')}.xlsx"
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -850,7 +854,11 @@ async def export_frk_purchases_excel(kms_year: Optional[str] = None, season: Opt
     ws.cell(row=tr, column=5, value=round(sum(p.get('total_amount',0) for p in purchases),2))
     style_excel_total_row(ws, tr, ncols)
     for letter in ['A','B','C','D','E','F']: ws.column_dimensions[letter].width = 16
-    
+
+    # 🎯 v104.44.9 — Apply consolidated polish (FRK purchases)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
+
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=frk_purchases_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -1196,6 +1204,10 @@ async def export_paddy_cutting_excel(kms_year: Optional[str] = None, season: Opt
         ws.column_dimensions[get_column_letter(i)].width = w
     ws.page_setup.orientation = 'landscape'
     ws.page_setup.fitToWidth = 1
+
+    # 🎯 v104.44.9 — Apply consolidated polish (paddy chalna)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
 
     buf = io.BytesIO()
     wb.save(buf)

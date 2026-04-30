@@ -249,6 +249,9 @@ async def export_form_a_excel(kms_year: Optional[str] = None, season: Optional[s
         cell.fill = total_fill
 
     buf = io.BytesIO()
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     wb.save(buf)
     buf.seek(0)
     fname = f"Form_A_Paddy_Register_{kms_year or 'all'}.xlsx"
@@ -466,6 +469,9 @@ async def export_form_b_excel(kms_year: Optional[str] = None, season: Optional[s
         cell.fill = total_fill
 
     buf = io.BytesIO()
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     wb.save(buf)
     buf.seek(0)
     fname = f"Form_B_CMR_Register_{kms_year or 'all'}.xlsx"
@@ -575,6 +581,9 @@ async def export_form_e_excel(kms_year: Optional[str] = None, season: Optional[s
         cell.fill = total_fill
 
     buf = io.BytesIO()
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     wb.save(buf)
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -681,6 +690,9 @@ async def export_form_f_excel(kms_year: Optional[str] = None, season: Optional[s
         cell.fill = total_fill
 
     buf = io.BytesIO()
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     wb.save(buf)
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -790,6 +802,9 @@ async def export_frk_excel(kms_year: Optional[str] = None, season: Optional[str]
                      company, f"Fortified Rice Kernel (FRK) Blending Register | {kms_year or 'All'} {season or ''}")
 
     buf = io.BytesIO()
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     wb.save(buf)
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -903,6 +918,9 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
                      company, f"Gunny Bag Stock Register | {kms_year or 'All'} {season or ''}")
 
     buf = io.BytesIO()
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     wb.save(buf)
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1034,6 +1052,9 @@ async def export_transit_pass_excel(kms_year: Optional[str] = None, season: Opti
         cell.fill = total_fill
 
     buf = io.BytesIO()
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     wb.save(buf)
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1971,6 +1992,9 @@ async def export_verification_report_excel(
     cur += 1
     ws[f'A{cur}'] = "*Milling Capacity per shift of 8 hrs"; ws[f'A{cur}'].font = Font(size=9, italic=True, color="666666")
 
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     buf = BytesIO(); wb.save(buf); buf.seek(0)
     return Response(content=buf.read(),
                     media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -2231,6 +2255,9 @@ async def export_milling_register_excel(kms_year: Optional[str] = None, season: 
     ws.page_setup.orientation = 'landscape'; ws.page_setup.fitToWidth = 1; ws.page_setup.fitToHeight = 0
     ws.sheet_properties.pageSetUpPr.fitToPage = True
 
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     fn = f"milling_register_{kms_year or 'all'}.xlsx"
     return Response(content=buffer.getvalue(),
@@ -2476,6 +2503,9 @@ async def export_cmr_delivery_excel(kms_year: Optional[str] = None, season: Opti
         cell.fill = total_fill
 
     buf = io.BytesIO()
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     wb.save(buf)
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -2593,6 +2623,9 @@ async def export_security_deposit_excel(kms_year: Optional[str] = None):
         cell.fill = total_fill
 
     buf = io.BytesIO()
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     wb.save(buf)
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

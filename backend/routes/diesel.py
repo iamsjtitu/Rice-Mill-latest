@@ -317,6 +317,9 @@ async def export_diesel_excel(kms_year: Optional[str] = None, season: Optional[s
         ]
         add_excel_summary_banner(ws, row + 1, ncols, sum_stats)
     
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=diesel_account_{datetime.now().strftime('%Y%m%d')}.xlsx"})

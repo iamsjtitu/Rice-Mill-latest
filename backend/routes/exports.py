@@ -818,7 +818,11 @@ async def export_truck_owner_excel(
     widths = [15, 12, 12, 14, 12, 14, 12, 12, 10]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
-    
+
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish (truck owner consolidated)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
+
     buffer = io.BytesIO()
     wb.save(buffer)
     buffer.seek(0)

@@ -476,6 +476,10 @@ async def export_local_party_excel(kms_year: Optional[str] = None, season: Optio
     for letter in ['A', 'B', 'C', 'D', 'E', 'F']:
         ws.column_dimensions[letter].width = 20
 
+    # 🎯 v104.44.9 — Apply consolidated polish (always — this endpoint exports all parties)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
+
     buffer = BytesIO()
     wb.save(buffer)
     buffer.seek(0)

@@ -1170,6 +1170,9 @@ async def export_excel(
     
     # Save to bytes
     output = io.BytesIO()
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     wb.save(output)
     output.seek(0)
     
@@ -1524,6 +1527,9 @@ async def export_truck_payments_excel(
         ws.column_dimensions[chr(64 + i)].width = width
     
     output = io.BytesIO()
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     wb.save(output)
     output.seek(0)
     

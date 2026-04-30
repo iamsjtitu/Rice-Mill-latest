@@ -432,6 +432,9 @@ async def export_leases_excel(kms_year: Optional[str] = None, season: Optional[s
         add_excel_summary_banner(ws, row + 1, ncols, sum_stats)
 
     buf = io.BytesIO()
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     wb.save(buf)
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

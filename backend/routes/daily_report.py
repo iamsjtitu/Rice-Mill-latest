@@ -1182,6 +1182,9 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
             ws.column_dimensions[col_letter].width = min(max(max_len + 2, 8), 40)
 
     buf = io.BytesIO()
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     wb.save(buf)
     buf.seek(0)
     fn = f"daily_report_{mode}_{date}.xlsx"

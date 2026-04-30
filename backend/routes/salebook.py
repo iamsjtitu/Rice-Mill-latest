@@ -780,7 +780,11 @@ async def export_sale_book_excel(kms_year: Optional[str] = None, season: Optiona
             {'label': 'Outstanding', 'value': fmt_inr(g['bal'])},
         ]
         add_excel_summary_banner(ws, tr + 2, ncols, sum_stats)
-    
+
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish (sale book is multi-row)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
+
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)

@@ -747,7 +747,11 @@ async def export_party_summary_excel(kms_year: Optional[str] = None, season: Opt
     ws.column_dimensions['H'].width = 12
     ws.page_setup.orientation = 'landscape'
     ws.page_setup.fitToWidth = 1
-    
+
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + gridlines)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
+
     buf = BytesIO(); wb.save(buf); buf.seek(0)
     from starlette.responses import Response
     return Response(content=buf.getvalue(),
@@ -1460,7 +1464,11 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 0
-    
+
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + gridlines)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
+
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=cash_book_{datetime.now().strftime('%Y%m%d')}.xlsx"})

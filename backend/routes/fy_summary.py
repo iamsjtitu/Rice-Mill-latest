@@ -993,6 +993,9 @@ async def export_balance_sheet_excel(kms_year: Optional[str] = None, season: Opt
         row += 1
 
     buffer = BytesIO()
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     wb.save(buffer)
     buffer.seek(0)
     fname = f"Balance_Sheet_{kms_year or 'all'}_{datetime.now().strftime('%Y%m%d')}.xlsx"

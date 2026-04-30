@@ -782,6 +782,10 @@ async def hemali_monthly_summary_excel(kms_year: str = "", season: str = "", sar
         ]
         add_excel_summary_banner(ws, row_n + 1, ncols, sum_stats)
 
+    # 🎯 v104.44.9 — Apply consolidated polish (hemali monthly summary)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
+
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
@@ -1308,6 +1312,10 @@ async def export_hemali_excel(
 
     for w, col_letter in [(5, "A"), (14, "B"), (12, "C"), (18, "D"), (40, "E"), (14, "F"), (16, "G"), (14, "H"), (14, "I"), (16, "J"), (10, "K")]:
         ws.column_dimensions[col_letter].width = w
+
+    # 🎯 v104.44.9 — Apply consolidated polish (hemali payments)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
 
     buf = io.BytesIO()
     wb.save(buf)

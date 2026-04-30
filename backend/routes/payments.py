@@ -1884,7 +1884,11 @@ async def export_agent_payments_excel(kms_year: Optional[str] = None, season: Op
             {'label': 'Outstanding', 'value': fmt_inr(total_balance_sum)},
         ]
         add_excel_summary_banner(ws, total_row + 2, ncols, sum_stats)
-    
+
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish (agent payments)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
+
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)

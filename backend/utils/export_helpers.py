@@ -757,3 +757,75 @@ def get_pdf_section_band(title, subtitle=None, preset='navy', total_width=None):
         style.append(('FONTNAME', (1, 0), (1, 0), 'FreeSans'))
     t.setStyle(TableStyle(style))
     return t
+
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 🎯 v104.44.9 — CONSOLIDATED EXCEL POLISH (Auto-filter + Freeze + No Gridlines)
+# ════════════════════════════════════════════════════════════════════════════
+def apply_consolidated_excel_polish(ws, header_row: int = None, n_cols: int = None, last_data_row: int = None):
+    """Apply standard "consolidated multi-record" Excel polish to a worksheet.
+    
+    Adds 3 things that make Excel reports usable across the entire app:
+      1. Auto-filter dropdowns on the header row (sort/filter per column)
+      2. Freeze panes below the header row (header sticks while scrolling)
+      3. Gridlines disabled (cleaner look — borders provide structure instead)
+
+    Args:
+        ws: openpyxl Worksheet instance
+        header_row: 1-indexed header row. If None → auto-detected.
+        n_cols: Total columns. If None → ws.max_column is used.
+        last_data_row: Last row of data. If None → ws.max_row is used.
+
+    Use this only for **multi-record / consolidated** exports. For single-party
+    or single-record exports (where filter doesn't add value), skip this call.
+    """
+    from openpyxl.utils import get_column_letter
+
+    # Auto-detect missing args
+    if header_row is None:
+        header_row = detect_excel_header_row(ws)
+    if n_cols is None:
+        n_cols = ws.max_column
+    if last_data_row is None:
+        last_data_row = max(ws.max_row, header_row)
+
+    # 1. Disable gridlines for cleaner look
+    try:
+        ws.sheet_view.showGridLines = False
+    except Exception:
+        pass
+
+    # 2. Auto-filter on header row → last data row
+    if n_cols > 0 and last_data_row >= header_row:
+        last_col_letter = get_column_letter(n_cols)
+        try:
+            ws.auto_filter.ref = f"A{header_row}:{last_col_letter}{last_data_row}"
+        except Exception:
+            pass
+
+    # 3. Freeze panes below header row
+    try:
+        ws.freeze_panes = f"A{header_row + 1}"
+    except Exception:
+        pass
+
+
+def detect_excel_header_row(ws, max_scan: int = 8):
+    """Best-effort header row detection — finds the first row where every cell
+    in columns A..E (or first 5) is non-None and bold (or non-merged & has value).
+    Returns 1-indexed row number, or 1 as fallback.
+    """
+    for r in range(1, max_scan + 1):
+        try:
+            row = list(ws[r])
+            if not row:
+                continue
+            cells = row[:min(5, len(row))]
+            non_empty = sum(1 for c in cells if c.value is not None and str(c.value).strip())
+            # If 4+ of first 5 cells are non-empty → likely header row
+            if non_empty >= 4:
+                return r
+        except Exception:
+            continue
+    return 1

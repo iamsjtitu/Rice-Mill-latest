@@ -585,6 +585,10 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
     ws.page_setup.fitToHeight = 0
     ws.sheet_properties.pageSetUpPr.fitToPage = True
 
+    # 🎯 v104.44.9 — Apply consolidated polish (BP sale register)
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
+
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     fn = f"{(product or 'byproduct').lower().replace(' ','_')}_sale_register_{datetime.now().strftime('%Y%m%d')}.xlsx"
     return Response(content=buffer.getvalue(),

@@ -120,6 +120,9 @@ async def export_cmr_vs_dc_excel(kms_year: Optional[str] = None, season: Optiona
     ws.cell(row=row+3, column=1, value="By-Product Revenue (Rs.)").border = BORDER_THIN
     ws.cell(row=row+3, column=2, value=data["byproduct_revenue"]).border = BORDER_THIN
     for letter in ['A','B','C','D']: ws.column_dimensions[letter].width = 22
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=cmr_vs_dc_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -191,6 +194,9 @@ async def export_season_pnl_excel(kms_year: Optional[str] = None, season: Option
     ws.cell(row=row, column=2, value=data["net_pnl"]).font = Font(bold=True, size=12)
     ws.cell(row=row, column=2).number_format = '#,##0.00'
     for letter in ['A','B','C']: ws.column_dimensions[letter].width = 22
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=season_pnl_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -527,6 +533,9 @@ async def export_agent_mandi_wise_excel(kms_year: Optional[str] = None, season: 
     ws.page_setup.orientation = 'landscape'
     ws.page_setup.fitToWidth = 1
 
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=agent_mandi_report_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -728,6 +737,9 @@ async def weight_discrepancy_excel(
         ws.column_dimensions[get_column_letter(i)].width = w
 
     buf = io.BytesIO()
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     wb.save(buf); buf.seek(0)
     fn = f"weight_discrepancy_{datetime.now().strftime('%Y%m%d')}.xlsx"
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1049,6 +1061,9 @@ async def mandi_custody_register_excel(kms_year: Optional[str] = None, season: O
     ws.freeze_panes = f"A{data_start + 1}"
 
     buf = io.BytesIO()
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     wb.save(buf)
     buf.seek(0)
     fn = f"mandi_custody_register_{datetime.now().strftime('%Y%m%d')}.xlsx"

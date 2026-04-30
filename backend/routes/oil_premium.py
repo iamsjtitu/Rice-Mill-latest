@@ -307,6 +307,9 @@ async def export_oil_premium_excel(kms_year: str = "", season: str = "", bran_ty
     ws.page_setup.fitToHeight = 0
     ws.sheet_properties.pageSetUpPr.fitToPage = True
 
+    # 🎯 v104.44.9 — Apply consolidated multi-record polish
+    from utils.export_helpers import apply_consolidated_excel_polish
+    apply_consolidated_excel_polish(ws)
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     fn = f"oil_premium_{datetime.now().strftime('%Y%m%d')}.xlsx"
     return Response(content=buffer.getvalue(),
