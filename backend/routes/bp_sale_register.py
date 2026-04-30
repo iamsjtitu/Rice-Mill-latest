@@ -274,6 +274,20 @@ async def create_bp_sale(data: dict, username: str = "", role: str = ""):
     data["updated_at"] = data["created_at"]
     data["created_by"] = username
 
+    # Auto-generate voucher_no if empty (format: S-001, S-002, ...).
+    # User-entered voucher_no preserved as-is.
+    if not (data.get("voucher_no") or "").strip():
+        import re
+        max_n = 0
+        cursor = db.bp_sale_register.find({"voucher_no": {"$regex": r"^S-\d+$"}}, {"_id": 0, "voucher_no": 1})
+        async for doc in cursor:
+            m = re.match(r"^S-(\d+)$", doc.get("voucher_no") or "")
+            if m:
+                n = int(m.group(1))
+                if n > max_n:
+                    max_n = n
+        data["voucher_no"] = f"S-{max_n + 1:03d}"
+
     _compute_amounts_and_tax(data)
 
     cash = float(data.get("cash_paid", 0) or 0)
@@ -343,6 +357,25 @@ async def get_bill_from_suggestions():
     pipeline = [{"$group": {"_id": "$bill_from"}}, {"$sort": {"_id": 1}}]
     results = await db.bp_sale_register.aggregate(pipeline).to_list(500)
     return [r["_id"] for r in results if r["_id"]]
+
+
+@router.get("/bp-sale-register/next-voucher-no")
+async def next_bp_voucher_no():
+    """Generate next sequential voucher number in `S-001` format.
+    Scans all existing BP sale voucher_no values matching `^S-\\d+$`,
+    takes the max numeric suffix, returns MAX+1 zero-padded to 3 digits.
+    Non-S-prefixed custom voucher numbers are preserved and ignored.
+    """
+    import re
+    cursor = db.bp_sale_register.find({"voucher_no": {"$regex": r"^S-\d+$"}}, {"_id": 0, "voucher_no": 1})
+    max_n = 0
+    async for doc in cursor:
+        m = re.match(r"^S-(\d+)$", doc.get("voucher_no") or "")
+        if m:
+            n = int(m.group(1))
+            if n > max_n:
+                max_n = n
+    return {"voucher_no": f"S-{max_n + 1:03d}"}
 
 
 @router.get("/bp-sale-register/suggestions/party-name")

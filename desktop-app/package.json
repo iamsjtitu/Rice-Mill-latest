@@ -1,6 +1,6 @@
 {
   "name": "mill-entry-system",
-  "version": "104.41.3",
+  "version": "104.42.0",
   "description": "Mill Entry Management System - Desktop Application",
   "main": "main.js",
   "scripts": {

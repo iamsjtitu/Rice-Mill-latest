@@ -175,10 +175,17 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const editingQtl = editingEntry ? parseFloat(editingEntry.net_weight_qtl) || 0 : 0;
   const effectiveAvailQtl = stockInfo ? (stockInfo.available_qntl + editingQtl) : 0;
 
-  const openNew = () => {
+  const openNew = async () => {
     setEditingId(null);
     setForm({ ...blankForm, product, kms_year: filters.kms_year || "", season: filters.season || "" });
     setIsFormOpen(true);
+    // Pre-fill next serial voucher_no (S-001, S-002 ...). User can edit.
+    try {
+      const res = await axios.get(`${API}/bp-sale-register/next-voucher-no`);
+      if (res.data?.voucher_no) {
+        setForm(p => ({ ...p, voucher_no: res.data.voucher_no }));
+      }
+    } catch (e) { /* silent — form works with blank voucher_no too */ }
   };
 
   const openEdit = (s) => {

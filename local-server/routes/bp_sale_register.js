@@ -131,6 +131,22 @@ module.exports = function(database) {
     }
   }
 
+  // Helper: next BP sale voucher_no in `S-NNN` format
+  const nextBpVoucherNo = () => {
+    ensure();
+    let maxN = 0;
+    const re = /^S-(\d+)$/;
+    for (const s of database.data.bp_sale_register || []) {
+      const m = re.exec(s.voucher_no || '');
+      if (m) { const n = parseInt(m[1], 10); if (n > maxN) maxN = n; }
+    }
+    return `S-${String(maxN + 1).padStart(3, '0')}`;
+  };
+
+  router.get('/api/bp-sale-register/next-voucher-no', (req, res) => {
+    res.json({ voucher_no: nextBpVoucherNo() });
+  });
+
   router.post('/api/bp-sale-register', (req, res) => {
     ensure();
     const data = { ...req.body };
@@ -138,6 +154,11 @@ module.exports = function(database) {
     data.created_at = new Date().toISOString();
     data.updated_at = data.created_at;
     data.created_by = req.query.username || '';
+
+    // Auto-generate voucher_no if blank (format: S-001, S-002 ...). User-entered values preserved.
+    if (!String(data.voucher_no || '').trim()) {
+      data.voucher_no = nextBpVoucherNo();
+    }
 
     computeAmountsAndTax(data);
 

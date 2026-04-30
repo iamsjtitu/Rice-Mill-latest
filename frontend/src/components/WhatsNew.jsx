@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.42.0",
+    date: "Feb 16, 2026",
+    title: "v104.42.0 — 🎫 BP Sale Auto Voucher Number (S-001) + Oil Premium Bi-Directional Lookup",
+    items: [
+      { type: "feature", text: "🎫 **Auto Voucher Number for BP Sales** — Jab user 'New Sale' (Rice Bran / Broken / Kanki / Husk) form kholta hai, **Voucher No** field automatically pre-fill ho jaata hai next serial ke saath: `S-001`, `S-002`, `S-003`, ... System existing `S-NNN` pattern scan karke next number assign karta hai. User chahe toh edit kar sakta hai (strict validation nahi — aap `CUSTOM-XYZ` bhi likh sakte ho)." },
+      { type: "feature", text: "🔍 **Oil Premium (Lab Test) Bi-Directional Autofill Verified** — Oil Premium entry form me aap `Voucher No` ya `RST No` dono me se koi bhi daalo — onBlur pe `/oil-premium/lookup-sale` endpoint fetch hoke party name, rate (sauda amount ya rate/qtl), qty, date sab auto-fill ho jaata hai. Backend verified: `S-001` voucher → RST-TEST-01 sale mila; `RST-TEST-01` → S-001 sale mila. Doosra field bhi (non-entered) auto-fill ho jaata hai." },
+      { type: "improvement", text: "🔄 **Triple-Backend Parity** — Feature Python (web), Electron desktop-app aur local-server teeno me parallel me apply hai. Node backends me bhi naya endpoint `GET /api/bp-sale-register/next-voucher-no` + POST auto-gen same `S-NNN` sequence logic with lowDB scan." },
+      { type: "improvement", text: "💡 **Workflow speedup** — Pichle saath din data entry me user ko manually 'voucher_no' guess karna padta tha (aur Oil Premium me match kara ke Lab Test calculate karna). Ab: form khulte hi ready `S-NNN` — bas party + weight + rate daal do." },
+    ],
+  },
+  {
     version: "104.41.3",
     date: "Feb 16, 2026",
     title: "v104.41.3 — 🔍 Cash Book Filter Dropdowns Always Populated",
