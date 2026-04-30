@@ -2291,5 +2291,302 @@ module.exports = function(database) {
     res.json({ vehicle_no: vno, rst_no: rstNo, payments: direct });
   }));
 
+  // ════════════════════════════════════════════════════════════════════════════
+  // 🛻 TRUCK OWNER — All Trucks Per-Trip PDF / Excel Export (combined view)
+  // ════════════════════════════════════════════════════════════════════════════
+
+  /** Build all-trucks per-trip payload with filtering. Mirrors Python _build_pertrip_all_payload. */
+  function _buildPerTripAllPayload(query) {
+    const { kms_year, season, date_from, date_to, filter_status, trans_type, search } = query || {};
+    const vws = col('vehicle_weights');
+    const truckMap = {};
+    for (const vw of vws) {
+      const v = (vw.vehicle_no || '').trim();
+      const b = parseFloat(vw.bhada || 0) || 0;
+      if (!v || b <= 0) continue;
+      if (kms_year && vw.kms_year !== kms_year) continue;
+      if (season && vw.season !== season) continue;
+      if (!truckMap[v]) truckMap[v] = [];
+      truckMap[v].push(vw);
+    }
+    const ledgerNikasis = col('cash_transactions').filter(t =>
+      t.account === 'ledger' && t.party_type === 'Truck' && t.txn_type === 'nikasi' &&
+      (!kms_year || t.kms_year === kms_year)
+    );
+    const allTrips = [];
+    for (const [vno, trucks] of Object.entries(truckMap)) {
+      const truckVWs = [...trucks].filter(vw => {
+        if (date_from && (vw.date || '') < date_from) return false;
+        if (date_to && (vw.date || '') > date_to) return false;
+        return true;
+      }).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      const truckNiks = ledgerNikasis.filter(n => n.category === vno);
+      const directPaid = {};
+      let pool = 0;
+      for (const n of truckNiks) {
+        const ref = n.reference || '';
+        const amt = parseFloat(n.amount) || 0;
+        if (ref.startsWith('truck_settle_ledger:')) {
+          const parts = ref.split(':');
+          const rst = parseInt(parts[parts.length - 1]);
+          if (!isNaN(rst)) { directPaid[rst] = (directPaid[rst] || 0) + amt; continue; }
+        }
+        pool += amt;
+      }
+      for (const vw of truckVWs) {
+        const bhada = parseFloat(vw.bhada || 0) || 0;
+        const tt = (vw.trans_type || '').toLowerCase();
+        const isSale = tt.includes('sale') || tt.includes('dispatch');
+        const isPurchase = tt.includes('purchase') || tt.includes('receive');
+        const ttype = isSale ? 'sale' : (isPurchase ? 'purchase' : 'other');
+        let paid = Math.min(directPaid[vw.rst_no] || 0, bhada);
+        const remaining = bhada - paid;
+        if (remaining > 0 && pool > 0) { const take = Math.min(pool, remaining); paid += take; pool -= take; }
+        let status;
+        if (paid >= bhada && bhada > 0) status = 'settled';
+        else if (paid > 0) status = 'partial';
+        else status = 'pending';
+        allTrips.push({
+          rst_no: vw.rst_no, date: vw.date || '', vehicle_no: vno,
+          trans_type: ttype, trans_type_raw: vw.trans_type || '',
+          party_name: vw.party_name || '', farmer_name: vw.farmer_name || '',
+          product: vw.product || '', tot_pkts: vw.tot_pkts || 0, net_wt: vw.net_wt || 0,
+          bhada, paid_amount: Math.round(paid * 100) / 100,
+          pending_amount: Math.round((bhada - paid) * 100) / 100, status,
+        });
+      }
+    }
+    let filtered = allTrips;
+    if (filter_status && filter_status !== 'all') {
+      filtered = filtered.filter(t => t.status === filter_status);
+    }
+    const tt = (trans_type || 'all').toLowerCase().trim();
+    if (tt && tt !== 'all') filtered = filtered.filter(t => (t.trans_type || '') === tt);
+    const s = (search || '').trim().toLowerCase();
+    if (s) {
+      filtered = filtered.filter(t => {
+        const hay = `${t.vehicle_no || ''} ${t.party_name || ''} ${t.farmer_name || ''} ${t.rst_no || ''}`.toLowerCase();
+        return hay.includes(s);
+      });
+    }
+    filtered.sort((a, b) => (b.date || '').localeCompare(a.date || '') || ((b.rst_no || 0) - (a.rst_no || 0)));
+    const sm = {
+      total_trips: filtered.length,
+      sale_count: filtered.filter(t => t.trans_type === 'sale').length,
+      purchase_count: filtered.filter(t => t.trans_type === 'purchase').length,
+      total_bhada: Math.round(filtered.reduce((s2, t) => s2 + (t.bhada || 0), 0) * 100) / 100,
+      total_paid: Math.round(filtered.reduce((s2, t) => s2 + (t.paid_amount || 0), 0) * 100) / 100,
+      total_pending: Math.round(filtered.reduce((s2, t) => s2 + (t.pending_amount || 0), 0) * 100) / 100,
+      settled_count: filtered.filter(t => t.status === 'settled').length,
+      partial_count: filtered.filter(t => t.status === 'partial').length,
+      pending_count: filtered.filter(t => t.status === 'pending').length,
+    };
+    return { trips: filtered, summary: sm, total_trucks: Object.keys(truckMap).length };
+  }
+
+  function _fmtIN(n) {
+    const num = Number(n || 0);
+    return num.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  }
+
+  function _flagFilterLabel(query) {
+    const bits = [];
+    if (query.filter_status && query.filter_status !== 'all') bits.push(`Status: ${query.filter_status}`);
+    if (query.trans_type && query.trans_type !== 'all') bits.push(`Type: ${query.trans_type}`);
+    if (query.search) bits.push(`Search: ${query.search}`);
+    return bits.length ? bits.join(' · ') : 'All';
+  }
+
+  router.get('/api/truck-owner/per-trip-all/pdf', safeAsync(async (req, res) => {
+    const PDFDocument = require('pdfkit');
+    const payload = _buildPerTripAllPayload(req.query);
+    const trips = payload.trips;
+    const sm = payload.summary;
+    const flt = _flagFilterLabel(req.query);
+
+    const br = database.data.branding || {};
+    const company = br.company_name || 'NAVKAR AGRO';
+
+    const fontDir = path.join(__dirname, '..', 'fonts');
+    const hasFS = fs.existsSync(path.join(fontDir, 'FreeSans.ttf'));
+    const doc = createPdfDoc({ size: 'A4', layout: 'landscape', margin: 25 }, database);
+    if (hasFS) {
+      doc.registerFont('ExFont', path.join(fontDir, 'FreeSans.ttf'));
+      doc.registerFont('ExFontBold', path.join(fontDir, 'FreeSansBold.ttf'));
+    }
+    const efn = hasFS ? 'ExFont' : 'Helvetica';
+    const efb = hasFS ? 'ExFontBold' : 'Helvetica-Bold';
+
+    const fnameSuffix = (req.query.filter_status && req.query.filter_status !== 'all') ? `_${req.query.filter_status}` : '';
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=per_trip_bhada_all_trucks${fnameSuffix}.pdf`);
+    doc.pipe(res);
+
+    const PW = 792, LM = 25, TW = PW - 2 * LM;
+    // Header
+    doc.rect(LM, 18, TW, 3).fill('#f9a825');
+    doc.rect(LM, 21, TW, 50).fill('#0d1b2a');
+    doc.fontSize(18).font(efb).fillColor('#ffffff').text(company, LM, 28, { width: TW, align: 'center' });
+    doc.fontSize(10).font(efn).fillColor('#7ec8e3').text('🛻 Per-Trip Bhada — All Trucks', LM, 50, { width: TW, align: 'center' });
+
+    // Subtitle bar
+    const subY = 75;
+    doc.rect(LM, subY, TW, 18).fill('#e8edf5');
+    doc.rect(LM, subY, 4, 18).fill('#1565c0');
+    doc.fontSize(8).font(efn).fillColor('#1a237e')
+      .text(`KMS: ${req.query.kms_year || 'All'}  ·  Season: ${req.query.season || 'All'}  ·  Filter: ${flt}  ·  Trips: ${sm.total_trips}  ·  Trucks: ${payload.total_trucks}`,
+            LM + 12, subY + 5, { width: TW - 22, align: 'center' });
+
+    // Summary banner
+    let y = subY + 24;
+    doc.rect(LM, y, TW, 18).fill('#1a237e');
+    doc.fontSize(9).font(efb).fillColor('#ffffff');
+    const stats = [
+      `Total Bhada: ₹${_fmtIN(sm.total_bhada)}`,
+      `Settled: ₹${_fmtIN(sm.total_paid)} (${sm.settled_count})`,
+      `Partial: ${sm.partial_count}`,
+      `Pending: ₹${_fmtIN(sm.total_pending)} (${sm.pending_count})`,
+      `Sale: ${sm.sale_count} · Purchase: ${sm.purchase_count}`,
+    ];
+    const sw = TW / stats.length;
+    stats.forEach((t, i) => doc.text(t, LM + i * sw, y + 5, { width: sw, align: 'center' }));
+    y += 22;
+
+    // Table
+    const headers = ['RST', 'Date', 'Truck No', 'Type', 'Party', 'Destination', 'Net Wt', 'Bhada', 'Paid', 'Pending', 'Status'];
+    const colW = [38, 60, 78, 50, 110, 110, 50, 60, 60, 60, 66];
+    const rightAlign = [false, false, false, false, false, false, true, true, true, true, false];
+
+    const drawHeader = (yPos) => {
+      doc.rect(LM, yPos, TW, 16).fill('#004d40');
+      doc.fontSize(8).font(efb).fillColor('#ffffff');
+      let hx = LM + 2;
+      headers.forEach((h, i) => {
+        doc.text(h, hx, yPos + 5, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : 'left' });
+        hx += colW[i];
+      });
+      return yPos + 16;
+    };
+    y = drawHeader(y);
+
+    if (trips.length === 0) {
+      doc.fontSize(10).font(efn).fillColor('#9e9e9e').text('Koi trip nahi mila is filter ke saath.', LM, y + 8, { width: TW, align: 'center' });
+    }
+
+    doc.font(efn).fontSize(7.5);
+    trips.forEach((t, idx) => {
+      if (y > 535) { doc.addPage(); y = 25; y = drawHeader(y); doc.font(efn).fontSize(7.5); }
+      const rowColor = idx % 2 === 0 ? '#f5f7ff' : '#ffffff';
+      doc.rect(LM, y, TW, 13).fill(rowColor);
+
+      // Status cell color
+      const statusOffsetX = LM + colW.slice(0, 10).reduce((a, b) => a + b, 0);
+      let stColor = '#ffcdd2', stText = '#b71c1c';
+      if (t.status === 'settled') { stColor = '#c8e6c9'; stText = '#1b5e20'; }
+      else if (t.status === 'partial') { stColor = '#ffe0b2'; stText = '#e65100'; }
+      doc.rect(statusOffsetX, y, colW[10], 13).fill(stColor);
+
+      let x = LM + 2;
+      const vals = [
+        `#${t.rst_no}`,
+        fmtDate(t.date),
+        t.vehicle_no || '-',
+        t.trans_type === 'sale' ? 'Sale' : (t.trans_type === 'purchase' ? 'Purchase' : (t.trans_type_raw || '-')),
+        (t.party_name || '-').slice(0, 20),
+        (t.farmer_name || '-').slice(0, 20),
+        t.net_wt ? Number(t.net_wt).toLocaleString() : '-',
+        `₹${_fmtIN(t.bhada)}`,
+        t.paid_amount ? `₹${_fmtIN(t.paid_amount)}` : '-',
+        t.pending_amount ? `₹${_fmtIN(t.pending_amount)}` : '-',
+        t.status[0].toUpperCase() + t.status.slice(1),
+      ];
+      vals.forEach((v, i) => {
+        if (i === 10) { doc.font(efb).fillColor(stText); }
+        else if (i === 0) { doc.font(efb).fillColor('#1a237e'); }
+        else if (i === 2) { doc.font(efb).fillColor('#0277bd'); }
+        else if (i === 7) { doc.font(efb).fillColor('#e65100'); }
+        else if (i === 9 && t.pending_amount > 0) { doc.font(efb).fillColor('#b71c1c'); }
+        else { doc.font(efn).fillColor('#212121'); }
+        doc.text(String(v), x, y + 3, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : 'left' });
+        x += colW[i];
+      });
+      y += 13;
+    });
+
+    doc.fontSize(7).font(efn).fillColor('#9e9e9e');
+    doc.text(`Generated: ${new Date().toLocaleDateString('en-IN')}  ·  ${trips.length} trip(s) across ${payload.total_trucks} trucks`,
+             LM, doc.page.height - 30, { width: TW, align: 'center' });
+
+    doc.end();
+  }));
+
+  router.get('/api/truck-owner/per-trip-all/excel', safeAsync(async (req, res) => {
+    const ExcelJS = require('exceljs');
+    const payload = _buildPerTripAllPayload(req.query);
+    const trips = payload.trips;
+    const sm = payload.summary;
+    const flt = _flagFilterLabel(req.query);
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Per-Trip Bhada (All)');
+
+    ws.mergeCells('A1:K1');
+    ws.getCell('A1').value = '🛻 Per-Trip Bhada — All Trucks';
+    ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14, color: { argb: '1a1a2e' } };
+    ws.getCell('A1').alignment = { horizontal: 'center' };
+
+    ws.mergeCells('A2:K2');
+    ws.getCell('A2').value = `KMS: ${req.query.kms_year || 'All'} · Season: ${req.query.season || 'All'} · Filter: ${flt} · Trips: ${sm.total_trips} · Bhada: ₹${_fmtIN(sm.total_bhada)} · Settled: ₹${_fmtIN(sm.total_paid)} · Pending: ₹${_fmtIN(sm.total_pending)}`;
+    ws.getCell('A2').font = { name: 'Inter', size: 10, color: { argb: '555555' } };
+    ws.getCell('A2').alignment = { horizontal: 'center' };
+
+    const headers = ['RST', 'Date', 'Truck No', 'Type', 'Party', 'Destination', 'Net Wt (KG)', 'Bhada', 'Paid', 'Pending', 'Status'];
+    const hdrRow = ws.getRow(4);
+    headers.forEach((h, i) => {
+      const cell = hdrRow.getCell(i + 1);
+      cell.value = h;
+      cell.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFF' }, size: 10 };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '004D40' } };
+      cell.alignment = { horizontal: 'center' };
+      cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+    });
+
+    trips.forEach((t, idx) => {
+      const row = ws.getRow(5 + idx);
+      const vals = [
+        `#${t.rst_no}`, t.date || '',
+        t.vehicle_no || '',
+        t.trans_type === 'sale' ? 'Sale' : (t.trans_type === 'purchase' ? 'Purchase' : (t.trans_type_raw || '-')),
+        t.party_name || '-', t.farmer_name || '-',
+        Number(t.net_wt || 0),
+        Number(t.bhada || 0), Number(t.paid_amount || 0), Number(t.pending_amount || 0),
+        t.status[0].toUpperCase() + t.status.slice(1),
+      ];
+      vals.forEach((v, i) => {
+        const cell = row.getCell(i + 1);
+        cell.value = v;
+        cell.font = { name: 'Inter', size: 10 };
+        cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+        if (i === 6 || i === 7 || i === 8 || i === 9) {
+          cell.alignment = { horizontal: 'right' };
+          cell.numFmt = '#,##0';
+        }
+      });
+      // Status cell color
+      const stCell = row.getCell(11);
+      if (t.status === 'settled') stCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'C8E6C9' } };
+      else if (t.status === 'partial') stCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0B2' } };
+      else stCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCDD2' } };
+    });
+
+    [10, 14, 18, 12, 26, 26, 14, 14, 14, 14, 14].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+
+    const fnameSuffix = (req.query.filter_status && req.query.filter_status !== 'all') ? `_${req.query.filter_status}` : '';
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=per_trip_bhada_all_trucks${fnameSuffix}.xlsx`);
+    await wb.xlsx.write(res);
+    res.end();
+  }));
+
   return router;
 };

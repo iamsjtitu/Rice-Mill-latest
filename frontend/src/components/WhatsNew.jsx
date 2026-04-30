@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.5",
+    date: "Feb 16, 2026",
+    title: "v104.44.5 — 📑 All-Trucks Per-Trip Bhada PDF/Excel Exports (with Filters)",
+    items: [
+      { type: "feature", text: "📑 **All-Trucks PDF Export** — `Payments → Per-Trip Bhada` me ab `PDF` button click pe **saare trucks ka combined PDF** download hota hai (landscape, with Truck No column). Filters automatically respected hote hain — agar user ne `Pending` filter laga rakha hai ya `Sale` only select kiya hai ya search box me kuch likha hai, sirf woh trips PDF me aate hain." },
+      { type: "feature", text: "📥 **All-Trucks Excel Export** — Excel button bhi same combined behavior — sab trucks ka data ek single sheet me, color-coded status cells (Settled green, Partial amber, Pending red), summary banner top pe (Total Bhada / Settled / Pending / Trips count)." },
+      { type: "feature", text: "🔎 **Filter-Aware Filenames** — `per_trip_bhada_all_trucks.pdf` (no filter) ya `per_trip_bhada_all_trucks_pending.pdf` (filter applied) — auto-naming reflects current view." },
+      { type: "improvement", text: "✅ **Triple-Backend Parity** — Naye endpoints `GET /api/truck-owner/per-trip-all/pdf` aur `/per-trip-all/excel` teeno backends me identical hain (Python FastAPI + Node Desktop Electron + Node LAN Express). Query params: `kms_year`, `season`, `filter_status`, `trans_type`, `search`. In-process Express harness me 6/6 tests pass." },
+      { type: "fix", text: "🔧 Pehle 'All Trucks' view me PDF/Excel buttons sirf single-truck filter karne pe hi kaam karte the. Ab seedha sab trucks ke saath, with ya without filters, dono kaam karte hain. WhatsApp text endpoint abhi single-truck only hai (search se filter karna hoga)." },
+    ],
+  },
+  {
     version: "104.44.4",
     date: "Feb 16, 2026",
     title: "v104.44.4 — 🛻 Truck Owner Per-Trip Bhada (Production Ready)",

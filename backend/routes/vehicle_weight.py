@@ -2519,3 +2519,254 @@ async def truck_owner_whatsapp_text(vehicle_no: str, kms_year: str = "", season:
     lines.append(f"_Total pending: ₹{sm['total_pending']:,.0f}_")
 
     return {"text": "\n".join(lines), "vehicle_no": vehicle_no, "summary": sm}
+
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 🛻 TRUCK OWNER — All Trucks Per-Trip PDF / Excel Export (combined view)
+# ════════════════════════════════════════════════════════════════════════════
+async def _build_pertrip_all_payload(
+    kms_year: str = "", season: str = "",
+    date_from: str = "", date_to: str = "",
+    filter_status: str = "", trans_type: str = "", search: str = ""
+):
+    """Build all-trucks per-trip payload with additional trans_type + search filtering."""
+    full = await per_trip_all(kms_year, season, date_from, date_to, filter_status)
+    trips = full.get("trips", [])
+    tt = (trans_type or "all").lower().strip()
+    if tt and tt != "all":
+        trips = [t for t in trips if (t.get("trans_type") or "") == tt]
+    s = (search or "").strip().lower()
+    if s:
+        def _match(t):
+            hay = " ".join([
+                str(t.get("vehicle_no") or ""),
+                str(t.get("party_name") or ""),
+                str(t.get("farmer_name") or ""),
+                str(t.get("rst_no") or ""),
+            ]).lower()
+            return s in hay
+        trips = [t for t in trips if _match(t)]
+    # Recompute summary on the *filtered* trips so PDF/Excel banner stays in sync.
+    sm = {
+        "total_trips": len(trips),
+        "sale_count": sum(1 for t in trips if t.get("trans_type") == "sale"),
+        "purchase_count": sum(1 for t in trips if t.get("trans_type") == "purchase"),
+        "total_bhada": round(sum(float(t.get("bhada") or 0) for t in trips), 2),
+        "total_paid": round(sum(float(t.get("paid_amount") or 0) for t in trips), 2),
+        "total_pending": round(sum(float(t.get("pending_amount") or 0) for t in trips), 2),
+        "settled_count": sum(1 for t in trips if t.get("status") == "settled"),
+        "partial_count": sum(1 for t in trips if t.get("status") == "partial"),
+        "pending_count": sum(1 for t in trips if t.get("status") == "pending"),
+    }
+    return {"trips": trips, "summary": sm, "total_trucks": full.get("total_trucks", 0)}
+
+
+@router.get("/truck-owner/per-trip-all/pdf")
+async def truck_owner_per_trip_all_pdf(
+    kms_year: str = "", season: str = "",
+    date_from: str = "", date_to: str = "",
+    filter_status: str = "", trans_type: str = "", search: str = ""
+):
+    """Generate combined per-trip Bhada PDF for ALL trucks with active filters."""
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER
+    from fastapi.responses import StreamingResponse
+    from utils.branding_helper import get_pdf_header_elements_from_db
+    from utils.export_helpers import register_hindi_fonts
+    from utils.date_format import fmt_date as fmt_d
+    register_hindi_fonts()
+
+    payload = await _build_pertrip_all_payload(kms_year, season, date_from, date_to, filter_status, trans_type, search)
+    trips = payload["trips"]
+    sm = payload["summary"]
+
+    # Build subtitle reflecting active filters
+    flt_bits = []
+    if filter_status and filter_status != "all": flt_bits.append(f"Status: {filter_status.title()}")
+    if trans_type and trans_type != "all": flt_bits.append(f"Type: {trans_type.title()}")
+    if search: flt_bits.append(f"Search: {search}")
+    flt_label = " · ".join(flt_bits) if flt_bits else "All"
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
+    elements = []
+    header_elems = await get_pdf_header_elements_from_db(
+        title="🛻 Per-Trip Bhada — All Trucks",
+        subtitle=f"KMS: {kms_year or 'All'} · Season: {season or 'All'} · Filter: {flt_label}"
+    )
+    elements.extend(header_elems)
+
+    # Summary banner
+    summary_data = [[
+        f"Trips: {sm['total_trips']}",
+        f"Sale: {sm['sale_count']} · Purchase: {sm['purchase_count']}",
+        f"Total Bhada: ₹{sm['total_bhada']:,.0f}",
+        f"Settled: ₹{sm['total_paid']:,.0f}",
+        f"Pending: ₹{sm['total_pending']:,.0f}",
+    ]]
+    summary_tbl = Table(summary_data, colWidths=[40*mm, 55*mm, 50*mm, 50*mm, 50*mm])
+    summary_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#1a237e')),
+        ('TEXTCOLOR', (0,0), (-1,-1), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTSIZE', (0,0), (-1,-1), 10),
+        ('FONTNAME', (0,0), (-1,-1), 'Helvetica-Bold'),
+        ('LEADING', (0,0), (-1,-1), 14),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#1a237e')),
+    ]))
+    elements.append(summary_tbl)
+    elements.append(Spacer(1, 4*mm))
+
+    # Trips table — landscape gives us room for Truck No column
+    headers = ["RST", "Date", "Truck No", "Type", "Party", "Destination", "Net Wt", "Bhada", "Paid", "Pending", "Status"]
+    rows = [headers]
+    for t in trips:
+        rows.append([
+            f"#{t['rst_no']}", fmt_d(t['date']),
+            t.get('vehicle_no') or '-',
+            "Sale" if t['trans_type'] == 'sale' else ("Purchase" if t['trans_type'] == 'purchase' else (t.get('trans_type_raw') or '-')),
+            (t.get('party_name') or '-')[:24],
+            (t.get('farmer_name') or '-')[:24],
+            f"{int(t.get('net_wt') or 0):,}" if t.get('net_wt') else '-',
+            f"₹{t['bhada']:,.0f}",
+            f"₹{t['paid_amount']:,.0f}" if t['paid_amount'] else '-',
+            f"₹{t['pending_amount']:,.0f}" if t['pending_amount'] else '-',
+            t['status'].title(),
+        ])
+    if len(rows) == 1:
+        rows.append(["—", "Koi trip nahi", "", "", "", "", "", "", "", "", ""])
+
+    col_widths = [16*mm, 22*mm, 28*mm, 18*mm, 42*mm, 42*mm, 18*mm, 22*mm, 22*mm, 22*mm, 22*mm]
+    trips_tbl = Table(rows, colWidths=col_widths, repeatRows=1)
+    trips_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#004d40')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTSIZE', (0,0), (-1,-1), 8),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('ALIGN', (0,0), (0,-1), 'CENTER'),
+        ('ALIGN', (6,1), (-2,-1), 'RIGHT'),
+        ('ALIGN', (-1,0), (-1,-1), 'CENTER'),
+        ('GRID', (0,0), (-1,-1), 0.3, colors.HexColor('#cccccc')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f5f5f5')]),
+        ('LEADING', (0,0), (-1,-1), 11),
+    ]))
+    # Color status cells
+    for i, t in enumerate(trips, start=1):
+        st = t.get('status')
+        if st == 'settled':
+            trips_tbl.setStyle(TableStyle([('BACKGROUND', (-1,i), (-1,i), colors.HexColor('#c8e6c9')), ('TEXTCOLOR', (-1,i), (-1,i), colors.HexColor('#1b5e20'))]))
+        elif st == 'partial':
+            trips_tbl.setStyle(TableStyle([('BACKGROUND', (-1,i), (-1,i), colors.HexColor('#ffe0b2')), ('TEXTCOLOR', (-1,i), (-1,i), colors.HexColor('#e65100'))]))
+        else:
+            trips_tbl.setStyle(TableStyle([('BACKGROUND', (-1,i), (-1,i), colors.HexColor('#ffcdd2')), ('TEXTCOLOR', (-1,i), (-1,i), colors.HexColor('#b71c1c'))]))
+    elements.append(trips_tbl)
+
+    elements.append(Spacer(1, 4*mm))
+    style_small = ParagraphStyle('small', fontSize=8, alignment=TA_CENTER, textColor=colors.grey)
+    elements.append(Paragraph(
+        f"Generated: {fmt_d(datetime.now(timezone.utc).strftime('%Y-%m-%d'))} · {len(trips)} trip(s) · {payload.get('total_trucks', 0)} trucks",
+        style_small,
+    ))
+
+    doc.build(elements)
+    buf.seek(0)
+    fname = f"per_trip_bhada_all_trucks{('_' + filter_status) if filter_status and filter_status != 'all' else ''}.pdf"
+    return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
+@router.get("/truck-owner/per-trip-all/excel")
+async def truck_owner_per_trip_all_excel(
+    kms_year: str = "", season: str = "",
+    date_from: str = "", date_to: str = "",
+    filter_status: str = "", trans_type: str = "", search: str = ""
+):
+    """Excel export — all trucks per-trip Bhada with active filters."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from fastapi.responses import StreamingResponse
+
+    payload = await _build_pertrip_all_payload(kms_year, season, date_from, date_to, filter_status, trans_type, search)
+    trips = payload["trips"]
+    sm = payload["summary"]
+
+    flt_bits = []
+    if filter_status and filter_status != "all": flt_bits.append(f"Status: {filter_status.title()}")
+    if trans_type and trans_type != "all": flt_bits.append(f"Type: {trans_type.title()}")
+    if search: flt_bits.append(f"Search: {search}")
+    flt_label = " · ".join(flt_bits) if flt_bits else "All"
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Per-Trip Bhada (All)"
+
+    title_font = Font(name="Inter", bold=True, size=14, color="1a1a2e")
+    sub_font = Font(name="Inter", size=10, color="555555")
+    hdr_font = Font(name="Inter", bold=True, size=10, color="FFFFFF")
+    hdr_fill = PatternFill(start_color="004D40", end_color="004D40", fill_type="solid")
+    thin = Side(style="thin", color="cccccc")
+    bd = Border(top=thin, bottom=thin, left=thin, right=thin)
+
+    ws.merge_cells("A1:K1")
+    ws.cell(row=1, column=1, value="🛻 Per-Trip Bhada — All Trucks").font = title_font
+    ws.cell(row=1, column=1).alignment = Alignment(horizontal="center")
+
+    ws.merge_cells("A2:K2")
+    ws.cell(row=2, column=1, value=(
+        f"KMS: {kms_year or 'All'} · Season: {season or 'All'} · Filter: {flt_label} · "
+        f"Trips: {sm['total_trips']} · Bhada: ₹{sm['total_bhada']:,.0f} · "
+        f"Settled: ₹{sm['total_paid']:,.0f} · Pending: ₹{sm['total_pending']:,.0f}"
+    )).font = sub_font
+    ws.cell(row=2, column=1).alignment = Alignment(horizontal="center")
+
+    headers = ["RST", "Date", "Truck No", "Type", "Party", "Destination", "Net Wt (KG)", "Bhada", "Paid", "Pending", "Status"]
+    for col_idx, h in enumerate(headers, start=1):
+        c = ws.cell(row=4, column=col_idx, value=h)
+        c.font = hdr_font; c.fill = hdr_fill; c.border = bd
+        c.alignment = Alignment(horizontal="center")
+
+    for ri, t in enumerate(trips, start=5):
+        vals = [
+            f"#{t['rst_no']}", t.get('date') or '',
+            t.get('vehicle_no') or '',
+            "Sale" if t['trans_type'] == 'sale' else ("Purchase" if t['trans_type'] == 'purchase' else (t.get('trans_type_raw') or '-')),
+            t.get('party_name') or '-',
+            t.get('farmer_name') or '-',
+            int(t.get('net_wt') or 0),
+            float(t['bhada']),
+            float(t['paid_amount']),
+            float(t['pending_amount']),
+            t['status'].title(),
+        ]
+        for col_idx, v in enumerate(vals, start=1):
+            c = ws.cell(row=ri, column=col_idx, value=v)
+            c.border = bd
+            if col_idx in (7, 8, 9, 10):
+                c.alignment = Alignment(horizontal="right")
+                c.number_format = '#,##0'
+        st_cell = ws.cell(row=ri, column=11)
+        if t['status'] == 'settled':
+            st_cell.fill = PatternFill(start_color="C8E6C9", end_color="C8E6C9", fill_type="solid")
+        elif t['status'] == 'partial':
+            st_cell.fill = PatternFill(start_color="FFE0B2", end_color="FFE0B2", fill_type="solid")
+        else:
+            st_cell.fill = PatternFill(start_color="FFCDD2", end_color="FFCDD2", fill_type="solid")
+
+    widths = {1: 10, 2: 14, 3: 18, 4: 12, 5: 26, 6: 26, 7: 14, 8: 14, 9: 14, 10: 14, 11: 14}
+    for k, w in widths.items():
+        ws.column_dimensions[chr(64 + k)].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    fname = f"per_trip_bhada_all_trucks{('_' + filter_status) if filter_status and filter_status != 'all' else ''}.xlsx"
+    return StreamingResponse(
+        buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={fname}"}
+    )

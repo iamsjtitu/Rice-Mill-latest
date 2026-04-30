@@ -164,33 +164,37 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
     }
   };
 
-  const handleHeaderExport = (kind) => {
-    // For "all-trucks" view we don't have a single PDF endpoint; user must filter to one truck via search first.
-    // Show a hint if no truck is uniquely identified.
-    const trucksInView = [...new Set(trips.map(t => t.vehicle_no))];
-    if (trucksInView.length === 0) { toast.error("Koi trips nahi"); return; }
-    if (trucksInView.length > 1) {
-      toast.warning("Pehle ek truck ke liye search karein, fir export click karein", { duration: 4000 });
-      return;
-    }
+  // Build query params honoring all active filters (kms_year, season, filter_status, trans_type, search).
+  const _exportParams = () => {
     const params = new URLSearchParams();
     if (filters?.kms_year) params.append("kms_year", filters.kms_year);
     if (filters?.season) params.append("season", filters.season);
-    const ep = kind === "pdf" ? "per-trip-pdf" : "per-trip-excel";
-    window.open(`${API}/truck-owner/${encodeURIComponent(trucksInView[0])}/${ep}?${params}`, "_blank");
+    if (statusFilter && statusFilter !== "all") params.append("filter_status", statusFilter);
+    if (filter && filter !== "all") params.append("trans_type", filter);
+    if (searchQ.trim()) params.append("search", searchQ.trim());
+    return params;
+  };
+
+  const handleHeaderExport = (kind) => {
+    if (!data || (data?.summary?.total_trips || 0) === 0) { toast.error("Koi trips nahi"); return; }
+    const params = _exportParams();
+    const ep = kind === "pdf" ? "per-trip-all/pdf" : "per-trip-all/excel";
+    window.open(`${API}/truck-owner/${ep}?${params}`, "_blank");
+    toast.success(`${kind === 'pdf' ? 'PDF' : 'Excel'} download started — ${trips.length} trips`, { duration: 3000 });
   };
 
   const handleHeaderWhatsApp = async () => {
+    // Single-truck only: derive vehicle_no from active search OR currently visible trips.
     const trucksInView = [...new Set(trips.map(t => t.vehicle_no))];
     if (trucksInView.length === 0) { toast.error("Koi trips nahi"); return; }
     if (trucksInView.length > 1) {
-      toast.warning("Pehle ek truck ke liye search karein, fir WhatsApp click karein", { duration: 4000 });
+      toast.warning("WhatsApp text ek truck ke liye hi banta hai — pehle search karke ek truck filter karein", { duration: 4000 });
       return;
     }
     try {
       const params = new URLSearchParams();
       if (filters?.kms_year) params.append("kms_year", filters.kms_year);
-      params.append("filter_status", "pending");
+      params.append("filter_status", statusFilter !== "all" ? statusFilter : "pending");
       const r = await axios.get(`${API}/truck-owner/${encodeURIComponent(trucksInView[0])}/whatsapp-text?${params}`);
       const text = r.data?.text || "";
       if (text) {
@@ -280,15 +284,15 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
             {/* Icon-only export group */}
             <div className="flex items-center gap-1 ml-1 pl-2 border-l border-slate-600" data-testid="truck-pertrip-export-group">
               <Button size="sm" variant="ghost" onClick={() => handleHeaderExport("pdf")} disabled={loading}
-                className="h-9 w-9 p-0 text-red-400 hover:bg-red-900/30 border border-red-600 disabled:opacity-50" title="PDF Export (filter to 1 truck first)" data-testid="truck-pertrip-pdf">
+                className="h-9 w-9 p-0 text-red-400 hover:bg-red-900/30 border border-red-600 disabled:opacity-50" title="PDF Export (current filters apply)" data-testid="truck-pertrip-pdf">
                 <FileText className="w-4 h-4" />
               </Button>
               <Button size="sm" variant="ghost" onClick={() => handleHeaderExport("excel")} disabled={loading}
-                className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600 disabled:opacity-50" title="Excel Export (filter to 1 truck first)" data-testid="truck-pertrip-excel">
+                className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600 disabled:opacity-50" title="Excel Export (current filters apply)" data-testid="truck-pertrip-excel">
                 <Download className="w-4 h-4" />
               </Button>
               <Button size="sm" variant="ghost" onClick={handleHeaderWhatsApp} disabled={loading}
-                className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600 disabled:opacity-50" title="WhatsApp (filter to 1 truck first)" data-testid="truck-pertrip-whatsapp">
+                className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600 disabled:opacity-50" title="WhatsApp text (single truck — search to filter)" data-testid="truck-pertrip-whatsapp">
                 <Send className="w-4 h-4" />
               </Button>
             </div>

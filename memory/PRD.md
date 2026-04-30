@@ -1,6 +1,55 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.4
+## Current Version: v104.44.5
+
+## 📑 v104.44.5 — All-Trucks Per-Trip Bhada PDF/Excel Exports (Filter-Aware)
+**Build date:** 2026-04-30
+
+### Feature
+Adds combined PDF/Excel export endpoints for the **All-Trucks Per-Trip Bhada** view that respect every active filter (status, trans_type, search). Replaces the prior single-truck-only behaviour where users had to filter to one truck before exporting.
+
+### Endpoints (Triple-Backend Parity)
+- `GET /api/truck-owner/per-trip-all/pdf?[kms_year=&season=&filter_status=&trans_type=&search=&date_from=&date_to=]`
+- `GET /api/truck-owner/per-trip-all/excel?[…same params…]`
+
+### Layout
+- **PDF**: A4 landscape · header bar (NAVKAR AGRO + "🛻 Per-Trip Bhada — All Trucks") · summary banner (Total Bhada / Settled / Partial / Pending / Sale·Purchase) · 11-col table with Truck No column · color-coded status cells
+- **Excel**: 11-col sheet (RST · Date · Truck No · Type · Party · Destination · Net Wt · Bhada · Paid · Pending · Status) · summary subtitle row · status fill colors
+
+### Filter-Aware Filename
+- `per_trip_bhada_all_trucks.pdf` (no filter)
+- `per_trip_bhada_all_trucks_pending.pdf` (status filter applied)
+
+### Triple-Backend Parity
+- ✅ Python: `/app/backend/routes/vehicle_weight.py` (helper `_build_pertrip_all_payload` + 2 endpoints)
+- ✅ Node Desktop: `/app/desktop-app/routes/vehicle_weight.js` (helper `_buildPerTripAllPayload` + 2 endpoints)
+- ✅ Node LAN: `/app/local-server/routes/vehicle_weight.js` (identical)
+
+### Frontend
+- `/app/frontend/src/components/TruckOwnerPerTripPanel.jsx`
+  - `handleHeaderExport()` rewritten — uses `/per-trip-all/pdf` and `/per-trip-all/excel`, passes `filter_status`, `trans_type`, `search` query params from current panel state.
+  - Removed "filter to 1 truck first" hint — buttons always work for combined export.
+  - Tooltip updated: "PDF Export (current filters apply)".
+  - WhatsApp button still single-truck only (text-template format limitation).
+
+### Verification
+- **Backend curl** — 18 filter combinations PASSED (200 OK, valid PDF/XLSX magic bytes).
+- **Pytest regression** — `/app/backend/tests/test_pertrip_all_export_v104_44_5.py`: **17/17 PASSED**.
+- **Node desktop-app harness** — in-process Express test: **6/6 PASSED**.
+- **Frontend smoke test** — Per-Trip Bhada panel renders with PDF/Excel/Search buttons all visible and enabled. v104.44.5 WhatsNew entry shown at top.
+
+### Files Updated
+- `/app/backend/routes/vehicle_weight.py` (+250 lines for helper + 2 endpoints)
+- `/app/desktop-app/routes/vehicle_weight.js` (+220 lines)
+- `/app/local-server/routes/vehicle_weight.js` (+220 lines)
+- `/app/frontend/src/components/TruckOwnerPerTripPanel.jsx` (handleHeaderExport rewrite)
+- `/app/frontend/src/components/WhatsNew.jsx` (top entry)
+- `/app/frontend/src/utils/constants-version.js` → `104.44.5`
+- `/app/desktop-app/package.json` → `104.44.5`
+- `/app/local-server/package.json` → `104.44.5`
+- `/app/backend/tests/test_pertrip_all_export_v104_44_5.py` (NEW — 17 regression tests)
+
+---
 
 ## 🛻 v104.44.4 — Truck Owner Per-Trip Bhada (Production Ready)
 **Build date:** 2026-04-30
