@@ -1039,10 +1039,11 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
         c.setLineWidth(1.5)
         c.line(x, cy, x + PW, cy)
 
+        _is_sale = ("sale" in str(entry.get("trans_type", "")).lower() or "dispatch" in str(entry.get("trans_type", "")).lower())
         rows = [
             ("RST No.", f"#{rst}", "Date / \u0926\u093f\u0928\u093e\u0902\u0915", fmt_date(entry.get("date", ""))),
             ("Vehicle / \u0917\u093e\u0921\u093c\u0940", entry.get("vehicle_no", ""), "Trans Type", entry.get("trans_type", "")),
-            ("Party / \u092a\u093e\u0930\u094d\u091f\u0940", entry.get("party_name", ""), "Source/Mandi", entry.get("farmer_name", "")),
+            ("Party / \u092a\u093e\u0930\u094d\u091f\u0940", entry.get("party_name", ""), "Destination" if _is_sale else "Source/Mandi", entry.get("farmer_name", "")),
             ("Product / \u092e\u093e\u0932", entry.get("product", ""), "Bags / \u092c\u094b\u0930\u0947", str(entry.get("tot_pkts", 0))),
         ]
         g_issued = float(entry.get("g_issued", 0) or 0)
@@ -1270,13 +1271,14 @@ async def weight_report_pdf(entry_id: str):
     small_style = ParagraphStyle('sm', fontName='NotoDeva', fontSize=7.5, textColor=colors.HexColor('#666'))
 
     # ── Info Table ──
+    _is_sale_slip = ("sale" in str(entry.get("trans_type", "")).lower() or "dispatch" in str(entry.get("trans_type", "")).lower())
     info_rows = [
         [Paragraph("RST No.", lbl_style), Paragraph(f"#{rst}", val_style),
          Paragraph("Date / दिनांक", lbl_style), Paragraph(fmt_date(entry.get("date", "")), val_style)],
         [Paragraph("Vehicle / गाड़ी", lbl_style), Paragraph(entry.get("vehicle_no", "-"), val_style),
          Paragraph("Trans Type", lbl_style), Paragraph(entry.get("trans_type", "-"), val_style)],
         [Paragraph("Party / पार्टी", lbl_style), Paragraph(entry.get("party_name", "-"), val_style),
-         Paragraph("Source / Mandi", lbl_style), Paragraph(entry.get("farmer_name", "") or "-", val_style)],
+         Paragraph("Destination" if _is_sale_slip else "Source / Mandi", lbl_style), Paragraph(entry.get("farmer_name", "") or "-", val_style)],
         [Paragraph("Product / माल", lbl_style), Paragraph(entry.get("product", "-"), val_style),
          Paragraph("Bags / बोरे", lbl_style), Paragraph(str(bags) if bags else "-", val_style)],
     ]

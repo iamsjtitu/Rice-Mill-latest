@@ -822,9 +822,10 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
     let t = `*Weight Slip — RST #${e.rst_no}*\n`;
     t += `Date: ${fmtDate(e.date)}\n`;
     t += `Vehicle: ${e.vehicle_no}\n`;
+    const _isSale = ((e.trans_type || '') + '').toLowerCase().includes('sale') || ((e.trans_type || '') + '').toLowerCase().includes('dispatch');
     t += `Trans: ${e.trans_type || '-'}\n`;
     t += `Party: ${e.party_name || '-'}\n`;
-    t += `Source/Mandi: ${e.farmer_name || '-'}\n`;
+    t += `${_isSale ? 'Destination' : 'Source/Mandi'}: ${e.farmer_name || '-'}\n`;
     t += `Product: ${e.product || '-'}\n`;
     t += `Bags: ${e.tot_pkts || '-'}\n`;
     t += `───────────────\n`;
@@ -955,7 +956,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
         <table class="info-table">
           <tr><td class="lbl">RST No.</td><td class="val rst">#${rst}</td><td class="lbl">Date / दिनांक</td><td class="val">${fmtDate(e.date)}</td></tr>
           <tr><td class="lbl">Vehicle / गाड़ी</td><td class="val">${e.vehicle_no}</td><td class="lbl">Trans Type</td><td class="val">${e.trans_type || '-'}</td></tr>
-          <tr><td class="lbl">Party / पार्टी</td><td class="val">${e.party_name || '-'}</td><td class="lbl">Source/Mandi</td><td class="val">${e.farmer_name || '-'}</td></tr>
+          <tr><td class="lbl">Party / पार्टी</td><td class="val">${e.party_name || '-'}</td><td class="lbl">${(((e.trans_type || '') + '').toLowerCase().includes('sale') || ((e.trans_type || '') + '').toLowerCase().includes('dispatch')) ? 'Destination' : 'Source/Mandi'}</td><td class="val">${e.farmer_name || '-'}</td></tr>
           <tr><td class="lbl">Product / माल</td><td class="val">${e.product || '-'}</td><td class="lbl">Bags / बोरे</td><td class="val">${e.tot_pkts || '-'}</td></tr>
           ${!isCustomerCopy && Number(e.g_issued || 0) > 0 ? `<tr><td class="lbl">G.Issued</td><td class="val" style="color:#4338ca;font-weight:900">${Number(e.g_issued).toLocaleString()}</td><td class="lbl">TP No.</td><td class="val">${e.tp_no || '-'}</td></tr>` : (!isCustomerCopy && e.tp_no ? `<tr><td class="lbl">TP No.</td><td class="val">${e.tp_no}</td><td class="lbl"></td><td class="val"></td></tr>` : '')}
           ${!isCustomerCopy && Number(e.tp_weight || 0) > 0 ? `<tr><td class="lbl">TP Weight</td><td class="val">${Number(e.tp_weight)} Q</td><td class="lbl"></td><td class="val"></td></tr>` : ''}
@@ -1948,7 +1949,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                   <tr>
                     <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold whitespace-nowrap">Party / पार्टी</td>
                     <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.party_name || '-'}</td>
-                    <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold whitespace-nowrap">Source/Mandi</td>
+                    <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold whitespace-nowrap">{(((photoDialog.data.trans_type || '') + '').toLowerCase().includes('sale') || ((photoDialog.data.trans_type || '') + '').toLowerCase().includes('dispatch')) ? 'Destination' : 'Source/Mandi'}</td>
                     <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.farmer_name || '-'}</td>
                   </tr>
                   <tr>

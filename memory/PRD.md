@@ -1,6 +1,29 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.9
+## Current Version: v104.44.10
+
+## 🎯 v104.44.10 — Sale Entries: Source/Mandi → Destination (Semantic Fix)
+**Build date:** 2026-04-30
+
+### User Request
+"Auto Vehicle Weight Sale me Completed Entries me Source/Mandi ke jagah Destination ana chahiye. Same print and download me bhi. Auto Weight Entries (Last 7 Days) me bhi."
+
+### Implementation
+**Logic**: detect via `trans_type` containing 'sale' OR 'dispatch' (case-insensitive) → label = "Destination", else "Source/Mandi".
+
+**11 places fixed across all 3 backends:**
+- Frontend (5): VehicleWeight.jsx (3 — WhatsApp text, print HTML, photo dialog) + AutoWeightEntries.jsx (2 — print HTML, photo dialog). Table headers were already conditional.
+- Backend Python (2): Single weight slip PDF (canvas + platypus versions in `/app/backend/routes/vehicle_weight.py`)
+- Backend Node Desktop (3): WhatsApp text, drawGridRow PDF, bordered info table PDF
+- Backend Node LAN (3): identical to Desktop
+
+### Verification
+- **Python pypdf test**: SALE PDF shows 'Destination' (only) ✓ | PURCHASE PDF shows 'Source/Mandi' (only) ✓
+- **Node desktop-app harness pypdf test**: SALE ✓ | PURCHASE ✓
+- **Logic test**: 7/7 test cases (Dispatch(Sale), Sale, Sale_Pakka, Receive(Purchase), Purchase, DC, empty) all correct
+- Lint clean (frontend + backend)
+
+---
 
 ## 📊 v104.44.9 — GLOBAL Excel Polish: Auto-filter + Freeze Header on EVERY Excel Download
 **Build date:** 2026-04-30

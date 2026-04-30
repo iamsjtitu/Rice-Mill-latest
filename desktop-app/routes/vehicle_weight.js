@@ -546,7 +546,8 @@ module.exports = function(database) {
 
         drawGridRow('RST No.', `#${rst}`, 'Date / दिनांक', fmtDate(entry.date || ''), true);
         drawGridRow('Vehicle / गाड़ी', entry.vehicle_no || '-', 'Trans Type', entry.trans_type || '-', false);
-        drawGridRow('Party / पार्टी', entry.party_name || '-', 'Source/Mandi', entry.farmer_name || '-', true);
+        const _isSaleSlip = String(entry.trans_type || '').toLowerCase().match(/sale|dispatch/);
+        drawGridRow('Party / पार्टी', entry.party_name || '-', _isSaleSlip ? 'Destination' : 'Source/Mandi', entry.farmer_name || '-', true);
         drawGridRow('Product / माल', entry.product || '-', 'Bags / बोरे', bags ? String(bags) : '-', false);
         // Conditional rows
         if (gIssued || tpNo) drawGridRow('G.Issued', gIssued ? String(Math.round(gIssued)) : '-', 'TP No.', tpNo || '-', true);
@@ -1349,10 +1350,11 @@ module.exports = function(database) {
       doc.lineWidth(1.5).strokeColor('#1a1a2e').moveTo(x, y).lineTo(x + PW, y).stroke();
 
       // ── Bordered Info Table (4 rows x 4 cols with cell borders) ──
+      const _isSaleSlip2 = String(entry.trans_type || '').toLowerCase().match(/sale|dispatch/);
       const rows = [
         ['RST No.', `#${rst}`, 'Date / \u0926\u093f\u0928\u093e\u0902\u0915', fmtDate(entry.date) || ''],
         ['Vehicle / \u0917\u093e\u0921\u093c\u0940', entry.vehicle_no || '', 'Trans Type', entry.trans_type || ''],
-        ['Party / \u092a\u093e\u0930\u094d\u091f\u0940', entry.party_name || '', 'Source/Mandi', entry.farmer_name || ''],
+        ['Party / \u092a\u093e\u0930\u094d\u091f\u0940', entry.party_name || '', _isSaleSlip2 ? 'Destination' : 'Source/Mandi', entry.farmer_name || ''],
         ['Product / \u092e\u093e\u0932', entry.product || '', 'Bags / \u092c\u094b\u0930\u0947', String(entry.tot_pkts || 0)],
       ];
       const gIssued = parseFloat(entry.g_issued || 0) || 0;

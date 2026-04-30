@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.10",
+    date: "Feb 16, 2026",
+    title: "v104.44.10 — 🎯 Sale Entries: Source/Mandi → Destination (sab jagah)",
+    items: [
+      { type: "improvement", text: "🎯 **Sale entries me 'Source/Mandi' → 'Destination'** har jagah convert ho gaya (semantically correct kyunki Sale me maal ja raha hai, aa nahi raha):" },
+      { type: "improvement", text: "✅ **Frontend** (5 places): Completed Entries header, Auto Weight Entries header, Print receipt HTML (VehicleWeight.jsx), Photo dialog (VehicleWeight.jsx), Print receipt HTML (AutoWeightEntries.jsx), Photo dialog (AutoWeightEntries.jsx), WhatsApp/copy text" },
+      { type: "improvement", text: "✅ **Backend Python** (2 places): Single weight slip PDF (canvas + reportlab.platypus versions). Excel/PDF list exports already conditional ✓" },
+      { type: "improvement", text: "✅ **Backend Node Desktop + LAN** (3 places each, 6 total): WhatsApp text, drawGridRow PDF, bordered info table PDF" },
+      { type: "fix", text: "🛡️ **Logic**: Detects via `trans_type` containing 'sale' OR 'dispatch' (case-insensitive) → 'Destination'. Otherwise → 'Source/Mandi'. Tested 7 test cases including Dispatch(Sale), Sale_Pakka, Receive(Purchase), DC, empty — all correct." },
+    ],
+  },
+  {
     version: "104.44.9",
     date: "Feb 16, 2026",
     title: "v104.44.9 — 📊 GLOBAL Excel Polish: Auto-filter + Freeze Header on EVERY Excel Download",
