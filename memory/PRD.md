@@ -1,6 +1,52 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.7
+## Current Version: v104.44.8
+
+## 🎯 v104.44.8 — Agent Payments + Local Party — Same Unified Header Pattern
+**Build date:** 2026-04-30
+
+### Changes
+- **Agent Payments**: Full unification — search filter (`agentSearchFilter` + `filteredAgentPayments`), Card header title + tagline + search box + 4 icon buttons (PDF/Excel/WhatsApp/Group). Excel/PDF text buttons replaced.
+- **Local Party**: Excel/PDF buttons converted to icon-only style. WhatsApp + Group icons added. Top toolbar (party dropdown + date range + Manual Purchase) preserved (party drilldown UX requires it).
+- **Group dialog text formats**: Both panels use WhatsApp-friendly markdown with emoji + bold + party-wise mini-list (≤10 items).
+
+### Files Updated
+- `/app/frontend/src/components/Payments.jsx`:
+  - State: `agentSearchFilter`
+  - Memo: `filteredAgentPayments`, `agentTotals` recomputed
+  - Helpers: `_agentSummaryText(label, list, totals)`
+  - Handlers: `handleHeaderAgentWhatsApp`, `handleHeaderAgentGroup`
+  - Agent Payments Card refactored — search + 4 icons in header
+  - `agentPayments.map` → `filteredAgentPayments.map`
+- `/app/frontend/src/components/payments/LocalPartyAccount.jsx`:
+  - Imports: `Send`, `Users`, `SendToGroupDialog`
+  - State: `groupDialogOpen, groupText, groupPdfUrl`
+  - Helper: `_localPartySummaryText()`
+  - Handlers: `handleHeaderWhatsApp`, `handleHeaderGroup`
+  - Excel/PDF buttons → icon-only style + 2 new icon buttons (WhatsApp/Group)
+  - SendToGroupDialog mounted at bottom
+- `/app/frontend/src/components/WhatsNew.jsx` (top entry)
+- `/app/frontend/src/utils/constants-version.js` → `104.44.8`
+- `/app/desktop-app/package.json` → `104.44.8`
+- `/app/local-server/package.json` → `104.44.8`
+
+### Verification
+- Lint clean (both files)
+- Frontend smoke test:
+  - Agent Payments: search=✓ PDF=✓ Excel=✓ WhatsApp=✓ Group=✓
+  - Local Party: PDF=✓ Excel=✓ WhatsApp=✓ Group=✓
+- Both panels render with consistent icon-only export buttons matching v104.44.7 pattern
+
+### Consistency Status — All 5 Payment Sub-Tabs
+| Tab | Search | PDF | Excel | WhatsApp | Group |
+|---|---|---|---|---|---|
+| Truck Payment | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Truck Owner | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Per-Trip Bhada | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Agent Payments | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Local Party | (party drilldown) | ✅ | ✅ | ✅ | ✅ |
+
+---
 
 ## 🎯 v104.44.7 — Truck Payments / Owner / Per-Trip Bhada — Unified Header (Search + Icon Exports + WhatsApp + Group)
 **Build date:** 2026-04-30

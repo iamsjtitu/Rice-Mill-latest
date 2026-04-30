@@ -17,8 +17,9 @@ import { Label } from "@/components/ui/label";
 import RoundOffInput from "../common/RoundOffInput";
 import { useConfirm } from "../ConfirmProvider";
 import {
-  IndianRupee, RefreshCw, Download, FileText, Plus, Trash2, Handshake, Printer, Search, Loader2,
+  IndianRupee, RefreshCw, Download, FileText, Plus, Trash2, Handshake, Printer, Search, Loader2, Send, Users,
 } from "lucide-react";
+import { SendToGroupDialog } from "../SendToGroupDialog";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -45,6 +46,11 @@ const LocalPartyAccount = ({ filters, user }) => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
+
+  // Group dialog state (Send to WhatsApp Group)
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [groupText, setGroupText] = useState("");
+  const [groupPdfUrl, setGroupPdfUrl] = useState("");
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -145,6 +151,61 @@ const LocalPartyAccount = ({ filters, user }) => {
       const { downloadFile } = await import('../../utils/download');
       downloadFile(`/api/local-party/${format}?${p}`, `local_party_account.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
     } catch (e) { toast.error(`${format.toUpperCase()} export failed`); }
+  };
+
+  // ── Header WhatsApp + Group handlers ──
+  const _localPartySummaryText = () => {
+    if (!summary) return "";
+    const lines = [];
+    if (selectedParty && selectedParty !== "__all__" && partyInfo) {
+      lines.push(`*🤝 Local Party — ${partyInfo.party_name}*`);
+      lines.push('');
+      if ((partyInfo.opening_balance || 0) > 0)
+        lines.push(`📌 Opening Bal: *₹${(partyInfo.opening_balance || 0).toLocaleString('en-IN')}*`);
+      lines.push(`💰 Total Debit: *₹${(partyInfo.total_debit || 0).toLocaleString('en-IN')}*`);
+      lines.push(`✅ Total Paid: *₹${(partyInfo.total_paid || 0).toLocaleString('en-IN')}*`);
+      lines.push(`⚠️ Balance: *₹${(partyInfo.balance || 0).toLocaleString('en-IN')}*`);
+    } else {
+      lines.push(`*🤝 Local Party — All Parties*`);
+      lines.push('');
+      lines.push(`📊 Parties: *${summary.parties?.length || 0}*`);
+      if ((summary.grand_opening_balance || 0) > 0)
+        lines.push(`📌 Opening Bal: *₹${(summary.grand_opening_balance || 0).toLocaleString('en-IN')}*`);
+      lines.push(`💰 Total Debit: *₹${(summary.grand_total_debit || 0).toLocaleString('en-IN')}*`);
+      lines.push(`✅ Total Paid: *₹${(summary.grand_total_paid || 0).toLocaleString('en-IN')}*`);
+      lines.push(`⚠️ Balance: *₹${(summary.grand_balance || 0).toLocaleString('en-IN')}*`);
+      const filtered = (summary.parties || []).filter(p => !searchTerm || p.party_name.toLowerCase().includes(searchTerm.toLowerCase()));
+      if (filtered.length > 0 && filtered.length <= 10) {
+        lines.push('');
+        lines.push('*Party-wise:*');
+        filtered.forEach(p => {
+          const stEmoji = (p.balance || 0) <= 0.01 ? '✅' : '⚠️';
+          lines.push(`${stEmoji} *${p.party_name}* — Bal ₹${(p.balance || 0).toLocaleString('en-IN')}`);
+        });
+      }
+    }
+    return lines.join('\n');
+  };
+
+  const handleHeaderWhatsApp = async () => {
+    const text = _localPartySummaryText();
+    if (!text) { toast.error("Koi data nahi"); return; }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Summary text copy ho gaya — kisi bhi WhatsApp chat me paste karein", { duration: 4000 });
+    } catch {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    }
+  };
+
+  const handleHeaderGroup = () => {
+    const text = _localPartySummaryText();
+    if (!text) { toast.error("Koi data nahi"); return; }
+    setGroupText(text);
+    const params = new URLSearchParams();
+    if (filters.kms_year) params.append('kms_year', filters.kms_year);
+    setGroupPdfUrl(`${API}/local-party/pdf?${params.toString()}`);
+    setGroupDialogOpen(true);
   };
 
   const handlePrint = async () => {
@@ -260,12 +321,22 @@ const LocalPartyAccount = ({ filters, user }) => {
         <Button onClick={() => { fetchSummary(); if (selectedParty) fetchPartyReport(selectedParty); }} variant="outline" size="sm" className="border-slate-600 text-slate-300 h-9">
           <RefreshCw className="w-4 h-4" />
         </Button>
-        <div className="ml-auto flex gap-1.5">
-          <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 h-9" data-testid="local-party-export-excel">
-            <Download className="w-4 h-4 mr-1" /> Excel
+        <div className="ml-auto flex items-center gap-1">
+          <Button onClick={() => handleExport('pdf')} variant="ghost" size="sm"
+            className="h-9 w-9 p-0 text-red-400 hover:bg-red-900/30 border border-red-600" title="PDF Export" data-testid="local-party-export-pdf">
+            <FileText className="w-4 h-4" />
           </Button>
-          <Button onClick={() => handleExport('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-9" data-testid="local-party-export-pdf">
-            <FileText className="w-4 h-4 mr-1" /> PDF
+          <Button onClick={() => handleExport('excel')} variant="ghost" size="sm"
+            className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600" title="Excel Export" data-testid="local-party-export-excel">
+            <Download className="w-4 h-4" />
+          </Button>
+          <Button onClick={handleHeaderWhatsApp} variant="ghost" size="sm"
+            className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600" title="WhatsApp text (copy summary)" data-testid="local-party-whatsapp">
+            <Send className="w-4 h-4" />
+          </Button>
+          <Button onClick={handleHeaderGroup} variant="ghost" size="sm"
+            className="h-9 w-9 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600" title="Send to Group (text + PDF)" data-testid="local-party-group">
+            <Users className="w-4 h-4" />
           </Button>
         </div>
       </div>
@@ -514,6 +585,9 @@ const LocalPartyAccount = ({ filters, user }) => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Send to Group Dialog */}
+      <SendToGroupDialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen} text={groupText} pdfUrl={groupPdfUrl} />
     </div>
   );
 };

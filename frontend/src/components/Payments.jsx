@@ -71,6 +71,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   const [newRate, setNewRate] = useState("");
   const [truckSearchFilter, setTruckSearchFilter] = useState("");
   const [truckOwnerSearchFilter, setTruckOwnerSearchFilter] = useState("");
+  const [agentSearchFilter, setAgentSearchFilter] = useState("");
   const [paymentHistory, setPaymentHistory] = useState([]);
   // Truck Owner Payment states
   const [showOwnerPayDialog, setShowOwnerPayDialog] = useState(false);
@@ -680,11 +681,63 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
     balance: filteredTruckPayments.reduce((sum, p) => sum + p.balance_amount, 0)
   }), [filteredTruckPayments]);
 
+  // Agent Payments — search filter (mandi or agent name)
+  const filteredAgentPayments = useMemo(() => {
+    if (!agentSearchFilter.trim()) return agentPayments;
+    const q = agentSearchFilter.toLowerCase();
+    return agentPayments.filter(p =>
+      (p.mandi_name || '').toLowerCase().includes(q) ||
+      (p.agent_name || '').toLowerCase().includes(q)
+    );
+  }, [agentPayments, agentSearchFilter]);
+
   const agentTotals = useMemo(() => ({
-    totalAmount: agentPayments.reduce((sum, p) => sum + p.total_amount, 0),
-    paid: agentPayments.reduce((sum, p) => sum + p.paid_amount, 0),
-    balance: agentPayments.reduce((sum, p) => sum + p.balance_amount, 0)
-  }), [agentPayments]);
+    totalAmount: filteredAgentPayments.reduce((sum, p) => sum + p.total_amount, 0),
+    paid: filteredAgentPayments.reduce((sum, p) => sum + p.paid_amount, 0),
+    balance: filteredAgentPayments.reduce((sum, p) => sum + p.balance_amount, 0)
+  }), [filteredAgentPayments]);
+
+  // Agent Payments — header WhatsApp + Group handlers
+  const _agentSummaryText = (label, list, totals) => {
+    const lines = [];
+    lines.push(`*👥 ${label}*`);
+    if (agentSearchFilter) lines.push(`_Search: ${agentSearchFilter}_`);
+    lines.push('');
+    lines.push(`📊 Mandis: *${list.length}*`);
+    lines.push(`💰 Total Amount: *₹${(totals.totalAmount || 0).toLocaleString('en-IN')}*`);
+    lines.push(`✅ Paid: *₹${(totals.paid || 0).toLocaleString('en-IN')}*`);
+    lines.push(`⚠️ Balance: *₹${(totals.balance || 0).toLocaleString('en-IN')}*`);
+    if (list.length > 0 && list.length <= 10) {
+      lines.push('');
+      lines.push('*Mandi-wise:*');
+      list.forEach(p => {
+        const balance = parseFloat(p.balance_amount || 0);
+        const stEmoji = balance <= 0.01 ? '✅' : balance < (p.total_amount || balance) ? '🟡' : '⚠️';
+        lines.push(`${stEmoji} *${p.mandi_name}* (${p.agent_name || '-'}) — Total ₹${(p.total_amount || 0).toLocaleString('en-IN')} · Bal ₹${balance.toLocaleString('en-IN')}`);
+      });
+    }
+    return lines.join('\n');
+  };
+
+  const handleHeaderAgentWhatsApp = async () => {
+    if (filteredAgentPayments.length === 0) { toast.error("Koi agent payments nahi"); return; }
+    const text = _agentSummaryText("Agent / Mandi Payments", filteredAgentPayments, agentTotals);
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Summary text copy ho gaya — kisi bhi WhatsApp chat me paste karein", { duration: 4000 });
+    } catch {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    }
+  };
+
+  const handleHeaderAgentGroup = () => {
+    if (filteredAgentPayments.length === 0) { toast.error("Koi agent payments nahi"); return; }
+    setGroupText(_agentSummaryText("Agent / Mandi Payments", filteredAgentPayments, agentTotals));
+    const params = new URLSearchParams();
+    if (filters.kms_year) params.append('kms_year', filters.kms_year);
+    setGroupPdfUrl(`${API}/export/agent-payments-pdf?${params.toString()}`);
+    setGroupDialogOpen(true);
+  };
 
   if (loading) {
     return (
@@ -1185,37 +1238,59 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
         </Suspense>
       )}
 
-      {/* Agent Payments Table */}
+      {/* Agent Payments — search & export integrated in single Card */}
       {activePaymentTab === "agent" && (
         <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg text-amber-400 flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Agent/Mandi Payments (Target Based)
-              </CardTitle>
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleExportAgentExcel}
-                  size="sm"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  <FileSpreadsheet className="w-4 h-4 mr-1" />
-                  Excel
-                </Button>
-                <Button
-                  onClick={handleExportAgentPDF}
-                  size="sm"
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                >
-                  <FileText className="w-4 h-4 mr-1" />
-                  PDF
-                </Button>
+          <CardHeader className="pb-3">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div>
+                <CardTitle className="text-lg text-amber-400 flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  Agent / Mandi Payments (Target Based)
+                </CardTitle>
+                <p className="text-slate-400 text-xs mt-1">Mandi-wise agent commission · search se mandi/agent filter karein</p>
+              </div>
+              <div className="flex flex-wrap gap-2 items-center">
+                {/* Search */}
+                <div className="relative w-[260px]">
+                  <Input
+                    placeholder="Search mandi / agent..."
+                    value={agentSearchFilter}
+                    onChange={(e) => setAgentSearchFilter(e.target.value)}
+                    className="pl-3 pr-8 h-9 text-sm bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+                    data-testid="agent-payment-search"
+                  />
+                  {agentSearchFilter && (
+                    <button type="button" onClick={() => setAgentSearchFilter("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                {/* Icon-only export group */}
+                <div className="flex items-center gap-1 ml-1 pl-2 border-l border-slate-600" data-testid="agent-payment-export-group">
+                  <Button size="sm" variant="ghost" onClick={handleExportAgentPDF}
+                    className="h-9 w-9 p-0 text-red-400 hover:bg-red-900/30 border border-red-600" title="PDF Export" data-testid="agent-payment-pdf">
+                    <FileText className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={handleExportAgentExcel}
+                    className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600" title="Excel Export" data-testid="agent-payment-excel">
+                    <Download className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={handleHeaderAgentWhatsApp}
+                    className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600" title="WhatsApp text (copy summary)" data-testid="agent-payment-whatsapp">
+                    <Send className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={handleHeaderAgentGroup}
+                    className="h-9 w-9 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600" title="Send to Group (text + PDF)" data-testid="agent-payment-group">
+                    <Users className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            {agentPayments.length > 0 ? (
+            {filteredAgentPayments.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -1236,7 +1311,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {agentPayments.map((payment, idx) => (
+                    {filteredAgentPayments.map((payment, idx) => (
                       <TableRow key={`${payment.mandi_name}-${payment.agent_name}-${idx}`} className="border-slate-700 hover:bg-slate-700/50">
                         <TableCell className="text-white font-semibold">
                           {payment.mandi_name}

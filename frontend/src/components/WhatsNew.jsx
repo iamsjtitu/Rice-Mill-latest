@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.8",
+    date: "Feb 16, 2026",
+    title: "v104.44.8 — 🎯 Agent Payments + Local Party — Same Unified Header (Search + 4 Icons)",
+    items: [
+      { type: "feature", text: "🔎 **Agent Payments search filter** — pehle search nahi tha, ab 'Search mandi / agent...' search box header me available hai. Live filters table + agent totals." },
+      { type: "improvement", text: "📦 **Agent Payments unified Card** — same Truck Payment / Truck Owner / Per-Trip Bhada jaise structure: title + tagline + search + 4 icon buttons (PDF/Excel/WhatsApp/Group) sab single Card header me." },
+      { type: "feature", text: "💬 **Local Party — WhatsApp + Group icons** — pehle sirf Excel/PDF text buttons the. Ab icon-only style: PDF (red) · Excel (emerald) · WhatsApp (green Send) · Group (cyan Users → SendToGroupDialog with text + PDF link). Top toolbar (party dropdown + date range) untouched kyuki ye party-drilldown hai, alag UX." },
+      { type: "improvement", text: "🤝 **Group dialog text format** — Agent Payments aur Local Party me bhi same WhatsApp-friendly markdown format: emoji + bold + truck/party-wise mini-list (≤10 items)." },
+    ],
+  },
+  {
     version: "104.44.7",
     date: "Feb 16, 2026",
     title: "v104.44.7 — 🎯 Truck Payments / Owner / Per-Trip Bhada — Unified Header (Search + Icon Exports + WhatsApp + Group)",
