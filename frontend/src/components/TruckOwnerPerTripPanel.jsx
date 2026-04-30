@@ -22,6 +22,7 @@ import {
 import PaymentAccountSelect from "./common/PaymentAccountSelect";
 import RoundOffInput from "./common/RoundOffInput";
 import { useConfirm } from "./ConfirmProvider";
+import { safePrintHTML } from "../utils/print";
 
 const _isElectron = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
 const API = `${_isElectron ? "" : (process.env.REACT_APP_BACKEND_URL || "")}/api`;
@@ -93,7 +94,8 @@ function TruckCombobox({ trucks, value, onChange, disabled }) {
   );
 }
 
-export default function TruckOwnerPerTripPanel({ filters, user }) {
+export default function TruckOwnerPerTripPanel({ filters, user, branding }) {
+  const brand = branding || { company_name: "Rice Mill", tagline: "" };
   const { showConfirm } = useConfirm();
   const [trucks, setTrucks] = useState([]);
   const [selectedTruck, setSelectedTruck] = useState("");
@@ -239,6 +241,91 @@ export default function TruckOwnerPerTripPanel({ filters, user }) {
     if (filters?.season) params.append("season", filters.season);
     const ep = kind === "pdf" ? "per-trip-pdf" : "per-trip-excel";
     window.open(`${API}/truck-owner/${encodeURIComponent(selectedTruck)}/${ep}?${params}`, "_blank");
+  };
+
+  // ── Print E-Receipt for a single trip — same style as Truck Payment receipt ──
+  const handlePrintTripReceipt = (t) => {
+    if (!t || !data?.vehicle_no) return;
+    const netQtl = (Number(t.net_wt || 0) / 100).toFixed(2);
+    const statusKey = t.status === 'settled' ? 'paid' : t.status; // map for CSS
+    const statusLabel = t.status === 'settled' ? 'PAID / भुगतान हो गया' : t.status === 'partial' ? 'PARTIAL / आंशिक' : 'PENDING / बाकी';
+    const tagLabel = t.trans_type === 'sale' ? 'Sale / बिक्री' : t.trans_type === 'purchase' ? 'Purchase / खरीद' : (t.trans_type_raw || '-');
+    const html = `
+      <!DOCTYPE html>
+      <html><head><title>Bhada Receipt - ${data.vehicle_no} - RST #${t.rst_no}</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .invoice { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { text-align: center; border-bottom: 2px solid #f59e0b; padding-bottom: 20px; margin-bottom: 20px; }
+        .header h1 { color: #f59e0b; font-size: 28px; margin-bottom: 5px; }
+        .header p { color: #666; font-size: 14px; }
+        .receipt-title { text-align: center; background: #1e293b; color: white; padding: 10px; border-radius: 4px; margin-bottom: 20px; font-size: 18px; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .info-item { padding: 10px; background: #f8fafc; border-radius: 4px; }
+        .info-item label { display: block; font-size: 11px; color: #64748b; text-transform: uppercase; margin-bottom: 4px; }
+        .info-item span { font-size: 16px; font-weight: 600; color: #1e293b; }
+        .amount-section { background: #fef3c7; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .amount-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #fbbf24; }
+        .amount-row:last-child { border-bottom: none; }
+        .amount-row.total { font-size: 20px; font-weight: bold; color: #1e293b; border-top: 2px solid #f59e0b; margin-top: 10px; padding-top: 15px; }
+        .amount-row.paid { color: #059669; }
+        .amount-row.balance { color: #dc2626; font-weight: 600; }
+        .status-badge { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
+        .status-paid { background: #d1fae5; color: #059669; }
+        .status-partial { background: #fef3c7; color: #d97706; }
+        .status-pending { background: #fee2e2; color: #dc2626; }
+        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
+        .signature-section { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; }
+        .signature-box { text-align: center; }
+        .signature-line { border-top: 1px solid #1e293b; margin-top: 50px; padding-top: 5px; font-size: 12px; color: #64748b; }
+        .print-note { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 20px; }
+        @media print {
+          @page { size: A4; margin: 10mm; }
+          body { background: white; padding: 0; }
+          .invoice { box-shadow: none; max-width: 100%; }
+          .no-print { display: none; }
+        }
+      </style></head><body>
+        <div class="invoice">
+          <div class="header">
+            <h1>${brand.company_name || "Rice Mill"}</h1>
+            ${brand.tagline ? `<p>${brand.tagline}</p>` : ""}
+          </div>
+          <div class="receipt-title">BHADA RECEIPT / भाड़ा रसीद</div>
+          <div class="info-grid">
+            <div class="info-item"><label>Receipt Date / रसीद दिनांक</label><span>${new Date().toLocaleDateString('en-IN')}</span></div>
+            <div class="info-item"><label>Trip Date / ट्रिप दिनांक</label><span>${fmtDateShort(t.date)}</span></div>
+            <div class="info-item"><label>Truck Number / ट्रक नंबर</label><span>${data.vehicle_no}</span></div>
+            <div class="info-item"><label>RST Number / RST नंबर</label><span>#${t.rst_no}</span></div>
+            <div class="info-item"><label>Trip Type / ट्रिप</label><span>${tagLabel}</span></div>
+            <div class="info-item"><label>Party / पार्टी</label><span>${t.party_name || '-'}</span></div>
+            <div class="info-item"><label>Destination / गंतव्य</label><span>${t.farmer_name || '-'}</span></div>
+            <div class="info-item"><label>Net Weight / वजन</label><span>${netQtl} QNTL</span></div>
+            <div class="info-item"><label>Bags / थैले</label><span>${Number(t.tot_pkts || 0).toLocaleString()}</span></div>
+            <div class="info-item"><label>Product / प्रोडक्ट</label><span>${t.product || '-'}</span></div>
+          </div>
+          <div class="amount-section">
+            <div class="amount-row total"><span>Bhada / भाड़ा (Lumpsum)</span><span>Rs. ${Number(t.bhada || 0).toLocaleString('en-IN')}</span></div>
+            <div class="amount-row paid"><span>Amount Paid / भुगतान किया</span><span>Rs. ${Number(t.paid_amount || 0).toLocaleString('en-IN')}</span></div>
+            <div class="amount-row balance"><span>Balance / बाकी</span><span>Rs. ${Number(t.pending_amount || 0).toLocaleString('en-IN')}</span></div>
+          </div>
+          <div style="text-align: center; margin: 15px 0;">
+            <span class="status-badge status-${statusKey}">${statusLabel}</span>
+          </div>
+          <div class="footer">
+            <div class="signature-section">
+              <div class="signature-box"><div class="signature-line">Driver Signature / ड्राइवर हस्ताक्षर</div></div>
+              <div class="signature-box"><div class="signature-line">Authorized Signature / अधिकृत हस्ताक्षर</div></div>
+            </div>
+          </div>
+          <div class="print-note">This is a computer generated receipt / यह कंप्यूटर जनित रसीद है</div>
+        </div>
+        <div class="no-print" style="text-align: center; margin-top: 20px;">
+          <button onclick="window.print()" style="background: #f59e0b; color: white; border: none; padding: 12px 30px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;">🖨️ Print Receipt</button>
+        </div>
+      </body></html>`;
+    safePrintHTML(html);
   };
 
   const handleHeaderWhatsApp = async () => {
@@ -431,8 +518,8 @@ export default function TruckOwnerPerTripPanel({ filters, user }) {
                                 data-testid={`pertrip-history-${t.rst_no}`}>
                                 <History className="w-3.5 h-3.5" />
                               </Button>
-                              <Button size="sm" variant="ghost" title="Print PDF (full truck)"
-                                onClick={() => handleHeaderExport("pdf")}
+                              <Button size="sm" variant="ghost" title="Print Receipt (RST #)"
+                                onClick={() => handlePrintTripReceipt(t)}
                                 className="h-7 w-7 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600"
                                 data-testid={`pertrip-print-${t.rst_no}`}>
                                 <Printer className="w-3.5 h-3.5" />

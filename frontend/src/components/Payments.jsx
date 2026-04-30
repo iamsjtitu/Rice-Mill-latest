@@ -1441,7 +1441,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
       {/* 🛻 Per-Trip Bhada (live preview, integrated) */}
       {activePaymentTab === "pertrip-bhada" && (
         <Suspense fallback={<div className="text-center py-12 text-slate-400">Loading per-trip view...</div>}>
-          <TruckOwnerPerTripPanel filters={filters} user={user} />
+          <TruckOwnerPerTripPanel filters={filters} user={user} branding={branding} />
         </Suspense>
       )}
 
