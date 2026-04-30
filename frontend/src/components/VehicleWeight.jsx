@@ -530,6 +530,10 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
   const [photoDialog, setPhotoDialog] = useState({ open: false, data: null, loading: false });
   const [linkedRst, setLinkedRst] = useState(new Set());
   const [linkedRstSale, setLinkedRstSale] = useState(new Set());
+  const [linkedRstBpSale, setLinkedRstBpSale] = useState(new Set());
+  // Completed Entries view mode: 'purchase' or 'sale'.
+  // Sale view shows BP Sale linked green tick + Destination/Bag Type columns.
+  const [vwViewMode, setVwViewMode] = useState('purchase');
   const [zoomImg, setZoomImg] = useState(null); // for photo zoom
   const [tpWarning, setTpWarning] = useState("");
   const canManualWeight = user?.permissions?.can_manual_weight !== false && user?.role === 'admin' || user?.permissions?.can_manual_weight === true;
@@ -610,6 +614,8 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
     try {
       const p = fetchPage || vwPage;
       const fp = new URLSearchParams({ kms_year: kms, status: "completed", page: p, page_size: VW_PAGE_SIZE });
+      // Send trans_type so Completed Entries shows only Purchase OR Sale entries.
+      fp.append("trans_type", vwViewMode);
       const hasVwSearch = vwFilters.vehicle_no || vwFilters.party_name || vwFilters.farmer_name || vwFilters.rst_no;
       if (!hasVwSearch) {
         if (vwFilters.date_from) fp.append("date_from", vwFilters.date_from);
@@ -619,12 +625,13 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
       if (vwFilters.party_name) fp.append("party_name", vwFilters.party_name);
       if (vwFilters.farmer_name) fp.append("farmer_name", vwFilters.farmer_name);
       if (vwFilters.rst_no) fp.append("rst_no", vwFilters.rst_no);
-      const [eR, pR, nR, lR, lSR] = await Promise.all([
+      const [eR, pR, nR, lR, lSR, lBP] = await Promise.all([
         axios.get(`${API}/vehicle-weight?${fp.toString()}`, { signal: ctrl.signal }),
         axios.get(`${API}/vehicle-weight/pending?kms_year=${kms}`, { signal: ctrl.signal }),
         axios.get(`${API}/vehicle-weight/next-rst?kms_year=${kms}`, { signal: ctrl.signal }),
         axios.get(`${API}/vehicle-weight/linked-rst?kms_year=${kms}`, { signal: ctrl.signal }),
-        axios.get(`${API}/vehicle-weight/linked-rst-sale?kms_year=${kms}`, { signal: ctrl.signal }).catch(() => ({ data: { linked_rst: [] } }))
+        axios.get(`${API}/vehicle-weight/linked-rst-sale?kms_year=${kms}`, { signal: ctrl.signal }).catch(() => ({ data: { linked_rst: [] } })),
+        axios.get(`${API}/vehicle-weight/linked-rst-bp-sale?kms_year=${kms}`, { signal: ctrl.signal }).catch(() => ({ data: { linked_rst: [] } }))
       ]);
       setEntries(eR.data.entries || []);
       setVwTotalPages(eR.data.total_pages || 1);
@@ -634,9 +641,10 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
       setNextRst(nR.data.rst_no || 1);
       setLinkedRst(new Set(lR.data.linked_rst || []));
       setLinkedRstSale(new Set(lSR.data.linked_rst || []));
+      setLinkedRstBpSale(new Set(lBP.data.linked_rst || []));
     } catch (e) { if (!ctrl.signal.aborted) toast.error("Data fetch error"); }
     if (!ctrl.signal.aborted) setLoading(false);
-  }, [kms, vwPage, vwFilters]);
+  }, [kms, vwPage, vwFilters, vwViewMode]);
   useEffect(() => {
     const timer = setTimeout(() => fetchData(), 300);
     return () => { clearTimeout(timer); if (abortRef.current) abortRef.current.abort(); };
@@ -1490,19 +1498,32 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
         <CardHeader className="pb-2 pt-3 px-4 bg-slate-700/50">
           <CardTitle className="text-xs flex items-center justify-between">
             <span className="text-slate-300 flex items-center gap-1.5 cursor-pointer" onClick={() => setShowCompleted(!showCompleted)}>
-              <CheckCircle className="w-3.5 h-3.5 text-green-600" /> Completed Entries
-              <Badge className="bg-green-100 text-green-700 border-green-300 text-[10px] ml-1">{vwTotalCount}</Badge>
+              <CheckCircle className={`w-3.5 h-3.5 ${vwViewMode === 'sale' ? 'text-emerald-500' : 'text-green-600'}`} /> Completed Entries
+              <Badge className={`${vwViewMode === 'sale' ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-green-100 text-green-700 border-green-300'} text-[10px] ml-1`}>{vwTotalCount}</Badge>
             </span>
             <div className="flex items-center gap-1.5">
+              {/* Purchase / Sale toggle */}
+              <div className="flex items-center rounded-md border border-slate-600 overflow-hidden mr-1" data-testid="vw-mode-toggle">
+                <button
+                  onClick={() => { setVwViewMode('purchase'); setVwPage(1); }}
+                  className={`h-6 px-2.5 text-[10px] font-semibold transition-colors ${vwViewMode === 'purchase' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                  data-testid="vw-mode-purchase"
+                >Purchase</button>
+                <button
+                  onClick={() => { setVwViewMode('sale'); setVwPage(1); }}
+                  className={`h-6 px-2.5 text-[10px] font-semibold transition-colors ${vwViewMode === 'sale' ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                  data-testid="vw-mode-sale"
+                >Sale</button>
+              </div>
               <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-slate-400 border-slate-600" onClick={() => setShowVwFilters(!showVwFilters)} data-testid="vw-filter-toggle">
                 <Filter className="w-3 h-3 mr-1" />{showVwFilters ? 'Hide' : 'Filters'}
               </Button>
               <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-emerald-700 border-emerald-300 hover:bg-emerald-50" data-testid="vw-export-excel"
-                onClick={() => { const fp = new URLSearchParams({ kms_year: kms, status: "completed", ...vwFilters }); Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); }); downloadFile(`${API}/vehicle-weight/export/excel?${fp.toString()}`, `vehicle_weight.xlsx`); }}>
+                onClick={() => { const fp = new URLSearchParams({ kms_year: kms, status: "completed", trans_type: vwViewMode, ...vwFilters }); Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); }); downloadFile(`${API}/vehicle-weight/export/excel?${fp.toString()}`, `vehicle_weight.xlsx`); }}>
                 <FileSpreadsheet className="w-3 h-3 mr-1" />Excel
               </Button>
               <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-red-700 border-red-300 hover:bg-red-50" data-testid="vw-export-pdf"
-                onClick={() => { const fp = new URLSearchParams({ kms_year: kms, status: "completed", ...vwFilters }); Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); }); downloadFile(`${API}/vehicle-weight/export/pdf?${fp.toString()}`, `vehicle_weight.pdf`); }}>
+                onClick={() => { const fp = new URLSearchParams({ kms_year: kms, status: "completed", trans_type: vwViewMode, ...vwFilters }); Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); }); downloadFile(`${API}/vehicle-weight/export/pdf?${fp.toString()}`, `vehicle_weight.pdf`); }}>
                 <FileText className="w-3 h-3 mr-1" />PDF
               </Button>
               <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-slate-400 hover:text-slate-200" data-testid="vw-toggle-completed" onClick={() => setShowCompleted(!showCompleted)}>
@@ -1534,9 +1555,9 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                 <Input type="text" placeholder="Party..." className="h-7 text-xs" value={vwFilters.party_name} onChange={e => { setVwFilters(p => ({ ...p, party_name: e.target.value })); setVwPage(1); }} data-testid="vw-filter-party" />
               </div>
               <div>
-                <label className="text-[9px] text-slate-400 font-medium">Mandi</label>
+                <label className="text-[9px] text-slate-400 font-medium">{vwViewMode === 'sale' ? 'Destination' : 'Mandi'}</label>
                 <div className="flex gap-1">
-                  <Input type="text" placeholder="Mandi..." className="h-7 text-xs" value={vwFilters.farmer_name} onChange={e => { setVwFilters(p => ({ ...p, farmer_name: e.target.value })); setVwPage(1); }} data-testid="vw-filter-mandi" />
+                  <Input type="text" placeholder={vwViewMode === 'sale' ? 'Destination...' : 'Mandi...'} className="h-7 text-xs" value={vwFilters.farmer_name} onChange={e => { setVwFilters(p => ({ ...p, farmer_name: e.target.value })); setVwPage(1); }} data-testid="vw-filter-mandi" />
                   <Button variant="ghost" size="sm" className="h-7 px-1.5 text-[10px] text-slate-500 hover:text-red-600" data-testid="vw-filter-clear"
                     onClick={() => { setVwFilters({ date_from: todayStr, date_to: todayStr, vehicle_no: "", party_name: "", farmer_name: "", rst_no: "" }); setVwPage(1); }}>
                     <X className="w-3 h-3" />
@@ -1556,15 +1577,25 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                     <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Date</TableHead>
                     <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Vehicle</TableHead>
                     <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Party</TableHead>
-                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Source</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">{vwViewMode === 'sale' ? 'Destination' : 'Source'}</TableHead>
                     <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Product</TableHead>
                     <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Bags</TableHead>
-                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">1st Wt</TableHead>
-                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">2nd Wt</TableHead>
+                    {vwViewMode === 'sale' ? (
+                      <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Bag Type</TableHead>
+                    ) : (
+                      <>
+                      <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">1st Wt</TableHead>
+                      <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">2nd Wt</TableHead>
+                      </>
+                    )}
                     <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Net Wt</TableHead>
-                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">G.Issued</TableHead>
-                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">TP No.</TableHead>
-                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">TP Wt</TableHead>
+                    {vwViewMode !== 'sale' && (
+                      <>
+                      <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">G.Issued</TableHead>
+                      <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">TP No.</TableHead>
+                      <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">TP Wt</TableHead>
+                      </>
+                    )}
                     <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Cash</TableHead>
                     <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Diesel</TableHead>
                     <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Remark</TableHead>
@@ -1573,13 +1604,17 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                 </TableHeader>
                 <TableBody>
                   {entries.length === 0 ? (
-                    <TableRow><TableCell colSpan={17} className="text-center text-slate-500 py-8 text-xs" data-testid="vw-no-entries-today">
+                    <TableRow><TableCell colSpan={vwViewMode === 'sale' ? 12 : 17} className="text-center text-slate-500 py-8 text-xs" data-testid="vw-no-entries-today">
                       {vwFilters.date_from === todayStr && vwFilters.date_to === todayStr
                         ? "Aaj ki koi Vehicle Weight entry nahi hai"
                         : "Koi entry nahi mili - Filter change karke dekhein"}
                     </TableCell></TableRow>
-                  ) : entries.map((e, i) => (
-                    <TableRow key={e.id} className={`border-slate-700 hover:bg-slate-700 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-700/50'}`}>
+                  ) : entries.map((e, i) => {
+                    // Sale view: green tick when RST is consumed by a BP Sale Register entry.
+                    // Purchase view: green tick (and DC delivery sky tick) handled below as before.
+                    const isBpSaleLinked = vwViewMode === 'sale' && linkedRstBpSale.has(parseInt(e.rst_no));
+                    return (
+                    <TableRow key={e.id} className={`border-slate-700 hover:bg-slate-700 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-700/50'} ${isBpSaleLinked ? 'bg-green-50/40' : ''}`}>
                       <TableCell className="py-2 px-3"><span className="text-amber-700 font-bold text-xs">#{e.rst_no}</span></TableCell>
                       <TableCell className="text-slate-400 text-[11px] py-2 px-3">{fmtDate(e.date)}</TableCell>
                       <TableCell className="text-slate-100 text-xs py-2 px-3 font-medium">{e.vehicle_no}</TableCell>
@@ -1587,56 +1622,97 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       <TableCell className="text-slate-400 text-xs py-2 px-3">{e.farmer_name || '-'}</TableCell>
                       <TableCell className="py-2 px-3"><Badge variant="outline" className="text-[9px] border-slate-600 text-slate-400 font-normal">{e.product}</Badge></TableCell>
                       <TableCell className="text-slate-400 text-xs py-2 px-3">{e.tot_pkts || '-'}</TableCell>
-                      <TableCell className="text-blue-700 text-xs py-2 px-3 text-right font-mono">{fmtWt(e.first_wt)}</TableCell>
-                      <TableCell className="text-blue-700 text-xs py-2 px-3 text-right font-mono">{fmtWt(e.second_wt)}</TableCell>
+                      {vwViewMode === 'sale' ? (
+                        <TableCell className="text-slate-400 text-xs py-2 px-3">{e.bag_type || '-'}</TableCell>
+                      ) : (
+                        <>
+                        <TableCell className="text-blue-700 text-xs py-2 px-3 text-right font-mono">{fmtWt(e.first_wt)}</TableCell>
+                        <TableCell className="text-blue-700 text-xs py-2 px-3 text-right font-mono">{fmtWt(e.second_wt)}</TableCell>
+                        </>
+                      )}
                       <TableCell className="text-right py-2 px-3"><span className="text-green-700 font-bold text-sm font-mono">{fmtWt(e.net_wt)}</span></TableCell>
-                      <TableCell className="text-right text-indigo-700 text-xs py-2 px-3 font-mono">{e.g_issued ? fmtWt(e.g_issued) : '-'}</TableCell>
-                      <TableCell className="text-slate-400 text-xs py-2 px-3">{e.tp_no || '-'}</TableCell>
-                      <TableCell className="text-right text-xs py-2 px-3 font-mono">
-                        {Number(e.tp_weight || 0) > 0 ? (
-                          <span className="text-slate-400">
-                            {Number(e.tp_weight)}
-                          </span>
-                        ) : '-'}
-                      </TableCell>
+                      {vwViewMode !== 'sale' && (
+                        <>
+                        <TableCell className="text-right text-indigo-700 text-xs py-2 px-3 font-mono">{e.g_issued ? fmtWt(e.g_issued) : '-'}</TableCell>
+                        <TableCell className="text-slate-400 text-xs py-2 px-3">{e.tp_no || '-'}</TableCell>
+                        <TableCell className="text-right text-xs py-2 px-3 font-mono">
+                          {Number(e.tp_weight || 0) > 0 ? (
+                            <span className="text-slate-400">
+                              {Number(e.tp_weight)}
+                            </span>
+                          ) : '-'}
+                        </TableCell>
+                        </>
+                      )}
                       <TableCell className="text-right text-green-700 text-xs py-2 px-3 font-mono">{e.cash_paid ? fmtWt(e.cash_paid) : '-'}</TableCell>
                       <TableCell className="text-right text-orange-700 text-xs py-2 px-3 font-mono">{e.diesel_paid ? fmtWt(e.diesel_paid) : '-'}</TableCell>
                       <TableCell className="text-slate-400 text-xs py-2 px-3 max-w-[120px] truncate" title={e.remark || ''}>{e.remark || '-'}</TableCell>
                       <TableCell className="py-2 px-3">
                         <div className="flex items-center gap-0.5 justify-center">
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-cyan-600" onClick={() => openPhotos(e)} data-testid={`vw-photos-${e.id}`} title="View Photos"><Eye className="w-3 h-3" /></Button>
-                          {(!linkedRst.has(e.rst_no) || canEditVwLinked) && (
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-amber-600" onClick={() => openEdit(e)} data-testid={`vw-edit-${e.id}`} title="Edit"><Pencil className="w-3 h-3" /></Button>
+                          {vwViewMode === 'sale' ? (
+                            // Sale: hide edit when BP Sale entry already done
+                            !isBpSaleLinked && (
+                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-amber-600" onClick={() => openEdit(e)} data-testid={`vw-edit-${e.id}`} title="Edit"><Pencil className="w-3 h-3" /></Button>
+                            )
+                          ) : (
+                            (!linkedRst.has(e.rst_no) || canEditVwLinked) && (
+                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-amber-600" onClick={() => openEdit(e)} data-testid={`vw-edit-${e.id}`} title="Edit"><Pencil className="w-3 h-3" /></Button>
+                            )
                           )}
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-purple-600" onClick={() => handlePrint(e)} data-testid={`vw-print-${e.id}`} title="Print"><Printer className="w-3 h-3" /></Button>
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-blue-600" onClick={() => handlePdf(e)} data-testid={`vw-pdf-${e.id}`} title="Download"><Download className="w-3 h-3" /></Button>
-                          {linkedRstSale.has(e.rst_no) && (
-                            <span className="h-6 w-6 flex items-center justify-center text-sky-500" title="DC Delivery done (Sale linked)" data-testid={`vw-sale-linked-${e.id}`}><CheckCircle className="w-4 h-4" /></span>
+                          {vwViewMode === 'sale' ? (
+                            isBpSaleLinked ? (
+                              <span className="h-6 w-6 flex items-center justify-center text-green-500" title="BP Sale entry done" data-testid={`vw-bp-linked-${e.id}`}><CheckCircle className="w-4 h-4" /></span>
+                            ) : (
+                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400 hover:text-red-600" onClick={() => handleDelete(e.id)} data-testid={`vw-del-${e.id}`} title="Delete"><Trash2 className="w-3 h-3" /></Button>
+                            )
+                          ) : (
+                            <>
+                              {linkedRstSale.has(e.rst_no) && (
+                                <span className="h-6 w-6 flex items-center justify-center text-sky-500" title="DC Delivery done (Sale linked)" data-testid={`vw-sale-linked-${e.id}`}><CheckCircle className="w-4 h-4" /></span>
+                              )}
+                              {linkedRst.has(e.rst_no) && !canEditVwLinked ? (
+                                <span className="h-6 w-6 flex items-center justify-center text-green-500" title="Mill Entry done" data-testid={`vw-linked-${e.id}`}><CheckCircle className="w-4 h-4" /></span>
+                              ) : !linkedRstSale.has(e.rst_no) ? (
+                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400 hover:text-red-600" onClick={() => handleDelete(e.id)} data-testid={`vw-del-${e.id}`} title="Delete"><Trash2 className="w-3 h-3" /></Button>
+                              ) : null}
+                            </>
                           )}
-                          {linkedRst.has(e.rst_no) && !canEditVwLinked ? (
-                            <span className="h-6 w-6 flex items-center justify-center text-green-500" title="Mill Entry done" data-testid={`vw-linked-${e.id}`}><CheckCircle className="w-4 h-4" /></span>
-                          ) : !linkedRstSale.has(e.rst_no) ? (
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400 hover:text-red-600" onClick={() => handleDelete(e.id)} data-testid={`vw-del-${e.id}`} title="Delete"><Trash2 className="w-3 h-3" /></Button>
-                          ) : null}
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                   {entries.length > 0 && (
-                    <TableRow className="border-slate-300 bg-amber-50/80 font-bold">
-                      <TableCell colSpan={6} className="py-2 px-3 text-right text-amber-700 text-[10px] font-bold">TOTAL</TableCell>
-                      <TableCell className="text-slate-800 text-xs py-2 px-3 font-bold">{entries.reduce((s, e) => s + Number(e.tot_pkts || 0), 0).toLocaleString()}</TableCell>
-                      <TableCell className="text-xs py-2 px-3"></TableCell>
-                      <TableCell className="text-xs py-2 px-3"></TableCell>
-                      <TableCell className="text-green-700 text-sm py-2 px-3 text-right font-mono font-black">{fmtWt(entries.reduce((s, e) => s + Number(e.net_wt || 0), 0))}</TableCell>
-                      <TableCell className="text-xs py-2 px-3"></TableCell>
-                      <TableCell className="text-xs py-2 px-3"></TableCell>
-                      <TableCell className="text-xs py-2 px-3"></TableCell>
-                      <TableCell className="text-green-700 text-xs py-2 px-3 text-right font-mono font-bold">{fmtWt(entries.reduce((s, e) => s + Number(e.cash_paid || 0), 0))}</TableCell>
-                      <TableCell className="text-orange-700 text-xs py-2 px-3 text-right font-mono font-bold">{fmtWt(entries.reduce((s, e) => s + Number(e.diesel_paid || 0), 0))}</TableCell>
-                      <TableCell className="text-xs py-2 px-3"></TableCell>
-                      <TableCell className="text-xs py-2 px-3"></TableCell>
-                    </TableRow>
+                    vwViewMode === 'sale' ? (
+                      <TableRow className="border-slate-300 bg-amber-50/80 font-bold">
+                        <TableCell colSpan={6} className="py-2 px-3 text-right text-amber-700 text-[10px] font-bold">TOTAL</TableCell>
+                        <TableCell className="text-slate-800 text-xs py-2 px-3 font-bold">{entries.reduce((s, e) => s + Number(e.tot_pkts || 0), 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-xs py-2 px-3"></TableCell>
+                        <TableCell className="text-green-700 text-sm py-2 px-3 text-right font-mono font-black">{fmtWt(entries.reduce((s, e) => s + Number(e.net_wt || 0), 0))}</TableCell>
+                        <TableCell className="text-green-700 text-xs py-2 px-3 text-right font-mono font-bold">{fmtWt(entries.reduce((s, e) => s + Number(e.cash_paid || 0), 0))}</TableCell>
+                        <TableCell className="text-orange-700 text-xs py-2 px-3 text-right font-mono font-bold">{fmtWt(entries.reduce((s, e) => s + Number(e.diesel_paid || 0), 0))}</TableCell>
+                        <TableCell className="text-xs py-2 px-3"></TableCell>
+                        <TableCell className="text-xs py-2 px-3"></TableCell>
+                      </TableRow>
+                    ) : (
+                      <TableRow className="border-slate-300 bg-amber-50/80 font-bold">
+                        <TableCell colSpan={6} className="py-2 px-3 text-right text-amber-700 text-[10px] font-bold">TOTAL</TableCell>
+                        <TableCell className="text-slate-800 text-xs py-2 px-3 font-bold">{entries.reduce((s, e) => s + Number(e.tot_pkts || 0), 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-xs py-2 px-3"></TableCell>
+                        <TableCell className="text-xs py-2 px-3"></TableCell>
+                        <TableCell className="text-green-700 text-sm py-2 px-3 text-right font-mono font-black">{fmtWt(entries.reduce((s, e) => s + Number(e.net_wt || 0), 0))}</TableCell>
+                        <TableCell className="text-xs py-2 px-3"></TableCell>
+                        <TableCell className="text-xs py-2 px-3"></TableCell>
+                        <TableCell className="text-xs py-2 px-3"></TableCell>
+                        <TableCell className="text-green-700 text-xs py-2 px-3 text-right font-mono font-bold">{fmtWt(entries.reduce((s, e) => s + Number(e.cash_paid || 0), 0))}</TableCell>
+                        <TableCell className="text-orange-700 text-xs py-2 px-3 text-right font-mono font-bold">{fmtWt(entries.reduce((s, e) => s + Number(e.diesel_paid || 0), 0))}</TableCell>
+                        <TableCell className="text-xs py-2 px-3"></TableCell>
+                        <TableCell className="text-xs py-2 px-3"></TableCell>
+                      </TableRow>
+                    )
                   )}
                 </TableBody>
               </Table>

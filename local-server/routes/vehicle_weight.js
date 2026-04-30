@@ -323,7 +323,7 @@ module.exports = function(database) {
   // GET /api/vehicle-weight - List weights
   router.get('/api/vehicle-weight', safeAsync(async (req, res) => {
     try {
-      const { kms_year, status, date_from, date_to, vehicle_no, party_name, farmer_name, rst_no } = req.query;
+      const { kms_year, status, date_from, date_to, vehicle_no, party_name, farmer_name, rst_no, trans_type } = req.query;
       let items = col('vehicle_weights');
       if (kms_year) items = items.filter(w => w.kms_year === kms_year);
       if (status) items = items.filter(w => w.status === status);
@@ -336,6 +336,13 @@ module.exports = function(database) {
       if (party_name) items = items.filter(w => (w.party_name || '').toLowerCase().includes(party_name.toLowerCase()));
       if (farmer_name) items = items.filter(w => (w.farmer_name || '').toLowerCase().includes(farmer_name.toLowerCase()));
       if (rst_no) items = items.filter(w => String(w.rst_no) === String(rst_no));
+      // trans_type filter: "sale" → matches dispatch/sale; "purchase" → receive/purchase; otherwise exact match.
+      if (trans_type) {
+        const tt = String(trans_type).toLowerCase().trim();
+        if (tt === 'sale') items = items.filter(w => /sale|dispatch/i.test(w.trans_type || ''));
+        else if (tt === 'purchase') items = items.filter(w => /purchase|receive/i.test(w.trans_type || ''));
+        else items = items.filter(w => (w.trans_type || '') === trans_type);
+      }
       items = [...items].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (Number(b.rst_no) || 0) - (Number(a.rst_no) || 0));
       const total = items.length;
       const pageSize = parseInt(req.query.page_size) || 200;
@@ -803,6 +810,23 @@ module.exports = function(database) {
     const linked = new Set();
     dels.forEach(d => {
       const raw = (d.rst_no || '').toString().trim();
+      if (!raw) return;
+      raw.split('/').forEach(p => {
+        const n = parseInt(p.trim());
+        if (!isNaN(n)) linked.add(n);
+      });
+    });
+    res.json({ linked_rst: [...linked] });
+  }));
+
+  router.get('/api/vehicle-weight/linked-rst-bp-sale', safeAsync(async (req, res) => {
+    // RSTs from BP Sale Register linked to Vehicle Weight Sale entries
+    const kmsYear = req.query.kms_year || '';
+    let sales = col('bp_sale_register');
+    if (kmsYear) sales = sales.filter(s => s.kms_year === kmsYear);
+    const linked = new Set();
+    sales.forEach(s => {
+      const raw = (s.rst_no === undefined || s.rst_no === null) ? '' : String(s.rst_no).trim();
       if (!raw) return;
       raw.split('/').forEach(p => {
         const n = parseInt(p.trim());

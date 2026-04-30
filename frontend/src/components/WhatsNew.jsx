@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.43.0",
+    date: "Feb 16, 2026",
+    title: "v104.43.0 — 🚛 Auto Vehicle Weight: Purchase / Sale Toggle + BP-Sale Green Tick",
+    items: [
+      { type: "feature", text: "🚛 **Purchase / Sale Toggle Tab** — Auto Vehicle Weight aur Auto Weight Entries section me ab `Purchase` aur `Sale` ka toggle button group hai (top right). Default `Purchase` view me Receive(Purchase) entries dikhti hain (purane jaisa). `Sale` button click karne par sirf Dispatch(Sale) entries dikhti hain — alag table layout ke saath Sale-specific columns: **RST, Date, Vehicle, Party, Destination, Product, Bags, Bag Type, Net Wt, Cash Paid, Diesel Paid, Remark**. Purane Mandi/Source field, 1st/2nd Wt, G.Issued, TP No., TP Wt — ye sab Sale view me **hide ho jaate hain** kyunki Sale me relevant nahi hote." },
+      { type: "feature", text: "🟢 **BP Sale Linked Green Tick** — Jab user kisi RST ka BP Sale voucher bana leta hai (Rice Bran / Broken / Kanki / Husk register me), us RST ki edit aur delete buttons **Auto Weight Entries Sale view** me automatically hide ho jaati hain, aur green ✓ checkmark dikhta hai — Paddy entries ke jaisa flow. New endpoint `/api/vehicle-weight/linked-rst-bp-sale` `bp_sale_register` se RSTs nikaalta hai (slash-joined multi-truck `123/124` bhi handle karta hai)." },
+      { type: "feature", text: "🔍 **Filters Sale-aware** — Sale view me 'Mandi' filter ka label automatically '**Destination**' ho jaata hai aur placeholder bhi (`Destination...`). Date From, Date To, RST, Vehicle, Party — sab filters dono modes me kaam karte hain. Excel + PDF export bhi current trans_type filter respect karte hain." },
+      { type: "improvement", text: "🔄 **Triple-Backend Parity** — Naya `trans_type` query parameter (`/api/vehicle-weight`) aur naya `/api/vehicle-weight/linked-rst-bp-sale` endpoint Python (web), Electron desktop-app aur local-server teeno me applied. Sequence: `linked-rst` (mill_entries) for Purchase, `linked-rst-bp-sale` (bp_sale_register) for Sale." },
+    ],
+  },
+  {
     version: "104.42.0",
     date: "Feb 16, 2026",
     title: "v104.42.0 — 🎫 BP Sale Auto Voucher Number (S-001) + Oil Premium Bi-Directional Lookup",

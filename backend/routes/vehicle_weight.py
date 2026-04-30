@@ -173,8 +173,16 @@ async def _next_rst(kms_year: str = ""):
 @router.get("/vehicle-weight")
 async def list_weights(kms_year: str = "", status: str = "", page: int = 1, page_size: int = 200,
                        date_from: str = "", date_to: str = "", vehicle_no: str = "",
-                       party_name: str = "", farmer_name: str = "", rst_no: str = ""):
-    """List weight entries with pagination and filters."""
+                       party_name: str = "", farmer_name: str = "", rst_no: str = "",
+                       trans_type: str = ""):
+    """List weight entries with pagination and filters.
+    
+    `trans_type` filter accepts:
+      - "purchase" → matches `Receive(Purchase)` / `Receive(Pur)` / contains "purchase"/"receive"
+      - "sale"     → matches `Dispatch(Sale)` / contains "sale"/"dispatch"
+      - exact value (e.g. "Receive(Purchase)") → exact match
+      - empty      → no filter
+    """
     query = {}
     if kms_year:
         query["kms_year"] = kms_year
@@ -195,6 +203,14 @@ async def list_weights(kms_year: str = "", status: str = "", page: int = 1, page
     if rst_no:
         try: query["rst_no"] = int(rst_no)
         except: pass
+    if trans_type:
+        tt = trans_type.lower().strip()
+        if tt == "sale":
+            query["trans_type"] = {"$regex": "sale|dispatch", "$options": "i"}
+        elif tt == "purchase":
+            query["trans_type"] = {"$regex": "purchase|receive", "$options": "i"}
+        else:
+            query["trans_type"] = trans_type
     total_count = await db["vehicle_weights"].count_documents(query)
     if page_size < 1: page_size = 200
     if page < 1: page = 1
@@ -446,6 +462,27 @@ async def get_linked_rst_sale(kms_year: str = ""):
         if not raw:
             continue
         # Split slash-joined RSTs (multi-truck deliveries)
+        for part in raw.split("/"):
+            p = part.strip()
+            if p:
+                try: linked.add(int(p))
+                except: pass
+    return {"linked_rst": list(linked)}
+
+
+@router.get("/vehicle-weight/linked-rst-bp-sale")
+async def get_linked_rst_bp_sale(kms_year: str = ""):
+    """Get RST numbers from BP Sale Register (rice bran / by-product sales) linked to Vehicle Weight Sale entries.
+    BP sales reference an RST of an Auto Weight sale entry by its `rst_no` field."""
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    sales = await db["bp_sale_register"].find(query, {"_id": 0, "rst_no": 1}).to_list(50000)
+    linked = set()
+    for s in sales:
+        raw = (s.get("rst_no") or "").strip() if isinstance(s.get("rst_no"), str) else str(s.get("rst_no") or "")
+        if not raw:
+            continue
         for part in raw.split("/"):
             p = part.strip()
             if p:

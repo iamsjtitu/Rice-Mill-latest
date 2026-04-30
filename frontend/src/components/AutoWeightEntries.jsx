@@ -38,6 +38,10 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [linkedRst, setLinkedRst] = useState(new Set());
+  const [linkedRstBpSale, setLinkedRstBpSale] = useState(new Set());
+  // viewMode: 'purchase' shows Receive(Purchase) entries; 'sale' shows Dispatch(Sale) entries.
+  // Each mode has its own table columns + filters + green-tick source.
+  const [viewMode, setViewMode] = useState('purchase');
   const [showFilters, setShowFilters] = useState(true);
   useCloseFiltersOnEsc(setShowFilters);
   useCloseFiltersOnEsc(setShowFilters);
@@ -68,6 +72,8 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
     try {
       const p = fetchPage || page;
       const fp = new URLSearchParams({ kms_year: kms, status: "completed", page: p, page_size: PAGE_SIZE });
+      // Send trans_type filter so backend returns only purchase OR sale entries.
+      fp.append("trans_type", viewMode); // 'purchase' or 'sale'
       const hasAweSearch = vwFilters.vehicle_no || vwFilters.party_name || vwFilters.farmer_name || vwFilters.rst_no;
       if (!hasAweSearch) {
         if (vwFilters.date_from) fp.append("date_from", vwFilters.date_from);
@@ -77,18 +83,21 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
       if (vwFilters.party_name) fp.append("party_name", vwFilters.party_name);
       if (vwFilters.farmer_name) fp.append("farmer_name", vwFilters.farmer_name);
       if (vwFilters.rst_no) fp.append("rst_no", vwFilters.rst_no);
-      const [eR, lR] = await Promise.all([
+      const calls = [
         axios.get(`${API}/vehicle-weight?${fp.toString()}`, { signal: ctrl.signal }),
-        axios.get(`${API}/vehicle-weight/linked-rst?kms_year=${kms}`, { signal: ctrl.signal })
-      ]);
+        axios.get(`${API}/vehicle-weight/linked-rst?kms_year=${kms}`, { signal: ctrl.signal }),
+        axios.get(`${API}/vehicle-weight/linked-rst-bp-sale?kms_year=${kms}`, { signal: ctrl.signal }).catch(() => ({ data: { linked_rst: [] } })),
+      ];
+      const [eR, lR, lBP] = await Promise.all(calls);
       setEntries(eR.data.entries || []);
       setTotalPages(eR.data.total_pages || 1);
       setTotalCount(eR.data.total || 0);
       setPage(eR.data.page || 1);
       setLinkedRst(new Set(lR.data.linked_rst || []));
+      setLinkedRstBpSale(new Set(lBP.data.linked_rst || []));
     } catch (e) { if (!ctrl.signal.aborted) toast.error("Data fetch error"); }
     if (!ctrl.signal.aborted) setLoading(false);
-  }, [kms, page, vwFilters]);
+  }, [kms, page, vwFilters, viewMode]);
 
   useEffect(() => {
     const timer = setTimeout(() => fetchData(), 300);
@@ -259,19 +268,32 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
       <CardHeader className="pb-2 pt-3 px-4 bg-slate-700/50">
         <CardTitle className="text-xs flex items-center justify-between">
           <span className="text-slate-300 flex items-center gap-1.5">
-            <CheckCircle className="w-3.5 h-3.5 text-blue-600" /> Auto Weight Entries (Last 7 Days)
-            <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-[10px] ml-1">{totalCount}</Badge>
+            <CheckCircle className={`w-3.5 h-3.5 ${viewMode === 'sale' ? 'text-emerald-500' : 'text-blue-600'}`} /> Auto Weight Entries (Last 7 Days)
+            <Badge className={`${viewMode === 'sale' ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-blue-100 text-blue-700 border-blue-300'} text-[10px] ml-1`}>{totalCount}</Badge>
           </span>
           <div className="flex items-center gap-1.5">
+            {/* Purchase / Sale toggle */}
+            <div className="flex items-center rounded-md border border-slate-600 overflow-hidden mr-1" data-testid="awe-mode-toggle">
+              <button
+                onClick={() => { setViewMode('purchase'); setPage(1); }}
+                className={`h-6 px-2.5 text-[10px] font-semibold transition-colors ${viewMode === 'purchase' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                data-testid="awe-mode-purchase"
+              >Purchase</button>
+              <button
+                onClick={() => { setViewMode('sale'); setPage(1); }}
+                className={`h-6 px-2.5 text-[10px] font-semibold transition-colors ${viewMode === 'sale' ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                data-testid="awe-mode-sale"
+              >Sale</button>
+            </div>
             <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-slate-400 border-slate-600" onClick={() => setShowFilters(!showFilters)} data-testid="awe-filter-toggle">
               <Filter className="w-3 h-3 mr-1" />{showFilters ? 'Hide' : 'Filters'}
             </Button>
             <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-emerald-700 border-emerald-300 hover:bg-emerald-50" data-testid="awe-export-excel"
-              onClick={() => { const fp = new URLSearchParams({ kms_year: kms, status: "completed", ...vwFilters }); Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); }); downloadFile(`${API}/vehicle-weight/export/excel?${fp.toString()}`, `auto_weight_entries.xlsx`); }}>
+              onClick={() => { const fp = new URLSearchParams({ kms_year: kms, status: "completed", trans_type: viewMode, ...vwFilters }); Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); }); downloadFile(`${API}/vehicle-weight/export/excel?${fp.toString()}`, `auto_weight_entries.xlsx`); }}>
               <FileSpreadsheet className="w-3 h-3 mr-1" />Excel
             </Button>
             <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-red-700 border-red-300 hover:bg-red-50" data-testid="awe-export-pdf"
-              onClick={() => { const fp = new URLSearchParams({ kms_year: kms, status: "completed", ...vwFilters }); Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); }); downloadFile(`${API}/vehicle-weight/export/pdf?${fp.toString()}`, `auto_weight_entries.pdf`); }}>
+              onClick={() => { const fp = new URLSearchParams({ kms_year: kms, status: "completed", trans_type: viewMode, ...vwFilters }); Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); }); downloadFile(`${API}/vehicle-weight/export/pdf?${fp.toString()}`, `auto_weight_entries.pdf`); }}>
               <FileText className="w-3 h-3 mr-1" />PDF
             </Button>
             <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => fetchData(1)} data-testid="awe-refresh">
@@ -302,9 +324,9 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
               <Input type="text" placeholder="Party..." className="h-7 text-xs" value={vwFilters.party_name} onChange={e => { setVwFilters(p => ({ ...p, party_name: e.target.value })); setPage(1); }} data-testid="awe-filter-party" />
             </div>
             <div>
-              <label className="text-[9px] text-slate-400 font-medium">Mandi</label>
+              <label className="text-[9px] text-slate-400 font-medium">{viewMode === 'sale' ? 'Destination' : 'Mandi'}</label>
               <div className="flex gap-1">
-                <Input type="text" placeholder="Mandi..." className="h-7 text-xs" value={vwFilters.farmer_name} onChange={e => { setVwFilters(p => ({ ...p, farmer_name: e.target.value })); setPage(1); }} data-testid="awe-filter-mandi" />
+                <Input type="text" placeholder={viewMode === 'sale' ? 'Destination...' : 'Mandi...'} className="h-7 text-xs" value={vwFilters.farmer_name} onChange={e => { setVwFilters(p => ({ ...p, farmer_name: e.target.value })); setPage(1); }} data-testid="awe-filter-mandi" />
                 <Button variant="ghost" size="sm" className="h-7 px-1.5 text-[10px] text-slate-500 hover:text-red-600" data-testid="awe-filter-clear"
                   onClick={() => { setVwFilters({ date_from: getLast7DaysDate(), date_to: todayStr, vehicle_no: "", party_name: "", farmer_name: "", rst_no: "" }); setPage(1); }}>
                   <X className="w-3 h-3" />
@@ -326,15 +348,25 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
                   <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Date</TableHead>
                   <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Vehicle</TableHead>
                   <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Party</TableHead>
-                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Source</TableHead>
+                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">{viewMode === 'sale' ? 'Destination' : 'Source'}</TableHead>
                   <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Product</TableHead>
                   <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Bags</TableHead>
-                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">1st Wt</TableHead>
-                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">2nd Wt</TableHead>
+                  {viewMode === 'sale' ? (
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Bag Type</TableHead>
+                  ) : (
+                    <>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">1st Wt</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">2nd Wt</TableHead>
+                    </>
+                  )}
                   <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Net Wt</TableHead>
-                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">G.Issued</TableHead>
-                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">TP No.</TableHead>
-                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">TP Wt</TableHead>
+                  {viewMode !== 'sale' && (
+                    <>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">G.Issued</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">TP No.</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">TP Wt</TableHead>
+                    </>
+                  )}
                   <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Cash</TableHead>
                   <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Diesel</TableHead>
                   <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Remark</TableHead>
@@ -343,11 +375,16 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
               </TableHeader>
               <TableBody>
                 {entries.length === 0 ? (
-                  <TableRow><TableCell colSpan={17} className="text-center text-slate-500 py-8 text-xs" data-testid="awe-no-entries">
+                  <TableRow><TableCell colSpan={viewMode === 'sale' ? 12 : 17} className="text-center text-slate-500 py-8 text-xs" data-testid="awe-no-entries">
                     Koi entry nahi mili - Filter change karke dekhein
                   </TableCell></TableRow>
                 ) : entries.map((e, i) => {
-                  const isLinked = linkedRst.has(e.rst_no);
+                  // Linked-RST source depends on viewMode:
+                  //   purchase → mill_entries linked RSTs
+                  //   sale     → bp_sale_register linked RSTs (BP Sale voucher entry done)
+                  const isLinked = viewMode === 'sale'
+                    ? linkedRstBpSale.has(parseInt(e.rst_no))
+                    : linkedRst.has(parseInt(e.rst_no));
                   return (
                     <TableRow key={e.id} className={`border-slate-700 hover:bg-slate-700 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-700/50'} ${isLinked ? 'bg-green-50/40' : ''}`} data-testid={`awe-row-${e.rst_no}`}>
                       <TableCell className="py-2 px-3"><span className="text-amber-700 font-bold text-xs">#{e.rst_no}</span></TableCell>
@@ -357,12 +394,22 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
                       <TableCell className="py-2 px-3 text-xs text-slate-400">{e.farmer_name || '-'}</TableCell>
                       <TableCell className="py-2 px-3"><Badge variant="outline" className="text-[9px] py-0">{e.product}</Badge></TableCell>
                       <TableCell className="py-2 px-3 text-xs text-slate-400">{e.tot_pkts || '-'}</TableCell>
-                      <TableCell className="py-2 px-3 text-xs text-right text-blue-700 font-semibold">{fmtWt(e.first_wt)}</TableCell>
-                      <TableCell className="py-2 px-3 text-xs text-right text-blue-700 font-semibold">{fmtWt(e.second_wt)}</TableCell>
+                      {viewMode === 'sale' ? (
+                        <TableCell className="py-2 px-3 text-xs text-slate-400">{e.bag_type || '-'}</TableCell>
+                      ) : (
+                        <>
+                        <TableCell className="py-2 px-3 text-xs text-right text-blue-700 font-semibold">{fmtWt(e.first_wt)}</TableCell>
+                        <TableCell className="py-2 px-3 text-xs text-right text-blue-700 font-semibold">{fmtWt(e.second_wt)}</TableCell>
+                        </>
+                      )}
                       <TableCell className="py-2 px-3 text-xs text-right text-green-700 font-bold">{fmtWt(e.net_wt)}</TableCell>
-                      <TableCell className="py-2 px-3 text-xs text-right text-indigo-700 font-semibold">{e.g_issued ? fmtWt(e.g_issued) : '-'}</TableCell>
-                      <TableCell className="py-2 px-3 text-xs text-slate-400">{e.tp_no || '-'}</TableCell>
-                      <TableCell className="py-2 px-3 text-xs text-right text-slate-400 font-mono">{Number(e.tp_weight || 0) > 0 ? Number(e.tp_weight) : '-'}</TableCell>
+                      {viewMode !== 'sale' && (
+                        <>
+                        <TableCell className="py-2 px-3 text-xs text-right text-indigo-700 font-semibold">{e.g_issued ? fmtWt(e.g_issued) : '-'}</TableCell>
+                        <TableCell className="py-2 px-3 text-xs text-slate-400">{e.tp_no || '-'}</TableCell>
+                        <TableCell className="py-2 px-3 text-xs text-right text-slate-400 font-mono">{Number(e.tp_weight || 0) > 0 ? Number(e.tp_weight) : '-'}</TableCell>
+                        </>
+                      )}
                       <TableCell className="py-2 px-3 text-xs text-right text-amber-700 font-semibold">{e.cash_paid ? fmtWt(e.cash_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-red-600 font-semibold">{e.diesel_paid ? fmtWt(e.diesel_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-slate-400 max-w-[120px] truncate" title={e.remark || ''}>{e.remark || '-'}</TableCell>
@@ -375,7 +422,7 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-purple-600" onClick={() => handlePrint(e)} data-testid={`awe-print-${e.id}`} title="Print"><Printer className="w-3 h-3" /></Button>
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-blue-600" onClick={() => handlePdf(e)} data-testid={`awe-pdf-${e.id}`} title="Download"><Download className="w-3 h-3" /></Button>
                           {isLinked ? (
-                            <span className="h-6 w-6 flex items-center justify-center text-green-500" title="Mill Entry done" data-testid={`awe-linked-${e.rst_no}`}><CheckCircle className="w-4 h-4" /></span>
+                            <span className="h-6 w-6 flex items-center justify-center text-green-500" title={viewMode === 'sale' ? 'BP Sale entry done' : 'Mill Entry done'} data-testid={`awe-linked-${e.rst_no}`}><CheckCircle className="w-4 h-4" /></span>
                           ) : (
                             <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400 hover:text-red-600" onClick={() => handleDelete(e.id)} data-testid={`awe-del-${e.id}`} title="Delete"><Trash2 className="w-3 h-3" /></Button>
                           )}
@@ -385,20 +432,33 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
                   );
                 })}
                 {entries.length > 0 && (
-                  <TableRow className="border-slate-300 bg-amber-50/80 font-bold">
-                    <TableCell colSpan={6} className="py-2 px-3 text-right text-amber-700 text-[10px] font-bold">TOTAL</TableCell>
-                    <TableCell className="text-slate-800 text-xs py-2 px-3 font-bold">{entries.reduce((s, e) => s + Number(e.tot_pkts || 0), 0).toLocaleString()}</TableCell>
-                    <TableCell className="text-xs py-2 px-3"></TableCell>
-                    <TableCell className="text-xs py-2 px-3"></TableCell>
-                    <TableCell className="text-green-700 text-sm py-2 px-3 text-right font-mono font-black">{fmtWt(entries.reduce((s, e) => s + Number(e.net_wt || 0), 0))}</TableCell>
-                    <TableCell className="text-xs py-2 px-3"></TableCell>
-                    <TableCell className="text-xs py-2 px-3"></TableCell>
-                    <TableCell className="text-xs py-2 px-3"></TableCell>
-                    <TableCell className="text-green-700 text-xs py-2 px-3 text-right font-mono font-bold">{fmtWt(entries.reduce((s, e) => s + Number(e.cash_paid || 0), 0))}</TableCell>
-                    <TableCell className="text-orange-700 text-xs py-2 px-3 text-right font-mono font-bold">{fmtWt(entries.reduce((s, e) => s + Number(e.diesel_paid || 0), 0))}</TableCell>
-                    <TableCell className="text-xs py-2 px-3"></TableCell>
-                    <TableCell className="text-xs py-2 px-3"></TableCell>
-                  </TableRow>
+                  viewMode === 'sale' ? (
+                    <TableRow className="border-slate-300 bg-amber-50/80 font-bold">
+                      <TableCell colSpan={6} className="py-2 px-3 text-right text-amber-700 text-[10px] font-bold">TOTAL</TableCell>
+                      <TableCell className="text-slate-800 text-xs py-2 px-3 font-bold">{entries.reduce((s, e) => s + Number(e.tot_pkts || 0), 0).toLocaleString()}</TableCell>
+                      <TableCell className="text-xs py-2 px-3"></TableCell>
+                      <TableCell className="text-green-700 text-sm py-2 px-3 text-right font-mono font-black">{fmtWt(entries.reduce((s, e) => s + Number(e.net_wt || 0), 0))}</TableCell>
+                      <TableCell className="text-green-700 text-xs py-2 px-3 text-right font-mono font-bold">{fmtWt(entries.reduce((s, e) => s + Number(e.cash_paid || 0), 0))}</TableCell>
+                      <TableCell className="text-orange-700 text-xs py-2 px-3 text-right font-mono font-bold">{fmtWt(entries.reduce((s, e) => s + Number(e.diesel_paid || 0), 0))}</TableCell>
+                      <TableCell className="text-xs py-2 px-3"></TableCell>
+                      <TableCell className="text-xs py-2 px-3"></TableCell>
+                    </TableRow>
+                  ) : (
+                    <TableRow className="border-slate-300 bg-amber-50/80 font-bold">
+                      <TableCell colSpan={6} className="py-2 px-3 text-right text-amber-700 text-[10px] font-bold">TOTAL</TableCell>
+                      <TableCell className="text-slate-800 text-xs py-2 px-3 font-bold">{entries.reduce((s, e) => s + Number(e.tot_pkts || 0), 0).toLocaleString()}</TableCell>
+                      <TableCell className="text-xs py-2 px-3"></TableCell>
+                      <TableCell className="text-xs py-2 px-3"></TableCell>
+                      <TableCell className="text-green-700 text-sm py-2 px-3 text-right font-mono font-black">{fmtWt(entries.reduce((s, e) => s + Number(e.net_wt || 0), 0))}</TableCell>
+                      <TableCell className="text-xs py-2 px-3"></TableCell>
+                      <TableCell className="text-xs py-2 px-3"></TableCell>
+                      <TableCell className="text-xs py-2 px-3"></TableCell>
+                      <TableCell className="text-green-700 text-xs py-2 px-3 text-right font-mono font-bold">{fmtWt(entries.reduce((s, e) => s + Number(e.cash_paid || 0), 0))}</TableCell>
+                      <TableCell className="text-orange-700 text-xs py-2 px-3 text-right font-mono font-bold">{fmtWt(entries.reduce((s, e) => s + Number(e.diesel_paid || 0), 0))}</TableCell>
+                      <TableCell className="text-xs py-2 px-3"></TableCell>
+                      <TableCell className="text-xs py-2 px-3"></TableCell>
+                    </TableRow>
+                  )
                 )}
               </TableBody>
             </Table>
