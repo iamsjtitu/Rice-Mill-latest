@@ -331,11 +331,11 @@ export default function ByProductSaleRegister({ filters, user, product }) {
         </div>
         <div className="flex gap-2 items-center">
           <span className="text-xs text-slate-400">{filtered.length} entries | Total: <span className="text-emerald-400 font-bold">{totalAmount.toLocaleString()}</span> | Balance: <span className="text-red-400 font-bold">{totalBalance.toLocaleString()}</span></span>
-          <Button onClick={async () => { try { const params = buildExportParams(); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/bp-sale-register/export/excel?${params}`, `${product || 'byproduct'}_sales.xlsx`); toast.success("Excel exported!"); } catch(e) { toast.error("Export failed"); }}}
+          <Button onClick={async () => { try { const params = buildExportParams(); const { downloadFile } = await import('../utils/download'); const { buildFilename } = await import('../utils/filename-format'); const fname = buildFilename({ base: `${product || 'byproduct'}_sales`, party: filters.party_name, dateFrom: filters.date_from, dateTo: filters.date_to, kmsYear: filters.kms_year, ext: 'xlsx' }); downloadFile(`/api/bp-sale-register/export/excel?${params}`, fname); toast.success("Excel exported!"); } catch(e) { toast.error("Export failed"); }}}
             variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700 h-7 text-[10px]" data-testid="bp-export-excel">
             <Download className="w-3 h-3 mr-1" /> Excel
           </Button>
-          <Button onClick={async () => { try { const params = buildExportParams(); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/bp-sale-register/export/pdf?${params}`, `${product || 'byproduct'}_sales.pdf`); toast.success("PDF exported!"); } catch(e) { toast.error("Export failed"); }}}
+          <Button onClick={async () => { try { const params = buildExportParams(); const { downloadFile } = await import('../utils/download'); const { buildFilename } = await import('../utils/filename-format'); const fname = buildFilename({ base: `${product || 'byproduct'}_sales`, party: filters.party_name, dateFrom: filters.date_from, dateTo: filters.date_to, kmsYear: filters.kms_year, ext: 'pdf' }); downloadFile(`/api/bp-sale-register/export/pdf?${params}`, fname); toast.success("PDF exported!"); } catch(e) { toast.error("Export failed"); }}}
             variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700 h-7 text-[10px]" data-testid="bp-export-pdf">
             <Download className="w-3 h-3 mr-1" /> PDF
           </Button>

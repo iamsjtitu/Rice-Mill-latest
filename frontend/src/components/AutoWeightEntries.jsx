@@ -289,11 +289,33 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
               <Filter className="w-3 h-3 mr-1" />{showFilters ? 'Hide' : 'Filters'}
             </Button>
             <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-emerald-700 border-emerald-300 hover:bg-emerald-50" data-testid="awe-export-excel"
-              onClick={() => { const fp = new URLSearchParams({ kms_year: kms, status: "completed", trans_type: viewMode, ...vwFilters }); Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); }); downloadFile(`${API}/vehicle-weight/export/excel?${fp.toString()}`, `auto_weight_entries.xlsx`); }}>
+              onClick={async () => {
+                const fp = new URLSearchParams({ kms_year: kms, status: "completed", trans_type: viewMode, ...vwFilters });
+                Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); });
+                const { buildFilename } = await import('../utils/filename-format');
+                const fname = buildFilename({
+                  base: viewMode === 'sale' ? 'auto_weight_sales' : 'auto_weight_entries',
+                  party: vwFilters.party_name,
+                  dateFrom: vwFilters.date_from, dateTo: vwFilters.date_to,
+                  kmsYear: kms, ext: 'xlsx',
+                });
+                downloadFile(`${API}/vehicle-weight/export/excel?${fp.toString()}`, fname);
+              }}>
               <FileSpreadsheet className="w-3 h-3 mr-1" />Excel
             </Button>
             <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-red-700 border-red-300 hover:bg-red-50" data-testid="awe-export-pdf"
-              onClick={() => { const fp = new URLSearchParams({ kms_year: kms, status: "completed", trans_type: viewMode, ...vwFilters }); Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); }); downloadFile(`${API}/vehicle-weight/export/pdf?${fp.toString()}`, `auto_weight_entries.pdf`); }}>
+              onClick={async () => {
+                const fp = new URLSearchParams({ kms_year: kms, status: "completed", trans_type: viewMode, ...vwFilters });
+                Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); });
+                const { buildFilename } = await import('../utils/filename-format');
+                const fname = buildFilename({
+                  base: viewMode === 'sale' ? 'auto_weight_sales' : 'auto_weight_entries',
+                  party: vwFilters.party_name,
+                  dateFrom: vwFilters.date_from, dateTo: vwFilters.date_to,
+                  kmsYear: kms, ext: 'pdf',
+                });
+                downloadFile(`${API}/vehicle-weight/export/pdf?${fp.toString()}`, fname);
+              }}>
               <FileText className="w-3 h-3 mr-1" />PDF
             </Button>
             <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => fetchData(1)} data-testid="awe-refresh">

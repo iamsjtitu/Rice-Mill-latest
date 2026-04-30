@@ -324,6 +324,7 @@ const CashBook = ({ filters, user }) => {
   const exportData = async (format) => {
     try {
       const { downloadFile } = await import('../utils/download');
+      const { buildFilename } = await import('../utils/filename-format');
       const params = new URLSearchParams();
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
       // Pass all active filters for export
@@ -337,23 +338,20 @@ const CashBook = ({ filters, user }) => {
       if (txnFilters.party_type) params.append('party_type', txnFilters.party_type);
       if (txnFilters.date_from) params.append('date_from', txnFilters.date_from);
       if (txnFilters.date_to) params.append('date_to', txnFilters.date_to);
-      // Smart filename:
-      //   Owner ledger view (Titu, etc.)         → `Titu_owner_ledger.<ext>`
-      //   Specific party ledger (MBOPL, agent…)  → `MBOPL_party_ledger.<ext>`
-      //   Cash transactions tab                   → `cash_transactions.<ext>`
-      //   Generic Cash Book                       → `cash_book.<ext>`
       const ext = format === 'excel' ? 'xlsx' : 'pdf';
-      const safe = (s) => String(s || '').trim().replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'unknown';
-      let base = 'cash_book';
+      let fname;
       if (activeView === 'cash-transactions') {
-        base = 'cash_transactions';
+        fname = buildFilename({ base: 'cash_transactions', dateFrom: txnFilters.date_from, dateTo: txnFilters.date_to, kmsYear: filters.kms_year, ext });
       } else if (txnFilters.category) {
-        const partyName = safe(txnFilters.category);
-        base = txnFilters.party_type === 'Owner'
-          ? `${partyName}_owner_ledger`
-          : `${partyName}_party_ledger`;
+        fname = buildFilename({
+          party: txnFilters.category,
+          subType: txnFilters.party_type === 'Owner' ? 'owner_ledger' : 'party_ledger',
+          dateFrom: txnFilters.date_from, dateTo: txnFilters.date_to,
+          ext,
+        });
+      } else {
+        fname = buildFilename({ base: 'cash_book', dateFrom: txnFilters.date_from, dateTo: txnFilters.date_to, kmsYear: filters.kms_year, ext });
       }
-      const fname = `${base}.${ext}`;
       await downloadFile(`/api/cash-book/${format}?${params}`, fname);
       toast.success(`${format.toUpperCase()} export ho gaya!`);
     } catch (e) { toast.error("Export failed"); }

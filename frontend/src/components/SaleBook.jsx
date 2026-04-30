@@ -218,14 +218,28 @@ export default function SaleBook({ filters, user, category }) {
   const handleExportPDF = async () => {
     const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
     const { downloadFile } = await import('../utils/download');
-    downloadFile(`/api/sale-book/export/pdf?${p}${searchParam}`, `sale_book_${new Date().toISOString().split('T')[0]}.pdf`);
+    const { buildFilename } = await import('../utils/filename-format');
+    const fname = buildFilename({
+      base: 'sale_book',
+      party: searchQuery,
+      kmsYear: filters.kms_year,
+      ext: 'pdf',
+    });
+    downloadFile(`/api/sale-book/export/pdf?${p}${searchParam}`, fname);
   };
 
   const handleExportExcel = async () => {
     try {
       const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
       const { downloadFile } = await import('../utils/download');
-      downloadFile(`/api/sale-book/export/excel?${p}${searchParam}`, `sale_book_${new Date().toISOString().split('T')[0]}.xlsx`);
+      const { buildFilename } = await import('../utils/filename-format');
+      const fname = buildFilename({
+        base: 'sale_book',
+        party: searchQuery,
+        kmsYear: filters.kms_year,
+        ext: 'xlsx',
+      });
+      downloadFile(`/api/sale-book/export/excel?${p}${searchParam}`, fname);
       toast.success("Excel export ho gaya!");
     } catch (e) { logger.error(e); toast.error("Excel export failed"); }
   };

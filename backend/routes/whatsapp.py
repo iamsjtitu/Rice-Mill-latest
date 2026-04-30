@@ -363,6 +363,8 @@ async def send_to_whatsapp_group(data: dict):
             qs = parse_qs(urlparse(pdf_url).query)
             party_type = (qs.get("party_type", [""])[0] or "").strip()
             party = (qs.get("party_name", [""])[0] or qs.get("category", [""])[0]).strip()
+            date_from = (qs.get("date_from", [""])[0] or "").strip()
+            date_to = (qs.get("date_to", [""])[0] or "").strip()
             base = "report"
             if "/party-ledger" in pdf_url: base = f"{party}_party_ledger" if party else "party_ledger"
             elif "/cash-book" in pdf_url:
@@ -371,6 +373,37 @@ async def send_to_whatsapp_group(data: dict):
                 else:
                     base = "cash_book"
             elif "/sale-book" in pdf_url: base = "sale_book"
+            elif "/purchase-book" in pdf_url: base = "purchase_book"
+            elif "/bp-sale-register" in pdf_url: base = "byproduct_sales"
+            elif "/oil-premium" in pdf_url: base = "oil_premium"
+            elif "/vehicle-weight" in pdf_url: base = "vehicle_weight"
+            elif "/private-paddy" in pdf_url: base = "pvt_paddy"
+            # Append compact date range if both provided
+            if date_from and date_to:
+                if date_from == date_to:
+                    base = f"{base}_{date_from}"
+                else:
+                    # Same month full coverage → MMM-YYYY
+                    try:
+                        from datetime import datetime as _dt, timedelta as _td
+                        df = _dt.strptime(date_from, "%Y-%m-%d")
+                        dt = _dt.strptime(date_to, "%Y-%m-%d")
+                        if df.year == dt.year and df.month == dt.month and df.day == 1:
+                            # Compute last day of that month
+                            nm = (df.replace(day=28) + _td(days=4))
+                            last_day = (nm - _td(days=nm.day)).day
+                            if dt.day == last_day:
+                                base = f"{base}_{df.strftime('%b-%Y')}"
+                            else:
+                                base = f"{base}_{date_from}_to_{date_to}"
+                        else:
+                            base = f"{base}_{date_from}_to_{date_to}"
+                    except Exception:
+                        base = f"{base}_{date_from}_to_{date_to}"
+            elif date_from:
+                base = f"{base}_{date_from}"
+            elif date_to:
+                base = f"{base}_upto_{date_to}"
             elif "/bp-sale" in pdf_url: base = "rice_bran_sale"
             elif "/stock-register" in pdf_url: base = "stock_register"
             elif "/hemali" in pdf_url: base = "hemali_register"

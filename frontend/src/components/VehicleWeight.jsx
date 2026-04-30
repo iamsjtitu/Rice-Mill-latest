@@ -1519,11 +1519,33 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                 <Filter className="w-3 h-3 mr-1" />{showVwFilters ? 'Hide' : 'Filters'}
               </Button>
               <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-emerald-700 border-emerald-300 hover:bg-emerald-50" data-testid="vw-export-excel"
-                onClick={() => { const fp = new URLSearchParams({ kms_year: kms, status: "completed", trans_type: vwViewMode, ...vwFilters }); Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); }); downloadFile(`${API}/vehicle-weight/export/excel?${fp.toString()}`, `vehicle_weight.xlsx`); }}>
+                onClick={async () => {
+                  const fp = new URLSearchParams({ kms_year: kms, status: "completed", trans_type: vwViewMode, ...vwFilters });
+                  Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); });
+                  const { buildFilename } = await import('../utils/filename-format');
+                  const fname = buildFilename({
+                    base: vwViewMode === 'sale' ? 'vehicle_weight_sales' : 'vehicle_weight',
+                    party: vwFilters.party_name,
+                    dateFrom: vwFilters.date_from, dateTo: vwFilters.date_to,
+                    kmsYear: kms, ext: 'xlsx',
+                  });
+                  downloadFile(`${API}/vehicle-weight/export/excel?${fp.toString()}`, fname);
+                }}>
                 <FileSpreadsheet className="w-3 h-3 mr-1" />Excel
               </Button>
               <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-red-700 border-red-300 hover:bg-red-50" data-testid="vw-export-pdf"
-                onClick={() => { const fp = new URLSearchParams({ kms_year: kms, status: "completed", trans_type: vwViewMode, ...vwFilters }); Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); }); downloadFile(`${API}/vehicle-weight/export/pdf?${fp.toString()}`, `vehicle_weight.pdf`); }}>
+                onClick={async () => {
+                  const fp = new URLSearchParams({ kms_year: kms, status: "completed", trans_type: vwViewMode, ...vwFilters });
+                  Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); });
+                  const { buildFilename } = await import('../utils/filename-format');
+                  const fname = buildFilename({
+                    base: vwViewMode === 'sale' ? 'vehicle_weight_sales' : 'vehicle_weight',
+                    party: vwFilters.party_name,
+                    dateFrom: vwFilters.date_from, dateTo: vwFilters.date_to,
+                    kmsYear: kms, ext: 'pdf',
+                  });
+                  downloadFile(`${API}/vehicle-weight/export/pdf?${fp.toString()}`, fname);
+                }}>
                 <FileText className="w-3 h-3 mr-1" />PDF
               </Button>
               <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-slate-400 hover:text-slate-200" data-testid="vw-toggle-completed" onClick={() => setShowCompleted(!showCompleted)}>

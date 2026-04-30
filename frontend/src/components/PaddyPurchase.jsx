@@ -225,12 +225,20 @@ export const PaddyPurchase = ({ filters, user }) => {
     return { totalAmt: Math.round(totalAmt), totalPaid: Math.round(totalPaid), balance: Math.round(totalAmt - totalPaid), totalQntl: Math.round(totalQntl * 100) / 100 };
   }, [filtered]);
 
-  const handleExport = (type) => {
+  const handleExport = async (type) => {
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
     if (filters.season) p.append('season', filters.season);
     if (searchText) p.append('search', searchText);
-    downloadFile(`/api/private-paddy/${type}?${p}`, `pvt_paddy.${type === 'pdf' ? 'pdf' : 'xlsx'}`);
+    const { buildFilename } = await import('../utils/filename-format');
+    const ext = type === 'pdf' ? 'pdf' : 'xlsx';
+    const fname = buildFilename({
+      base: 'pvt_paddy',
+      party: searchText,
+      kmsYear: filters.kms_year,
+      ext,
+    });
+    downloadFile(`/api/private-paddy/${type}?${p}`, fname);
   };
 
   return (
@@ -646,14 +654,23 @@ export const PartySummary = ({ filters, onNavigate }) => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleExport = (type) => {
+  const handleExport = async (type) => {
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
     if (filters.season) p.append('season', filters.season);
     if (dateFrom) p.append('date_from', dateFrom);
     if (dateTo) p.append('date_to', dateTo);
     if (searchText) p.append('search', searchText);
-    downloadFile(`/api/private-trading/party-summary/${type}?${p}`, `party_summary.${type === 'pdf' ? 'pdf' : 'xlsx'}`);
+    const { buildFilename } = await import('../utils/filename-format');
+    const ext = type === 'pdf' ? 'pdf' : 'xlsx';
+    const fname = buildFilename({
+      base: 'party_summary',
+      party: searchText,
+      dateFrom, dateTo,
+      kmsYear: filters.kms_year,
+      ext,
+    });
+    downloadFile(`/api/private-trading/party-summary/${type}?${p}`, fname);
   };
 
   const t = data.totals || {};

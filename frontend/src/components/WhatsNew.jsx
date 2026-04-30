@@ -7,6 +7,29 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.0",
+    date: "Feb 16, 2026",
+    title: "v104.44.0 — 📁 Global Smart Filenames + Date Range Embedding",
+    items: [
+      { type: "feature", text: "📁 **Global Smart Filename Builder** — Naya helper `/app/frontend/src/utils/filename-format.js` (`buildFilename({base, party, subType, dateFrom, dateTo, kmsYear, ext})`). Saare PDF/Excel/WhatsApp downloads ab is centralized helper se filename banate hain — consistent naming pattern ke saath." },
+      { type: "feature", text: "📅 **Date Range Embedding** — Date filter ke saath export karne par filename me date range embed hota hai:" },
+      { type: "feature", text: "&nbsp;&nbsp;• Same day: `Titu_owner_ledger_2026-04-15.pdf`" },
+      { type: "feature", text: "&nbsp;&nbsp;• Full month coverage (1st to last day): `Titu_owner_ledger_Apr-2026.pdf`" },
+      { type: "feature", text: "&nbsp;&nbsp;• Custom range: `cash_book_2026-04-01_to_2026-06-30.pdf`" },
+      { type: "feature", text: "🌐 **Globally Applied** — Smart naming ab in 10+ jagah enabled:" },
+      { type: "feature", text: "&nbsp;&nbsp;• **Cash Book** (Excel/PDF) — `Titu_owner_ledger.xlsx`, `MBOPL_KCA_party_ledger_Apr-2026.pdf`" },
+      { type: "feature", text: "&nbsp;&nbsp;• **Paddy Purchase + Party Summary** — `Acme_Traders_pvt_paddy.xlsx`, `party_summary_Apr-2026.pdf`" },
+      { type: "feature", text: "&nbsp;&nbsp;• **Sale Book + Purchase Vouchers** — `sale_book_2026-2027.pdf`, `purchase_book.xlsx`" },
+      { type: "feature", text: "&nbsp;&nbsp;• **Vehicle Weight + Auto Weight Entries** — `MBOPL_vehicle_weight_sales_Apr-2026.pdf`, `auto_weight_entries.xlsx`" },
+      { type: "feature", text: "&nbsp;&nbsp;• **Truck/Agent/Owner Payments** — `MH-12-AB-1234_truck_payments.xlsx`, `agent_payments.pdf`, `truck_owner.pdf`" },
+      { type: "feature", text: "&nbsp;&nbsp;• **BP Sales (Rice Bran/Broken/Kanki/Husk)** — `Rice Bran_sales_Apr-2026.xlsx`" },
+      { type: "feature", text: "&nbsp;&nbsp;• **Oil Premium Lab Test** — `oil_premium_2026-04-15_to_2026-04-30.pdf`" },
+      { type: "feature", text: "&nbsp;&nbsp;• **Mill Parts Stock** — `mill_parts_txns_Apr-2026.xlsx`" },
+      { type: "feature", text: "💬 **WhatsApp PDF Filename Smart** — Backend `/app/backend/routes/whatsapp.py` me extended URL inference: `Titu_owner_ledger_Apr-2026.pdf` aata hai apne aap. Date_from/date_to URL params se nikaala jaata hai." },
+      { type: "improvement", text: "🔍 **Special Char Sanitization** — Party names me `()`, slashes, spaces ko underscore se replace karte hain (Windows + Linux + WhatsApp file system safe)." },
+    ],
+  },
+  {
     version: "104.43.4",
     date: "Feb 16, 2026",
     title: "v104.43.4 — 📁 Smart Party-aware Filenames in Cash Book Excel/PDF/WhatsApp",

@@ -247,13 +247,20 @@ export default function PurchaseVouchers({ filters, user }) {
   const toggleSelect = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const toggleSelectAll = () => setSelectedIds(prev => prev.length === vouchers.length ? [] : vouchers.map(v => v.id));
 
-  const handleExport = (type) => {
+  const handleExport = async (type) => {
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
-    
     if (searchText) p.append('search', searchText);
     const qs = p.toString() ? `?${p.toString()}` : '';
-    downloadFile(`/api/purchase-book/export/${type}${qs}`, `purchase_book.${type === 'pdf' ? 'pdf' : 'xlsx'}`);
+    const { buildFilename } = await import('../utils/filename-format');
+    const ext = type === 'pdf' ? 'pdf' : 'xlsx';
+    const fname = buildFilename({
+      base: 'purchase_book',
+      party: searchText,
+      kmsYear: filters.kms_year,
+      ext,
+    });
+    downloadFile(`/api/purchase-book/export/${type}${qs}`, fname);
   };
 
   const handlePrintInvoice = (v) => {

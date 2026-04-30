@@ -205,7 +205,15 @@ export default function MillPartsStock({ filters, user }) {
     if (txnFilters.txn_type) p.append('txn_type', txnFilters.txn_type);
     if (txnFilters.party_name) p.append('party_name', txnFilters.party_name);
     const { downloadFile } = await import('../utils/download');
-    downloadFile(`/api/mill-parts-stock/export/${format}?${p}`, `mill_parts_txns.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
+    const { buildFilename } = await import('../utils/filename-format');
+    const ext = format === 'pdf' ? 'pdf' : 'xlsx';
+    const fname = buildFilename({
+      base: 'mill_parts_txns',
+      party: txnFilters.party_name || txnFilters.part_name,
+      dateFrom: txnFilters.date_from, dateTo: txnFilters.date_to,
+      kmsYear: filters.kms_year, ext,
+    });
+    downloadFile(`/api/mill-parts-stock/export/${format}?${p}`, fname);
   };
 
   const lowStockParts = useMemo(() => summary.filter(s => s.min_stock > 0 && s.current_stock < s.min_stock), [summary]);

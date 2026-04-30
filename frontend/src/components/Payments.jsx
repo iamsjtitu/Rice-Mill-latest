@@ -120,37 +120,41 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   const handleExportTruckExcel = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
-    
     if (truckSearchFilter) params.append('truck_no', truckSearchFilter);
     const { downloadFile } = await import('../utils/download');
-    downloadFile(`/api/export/truck-payments-excel?${params.toString()}`, 'truck_payments.xlsx');
+    const { buildFilename } = await import('../utils/filename-format');
+    const fname = buildFilename({ base: 'truck_payments', party: truckSearchFilter, kmsYear: filters.kms_year, ext: 'xlsx' });
+    downloadFile(`/api/export/truck-payments-excel?${params.toString()}`, fname);
   };
 
   // Export truck payments to PDF
   const handleExportTruckPDF = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
-    
     if (truckSearchFilter) params.append('truck_no', truckSearchFilter);
     const { downloadFile } = await import('../utils/download');
-    downloadFile(`/api/export/truck-payments-pdf?${params.toString()}`, 'truck_payments.pdf');
+    const { buildFilename } = await import('../utils/filename-format');
+    const fname = buildFilename({ base: 'truck_payments', party: truckSearchFilter, kmsYear: filters.kms_year, ext: 'pdf' });
+    downloadFile(`/api/export/truck-payments-pdf?${params.toString()}`, fname);
   };
 
   // Export agent payments
   const handleExportAgentExcel = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
-    
     const { downloadFile } = await import('../utils/download');
-    downloadFile(`/api/export/agent-payments-excel?${params.toString()}`, 'agent_payments.xlsx');
+    const { buildFilename } = await import('../utils/filename-format');
+    const fname = buildFilename({ base: 'agent_payments', kmsYear: filters.kms_year, ext: 'xlsx' });
+    downloadFile(`/api/export/agent-payments-excel?${params.toString()}`, fname);
   };
 
   const handleExportAgentPDF = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
-    
     const { downloadFile } = await import('../utils/download');
-    downloadFile(`/api/export/agent-payments-pdf?${params.toString()}`, 'agent_payments.pdf');
+    const { buildFilename } = await import('../utils/filename-format');
+    const fname = buildFilename({ base: 'agent_payments', kmsYear: filters.kms_year, ext: 'pdf' });
+    downloadFile(`/api/export/agent-payments-pdf?${params.toString()}`, fname);
   };
 
   // Move excess agent delivery (TP > target+cutting%) to Pvt Paddy Purchase ledger
@@ -181,17 +185,19 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   const handleExportTruckOwnerExcel = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
-    
     const { downloadFile } = await import('../utils/download');
-    downloadFile(`/api/export/truck-owner-excel?${params.toString()}`, 'truck_owner.xlsx');
+    const { buildFilename } = await import('../utils/filename-format');
+    const fname = buildFilename({ base: 'truck_owner', kmsYear: filters.kms_year, ext: 'xlsx' });
+    downloadFile(`/api/export/truck-owner-excel?${params.toString()}`, fname);
   };
 
   const handleExportTruckOwnerPDF = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
-    
     const { downloadFile } = await import('../utils/download');
-    downloadFile(`/api/export/truck-owner-pdf?${params.toString()}`, 'truck_owner.pdf');
+    const { buildFilename } = await import('../utils/filename-format');
+    const fname = buildFilename({ base: 'truck_owner', kmsYear: filters.kms_year, ext: 'pdf' });
+    downloadFile(`/api/export/truck-owner-pdf?${params.toString()}`, fname);
   };
 
   // WhatsApp - Truck Payment (individual trip)
