@@ -243,86 +243,78 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding }) {
     window.open(`${API}/truck-owner/${encodeURIComponent(selectedTruck)}/${ep}?${params}`, "_blank");
   };
 
-  // ── Print E-Receipt for a single trip — same style as Truck Payment receipt ──
+  // ── Print Compact E-Receipt for a single trip (thermal-receipt style 80mm) ──
   const handlePrintTripReceipt = (t) => {
     if (!t || !data?.vehicle_no) return;
     const netQtl = (Number(t.net_wt || 0) / 100).toFixed(2);
-    const statusKey = t.status === 'settled' ? 'paid' : t.status; // map for CSS
-    const statusLabel = t.status === 'settled' ? 'PAID / भुगतान हो गया' : t.status === 'partial' ? 'PARTIAL / आंशिक' : 'PENDING / बाकी';
-    const tagLabel = t.trans_type === 'sale' ? 'Sale / बिक्री' : t.trans_type === 'purchase' ? 'Purchase / खरीद' : (t.trans_type_raw || '-');
+    const statusLabel = t.status === 'settled' ? 'PAID' : t.status === 'partial' ? 'PARTIAL' : 'PENDING';
+    const statusColor = t.status === 'settled' ? '#059669' : t.status === 'partial' ? '#d97706' : '#dc2626';
+    const tagLabel = t.trans_type === 'sale' ? 'Sale' : t.trans_type === 'purchase' ? 'Purchase' : (t.trans_type_raw || '-');
     const html = `
       <!DOCTYPE html>
-      <html><head><title>Bhada Receipt - ${data.vehicle_no} - RST #${t.rst_no}</title>
+      <html><head><title>Receipt - ${data.vehicle_no} - RST #${t.rst_no}</title>
       <style>
+        @page { size: 80mm auto; margin: 3mm; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background: #f5f5f5; }
-        .invoice { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { text-align: center; border-bottom: 2px solid #f59e0b; padding-bottom: 20px; margin-bottom: 20px; }
-        .header h1 { color: #f59e0b; font-size: 28px; margin-bottom: 5px; }
-        .header p { color: #666; font-size: 14px; }
-        .receipt-title { text-align: center; background: #1e293b; color: white; padding: 10px; border-radius: 4px; margin-bottom: 20px; font-size: 18px; }
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
-        .info-item { padding: 10px; background: #f8fafc; border-radius: 4px; }
-        .info-item label { display: block; font-size: 11px; color: #64748b; text-transform: uppercase; margin-bottom: 4px; }
-        .info-item span { font-size: 16px; font-weight: 600; color: #1e293b; }
-        .amount-section { background: #fef3c7; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        .amount-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #fbbf24; }
-        .amount-row:last-child { border-bottom: none; }
-        .amount-row.total { font-size: 20px; font-weight: bold; color: #1e293b; border-top: 2px solid #f59e0b; margin-top: 10px; padding-top: 15px; }
-        .amount-row.paid { color: #059669; }
-        .amount-row.balance { color: #dc2626; font-weight: 600; }
-        .status-badge { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
-        .status-paid { background: #d1fae5; color: #059669; }
-        .status-partial { background: #fef3c7; color: #d97706; }
-        .status-pending { background: #fee2e2; color: #dc2626; }
-        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
-        .signature-section { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; }
-        .signature-box { text-align: center; }
-        .signature-line { border-top: 1px solid #1e293b; margin-top: 50px; padding-top: 5px; font-size: 12px; color: #64748b; }
-        .print-note { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 20px; }
+        body { font-family: 'Courier New', monospace; padding: 8px; background: #ddd; }
+        .slip { width: 280px; margin: 0 auto; background: white; padding: 14px 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); font-size: 11px; line-height: 1.5; color: #000; }
+        .center { text-align: center; }
+        .right  { text-align: right; }
+        .bold   { font-weight: bold; }
+        .big    { font-size: 13px; }
+        .h1     { font-size: 15px; font-weight: bold; letter-spacing: 0.5px; }
+        .h2     { font-size: 12px; font-weight: bold; }
+        .dashed { border-top: 1px dashed #555; margin: 6px 0; }
+        .row    { display: flex; justify-content: space-between; padding: 2px 0; }
+        .row .lbl { color: #444; }
+        .row .val { font-weight: 600; }
+        .total-row { font-size: 13px; font-weight: bold; padding: 4px 0; }
+        .badge { display: inline-block; padding: 3px 10px; border: 2px solid; border-radius: 3px; font-weight: bold; font-size: 12px; letter-spacing: 1px; }
+        .sig    { margin-top: 28px; font-size: 10px; }
+        .sig-line { border-top: 1px solid #000; padding-top: 2px; margin-top: 28px; }
         @media print {
-          @page { size: A4; margin: 10mm; }
           body { background: white; padding: 0; }
-          .invoice { box-shadow: none; max-width: 100%; }
+          .slip { box-shadow: none; padding: 6px 4px; }
           .no-print { display: none; }
         }
       </style></head><body>
-        <div class="invoice">
-          <div class="header">
-            <h1>${brand.company_name || "Rice Mill"}</h1>
-            ${brand.tagline ? `<p>${brand.tagline}</p>` : ""}
+        <div class="slip">
+          <div class="center h1">${(brand.company_name || "RICE MILL").toUpperCase()}</div>
+          ${brand.tagline ? `<div class="center" style="font-size:10px;color:#555;margin-top:2px;">${brand.tagline}</div>` : ""}
+          <div class="dashed"></div>
+          <div class="center bold big">BHADA RECEIPT</div>
+          <div class="center" style="font-size:10px;color:#666;">भाड़ा रसीद</div>
+          <div class="dashed"></div>
+          <div class="row"><span class="lbl">Receipt:</span><span class="val">${new Date().toLocaleDateString('en-IN')}</span></div>
+          <div class="row"><span class="lbl">Trip Date:</span><span class="val">${fmtDateShort(t.date)}</span></div>
+          <div class="row"><span class="lbl">RST No:</span><span class="val bold">#${t.rst_no}</span></div>
+          <div class="row"><span class="lbl">Truck:</span><span class="val bold">${data.vehicle_no}</span></div>
+          <div class="row"><span class="lbl">Type:</span><span class="val">${tagLabel}</span></div>
+          <div class="dashed"></div>
+          <div class="row"><span class="lbl">Party:</span><span class="val">${(t.party_name || '-').slice(0,22)}</span></div>
+          ${t.farmer_name ? `<div class="row"><span class="lbl">Dest:</span><span class="val">${t.farmer_name.slice(0,22)}</span></div>` : ""}
+          ${t.product ? `<div class="row"><span class="lbl">Product:</span><span class="val">${t.product}</span></div>` : ""}
+          <div class="row"><span class="lbl">Bags:</span><span class="val">${Number(t.tot_pkts || 0).toLocaleString()}</span></div>
+          <div class="row"><span class="lbl">Net Wt:</span><span class="val">${netQtl} QNTL</span></div>
+          <div class="dashed"></div>
+          <div class="row total-row"><span>BHADA</span><span>Rs. ${Number(t.bhada || 0).toLocaleString('en-IN')}</span></div>
+          <div class="row"><span class="lbl">Paid:</span><span class="val" style="color:#059669;">Rs. ${Number(t.paid_amount || 0).toLocaleString('en-IN')}</span></div>
+          <div class="row total-row" style="color:${t.pending_amount > 0 ? '#dc2626' : '#059669'};"><span>BALANCE</span><span>Rs. ${Number(t.pending_amount || 0).toLocaleString('en-IN')}</span></div>
+          <div class="dashed"></div>
+          <div class="center" style="margin: 8px 0 4px;">
+            <span class="badge" style="color:${statusColor};border-color:${statusColor};">${statusLabel}</span>
           </div>
-          <div class="receipt-title">BHADA RECEIPT / भाड़ा रसीद</div>
-          <div class="info-grid">
-            <div class="info-item"><label>Receipt Date / रसीद दिनांक</label><span>${new Date().toLocaleDateString('en-IN')}</span></div>
-            <div class="info-item"><label>Trip Date / ट्रिप दिनांक</label><span>${fmtDateShort(t.date)}</span></div>
-            <div class="info-item"><label>Truck Number / ट्रक नंबर</label><span>${data.vehicle_no}</span></div>
-            <div class="info-item"><label>RST Number / RST नंबर</label><span>#${t.rst_no}</span></div>
-            <div class="info-item"><label>Trip Type / ट्रिप</label><span>${tagLabel}</span></div>
-            <div class="info-item"><label>Party / पार्टी</label><span>${t.party_name || '-'}</span></div>
-            <div class="info-item"><label>Destination / गंतव्य</label><span>${t.farmer_name || '-'}</span></div>
-            <div class="info-item"><label>Net Weight / वजन</label><span>${netQtl} QNTL</span></div>
-            <div class="info-item"><label>Bags / थैले</label><span>${Number(t.tot_pkts || 0).toLocaleString()}</span></div>
-            <div class="info-item"><label>Product / प्रोडक्ट</label><span>${t.product || '-'}</span></div>
-          </div>
-          <div class="amount-section">
-            <div class="amount-row total"><span>Bhada / भाड़ा (Lumpsum)</span><span>Rs. ${Number(t.bhada || 0).toLocaleString('en-IN')}</span></div>
-            <div class="amount-row paid"><span>Amount Paid / भुगतान किया</span><span>Rs. ${Number(t.paid_amount || 0).toLocaleString('en-IN')}</span></div>
-            <div class="amount-row balance"><span>Balance / बाकी</span><span>Rs. ${Number(t.pending_amount || 0).toLocaleString('en-IN')}</span></div>
-          </div>
-          <div style="text-align: center; margin: 15px 0;">
-            <span class="status-badge status-${statusKey}">${statusLabel}</span>
-          </div>
-          <div class="footer">
-            <div class="signature-section">
-              <div class="signature-box"><div class="signature-line">Driver Signature / ड्राइवर हस्ताक्षर</div></div>
-              <div class="signature-box"><div class="signature-line">Authorized Signature / अधिकृत हस्ताक्षर</div></div>
+          <div class="dashed"></div>
+          <div class="sig">
+            <div class="row" style="gap:20px;">
+              <div style="flex:1;text-align:center;"><div class="sig-line">Driver</div></div>
+              <div style="flex:1;text-align:center;"><div class="sig-line">Authorized</div></div>
             </div>
           </div>
-          <div class="print-note">This is a computer generated receipt / यह कंप्यूटर जनित रसीद है</div>
+          <div class="center" style="font-size:9px;color:#888;margin-top:10px;">— Computer generated —</div>
         </div>
-        <div class="no-print" style="text-align: center; margin-top: 20px;">
-          <button onclick="window.print()" style="background: #f59e0b; color: white; border: none; padding: 12px 30px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;">🖨️ Print Receipt</button>
+        <div class="no-print" style="text-align:center;margin-top:12px;">
+          <button onclick="window.print()" style="background:#f59e0b;color:white;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;">🖨 Print</button>
         </div>
       </body></html>`;
     safePrintHTML(html);
