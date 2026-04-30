@@ -2568,11 +2568,13 @@ async def truck_owner_per_trip_all_pdf(
     date_from: str = "", date_to: str = "",
     filter_status: str = "", trans_type: str = "", search: str = ""
 ):
-    """Generate combined per-trip Bhada PDF for ALL trucks with active filters."""
+    """Generate combined per-trip Bhada PDF for ALL trucks with active filters.
+    Layout: Header → Subtitle → Trips Table → KPI Summary Banner (bottom) → Footer.
+    """
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.units import mm
     from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, KeepTogether
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.enums import TA_CENTER
     from fastapi.responses import StreamingResponse
@@ -2596,32 +2598,10 @@ async def truck_owner_per_trip_all_pdf(
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
     elements = []
     header_elems = await get_pdf_header_elements_from_db(
-        title="🛻 Per-Trip Bhada — All Trucks",
-        subtitle=f"KMS: {kms_year or 'All'} · Season: {season or 'All'} · Filter: {flt_label}"
+        title="Per-Trip Bhada — All Trucks",
+        subtitle=f"KMS: {kms_year or 'All'} · Season: {season or 'All'} · Filter: {flt_label} · Trips: {sm['total_trips']} · Trucks: {payload.get('total_trucks', 0)}"
     )
     elements.extend(header_elems)
-
-    # Summary banner
-    summary_data = [[
-        f"Trips: {sm['total_trips']}",
-        f"Sale: {sm['sale_count']} · Purchase: {sm['purchase_count']}",
-        f"Total Bhada: ₹{sm['total_bhada']:,.0f}",
-        f"Settled: ₹{sm['total_paid']:,.0f}",
-        f"Pending: ₹{sm['total_pending']:,.0f}",
-    ]]
-    summary_tbl = Table(summary_data, colWidths=[40*mm, 55*mm, 50*mm, 50*mm, 50*mm])
-    summary_tbl.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#1a237e')),
-        ('TEXTCOLOR', (0,0), (-1,-1), colors.white),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTSIZE', (0,0), (-1,-1), 10),
-        ('FONTNAME', (0,0), (-1,-1), 'Helvetica-Bold'),
-        ('LEADING', (0,0), (-1,-1), 14),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#1a237e')),
-    ]))
-    elements.append(summary_tbl)
-    elements.append(Spacer(1, 4*mm))
 
     # Trips table — landscape gives us room for Truck No column
     headers = ["RST", "Date", "Truck No", "Type", "Party", "Destination", "Net Wt", "Bhada", "Paid", "Pending", "Status"]
@@ -2634,9 +2614,9 @@ async def truck_owner_per_trip_all_pdf(
             (t.get('party_name') or '-')[:24],
             (t.get('farmer_name') or '-')[:24],
             f"{int(t.get('net_wt') or 0):,}" if t.get('net_wt') else '-',
-            f"₹{t['bhada']:,.0f}",
-            f"₹{t['paid_amount']:,.0f}" if t['paid_amount'] else '-',
-            f"₹{t['pending_amount']:,.0f}" if t['pending_amount'] else '-',
+            f"Rs.{t['bhada']:,.0f}",
+            f"Rs.{t['paid_amount']:,.0f}" if t['paid_amount'] else '-',
+            f"Rs.{t['pending_amount']:,.0f}" if t['pending_amount'] else '-',
             t['status'].title(),
         ])
     if len(rows) == 1:
@@ -2645,33 +2625,102 @@ async def truck_owner_per_trip_all_pdf(
     col_widths = [16*mm, 22*mm, 28*mm, 18*mm, 42*mm, 42*mm, 18*mm, 22*mm, 22*mm, 22*mm, 22*mm]
     trips_tbl = Table(rows, colWidths=col_widths, repeatRows=1)
     trips_tbl.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#004d40')),
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0d1b2a')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTSIZE', (0,0), (-1,-1), 8),
+        ('FONTSIZE', (0,0), (-1,0), 9),
+        ('FONTSIZE', (0,1), (-1,-1), 8),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
+        ('TOPPADDING', (0,0), (-1,0), 6),
+        ('BOTTOMPADDING', (0,0), (-1,0), 6),
+        ('TOPPADDING', (0,1), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,1), (-1,-1), 4),
         ('ALIGN', (0,0), (0,-1), 'CENTER'),
         ('ALIGN', (6,1), (-2,-1), 'RIGHT'),
         ('ALIGN', (-1,0), (-1,-1), 'CENTER'),
+        ('ALIGN', (3,1), (3,-1), 'CENTER'),
         ('GRID', (0,0), (-1,-1), 0.3, colors.HexColor('#cccccc')),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f5f5f5')]),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f7f9fc')]),
         ('LEADING', (0,0), (-1,-1), 11),
+        # Bhada column emphasis
+        ('TEXTCOLOR', (7,1), (7,-1), colors.HexColor('#e65100')),
+        ('FONTNAME', (7,1), (7,-1), 'Helvetica-Bold'),
+        # Pending column emphasis
+        ('TEXTCOLOR', (9,1), (9,-1), colors.HexColor('#b71c1c')),
+        # RST + Truck No bold accents
+        ('FONTNAME', (0,1), (0,-1), 'Helvetica-Bold'),
+        ('TEXTCOLOR', (0,1), (0,-1), colors.HexColor('#1a237e')),
+        ('FONTNAME', (2,1), (2,-1), 'Helvetica-Bold'),
+        ('TEXTCOLOR', (2,1), (2,-1), colors.HexColor('#0277bd')),
     ]))
-    # Color status cells
+    # Color status cells based on value
     for i, t in enumerate(trips, start=1):
         st = t.get('status')
         if st == 'settled':
-            trips_tbl.setStyle(TableStyle([('BACKGROUND', (-1,i), (-1,i), colors.HexColor('#c8e6c9')), ('TEXTCOLOR', (-1,i), (-1,i), colors.HexColor('#1b5e20'))]))
+            trips_tbl.setStyle(TableStyle([('BACKGROUND', (-1,i), (-1,i), colors.HexColor('#c8e6c9')), ('TEXTCOLOR', (-1,i), (-1,i), colors.HexColor('#1b5e20')), ('FONTNAME', (-1,i), (-1,i), 'Helvetica-Bold')]))
         elif st == 'partial':
-            trips_tbl.setStyle(TableStyle([('BACKGROUND', (-1,i), (-1,i), colors.HexColor('#ffe0b2')), ('TEXTCOLOR', (-1,i), (-1,i), colors.HexColor('#e65100'))]))
+            trips_tbl.setStyle(TableStyle([('BACKGROUND', (-1,i), (-1,i), colors.HexColor('#ffe0b2')), ('TEXTCOLOR', (-1,i), (-1,i), colors.HexColor('#e65100')), ('FONTNAME', (-1,i), (-1,i), 'Helvetica-Bold')]))
         else:
-            trips_tbl.setStyle(TableStyle([('BACKGROUND', (-1,i), (-1,i), colors.HexColor('#ffcdd2')), ('TEXTCOLOR', (-1,i), (-1,i), colors.HexColor('#b71c1c'))]))
+            trips_tbl.setStyle(TableStyle([('BACKGROUND', (-1,i), (-1,i), colors.HexColor('#ffcdd2')), ('TEXTCOLOR', (-1,i), (-1,i), colors.HexColor('#b71c1c')), ('FONTNAME', (-1,i), (-1,i), 'Helvetica-Bold')]))
     elements.append(trips_tbl)
 
+    # ── KPI SUMMARY BANNER — placed BELOW the table for visibility after data ──
+    elements.append(Spacer(1, 6*mm))
+    banner_data = [
+        # Row 1: labels
+        ['TOTAL TRIPS', 'TOTAL BHADA', 'SETTLED', 'PARTIAL', 'PENDING'],
+        # Row 2: values
+        [
+            f"{sm['total_trips']}\nSale {sm['sale_count']} · Purchase {sm['purchase_count']}",
+            f"Rs.{sm['total_bhada']:,.0f}",
+            f"Rs.{sm['total_paid']:,.0f}\n{sm['settled_count']} trips",
+            f"{sm['partial_count']} trips",
+            f"Rs.{sm['total_pending']:,.0f}\n{sm['pending_count']} trips",
+        ],
+    ]
+    # Each tile a different color
+    tile_colors = [
+        colors.HexColor('#1a237e'),  # navy — total trips
+        colors.HexColor('#e65100'),  # orange — total bhada
+        colors.HexColor('#1b5e20'),  # green — settled
+        colors.HexColor('#f9a825'),  # amber — partial
+        colors.HexColor('#b71c1c'),  # red — pending
+    ]
+    banner_tbl = Table(banner_data, colWidths=[55*mm]*5, rowHeights=[8*mm, 16*mm])
+    banner_style = [
+        # Labels row (top)
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 8),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,0), 'CENTER'),
+        ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
+        ('TOPPADDING', (0,0), (-1,0), 4),
+        ('BOTTOMPADDING', (0,0), (-1,0), 4),
+        # Values row (bottom)
+        ('FONTNAME', (0,1), (-1,1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,1), (-1,1), 12),
+        ('TEXTCOLOR', (0,1), (-1,1), colors.white),
+        ('ALIGN', (0,1), (-1,1), 'CENTER'),
+        ('VALIGN', (0,1), (-1,1), 'MIDDLE'),
+        ('TOPPADDING', (0,1), (-1,1), 6),
+        ('BOTTOMPADDING', (0,1), (-1,1), 6),
+        ('LEADING', (0,1), (-1,1), 12),
+        ('LINEBEFORE', (0,0), (-1,-1), 2, colors.white),
+        ('LINEAFTER', (0,0), (-1,-1), 2, colors.white),
+        ('LINEBELOW', (0,0), (-1,0), 1, colors.HexColor('#ffffff66')),
+    ]
+    # Apply per-tile background
+    for col_idx, tcol in enumerate(tile_colors):
+        banner_style.append(('BACKGROUND', (col_idx, 0), (col_idx, -1), tcol))
+    banner_tbl.setStyle(TableStyle(banner_style))
+    elements.append(KeepTogether(banner_tbl))
+
+    # Footer
     elements.append(Spacer(1, 4*mm))
-    style_small = ParagraphStyle('small', fontSize=8, alignment=TA_CENTER, textColor=colors.grey)
+    style_small = ParagraphStyle('small', fontSize=7.5, alignment=TA_CENTER, textColor=colors.HexColor('#9e9e9e'), fontName='Helvetica-Oblique')
     elements.append(Paragraph(
-        f"Generated: {fmt_d(datetime.now(timezone.utc).strftime('%Y-%m-%d'))} · {len(trips)} trip(s) · {payload.get('total_trucks', 0)} trucks",
+        f"Generated on {fmt_d(datetime.now(timezone.utc).strftime('%Y-%m-%d'))} · {len(trips)} trip(s) across {payload.get('total_trucks', 0)} truck(s) · Filter: {flt_label}",
         style_small,
     ))
 
@@ -2687,9 +2736,12 @@ async def truck_owner_per_trip_all_excel(
     date_from: str = "", date_to: str = "",
     filter_status: str = "", trans_type: str = "", search: str = ""
 ):
-    """Excel export — all trucks per-trip Bhada with active filters."""
+    """Professional Excel export — all trucks per-trip Bhada with active filters.
+    Layout: Branding header → Filter strip → Trips Table (with auto-filter, frozen header) → KPI Banner (BELOW) → Footer.
+    """
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
     from fastapi.responses import StreamingResponse
 
     payload = await _build_pertrip_all_payload(kms_year, season, date_from, date_to, filter_status, trans_type, search)
@@ -2702,36 +2754,93 @@ async def truck_owner_per_trip_all_excel(
     if search: flt_bits.append(f"Search: {search}")
     flt_label = " · ".join(flt_bits) if flt_bits else "All"
 
+    # Branding from DB (best-effort)
+    company = "Rice Mill"
+    tagline = ""
+    try:
+        br = await db.branding.find_one({}, {"_id": 0})
+        if br:
+            company = br.get("company_name") or company
+            tagline = br.get("tagline") or ""
+    except Exception:
+        pass
+
     wb = Workbook()
     ws = wb.active
     ws.title = "Per-Trip Bhada (All)"
+    ws.sheet_view.showGridLines = False
 
-    title_font = Font(name="Inter", bold=True, size=14, color="1a1a2e")
-    sub_font = Font(name="Inter", size=10, color="555555")
-    hdr_font = Font(name="Inter", bold=True, size=10, color="FFFFFF")
-    hdr_fill = PatternFill(start_color="004D40", end_color="004D40", fill_type="solid")
-    thin = Side(style="thin", color="cccccc")
+    # Style palette
+    NAVY = "0D1B2A"
+    DARK_GREEN = "1B5E20"
+    LIGHT_GREY = "F7F9FC"
+    BORDER_GREY = "D5DBE5"
+    thin = Side(style="thin", color=BORDER_GREY)
     bd = Border(top=thin, bottom=thin, left=thin, right=thin)
 
+    title_font = Font(name="Inter", bold=True, size=18, color="FFFFFF")
+    sub_font_white = Font(name="Inter", size=10, color="E0E0E0")
+    filter_font = Font(name="Inter", size=10, color="455A64", italic=True)
+    hdr_font = Font(name="Inter", bold=True, size=10, color="FFFFFF")
+    hdr_fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+    company_fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+
+    # Row 1 — Company Brand banner
+    ws.row_dimensions[1].height = 32
     ws.merge_cells("A1:K1")
-    ws.cell(row=1, column=1, value="🛻 Per-Trip Bhada — All Trucks").font = title_font
-    ws.cell(row=1, column=1).alignment = Alignment(horizontal="center")
+    c = ws.cell(row=1, column=1, value=company)
+    c.font = title_font; c.fill = company_fill
+    c.alignment = Alignment(horizontal="center", vertical="center")
+    for col in range(1, 12):
+        ws.cell(row=1, column=col).fill = company_fill
 
+    # Row 2 — Subtitle (English-only avoids Devanagari encoding issues)
+    ws.row_dimensions[2].height = 20
     ws.merge_cells("A2:K2")
-    ws.cell(row=2, column=1, value=(
-        f"KMS: {kms_year or 'All'} · Season: {season or 'All'} · Filter: {flt_label} · "
-        f"Trips: {sm['total_trips']} · Bhada: ₹{sm['total_bhada']:,.0f} · "
-        f"Settled: ₹{sm['total_paid']:,.0f} · Pending: ₹{sm['total_pending']:,.0f}"
-    )).font = sub_font
-    ws.cell(row=2, column=1).alignment = Alignment(horizontal="center")
+    c2 = ws.cell(row=2, column=1, value="Per-Trip Bhada Report — All Trucks")
+    c2.font = sub_font_white; c2.fill = company_fill
+    c2.alignment = Alignment(horizontal="center", vertical="center")
+    for col in range(1, 12):
+        ws.cell(row=2, column=col).fill = company_fill
 
+    # Row 3 — Filter info strip (light blue)
+    ws.row_dimensions[3].height = 22
+    ws.merge_cells("A3:K3")
+    filter_strip = (
+        f"KMS: {kms_year or 'All'}  |  Season: {season or 'All'}  |  Filter: {flt_label}  |  "
+        f"Trips: {sm['total_trips']}  |  Trucks: {payload.get('total_trucks', 0)}"
+    )
+    c3 = ws.cell(row=3, column=1, value=filter_strip)
+    c3.font = filter_font
+    c3.fill = PatternFill(start_color="EAF2FA", end_color="EAF2FA", fill_type="solid")
+    c3.alignment = Alignment(horizontal="center", vertical="center")
+    for col in range(1, 12):
+        ws.cell(row=3, column=col).fill = PatternFill(start_color="EAF2FA", end_color="EAF2FA", fill_type="solid")
+
+    # Row 5 — Table header (skip row 4 for spacing)
     headers = ["RST", "Date", "Truck No", "Type", "Party", "Destination", "Net Wt (KG)", "Bhada", "Paid", "Pending", "Status"]
+    HEADER_ROW = 5
+    ws.row_dimensions[HEADER_ROW].height = 26
     for col_idx, h in enumerate(headers, start=1):
-        c = ws.cell(row=4, column=col_idx, value=h)
+        c = ws.cell(row=HEADER_ROW, column=col_idx, value=h)
         c.font = hdr_font; c.fill = hdr_fill; c.border = bd
-        c.alignment = Alignment(horizontal="center")
+        c.alignment = Alignment(horizontal="center", vertical="center")
 
-    for ri, t in enumerate(trips, start=5):
+    # Data rows
+    body_font = Font(name="Inter", size=10, color="212121")
+    rst_font = Font(name="Inter", bold=True, size=10, color="1A237E")
+    truck_font = Font(name="Inter", bold=True, size=10, color="0277BD")
+    money_font = Font(name="Inter", bold=True, size=10, color="E65100")
+    pending_font = Font(name="Inter", bold=True, size=10, color="B71C1C")
+    paid_font = Font(name="Inter", size=10, color="2E7D32")
+    status_settled_font = Font(name="Inter", bold=True, size=10, color="1B5E20")
+    status_partial_font = Font(name="Inter", bold=True, size=10, color="E65100")
+    status_pending_font = Font(name="Inter", bold=True, size=10, color="B71C1C")
+
+    DATA_START = HEADER_ROW + 1
+    for ri, t in enumerate(trips, start=DATA_START):
+        is_alt = (ri - DATA_START) % 2 == 1
+        row_fill = PatternFill(start_color=LIGHT_GREY, end_color=LIGHT_GREY, fill_type="solid") if is_alt else None
         vals = [
             f"#{t['rst_no']}", t.get('date') or '',
             t.get('vehicle_no') or '',
@@ -2747,20 +2856,127 @@ async def truck_owner_per_trip_all_excel(
         for col_idx, v in enumerate(vals, start=1):
             c = ws.cell(row=ri, column=col_idx, value=v)
             c.border = bd
-            if col_idx in (7, 8, 9, 10):
-                c.alignment = Alignment(horizontal="right")
+            if row_fill:
+                c.fill = row_fill
+            # Per-column formatting
+            if col_idx == 1:  # RST
+                c.font = rst_font
+                c.alignment = Alignment(horizontal="center", vertical="center")
+            elif col_idx == 2:  # Date
+                c.font = body_font
+                c.alignment = Alignment(horizontal="center", vertical="center")
+            elif col_idx == 3:  # Truck No
+                c.font = truck_font
+                c.alignment = Alignment(horizontal="center", vertical="center")
+            elif col_idx == 4:  # Type
+                c.font = body_font
+                c.alignment = Alignment(horizontal="center", vertical="center")
+            elif col_idx in (5, 6):  # Party / Destination
+                c.font = body_font
+                c.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+            elif col_idx == 7:  # Net Wt
+                c.font = body_font
+                c.alignment = Alignment(horizontal="right", vertical="center")
                 c.number_format = '#,##0'
-        st_cell = ws.cell(row=ri, column=11)
-        if t['status'] == 'settled':
-            st_cell.fill = PatternFill(start_color="C8E6C9", end_color="C8E6C9", fill_type="solid")
-        elif t['status'] == 'partial':
-            st_cell.fill = PatternFill(start_color="FFE0B2", end_color="FFE0B2", fill_type="solid")
-        else:
-            st_cell.fill = PatternFill(start_color="FFCDD2", end_color="FFCDD2", fill_type="solid")
+            elif col_idx == 8:  # Bhada
+                c.font = money_font
+                c.alignment = Alignment(horizontal="right", vertical="center")
+                c.number_format = '"₹"#,##0'
+            elif col_idx == 9:  # Paid
+                c.font = paid_font if t['paid_amount'] else body_font
+                c.alignment = Alignment(horizontal="right", vertical="center")
+                c.number_format = '"₹"#,##0;[Color9]"-"'
+            elif col_idx == 10:  # Pending
+                c.font = pending_font if t['pending_amount'] else body_font
+                c.alignment = Alignment(horizontal="right", vertical="center")
+                c.number_format = '"₹"#,##0;[Color9]"-"'
+            elif col_idx == 11:  # Status
+                if t['status'] == 'settled':
+                    c.font = status_settled_font
+                    c.fill = PatternFill(start_color="C8E6C9", end_color="C8E6C9", fill_type="solid")
+                elif t['status'] == 'partial':
+                    c.font = status_partial_font
+                    c.fill = PatternFill(start_color="FFE0B2", end_color="FFE0B2", fill_type="solid")
+                else:
+                    c.font = status_pending_font
+                    c.fill = PatternFill(start_color="FFCDD2", end_color="FFCDD2", fill_type="solid")
+                c.alignment = Alignment(horizontal="center", vertical="center")
 
-    widths = {1: 10, 2: 14, 3: 18, 4: 12, 5: 26, 6: 26, 7: 14, 8: 14, 9: 14, 10: 14, 11: 14}
-    for k, w in widths.items():
-        ws.column_dimensions[chr(64 + k)].width = w
+    DATA_END = DATA_START + max(0, len(trips)) - 1 if trips else DATA_START - 1
+
+    # Empty-state placeholder
+    if not trips:
+        ws.merge_cells(f"A{DATA_START}:K{DATA_START}")
+        c = ws.cell(row=DATA_START, column=1, value="No trips found for the selected filters.")
+        c.font = Font(name="Inter", italic=True, size=10, color="9E9E9E")
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.border = bd
+        DATA_END = DATA_START
+
+    # Auto-filter + freeze header
+    last_col_letter = get_column_letter(len(headers))
+    ws.auto_filter.ref = f"A{HEADER_ROW}:{last_col_letter}{max(DATA_END, HEADER_ROW)}"
+    ws.freeze_panes = f"A{HEADER_ROW + 1}"
+
+    # ── KPI SUMMARY BANNER (BELOW the table) ──
+    BANNER_ROW1 = DATA_END + 2  # Spacing row between table and banner
+    BANNER_ROW2 = BANNER_ROW1 + 1
+    ws.row_dimensions[BANNER_ROW1].height = 18
+    ws.row_dimensions[BANNER_ROW2].height = 26
+
+    # KPI tiles: each spans 2-3 columns. We have 11 cols total.
+    # Layout (5 KPI tiles): A-B = Trips · C-D = Bhada · E-F = Settled · G-H = Partial · I-K = Pending
+    tiles = [
+        ("TOTAL TRIPS",  f"{sm['total_trips']}", "1A237E", "A", "B"),
+        ("TOTAL BHADA",  f"₹{sm['total_bhada']:,.0f}", "E65100", "C", "D"),
+        ("SETTLED",      f"₹{sm['total_paid']:,.0f}", "1B5E20", "E", "F"),
+        ("PARTIAL",      f"{sm['partial_count']} trip(s)", "F57F17", "G", "H"),
+        ("PENDING",      f"₹{sm['total_pending']:,.0f}", "B71C1C", "I", "K"),
+    ]
+    for label, value, color, c1, c2 in tiles:
+        ws.merge_cells(f"{c1}{BANNER_ROW1}:{c2}{BANNER_ROW1}")
+        lbl = ws[f"{c1}{BANNER_ROW1}"]
+        lbl.value = label
+        lbl.font = Font(name="Inter", bold=True, size=9, color="FFFFFF")
+        lbl.fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
+        lbl.alignment = Alignment(horizontal="center", vertical="center")
+        # Also fill all merged cells with same color
+        for col in range(ord(c1) - 64, ord(c2) - 64 + 1):
+            ws.cell(row=BANNER_ROW1, column=col).fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
+
+        ws.merge_cells(f"{c1}{BANNER_ROW2}:{c2}{BANNER_ROW2}")
+        val = ws[f"{c1}{BANNER_ROW2}"]
+        val.value = value
+        val.font = Font(name="Inter", bold=True, size=14, color="FFFFFF")
+        val.fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
+        val.alignment = Alignment(horizontal="center", vertical="center")
+        for col in range(ord(c1) - 64, ord(c2) - 64 + 1):
+            ws.cell(row=BANNER_ROW2, column=col).fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
+
+    # Trips composition strip (Sale vs Purchase) below the banner
+    COMP_ROW = BANNER_ROW2 + 1
+    ws.row_dimensions[COMP_ROW].height = 18
+    ws.merge_cells(f"A{COMP_ROW}:K{COMP_ROW}")
+    comp = ws.cell(row=COMP_ROW, column=1,
+                   value=f"Composition: {sm['sale_count']} Sale  ·  {sm['purchase_count']} Purchase  ·  {sm['settled_count']} Settled  ·  {sm['partial_count']} Partial  ·  {sm['pending_count']} Pending")
+    comp.font = Font(name="Inter", size=10, color="455A64", italic=True)
+    comp.alignment = Alignment(horizontal="center", vertical="center")
+    comp.fill = PatternFill(start_color="F0F4F8", end_color="F0F4F8", fill_type="solid")
+    for col in range(1, 12):
+        ws.cell(row=COMP_ROW, column=col).fill = PatternFill(start_color="F0F4F8", end_color="F0F4F8", fill_type="solid")
+
+    # Footer
+    FOOTER_ROW = COMP_ROW + 2
+    ws.merge_cells(f"A{FOOTER_ROW}:K{FOOTER_ROW}")
+    fcell = ws.cell(row=FOOTER_ROW, column=1,
+                    value=f"Generated on {datetime.now(timezone.utc).strftime('%d-%b-%Y')}  ·  {sm['total_trips']} trip(s) across {payload.get('total_trucks', 0)} truck(s)  ·  Filter: {flt_label}")
+    fcell.font = Font(name="Inter", size=9, italic=True, color="9E9E9E")
+    fcell.alignment = Alignment(horizontal="center", vertical="center")
+
+    # Column widths — properly tuned for content
+    widths = [10, 12, 18, 11, 26, 26, 12, 14, 14, 14, 14]
+    for i, w in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = w
 
     buf = io.BytesIO()
     wb.save(buf)

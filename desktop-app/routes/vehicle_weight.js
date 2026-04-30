@@ -2397,12 +2397,31 @@ module.exports = function(database) {
     return bits.length ? bits.join(' · ') : 'All';
   }
 
-  router.get('/api/truck-owner/per-trip-all/pdf', safeAsync(async (req, res) => {
-    const PDFDocument = require('pdfkit');
-    const payload = _buildPerTripAllPayload(req.query);
+  /** Filter the all-trucks payload to a single truck. Recomputes summary on filtered subset. */
+  function _buildPerTripPayload(vehicleNo, query) {
+    const data = _buildPerTripAllPayload(query);
+    const vno = (vehicleNo || '').trim();
+    const trips = data.trips.filter(t => t.vehicle_no === vno);
+    const sm = {
+      total_trips: trips.length,
+      sale_count: trips.filter(t => t.trans_type === 'sale').length,
+      purchase_count: trips.filter(t => t.trans_type === 'purchase').length,
+      total_bhada: Math.round(trips.reduce((s2, t) => s2 + (t.bhada || 0), 0) * 100) / 100,
+      total_paid: Math.round(trips.reduce((s2, t) => s2 + (t.paid_amount || 0), 0) * 100) / 100,
+      total_pending: Math.round(trips.reduce((s2, t) => s2 + (t.pending_amount || 0), 0) * 100) / 100,
+      settled_count: trips.filter(t => t.status === 'settled').length,
+      partial_count: trips.filter(t => t.status === 'partial').length,
+      pending_count: trips.filter(t => t.status === 'pending').length,
+    };
+    return { trips, summary: sm, vehicle_no: vno, total_trucks: 1 };
+  }
+
+  /** Render Per-Trip Bhada PDF — used by both all-trucks and single-truck endpoints.
+   *  opts: { title, filenameBase, isAll, vehicleNo, query, fnameSuffix } */
+  function _renderPerTripPdf(res, payload, opts) {
     const trips = payload.trips;
     const sm = payload.summary;
-    const flt = _flagFilterLabel(req.query);
+    const flt = _flagFilterLabel(opts.query);
 
     const br = database.data.branding || {};
     const company = br.company_name || 'NAVKAR AGRO';
@@ -2417,77 +2436,74 @@ module.exports = function(database) {
     const efn = hasFS ? 'ExFont' : 'Helvetica';
     const efb = hasFS ? 'ExFontBold' : 'Helvetica-Bold';
 
-    const fnameSuffix = (req.query.filter_status && req.query.filter_status !== 'all') ? `_${req.query.filter_status}` : '';
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=per_trip_bhada_all_trucks${fnameSuffix}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${opts.filenameBase}${opts.fnameSuffix || ''}.pdf`);
     doc.pipe(res);
 
     const PW = 792, LM = 25, TW = PW - 2 * LM;
-    // Header
+    // ── Header ──
     doc.rect(LM, 18, TW, 3).fill('#f9a825');
     doc.rect(LM, 21, TW, 50).fill('#0d1b2a');
     doc.fontSize(18).font(efb).fillColor('#ffffff').text(company, LM, 28, { width: TW, align: 'center' });
-    doc.fontSize(10).font(efn).fillColor('#7ec8e3').text('🛻 Per-Trip Bhada — All Trucks', LM, 50, { width: TW, align: 'center' });
+    doc.fontSize(10).font(efn).fillColor('#7ec8e3').text(opts.title, LM, 50, { width: TW, align: 'center' });
 
-    // Subtitle bar
+    // Subtitle
     const subY = 75;
     doc.rect(LM, subY, TW, 18).fill('#e8edf5');
     doc.rect(LM, subY, 4, 18).fill('#1565c0');
-    doc.fontSize(8).font(efn).fillColor('#1a237e')
-      .text(`KMS: ${req.query.kms_year || 'All'}  ·  Season: ${req.query.season || 'All'}  ·  Filter: ${flt}  ·  Trips: ${sm.total_trips}  ·  Trucks: ${payload.total_trucks}`,
-            LM + 12, subY + 5, { width: TW - 22, align: 'center' });
+    const subText = opts.isAll
+      ? `KMS: ${opts.query.kms_year || 'All'}  ·  Season: ${opts.query.season || 'All'}  ·  Filter: ${flt}  ·  Trips: ${sm.total_trips}  ·  Trucks: ${payload.total_trucks}`
+      : `KMS: ${opts.query.kms_year || 'All'}  ·  Season: ${opts.query.season || 'All'}  ·  Filter: ${flt}  ·  Trips: ${sm.total_trips}`;
+    doc.fontSize(8).font(efn).fillColor('#1a237e').text(subText, LM + 12, subY + 5, { width: TW - 22, align: 'center' });
 
-    // Summary banner
-    let y = subY + 24;
-    doc.rect(LM, y, TW, 18).fill('#1a237e');
-    doc.fontSize(9).font(efb).fillColor('#ffffff');
-    const stats = [
-      `Total Bhada: ₹${_fmtIN(sm.total_bhada)}`,
-      `Settled: ₹${_fmtIN(sm.total_paid)} (${sm.settled_count})`,
-      `Partial: ${sm.partial_count}`,
-      `Pending: ₹${_fmtIN(sm.total_pending)} (${sm.pending_count})`,
-      `Sale: ${sm.sale_count} · Purchase: ${sm.purchase_count}`,
-    ];
-    const sw = TW / stats.length;
-    stats.forEach((t, i) => doc.text(t, LM + i * sw, y + 5, { width: sw, align: 'center' }));
-    y += 22;
-
-    // Table
-    const headers = ['RST', 'Date', 'Truck No', 'Type', 'Party', 'Destination', 'Net Wt', 'Bhada', 'Paid', 'Pending', 'Status'];
-    const colW = [38, 60, 78, 50, 110, 110, 50, 60, 60, 60, 66];
-    const rightAlign = [false, false, false, false, false, false, true, true, true, true, false];
+    // ── Trips Table ──
+    let y = subY + 26;
+    const headers = opts.isAll
+      ? ['RST', 'Date', 'Truck No', 'Type', 'Party', 'Destination', 'Net Wt', 'Bhada', 'Paid', 'Pending', 'Status']
+      : ['RST', 'Date', 'Type', 'Party', 'Destination', 'Net Wt', 'Bhada', 'Paid', 'Pending', 'Status'];
+    const colW = opts.isAll
+      ? [38, 60, 78, 50, 110, 110, 50, 60, 60, 60, 66]
+      : [42, 70, 60, 140, 140, 60, 70, 70, 70, 80];
+    const rightAlign = opts.isAll
+      ? [false, false, false, false, false, false, true, true, true, true, false]
+      : [false, false, false, false, false, true, true, true, true, false];
 
     const drawHeader = (yPos) => {
-      doc.rect(LM, yPos, TW, 16).fill('#004d40');
-      doc.fontSize(8).font(efb).fillColor('#ffffff');
-      let hx = LM + 2;
+      doc.rect(LM, yPos, TW, 18).fill('#0d1b2a');
+      doc.fontSize(8.5).font(efb).fillColor('#ffffff');
+      let hx = LM + 4;
       headers.forEach((h, i) => {
-        doc.text(h, hx, yPos + 5, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : 'left' });
+        doc.text(h, hx, yPos + 6, { width: colW[i] - 6, align: rightAlign[i] ? 'right' : (i === headers.length - 1 ? 'center' : 'left') });
         hx += colW[i];
       });
-      return yPos + 16;
+      return yPos + 18;
     };
     y = drawHeader(y);
 
     if (trips.length === 0) {
-      doc.fontSize(10).font(efn).fillColor('#9e9e9e').text('Koi trip nahi mila is filter ke saath.', LM, y + 8, { width: TW, align: 'center' });
+      doc.fontSize(10).font(efn).fillColor('#9e9e9e').text('No trips found for the selected filters.', LM, y + 8, { width: TW, align: 'center' });
+      y += 30;
     }
 
     doc.font(efn).fontSize(7.5);
     trips.forEach((t, idx) => {
-      if (y > 535) { doc.addPage(); y = 25; y = drawHeader(y); doc.font(efn).fontSize(7.5); }
-      const rowColor = idx % 2 === 0 ? '#f5f7ff' : '#ffffff';
-      doc.rect(LM, y, TW, 13).fill(rowColor);
+      if (y > 470) { doc.addPage(); y = 25; y = drawHeader(y); doc.font(efn).fontSize(7.5); }
+      const rowColor = idx % 2 === 0 ? '#ffffff' : '#f7f9fc';
+      doc.rect(LM, y, TW, 14).fill(rowColor);
 
       // Status cell color
-      const statusOffsetX = LM + colW.slice(0, 10).reduce((a, b) => a + b, 0);
+      const statusOffsetX = LM + colW.slice(0, -1).reduce((a, b) => a + b, 0);
       let stColor = '#ffcdd2', stText = '#b71c1c';
       if (t.status === 'settled') { stColor = '#c8e6c9'; stText = '#1b5e20'; }
       else if (t.status === 'partial') { stColor = '#ffe0b2'; stText = '#e65100'; }
-      doc.rect(statusOffsetX, y, colW[10], 13).fill(stColor);
+      doc.rect(statusOffsetX, y, colW[colW.length - 1], 14).fill(stColor);
 
-      let x = LM + 2;
-      const vals = [
+      // Subtle column separators
+      let sepX = LM;
+      colW.forEach((w) => { sepX += w; doc.lineWidth(0.2).strokeColor('#d5dbe5').moveTo(sepX, y).lineTo(sepX, y + 14).stroke(); });
+
+      let x = LM + 4;
+      const valsAll = [
         `#${t.rst_no}`,
         fmtDate(t.date),
         t.vehicle_no || '-',
@@ -2495,65 +2511,147 @@ module.exports = function(database) {
         (t.party_name || '-').slice(0, 20),
         (t.farmer_name || '-').slice(0, 20),
         t.net_wt ? Number(t.net_wt).toLocaleString() : '-',
-        `₹${_fmtIN(t.bhada)}`,
-        t.paid_amount ? `₹${_fmtIN(t.paid_amount)}` : '-',
-        t.pending_amount ? `₹${_fmtIN(t.pending_amount)}` : '-',
+        `Rs.${_fmtIN(t.bhada)}`,
+        t.paid_amount ? `Rs.${_fmtIN(t.paid_amount)}` : '-',
+        t.pending_amount ? `Rs.${_fmtIN(t.pending_amount)}` : '-',
         t.status[0].toUpperCase() + t.status.slice(1),
       ];
+      const vals = opts.isAll ? valsAll : [valsAll[0], valsAll[1], valsAll[3], valsAll[4], valsAll[5], valsAll[6], valsAll[7], valsAll[8], valsAll[9], valsAll[10]];
+
       vals.forEach((v, i) => {
-        if (i === 10) { doc.font(efb).fillColor(stText); }
-        else if (i === 0) { doc.font(efb).fillColor('#1a237e'); }
-        else if (i === 2) { doc.font(efb).fillColor('#0277bd'); }
-        else if (i === 7) { doc.font(efb).fillColor('#e65100'); }
-        else if (i === 9 && t.pending_amount > 0) { doc.font(efb).fillColor('#b71c1c'); }
+        const isStatusCol = i === vals.length - 1;
+        const isRstCol = i === 0;
+        const isTruckCol = opts.isAll && i === 2;
+        const isBhadaCol = opts.isAll ? i === 7 : i === 6;
+        const isPendingCol = opts.isAll ? i === 9 : i === 8;
+        if (isStatusCol) { doc.font(efb).fillColor(stText); }
+        else if (isRstCol) { doc.font(efb).fillColor('#1a237e'); }
+        else if (isTruckCol) { doc.font(efb).fillColor('#0277bd'); }
+        else if (isBhadaCol) { doc.font(efb).fillColor('#e65100'); }
+        else if (isPendingCol && t.pending_amount > 0) { doc.font(efb).fillColor('#b71c1c'); }
         else { doc.font(efn).fillColor('#212121'); }
-        doc.text(String(v), x, y + 3, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : 'left' });
+        doc.text(String(v), x, y + 4, { width: colW[i] - 6, align: rightAlign[i] ? 'right' : (isStatusCol ? 'center' : 'left') });
         x += colW[i];
       });
-      y += 13;
+      y += 14;
     });
 
+    // ── KPI SUMMARY BANNER (BELOW the table) ──
+    y += 8;
+    if (y + 50 > doc.page.height - 40) { doc.addPage(); y = 30; }
+
+    const tiles = [
+      { lbl: 'TOTAL TRIPS',  val: String(sm.total_trips), sub: `Sale ${sm.sale_count} · Purchase ${sm.purchase_count}`, color: '#1a237e' },
+      { lbl: 'TOTAL BHADA',  val: `Rs.${_fmtIN(sm.total_bhada)}`, sub: '', color: '#e65100' },
+      { lbl: 'SETTLED',      val: `Rs.${_fmtIN(sm.total_paid)}`,  sub: `${sm.settled_count} trips`, color: '#1b5e20' },
+      { lbl: 'PARTIAL',      val: `${sm.partial_count} trip(s)`,  sub: '', color: '#f57f17' },
+      { lbl: 'PENDING',      val: `Rs.${_fmtIN(sm.total_pending)}`, sub: `${sm.pending_count} trips`, color: '#b71c1c' },
+    ];
+    const tileW = TW / tiles.length;
+    const tileH = 50;
+    tiles.forEach((tile, i) => {
+      const tx = LM + i * tileW;
+      // Tile background
+      doc.rect(tx + 2, y, tileW - 4, tileH).fill(tile.color);
+      // Label
+      doc.fontSize(8).font(efb).fillColor('#ffffff').text(tile.lbl, tx + 2, y + 6, { width: tileW - 4, align: 'center' });
+      // Value
+      doc.fontSize(13).font(efb).fillColor('#ffffff').text(tile.val, tx + 2, y + 18, { width: tileW - 4, align: 'center' });
+      // Sub
+      if (tile.sub) doc.fontSize(7).font(efn).fillColor('#ffffffcc').text(tile.sub, tx + 2, y + 36, { width: tileW - 4, align: 'center' });
+    });
+
+    // Footer
     doc.fontSize(7).font(efn).fillColor('#9e9e9e');
-    doc.text(`Generated: ${new Date().toLocaleDateString('en-IN')}  ·  ${trips.length} trip(s) across ${payload.total_trucks} trucks`,
-             LM, doc.page.height - 30, { width: TW, align: 'center' });
+    const footerLine = opts.isAll
+      ? `Generated on ${new Date().toLocaleDateString('en-IN')}  ·  ${trips.length} trip(s) across ${payload.total_trucks} truck(s)  ·  Filter: ${flt}`
+      : `Generated on ${new Date().toLocaleDateString('en-IN')}  ·  ${trips.length} trip(s) for ${opts.vehicleNo || ''}  ·  Filter: ${flt}`;
+    doc.text(footerLine, LM, doc.page.height - 25, { width: TW, align: 'center' });
 
     doc.end();
-  }));
+  }
 
-  router.get('/api/truck-owner/per-trip-all/excel', safeAsync(async (req, res) => {
+  /** Render Per-Trip Bhada Excel — professional layout with KPI banner below the table. */
+  async function _renderPerTripExcel(res, payload, opts) {
     const ExcelJS = require('exceljs');
-    const payload = _buildPerTripAllPayload(req.query);
     const trips = payload.trips;
     const sm = payload.summary;
-    const flt = _flagFilterLabel(req.query);
+    const flt = _flagFilterLabel(opts.query);
+    const br = database.data.branding || {};
+    const company = br.company_name || 'NAVKAR AGRO';
 
     const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Per-Trip Bhada (All)');
+    const ws = wb.addWorksheet(opts.isAll ? 'Per-Trip Bhada (All)' : `Per-Trip ${(opts.vehicleNo || '').slice(0, 25)}`);
+    ws.views = [{ showGridLines: false }];
 
-    ws.mergeCells('A1:K1');
-    ws.getCell('A1').value = '🛻 Per-Trip Bhada — All Trucks';
-    ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14, color: { argb: '1a1a2e' } };
-    ws.getCell('A1').alignment = { horizontal: 'center' };
+    const NAVY = '0D1B2A';
+    const LIGHT_GREY = 'F7F9FC';
+    const BORDER_GREY = 'D5DBE5';
+    const thinBorder = { style: 'thin', color: { argb: BORDER_GREY } };
+    const fullBorder = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder };
 
-    ws.mergeCells('A2:K2');
-    ws.getCell('A2').value = `KMS: ${req.query.kms_year || 'All'} · Season: ${req.query.season || 'All'} · Filter: ${flt} · Trips: ${sm.total_trips} · Bhada: ₹${_fmtIN(sm.total_bhada)} · Settled: ₹${_fmtIN(sm.total_paid)} · Pending: ₹${_fmtIN(sm.total_pending)}`;
-    ws.getCell('A2').font = { name: 'Inter', size: 10, color: { argb: '555555' } };
-    ws.getCell('A2').alignment = { horizontal: 'center' };
+    const headers = opts.isAll
+      ? ['RST', 'Date', 'Truck No', 'Type', 'Party', 'Destination', 'Net Wt (KG)', 'Bhada', 'Paid', 'Pending', 'Status']
+      : ['RST', 'Date', 'Type', 'Party', 'Destination', 'Net Wt (KG)', 'Bhada', 'Paid', 'Pending', 'Status'];
+    const nCols = headers.length;
+    const lastCol = String.fromCharCode(64 + nCols);
 
-    const headers = ['RST', 'Date', 'Truck No', 'Type', 'Party', 'Destination', 'Net Wt (KG)', 'Bhada', 'Paid', 'Pending', 'Status'];
-    const hdrRow = ws.getRow(4);
+    // Row 1 — Branding banner
+    ws.getRow(1).height = 32;
+    ws.mergeCells(`A1:${lastCol}1`);
+    const brand = ws.getCell('A1');
+    brand.value = company;
+    brand.font = { name: 'Inter', bold: true, size: 18, color: { argb: 'FFFFFF' } };
+    brand.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } };
+    brand.alignment = { horizontal: 'center', vertical: 'middle' };
+    for (let c = 2; c <= nCols; c++) {
+      ws.getRow(1).getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } };
+    }
+
+    // Row 2 — Subtitle
+    ws.getRow(2).height = 20;
+    ws.mergeCells(`A2:${lastCol}2`);
+    const subTitle = ws.getCell('A2');
+    subTitle.value = opts.isAll ? 'Per-Trip Bhada Report — All Trucks' : `Per-Trip Bhada Report — ${opts.vehicleNo}`;
+    subTitle.font = { name: 'Inter', size: 10, color: { argb: 'E0E0E0' } };
+    subTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } };
+    subTitle.alignment = { horizontal: 'center', vertical: 'middle' };
+    for (let c = 2; c <= nCols; c++) {
+      ws.getRow(2).getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } };
+    }
+
+    // Row 3 — Filter info strip
+    ws.getRow(3).height = 22;
+    ws.mergeCells(`A3:${lastCol}3`);
+    const filterStrip = opts.isAll
+      ? `KMS: ${opts.query.kms_year || 'All'}  |  Season: ${opts.query.season || 'All'}  |  Filter: ${flt}  |  Trips: ${sm.total_trips}  |  Trucks: ${payload.total_trucks}`
+      : `KMS: ${opts.query.kms_year || 'All'}  |  Season: ${opts.query.season || 'All'}  |  Filter: ${flt}  |  Trips: ${sm.total_trips}`;
+    const filterCell = ws.getCell('A3');
+    filterCell.value = filterStrip;
+    filterCell.font = { name: 'Inter', size: 10, italic: true, color: { argb: '455A64' } };
+    filterCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EAF2FA' } };
+    filterCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    for (let c = 2; c <= nCols; c++) {
+      ws.getRow(3).getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EAF2FA' } };
+    }
+
+    // Row 5 — Table header
+    const HEADER_ROW = 5;
+    ws.getRow(HEADER_ROW).height = 26;
     headers.forEach((h, i) => {
-      const cell = hdrRow.getCell(i + 1);
-      cell.value = h;
-      cell.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFF' }, size: 10 };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '004D40' } };
-      cell.alignment = { horizontal: 'center' };
-      cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+      const c = ws.getRow(HEADER_ROW).getCell(i + 1);
+      c.value = h;
+      c.font = { name: 'Inter', bold: true, size: 10, color: { argb: 'FFFFFF' } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } };
+      c.alignment = { horizontal: 'center', vertical: 'middle' };
+      c.border = fullBorder;
     });
 
+    // Data rows
+    const DATA_START = HEADER_ROW + 1;
     trips.forEach((t, idx) => {
-      const row = ws.getRow(5 + idx);
-      const vals = [
+      const row = ws.getRow(DATA_START + idx);
+      const valsAll = [
         `#${t.rst_no}`, t.date || '',
         t.vehicle_no || '',
         t.trans_type === 'sale' ? 'Sale' : (t.trans_type === 'purchase' ? 'Purchase' : (t.trans_type_raw || '-')),
@@ -2562,30 +2660,238 @@ module.exports = function(database) {
         Number(t.bhada || 0), Number(t.paid_amount || 0), Number(t.pending_amount || 0),
         t.status[0].toUpperCase() + t.status.slice(1),
       ];
+      const vals = opts.isAll ? valsAll : [valsAll[0], valsAll[1], valsAll[3], valsAll[4], valsAll[5], valsAll[6], valsAll[7], valsAll[8], valsAll[9], valsAll[10]];
+      const altFill = idx % 2 === 1 ? { type: 'pattern', pattern: 'solid', fgColor: { argb: LIGHT_GREY } } : null;
+
       vals.forEach((v, i) => {
         const cell = row.getCell(i + 1);
         cell.value = v;
-        cell.font = { name: 'Inter', size: 10 };
-        cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
-        if (i === 6 || i === 7 || i === 8 || i === 9) {
-          cell.alignment = { horizontal: 'right' };
+        cell.border = fullBorder;
+        if (altFill) cell.fill = altFill;
+
+        const colName = headers[i];
+        if (colName === 'RST') {
+          cell.font = { name: 'Inter', bold: true, size: 10, color: { argb: '1A237E' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        } else if (colName === 'Date') {
+          cell.font = { name: 'Inter', size: 10, color: { argb: '212121' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        } else if (colName === 'Truck No') {
+          cell.font = { name: 'Inter', bold: true, size: 10, color: { argb: '0277BD' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        } else if (colName === 'Type') {
+          cell.font = { name: 'Inter', size: 10, color: { argb: '212121' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        } else if (colName === 'Party' || colName === 'Destination') {
+          cell.font = { name: 'Inter', size: 10, color: { argb: '212121' } };
+          cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        } else if (colName === 'Net Wt (KG)') {
+          cell.font = { name: 'Inter', size: 10, color: { argb: '212121' } };
+          cell.alignment = { horizontal: 'right', vertical: 'middle' };
           cell.numFmt = '#,##0';
+        } else if (colName === 'Bhada') {
+          cell.font = { name: 'Inter', bold: true, size: 10, color: { argb: 'E65100' } };
+          cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          cell.numFmt = '"₹"#,##0';
+        } else if (colName === 'Paid') {
+          cell.font = { name: 'Inter', size: 10, color: { argb: t.paid_amount ? '2E7D32' : '9E9E9E' } };
+          cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          cell.numFmt = '"₹"#,##0;[Red]"-"';
+        } else if (colName === 'Pending') {
+          cell.font = { name: 'Inter', bold: !!t.pending_amount, size: 10, color: { argb: t.pending_amount ? 'B71C1C' : '9E9E9E' } };
+          cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          cell.numFmt = '"₹"#,##0;[Red]"-"';
+        } else if (colName === 'Status') {
+          let bg = 'FFCDD2', fg = 'B71C1C';
+          if (t.status === 'settled') { bg = 'C8E6C9'; fg = '1B5E20'; }
+          else if (t.status === 'partial') { bg = 'FFE0B2'; fg = 'E65100'; }
+          cell.font = { name: 'Inter', bold: true, size: 10, color: { argb: fg } };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
         }
       });
-      // Status cell color
-      const stCell = row.getCell(11);
-      if (t.status === 'settled') stCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'C8E6C9' } };
-      else if (t.status === 'partial') stCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0B2' } };
-      else stCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCDD2' } };
     });
 
-    [10, 14, 18, 12, 26, 26, 14, 14, 14, 14, 14].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    let DATA_END = trips.length > 0 ? DATA_START + trips.length - 1 : DATA_START - 1;
+    if (trips.length === 0) {
+      ws.mergeCells(`A${DATA_START}:${lastCol}${DATA_START}`);
+      const empty = ws.getCell(`A${DATA_START}`);
+      empty.value = 'No trips found for the selected filters.';
+      empty.font = { name: 'Inter', italic: true, size: 10, color: { argb: '9E9E9E' } };
+      empty.alignment = { horizontal: 'center', vertical: 'middle' };
+      empty.border = fullBorder;
+      DATA_END = DATA_START;
+    }
 
-    const fnameSuffix = (req.query.filter_status && req.query.filter_status !== 'all') ? `_${req.query.filter_status}` : '';
+    // Auto-filter + freeze panes
+    ws.autoFilter = { from: { row: HEADER_ROW, column: 1 }, to: { row: Math.max(DATA_END, HEADER_ROW), column: nCols } };
+    ws.views = [{ showGridLines: false, state: 'frozen', ySplit: HEADER_ROW }];
+
+    // ── KPI BANNER (BELOW the table) ──
+    const BANNER_ROW1 = DATA_END + 2;
+    const BANNER_ROW2 = BANNER_ROW1 + 1;
+    ws.getRow(BANNER_ROW1).height = 18;
+    ws.getRow(BANNER_ROW2).height = 26;
+
+    // 5 KPI tiles, distributed across nCols columns
+    const tiles = [
+      { lbl: 'TOTAL TRIPS', val: String(sm.total_trips), color: '1A237E' },
+      { lbl: 'TOTAL BHADA', val: `₹${_fmtIN(sm.total_bhada)}`, color: 'E65100' },
+      { lbl: 'SETTLED', val: `₹${_fmtIN(sm.total_paid)}`, color: '1B5E20' },
+      { lbl: 'PARTIAL', val: `${sm.partial_count} trip(s)`, color: 'F57F17' },
+      { lbl: 'PENDING', val: `₹${_fmtIN(sm.total_pending)}`, color: 'B71C1C' },
+    ];
+    // Distribute columns evenly (with last tile picking up any remainder)
+    const colsPerTile = Math.floor(nCols / tiles.length);
+    const tileColRanges = [];
+    let cursor = 1;
+    for (let i = 0; i < tiles.length; i++) {
+      const isLast = i === tiles.length - 1;
+      const span = isLast ? (nCols - cursor + 1) : colsPerTile;
+      tileColRanges.push({ start: cursor, end: cursor + span - 1 });
+      cursor += span;
+    }
+
+    tiles.forEach((tile, idx) => {
+      const range = tileColRanges[idx];
+      const c1 = String.fromCharCode(64 + range.start);
+      const c2 = String.fromCharCode(64 + range.end);
+
+      ws.mergeCells(`${c1}${BANNER_ROW1}:${c2}${BANNER_ROW1}`);
+      const lblCell = ws.getCell(`${c1}${BANNER_ROW1}`);
+      lblCell.value = tile.lbl;
+      lblCell.font = { name: 'Inter', bold: true, size: 9, color: { argb: 'FFFFFF' } };
+      lblCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: tile.color } };
+      lblCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      for (let c = range.start; c <= range.end; c++) {
+        ws.getRow(BANNER_ROW1).getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: tile.color } };
+      }
+
+      ws.mergeCells(`${c1}${BANNER_ROW2}:${c2}${BANNER_ROW2}`);
+      const valCell = ws.getCell(`${c1}${BANNER_ROW2}`);
+      valCell.value = tile.val;
+      valCell.font = { name: 'Inter', bold: true, size: 14, color: { argb: 'FFFFFF' } };
+      valCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: tile.color } };
+      valCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      for (let c = range.start; c <= range.end; c++) {
+        ws.getRow(BANNER_ROW2).getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: tile.color } };
+      }
+    });
+
+    // Composition strip
+    const COMP_ROW = BANNER_ROW2 + 1;
+    ws.getRow(COMP_ROW).height = 18;
+    ws.mergeCells(`A${COMP_ROW}:${lastCol}${COMP_ROW}`);
+    const compCell = ws.getCell(`A${COMP_ROW}`);
+    compCell.value = `Composition: ${sm.sale_count} Sale  ·  ${sm.purchase_count} Purchase  ·  ${sm.settled_count} Settled  ·  ${sm.partial_count} Partial  ·  ${sm.pending_count} Pending`;
+    compCell.font = { name: 'Inter', size: 10, italic: true, color: { argb: '455A64' } };
+    compCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F0F4F8' } };
+    compCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    for (let c = 2; c <= nCols; c++) {
+      ws.getRow(COMP_ROW).getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F0F4F8' } };
+    }
+
+    // Footer
+    const FOOTER_ROW = COMP_ROW + 2;
+    ws.mergeCells(`A${FOOTER_ROW}:${lastCol}${FOOTER_ROW}`);
+    const fCell = ws.getCell(`A${FOOTER_ROW}`);
+    fCell.value = opts.isAll
+      ? `Generated on ${new Date().toLocaleDateString('en-IN')}  ·  ${sm.total_trips} trip(s) across ${payload.total_trucks} truck(s)  ·  Filter: ${flt}`
+      : `Generated on ${new Date().toLocaleDateString('en-IN')}  ·  ${sm.total_trips} trip(s) for ${opts.vehicleNo}  ·  Filter: ${flt}`;
+    fCell.font = { name: 'Inter', size: 9, italic: true, color: { argb: '9E9E9E' } };
+    fCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Column widths
+    const widthsAll = [10, 12, 18, 11, 26, 26, 12, 14, 14, 14, 14];
+    const widthsSingle = [10, 12, 11, 28, 28, 12, 14, 14, 14, 14];
+    (opts.isAll ? widthsAll : widthsSingle).forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=per_trip_bhada_all_trucks${fnameSuffix}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${opts.filenameBase}${opts.fnameSuffix || ''}.xlsx`);
     await wb.xlsx.write(res);
     res.end();
+  }
+
+  /** Generate WhatsApp-shareable text for a single truck. */
+  function _buildWhatsAppText(vehicleNo, query) {
+    const filterStatus = (query.filter_status || 'pending').toLowerCase();
+    const payload = _buildPerTripPayload(vehicleNo, { ...query, filter_status: filterStatus });
+    const sm = payload.summary;
+    const trips = payload.trips.slice(0, 10);
+
+    const lines = [];
+    lines.push(`🛻 *${vehicleNo}* — ${filterStatus === 'pending' ? 'Pending' : 'Per-Trip'} Bhada`);
+    lines.push('');
+    lines.push(`📊 Trips: ${sm.total_trips}  ·  Bhada: ₹${_fmtIN(sm.total_bhada)}`);
+    lines.push(`✅ Paid: ₹${_fmtIN(sm.total_paid)}  ·  ⚠️ Pending: ₹${_fmtIN(sm.total_pending)}`);
+    lines.push('');
+    if (trips.length > 0) {
+      lines.push('*Trip details:*');
+      for (const t of trips) {
+        const tag = t.trans_type === 'sale' ? '🟢' : '🔵';
+        const stEmoji = t.status === 'settled' ? '✅' : (t.status === 'partial' ? '🟡' : '⚠️');
+        const party = (t.party_name || t.farmer_name || '').slice(0, 22);
+        lines.push(`${tag} RST #${t.rst_no} · ${t.date} · ${party} · ₹${_fmtIN(t.bhada)} ${stEmoji}`);
+      }
+    }
+    if (payload.trips.length > 10) lines.push(`... +${payload.trips.length - 10} more`);
+    lines.push('');
+    lines.push(`_Total pending: ₹${_fmtIN(sm.total_pending)}_`);
+
+    return { text: lines.join('\n'), vehicle_no: vehicleNo, summary: sm };
+  }
+
+  // ── Routes — All Trucks ──
+  router.get('/api/truck-owner/per-trip-all/pdf', safeAsync(async (req, res) => {
+    const payload = _buildPerTripAllPayload(req.query);
+    const fnameSuffix = (req.query.filter_status && req.query.filter_status !== 'all') ? `_${req.query.filter_status}` : '';
+    _renderPerTripPdf(res, payload, {
+      title: 'Per-Trip Bhada — All Trucks',
+      filenameBase: 'per_trip_bhada_all_trucks',
+      fnameSuffix, isAll: true, query: req.query,
+    });
+  }));
+
+  router.get('/api/truck-owner/per-trip-all/excel', safeAsync(async (req, res) => {
+    const payload = _buildPerTripAllPayload(req.query);
+    const fnameSuffix = (req.query.filter_status && req.query.filter_status !== 'all') ? `_${req.query.filter_status}` : '';
+    await _renderPerTripExcel(res, payload, {
+      filenameBase: 'per_trip_bhada_all_trucks',
+      fnameSuffix, isAll: true, query: req.query,
+    });
+  }));
+
+  // ── Routes — Single Truck (Node parity for Python /per-trip-pdf, /per-trip-excel, /whatsapp-text) ──
+  router.get('/api/truck-owner/:vehicle_no/per-trip-pdf', safeAsync(async (req, res) => {
+    const vno = (req.params.vehicle_no || '').trim();
+    if (!vno) return res.status(400).json({ detail: 'vehicle_no required' });
+    const payload = _buildPerTripPayload(vno, req.query);
+    const safeVno = vno.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const titleKind = (req.query.filter_status === 'pending') ? 'Pending Bhada' : 'Per-Trip Bhada';
+    const fnameSuffix = (req.query.filter_status && req.query.filter_status !== 'all') ? `_${req.query.filter_status}` : '';
+    _renderPerTripPdf(res, payload, {
+      title: `${titleKind} — ${vno}`,
+      filenameBase: `${safeVno}_per_trip_bhada`,
+      fnameSuffix, isAll: false, vehicleNo: vno, query: req.query,
+    });
+  }));
+
+  router.get('/api/truck-owner/:vehicle_no/per-trip-excel', safeAsync(async (req, res) => {
+    const vno = (req.params.vehicle_no || '').trim();
+    if (!vno) return res.status(400).json({ detail: 'vehicle_no required' });
+    const payload = _buildPerTripPayload(vno, req.query);
+    const safeVno = vno.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fnameSuffix = (req.query.filter_status && req.query.filter_status !== 'all') ? `_${req.query.filter_status}` : '';
+    await _renderPerTripExcel(res, payload, {
+      filenameBase: `${safeVno}_per_trip_bhada`,
+      fnameSuffix, isAll: false, vehicleNo: vno, query: req.query,
+    });
+  }));
+
+  router.get('/api/truck-owner/:vehicle_no/whatsapp-text', safeAsync(async (req, res) => {
+    const vno = (req.params.vehicle_no || '').trim();
+    if (!vno) return res.status(400).json({ detail: 'vehicle_no required' });
+    res.json(_buildWhatsAppText(vno, req.query));
   }));
 
   return router;

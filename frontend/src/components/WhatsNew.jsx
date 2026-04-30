@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.6",
+    date: "Feb 16, 2026",
+    title: "v104.44.6 — 📊 Per-Trip Bhada Polish: Banner Below + Professional Excel + Node Single-Truck Parity",
+    items: [
+      { type: "improvement", text: "🔄 **KPI Summary Banner moved BELOW the table** — pehle PDF upper me navy summary banner aata tha (jisme Hindi text bhi vertical bars `||||||` jaise dikha tha font issue se). Ab banner table ke **niche** aata hai, with 5 colored tiles: TOTAL TRIPS (navy), TOTAL BHADA (orange), SETTLED (green), PARTIAL (amber), PENDING (red). English-only labels — koi font issue nahi." },
+      { type: "improvement", text: "📊 **Professional Excel** — `Per-Trip Bhada (All)` sheet ab production-ready hai: dark navy branded header (company name 18pt) + subtitle row + filter info strip (light blue) + table with auto-filter dropdown + frozen header row (top stays visible while scrolling) + alternating row colors + bold colored fonts (RST navy, Truck No sky, Bhada orange, Pending red) + ₹ currency formatting (`₹4,000`) + 5-tile KPI banner BELOW data + composition strip + footer. Border lines softer (#D5DBE5)." },
+      { type: "feature", text: "✅ **Node Single-Truck Parity** — `GET /api/truck-owner/{vehicle_no}/per-trip-pdf`, `/per-trip-excel`, `/whatsapp-text` endpoints ab Node Desktop + LAN dono me available hain (pehle sirf Python me the). Same shared renderer as all-trucks → consistency guaranteed. Filename includes truck no (e.g. `OD-15-DEMO-1234_per_trip_bhada_pending.pdf`)." },
+      { type: "feature", text: "🔁 **Shared Renderers** — Backend me `_renderPerTripPdf` + `_renderPerTripExcel` shared helpers banaye — both single-truck aur all-trucks endpoints ek hi rendering function use karte hain. Maintenance asaan, regressions kam." },
+      { type: "fix", text: "🔧 PDF row height 13→14, header height 16→18, font sizes refined for crisp rendering. Subtle column separators (#D5DBE5)." },
+    ],
+  },
+  {
     version: "104.44.5",
     date: "Feb 16, 2026",
     title: "v104.44.5 — 📑 All-Trucks Per-Trip Bhada PDF/Excel Exports (with Filters)",

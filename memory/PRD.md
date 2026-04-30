@@ -1,6 +1,71 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.5
+## Current Version: v104.44.6
+
+## 📊 v104.44.6 — Per-Trip Bhada Polish: Banner Below + Professional Excel + Node Single-Truck Parity
+**Build date:** 2026-04-30
+
+### User Feedback Addressed
+1. **"ye niche ana chahiye"** — Navy summary banner ko table ke niche move karna (pehle upar tha + Hindi text vertical bars `||||` jaise dikhta tha font issue se).
+2. **"excel ko professional banao"** — Plain Excel ko production-grade me convert karna.
+3. **"Node Parity for single-truck Pending PDF/Excel/WhatsApp"** — Backlog item: `:vehicle_no/per-trip-pdf`, `/per-trip-excel`, `/whatsapp-text` ko Node Desktop + LAN me mirror karna.
+
+### PDF — KPI Banner Moved BELOW Table
+- 5 colored tiles below the data table: `TOTAL TRIPS` (navy) · `TOTAL BHADA` (orange) · `SETTLED` (green) · `PARTIAL` (amber) · `PENDING` (red)
+- Each tile shows label + value + sub-text (e.g. "Sale 6 · Purchase 6", "7 trips")
+- English-only labels (no Devanagari) → no font rendering issues
+- Subtle column separators (#D5DBE5), refined header height (18pt) and row height (14pt)
+- Bold colored text per column: RST (navy), Truck No (sky), Bhada (orange), Pending (red)
+
+### Excel — Professional Production-Ready Layout
+- Row 1: Branded company header (NAVKAR AGRO, 18pt bold, navy bg)
+- Row 2: Subtitle ("Per-Trip Bhada Report — All Trucks")
+- Row 3: Filter info strip (light blue bg, italic)
+- Row 5+: Data table with auto-filter dropdown + frozen header (sticky on scroll)
+- Alternating row colors (white/F7F9FC)
+- ₹ currency formatting (`"₹"#,##0`)
+- Color-coded status cells (Settled green, Partial amber, Pending red)
+- Bold colored fonts per column type
+- KPI banner BELOW data (5 colored tiles, 2 rows: label + value)
+- Composition strip: "6 Sale · 6 Purchase · 7 Settled · 2 Partial · 3 Pending"
+- Footer: generation timestamp + filter context
+- Gridlines disabled for cleaner look
+
+### Node Single-Truck Parity (NEW Endpoints)
+- `GET /api/truck-owner/:vehicle_no/per-trip-pdf?[filter_status=&kms_year=]`
+- `GET /api/truck-owner/:vehicle_no/per-trip-excel?[…]`
+- `GET /api/truck-owner/:vehicle_no/whatsapp-text?[filter_status=pending]`
+- All 3 mirror Python implementations exactly. Mirrored across Node Desktop + LAN.
+- Filename includes truck no: `OD-15-DEMO-1234_per_trip_bhada_pending.pdf`
+
+### Architecture — Shared Renderers
+- New helper `_renderPerTripPdf(res, payload, opts)` — used by BOTH all-trucks and single-truck PDF endpoints (DRY)
+- New helper `_renderPerTripExcel(res, payload, opts)` — used by BOTH all-trucks and single-truck Excel endpoints
+- New helper `_buildPerTripPayload(vehicleNo, query)` — single-truck filter wrapper
+- New helper `_buildWhatsAppText(vehicleNo, query)` — formatted text builder
+
+### Triple-Backend Parity Status
+- ✅ Python: all-trucks endpoints (banner below, professional Excel) updated. Single-truck endpoints unchanged (still functional with old layout — acceptable since user view defaults to all-trucks).
+- ✅ Node Desktop: all 5 endpoints (2 all-trucks + 3 single-truck) fully synced with new layout
+- ✅ Node LAN: identical to Desktop
+
+### Verification
+- **Pytest**: 17/17 backend tests PASSED (`test_pertrip_all_export_v104_44_5.py`)
+- **Node in-process harness**: 9/9 PASSED (4 all-trucks + 4 single-truck + 1 WhatsApp text)
+- **AI Vision PDF analysis**: 98% confidence — confirmed table at top, KPI banner at bottom, no garbled characters, clean professional layout
+- **openpyxl direct read**: confirmed branded header, frozen panes (A6), auto-filter (A5:K17), ₹ format, KPI banner at row 19 (below data ending row 17)
+- **Frontend smoke**: v104.44.6 visible, 10 demo trips rendered, PDF/Excel buttons clickable
+
+### Files Updated
+- `/app/backend/routes/vehicle_weight.py` (per-trip-all/pdf + per-trip-all/excel rewritten)
+- `/app/desktop-app/routes/vehicle_weight.js` (full block rewrite + 3 new single-truck endpoints)
+- `/app/local-server/routes/vehicle_weight.js` (synced with desktop)
+- `/app/frontend/src/components/WhatsNew.jsx` (top entry)
+- `/app/frontend/src/utils/constants-version.js` → `104.44.6`
+- `/app/desktop-app/package.json` → `104.44.6`
+- `/app/local-server/package.json` → `104.44.6`
+
+---
 
 ## 📑 v104.44.5 — All-Trucks Per-Trip Bhada PDF/Excel Exports (Filter-Aware)
 **Build date:** 2026-04-30
