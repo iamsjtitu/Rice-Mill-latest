@@ -74,30 +74,45 @@ async def _sync_sale_bag_out(vw_entry_id: str, vw_entry: dict, username: str = "
 
 
 async def _sync_sale_bhada_ledger(vw_entry_id: str, vw_entry: dict, username: str = "system"):
-    """Sync truck-owner ledger entry for sale-trip bhada (lump-sum truck rent).
+    """Sync truck-owner ledger entry for sale-trip OR purchase-trip bhada (lump-sum truck rent).
 
-    For Sale dispatches, mill ne truck owner ko bhada dena hota hai (e.g. ₹4000 fixed).
-    Yeh function `cash_transactions` me ek auto-ledger entry maintain karta hai:
-        account=ledger, party_type=Truck, category=<vehicle_no>, txn_type=jama (CR — mill owes)
-        amount = bhada
-    Reference: `vw_sale_bhada:{rst_no}` (so update/delete idempotent).
+    For Sale dispatches: mill ne truck owner ko bhada dena hota hai (e.g. ₹4000 fixed).
+    For Purchase trips:  mill ne truck owner ko inbound paddy ka bhada dena hota hai.
+    Both create JAMA (CR — mill owes) entries on the truck owner ledger.
 
-    Conditions to keep the entry:  trans_type==sale, vehicle_no set, bhada > 0
+    References (idempotent, distinct so a single RST never collides between sale & purchase):
+        Sale     → `vw_sale_bhada:{rst_no}`
+        Purchase → `vw_purchase_bhada:{rst_no}`
+
+    Conditions to keep the entry: vehicle_no set, bhada > 0, AND trans_type=sale OR purchase.
     """
     rst_no = vw_entry.get("rst_no")
     if rst_no is None:
         return
-    ref = f"vw_sale_bhada:{rst_no}"
     is_sale = _is_sale(vw_entry.get("trans_type", ""))
+    trans_type_lower = (vw_entry.get("trans_type", "") or "").lower()
+    is_purchase = ("purchase" in trans_type_lower) or ("receive" in trans_type_lower)
     vehicle_no = (vw_entry.get("vehicle_no") or "").strip()
     bhada = float(vw_entry.get("bhada", 0) or 0)
 
-    if not (is_sale and vehicle_no and bhada > 0):
-        await db.cash_transactions.delete_many({"reference": ref})
+    # Distinct references for sale vs purchase to avoid collision on same RST.
+    sale_ref = f"vw_sale_bhada:{rst_no}"
+    purchase_ref = f"vw_purchase_bhada:{rst_no}"
+    active_ref = sale_ref if is_sale else (purchase_ref if is_purchase else None)
+    inactive_ref = purchase_ref if is_sale else (sale_ref if is_purchase else None)
+
+    # Always clear the inactive (other-direction) reference if any
+    if inactive_ref:
+        await db.cash_transactions.delete_many({"reference": inactive_ref})
+
+    if not (active_ref and vehicle_no and bhada > 0):
+        if active_ref:
+            await db.cash_transactions.delete_many({"reference": active_ref})
         return
 
-    existing = await db.cash_transactions.find_one({"reference": ref}, {"_id": 0})
+    existing = await db.cash_transactions.find_one({"reference": active_ref}, {"_id": 0})
     now = datetime.now(timezone.utc).isoformat()
+    label = "Sale" if is_sale else "Purchase"
     fields = {
         "date": vw_entry.get("date", ""),
         "account": "ledger",
@@ -105,16 +120,16 @@ async def _sync_sale_bhada_ledger(vw_entry_id: str, vw_entry: dict, username: st
         "category": vehicle_no,
         "party_type": "Truck",
         "amount": bhada,
-        "description": f"Sale Bhada (RST #{rst_no}) → {vw_entry.get('farmer_name') or vw_entry.get('party_name','')}",
+        "description": f"{label} Bhada (RST #{rst_no}) → {vw_entry.get('farmer_name') or vw_entry.get('party_name','')}",
         "kms_year": vw_entry.get("kms_year", ""),
         "season": vw_entry.get("season", "Kharif"),
         "created_by": username or "system",
         "linked_entry_id": vw_entry_id,
-        "reference": ref,
+        "reference": active_ref,
         "updated_at": now,
     }
     if existing:
-        await db.cash_transactions.update_one({"reference": ref}, {"$set": fields})
+        await db.cash_transactions.update_one({"reference": active_ref}, {"$set": fields})
     else:
         fields["id"] = str(uuid.uuid4())
         fields["created_at"] = now
@@ -841,6 +856,7 @@ async def delete_weight_entry(entry_id: str, username: str = "", role: str = "")
     if rst_no is not None:
         await db.gunny_bags.delete_many({"reference": f"vw_sale_bag:{rst_no}"})
         await db.cash_transactions.delete_many({"reference": f"vw_sale_bhada:{rst_no}"})
+        await db.cash_transactions.delete_many({"reference": f"vw_purchase_bhada:{rst_no}"})
     msg = "Entry deleted"
     if cascade_deleted:
         msg += f" + {', '.join(cascade_deleted)} bhi delete kiya"

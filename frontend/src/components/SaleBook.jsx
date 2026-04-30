@@ -12,6 +12,7 @@ import { Plus, Trash2, FileText, IndianRupee, Edit, Download, Search, FileSpread
 import { ShareFileViaWhatsApp } from "./common/ShareFileViaWhatsApp";
 import { fetchAsBlob } from "../utils/download";
 import { formatSaleVoucher } from "../utils/voucher-format";
+import { fetchVwByRst, updateVwBhada } from "../utils/vw-bhada";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = `${_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')}/api`;
@@ -78,7 +79,7 @@ export default function SaleBook({ filters, user, category }) {
     party_name: "", voucher_no_label: "", invoice_no: "", bill_book: "", destination: "", buyer_gstin: "", buyer_address: "",
     items: [{ ...emptyItem }],
     gst_type: "none",
-    truck_no: "", rst_no: "", remark: "", cash_paid: "", diesel_paid: "", advance: "", eway_bill_no: "",
+    truck_no: "", rst_no: "", remark: "", cash_paid: "", diesel_paid: "", bhada: "", advance: "", eway_bill_no: "",
     kms_year: filters.kms_year || "", season: filters.season || "",
   });
 
@@ -112,7 +113,7 @@ export default function SaleBook({ filters, user, category }) {
       date: new Date().toISOString().split('T')[0], party_name: "", voucher_no_label: "", invoice_no: "", bill_book: "", destination: "",
       buyer_gstin: "", buyer_address: "",
       items: [defaultItem], gst_type: "none",
-      truck_no: "", rst_no: "", remark: "", cash_paid: "", diesel_paid: "", advance: "", eway_bill_no: "",
+      truck_no: "", rst_no: "", remark: "", cash_paid: "", diesel_paid: "", bhada: "", advance: "", eway_bill_no: "",
       kms_year: filters.kms_year || "", season: filters.season || "",
     });
     setIsFormOpen(true);
@@ -134,6 +135,7 @@ export default function SaleBook({ filters, user, category }) {
       gst_type: v.gst_type || "none",
       truck_no: v.truck_no || "", rst_no: v.rst_no || "", remark: v.remark || "", eway_bill_no: v.eway_bill_no || "",
       cash_paid: v.cash_paid ? String(v.cash_paid) : "", diesel_paid: v.diesel_paid ? String(v.diesel_paid) : "",
+      bhada: v.bhada ? String(v.bhada) : "",
       advance: v.advance ? String(v.advance) : "",
       kms_year: v.kms_year || filters.kms_year || "", season: v.season || filters.season || "",
     });
@@ -180,6 +182,7 @@ export default function SaleBook({ filters, user, category }) {
           hsn_code: i.hsn_code || "", gst_percent: parseFloat(i.gst_percent) || 0,
         })),
         cash_paid: parseFloat(form.cash_paid) || 0, diesel_paid: parseFloat(form.diesel_paid) || 0,
+        bhada: parseFloat(form.bhada) || 0,
         advance: parseFloat(form.advance) || 0,
       };
       if (editingId) {
@@ -188,6 +191,14 @@ export default function SaleBook({ filters, user, category }) {
       } else {
         await axios.post(`${API}/sale-book?username=${user.username}&role=${user.role}`, payload);
         toast.success("Sale voucher save ho gaya!");
+      }
+      // Sync Bhada to canonical Vehicle Weight entry (single source of truth)
+      const bhadaVal = parseFloat(form.bhada) || 0;
+      if (form.rst_no) {
+        const r = await updateVwBhada(form.rst_no, bhadaVal, user.username, filters.kms_year || "");
+        if (!r.ok && bhadaVal > 0) {
+          toast.warning(`Bhada save hua par truck owner ledger me sync nahi hua (RST not in Vehicle Weight). Pehle Vehicle Weight entry banayein.`, { duration: 6000 });
+        }
       }
       setIsFormOpen(false); setEditingId(null); fetchData();
     } catch (err) { toast.error(err.response?.data?.detail || "Save error"); }
@@ -542,6 +553,19 @@ export default function SaleBook({ filters, user, category }) {
               <div>
                 <Label className="text-xs text-slate-400">RST No</Label>
                 <Input value={form.rst_no} onChange={e => setForm(p => ({ ...p, rst_no: e.target.value }))}
+                  onBlur={async () => {
+                    if (!form.rst_no) return;
+                    const vw = await fetchVwByRst(form.rst_no, filters.kms_year || "");
+                    if (vw) {
+                      setForm(p => ({
+                        ...p,
+                        truck_no: p.truck_no || vw.vehicle_no || "",
+                        party_name: p.party_name || vw.party_name || "",
+                        destination: p.destination || vw.farmer_name || "",
+                        bhada: vw.bhada != null && Number(vw.bhada) > 0 ? String(vw.bhada) : p.bhada,
+                      }));
+                    }
+                  }}
                   placeholder="RST Number" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-form-rst" />
               </div>
               <div>
@@ -719,17 +743,14 @@ export default function SaleBook({ filters, user, category }) {
                 <span className="text-emerald-400" data-testid="sv-grand-total">Rs.{total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
               </div>
 
-              {/* Cash + Diesel Row */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Bhada (Lumpsum) Row */}
+              <div className="grid grid-cols-1">
                 <div>
-                  <Label className="text-[10px] text-slate-400">Cash (Truck ko)</Label>
-                  <Input type="number" step="0.01" value={form.cash_paid} onChange={e => setForm(p => ({ ...p, cash_paid: e.target.value }))}
-                    placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="sv-cash-paid" />
-                </div>
-                <div>
-                  <Label className="text-[10px] text-slate-400">Diesel (Pump se)</Label>
-                  <Input type="number" step="0.01" value={form.diesel_paid} onChange={e => setForm(p => ({ ...p, diesel_paid: e.target.value }))}
-                    placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="sv-diesel-paid" />
+                  <Label className="text-[10px] text-amber-400 font-semibold">Bhada / भाड़ा (Lumpsum)</Label>
+                  <Input type="number" step="0.01" value={form.bhada} onChange={e => setForm(p => ({ ...p, bhada: e.target.value }))}
+                    placeholder="Truck bhada — e.g. 4000"
+                    className="bg-amber-900/20 border-amber-700 text-amber-200 h-8 text-xs font-bold" data-testid="sv-bhada" />
+                  <p className="text-[9px] text-slate-500 mt-0.5">Single source: Vehicle Weight ke saath sync hota hai (RST ke through)</p>
                 </div>
               </div>
 

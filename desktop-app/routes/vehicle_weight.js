@@ -950,21 +950,37 @@ module.exports = function(database) {
   function syncSaleBhadaLedger(vwEntry, username) {
     const rstNo = vwEntry.rst_no;
     if (rstNo == null) return;
-    const ref = `vw_sale_bhada:${rstNo}`;
     const isSale = _isVwSale(vwEntry.trans_type);
+    const transTypeLower = (vwEntry.trans_type || '').toLowerCase();
+    const isPurchase = transTypeLower.includes('purchase') || transTypeLower.includes('receive');
     const vehicleNo = (vwEntry.vehicle_no || '').trim();
     const bhada = parseFloat(vwEntry.bhada || 0) || 0;
     const ct = col('cash_transactions');
 
-    if (!(isSale && vehicleNo && bhada > 0)) {
-      // Remove existing linked ledger entry
+    // Distinct refs for sale vs purchase to avoid collision on same RST
+    const saleRef = `vw_sale_bhada:${rstNo}`;
+    const purchaseRef = `vw_purchase_bhada:${rstNo}`;
+    const activeRef = isSale ? saleRef : (isPurchase ? purchaseRef : null);
+    const inactiveRef = isSale ? purchaseRef : (isPurchase ? saleRef : null);
+
+    // Always clear inactive (other-direction) ledger if present
+    if (inactiveRef) {
       for (let i = ct.length - 1; i >= 0; i--) {
-        if (ct[i].reference === ref) ct.splice(i, 1);
+        if (ct[i].reference === inactiveRef) ct.splice(i, 1);
+      }
+    }
+
+    if (!(activeRef && vehicleNo && bhada > 0)) {
+      if (activeRef) {
+        for (let i = ct.length - 1; i >= 0; i--) {
+          if (ct[i].reference === activeRef) ct.splice(i, 1);
+        }
       }
       return;
     }
 
     const now = new Date().toISOString();
+    const label = isSale ? 'Sale' : 'Purchase';
     const fields = {
       date: vwEntry.date || '',
       account: 'ledger',
@@ -972,15 +988,15 @@ module.exports = function(database) {
       category: vehicleNo,
       party_type: 'Truck',
       amount: bhada,
-      description: `Sale Bhada (RST #${rstNo}) → ${vwEntry.farmer_name || vwEntry.party_name || ''}`,
+      description: `${label} Bhada (RST #${rstNo}) → ${vwEntry.farmer_name || vwEntry.party_name || ''}`,
       kms_year: vwEntry.kms_year || '',
       season: vwEntry.season || 'Kharif',
       created_by: username || 'system',
       linked_entry_id: vwEntry.id,
-      reference: ref,
+      reference: activeRef,
       updated_at: now,
     };
-    const idx = ct.findIndex(t => t.reference === ref);
+    const idx = ct.findIndex(t => t.reference === activeRef);
     if (idx >= 0) {
       ct[idx] = { ...ct[idx], ...fields };
     } else {
@@ -1143,14 +1159,17 @@ module.exports = function(database) {
     }
 
     weights.splice(idx, 1);
-    // Cascade: also remove linked sale-bag-out + sale-bhada-ledger entries
+    // Cascade: also remove linked sale-bag-out + sale/purchase-bhada-ledger entries
     if (rstNo !== undefined && rstNo !== null) {
       const gb2 = col('gunny_bags');
       const bagRef = `vw_sale_bag:${rstNo}`;
       for (let i = gb2.length - 1; i >= 0; i--) { if (gb2[i].reference === bagRef) gb2.splice(i, 1); }
       const ct2 = col('cash_transactions');
-      const bhadaRef = `vw_sale_bhada:${rstNo}`;
-      for (let i = ct2.length - 1; i >= 0; i--) { if (ct2[i].reference === bhadaRef) ct2.splice(i, 1); }
+      const saleRef = `vw_sale_bhada:${rstNo}`;
+      const purRef = `vw_purchase_bhada:${rstNo}`;
+      for (let i = ct2.length - 1; i >= 0; i--) {
+        if (ct2[i].reference === saleRef || ct2[i].reference === purRef) ct2.splice(i, 1);
+      }
     }
     database.save();
     let msg = 'Entry deleted';

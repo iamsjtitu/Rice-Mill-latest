@@ -23,6 +23,7 @@ import { downloadFile, fetchAsBlob } from "../utils/download";
 import { ShareFileViaWhatsApp } from "./common/ShareFileViaWhatsApp";
 import RoundOffInput from "./common/RoundOffInput";
 import { useConfirm } from "./ConfirmProvider";
+import { fetchVwByRst, updateVwBhada } from "../utils/vw-bhada";
 import logger from "../utils/logger";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -73,7 +74,7 @@ export default function PurchaseVouchers({ filters, user }) {
     party_name: "", voucher_no_label: "", invoice_no: "", rst_no: "", truck_no: "", eway_bill_no: "",
     items: [{ ...emptyItem }],
     gst_type: "none", cgst_percent: 0, sgst_percent: 0, igst_percent: 0,
-    cash_paid: "", diesel_paid: "", advance: "", remark: "",
+    cash_paid: "", diesel_paid: "", bhada: "", advance: "", remark: "",
     kms_year: "", season: "",
   });
 
@@ -138,7 +139,7 @@ export default function PurchaseVouchers({ filters, user }) {
       party_name: "", voucher_no_label: "", invoice_no: "", rst_no: "", truck_no: "", eway_bill_no: "",
       items: [{ ...emptyItem }],
       gst_type: "none", cgst_percent: 0, sgst_percent: 0, igst_percent: 0,
-      cash_paid: "", diesel_paid: "", advance: "", remark: "",
+      cash_paid: "", diesel_paid: "", bhada: "", advance: "", remark: "",
       kms_year: filters.kms_year || "", season: filters.season || "",
     });
     setEditId(null);
@@ -184,6 +185,7 @@ export default function PurchaseVouchers({ filters, user }) {
       })),
       cash_paid: parseFloat(form.cash_paid) || 0,
       diesel_paid: parseFloat(form.diesel_paid) || 0,
+      bhada: parseFloat(form.bhada) || 0,
       advance: parseFloat(form.advance) || 0,
       cgst_percent: parseFloat(form.cgst_percent) || 0,
       sgst_percent: parseFloat(form.sgst_percent) || 0,
@@ -199,6 +201,14 @@ export default function PurchaseVouchers({ filters, user }) {
       } else {
         await axios.post(`${API}/purchase-book?username=${user.username}&role=${user.role}`, payload);
         toast.success("Purchase voucher save ho gaya!");
+      }
+      // Sync Bhada to canonical Vehicle Weight entry (single source of truth)
+      const bhadaVal = parseFloat(form.bhada) || 0;
+      if (form.rst_no) {
+        const r = await updateVwBhada(form.rst_no, bhadaVal, user.username, filters.kms_year || "");
+        if (!r.ok && bhadaVal > 0) {
+          toast.warning(`Bhada save hua par truck owner ledger me sync nahi hua (RST not in Vehicle Weight). Pehle Vehicle Weight entry banayein.`, { duration: 6000 });
+        }
       }
       setDialogOpen(false); resetForm(); fetchData(); fetchSuggestions();
     } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
@@ -218,6 +228,7 @@ export default function PurchaseVouchers({ filters, user }) {
       gst_type: v.gst_type || "none",
       cgst_percent: v.cgst_percent || 0, sgst_percent: v.sgst_percent || 0, igst_percent: v.igst_percent || 0,
       cash_paid: String(v.cash_paid || ""), diesel_paid: String(v.diesel_paid || ""),
+      bhada: v.bhada ? String(v.bhada) : "",
       advance: String(v.advance || ""), remark: v.remark || "",
       kms_year: v.kms_year || "", season: v.season || "",
     });
@@ -488,6 +499,18 @@ export default function PurchaseVouchers({ filters, user }) {
               <div>
                 <Label className="text-xs text-slate-400">RST No.</Label>
                 <Input value={form.rst_no} onChange={e => setForm(p => ({ ...p, rst_no: e.target.value }))}
+                  onBlur={async () => {
+                    if (!form.rst_no) return;
+                    const vw = await fetchVwByRst(form.rst_no, filters.kms_year || "");
+                    if (vw) {
+                      setForm(p => ({
+                        ...p,
+                        truck_no: p.truck_no || vw.vehicle_no || "",
+                        party_name: p.party_name || vw.party_name || "",
+                        bhada: vw.bhada != null && Number(vw.bhada) > 0 ? String(vw.bhada) : p.bhada,
+                      }));
+                    }
+                  }}
                   placeholder="RST Number" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-rst" />
               </div>
             </div>
@@ -656,17 +679,14 @@ export default function PurchaseVouchers({ filters, user }) {
                 <span className="text-emerald-400" data-testid="pv-grand-total">Rs.{gstCalc.total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
               </div>
 
-              {/* Cash + Diesel */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Bhada (Lumpsum) */}
+              <div className="grid grid-cols-1">
                 <div>
-                  <Label className="text-[10px] text-slate-400">Cash (Truck ko)</Label>
-                  <Input type="number" step="0.01" value={form.cash_paid} onChange={e => setForm(p => ({ ...p, cash_paid: e.target.value }))}
-                    placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="pv-cash" />
-                </div>
-                <div>
-                  <Label className="text-[10px] text-slate-400">Diesel (Pump se)</Label>
-                  <Input type="number" step="0.01" value={form.diesel_paid} onChange={e => setForm(p => ({ ...p, diesel_paid: e.target.value }))}
-                    placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="pv-diesel" />
+                  <Label className="text-[10px] text-amber-400 font-semibold">Bhada / भाड़ा (Lumpsum)</Label>
+                  <Input type="number" step="0.01" value={form.bhada} onChange={e => setForm(p => ({ ...p, bhada: e.target.value }))}
+                    placeholder="Truck bhada — e.g. 4000"
+                    className="bg-amber-900/20 border-amber-700 text-amber-200 h-8 text-xs font-bold" data-testid="pv-bhada" />
+                  <p className="text-[9px] text-slate-500 mt-0.5">RST se auto-fetch hota hai · Vehicle Weight ke saath sync</p>
                 </div>
               </div>
 

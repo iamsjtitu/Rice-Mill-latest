@@ -7,6 +7,20 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.3",
+    date: "Feb 16, 2026",
+    title: "v104.44.3 — 🚛 Bhada (Lumpsum) Across All Sale/Purchase Forms",
+    items: [
+      { type: "feature", text: "🚛 **Bhada (Lumpsum) field added to 4 forms** — `BP Sale Register` (Rice Bran/Broken/Kanki/Husk), `Sale Voucher / बिक्री वाउचर`, `DC Delivery (Govt Rice)`, aur `Pvt Purchase Vouchers` — sab me ab `Cash (Truck ko)` + `Diesel (Pump se)` ki jagah ek hi **Bhada (Lumpsum) ₹** field hai. Mill ne truck owner ko fix lump-sum freight dena hota hai." },
+      { type: "feature", text: "🔁 **RST se Auto-Fetch** — Form me RST number daalte hi Bhada automatically fetch ho jata hai uss RST ki Vehicle Weight entry se. User chahe to override kar sakta hai (form bhi save karega aur VW ki value bhi update karega)." },
+      { type: "feature", text: "📒 **Single Source of Truth = `vehicle_weights.bhada`** — Saare forms (BP Sale, Sale Voucher, DC, Purchase) RST ke through canonical VW entry me bhada update karte hain. **Sirf 1 ledger entry per RST trip** — koi duplicate nahi, Truck Owner ko sahi clean ledger." },
+      { type: "feature", text: "🚜 **Purchase Trip Bhada Support** — Vehicle Weight ke Purchase trips (`Receive(Purchase)`) me bhi ab Bhada se auto-jama banta hai (reference: `vw_purchase_bhada:{rst}`). Inbound paddy ke truck owner ko alag se Sale wala mismatch nahi hota." },
+      { type: "feature", text: "🛻 **DC Delivery Per-Truck Bhada** — DC Delivery form me multi-truck setup hai → ab har truck ki apni separate Bhada field hai (delivery-level Cash/Diesel summary hata diya). Bottom me 'Total Bhada' ka summary tile dikhata hai." },
+      { type: "improvement", text: "✅ Triple-backend (Python + Node Desktop + Node LAN) sync. `_sync_sale_bhada_ledger` helper ab Sale aur Purchase dono trans_types handle karta hai. DELETE pe sale + purchase dono refs cascade-clean hote hain." },
+      { type: "fix", text: "🔧 Bhada=0 set karne se ya VW entry delete karne se truck owner ledger entry automatically remove ho jati hai (kept idempotent across all 3 backends)." },
+    ],
+  },
+  {
     version: "104.44.2",
     date: "Feb 16, 2026",
     title: "v104.44.2 — 🚛 Sale Truck Lumpsum Bhada (Triple-Backend Parity)",

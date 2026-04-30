@@ -14,6 +14,7 @@ import { Trash2, Plus, RefreshCw, Download, FileText, Truck, ClipboardList, Chev
 import { ShareFileViaWhatsApp } from "./common/ShareFileViaWhatsApp";
 import { fetchAsBlob } from "../utils/download";
 import { useConfirm } from "./ConfirmProvider";
+import { updateVwBhada } from "../utils/vw-bhada";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
@@ -33,7 +34,7 @@ export const DCEntries = ({ filters, user }) => {
   const [riceStockAvail, setRiceStockAvail] = useState(null);
   const [riceStockByType, setRiceStockByType] = useState({ parboiled: null, raw: null });
   const [form, setForm] = useState({ dc_number: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", rice_type: "parboiled", depot_name: "", depot_code: "", no_of_lots: "", delivery_to: "FCI", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
-  const [delForm, setDelForm] = useState({ dc_id: "", date: new Date().toISOString().split('T')[0], cash_paid: "", diesel_paid: "", depot_expenses: "", contract_no: "", fci_lot_no: "", party_name: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif", trucks: [{ rst_no: "", vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] });
+  const [delForm, setDelForm] = useState({ dc_id: "", date: new Date().toISOString().split('T')[0], depot_expenses: "", contract_no: "", fci_lot_no: "", party_name: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif", trucks: [{ rst_no: "", vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "", bhada: "" }] });
   const [searchQuery, setSearchQuery] = useState("");
   const [editDepot, setEditDepot] = useState(null);
   const [editDepotForm, setEditDepotForm] = useState({ depot_name: '', depot_code: '', delivery_to: 'FCI', no_of_lots: '' });
@@ -97,12 +98,26 @@ export const DCEntries = ({ filters, user }) => {
         vehicle_no: join('vehicle_no'),
         driver_name: join('driver_name'),
         slip_no: join('slip_no'),
-        cash_paid: parseFloat(delForm.cash_paid) || 0,
-        diesel_paid: parseFloat(delForm.diesel_paid) || 0,
+        cash_paid: 0,
+        diesel_paid: 0,
         depot_expenses: parseFloat(delForm.depot_expenses) || 0,
       });
+      // Push per-truck Bhada to canonical Vehicle Weight entries (single source of truth)
+      // — each truck's RST gets its own ledger entry on the truck owner.
+      let unsynced = 0;
+      for (const t of trucks) {
+        const tBhada = parseFloat(t.bhada) || 0;
+        const rst = (t.rst_no || '').toString().trim();
+        if (rst && tBhada > 0) {
+          const r = await updateVwBhada(rst, tBhada, user.username, delForm.kms_year || CURRENT_KMS);
+          if (!r.ok) unsynced++;
+        }
+      }
+      if (unsynced > 0) {
+        toast.warning(`${unsynced} truck(s) ka Bhada save nahi ho saka — RST Vehicle Weight me nahi mila. Pehle VW entry banayein.`, { duration: 6000 });
+      }
       toast.success("Delivery add hui!"); setShowDeliveryForm(false);
-      setDelForm({ dc_id: "", date: new Date().toISOString().split('T')[0], cash_paid: "", diesel_paid: "", depot_expenses: "", contract_no: "", fci_lot_no: "", party_name: "", notes: "", kms_year: filters.kms_year || CURRENT_KMS, season: filters.season || "Kharif", trucks: [{ rst_no: "", vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] });
+      setDelForm({ dc_id: "", date: new Date().toISOString().split('T')[0], depot_expenses: "", contract_no: "", fci_lot_no: "", party_name: "", notes: "", kms_year: filters.kms_year || CURRENT_KMS, season: filters.season || "Kharif", trucks: [{ rst_no: "", vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "", bhada: "" }] });
       fetchDeliveries(expandedDC); fetchData();
     } catch (e) { toast.error(e.response?.data?.detail || e.message); }
   };
@@ -135,17 +150,14 @@ export const DCEntries = ({ filters, user }) => {
           vehicle_no: vw.vehicle_no || t.vehicle_no,
           bags_used: String(vw.tot_pkts || t.bags_used || ''),
           quantity_qntl: netQtl > 0 ? String(netQtl.toFixed(2)) : t.quantity_qntl,
+          // Auto-fetch per-truck bhada from VW entry
+          bhada: vw.bhada != null && Number(vw.bhada) > 0 ? String(vw.bhada) : t.bhada,
         } : t);
-        // Add cash/diesel from this RST to common fields (cumulative)
-        const prevCash = parseFloat(prev.cash_paid) || 0;
-        const prevDiesel = parseFloat(prev.diesel_paid) || 0;
         return {
           ...prev,
           trucks: newTrucks,
           // Fill party_name if not already filled (first RST wins)
           party_name: prev.party_name || vw.party_name || '',
-          cash_paid: (prevCash + (parseFloat(vw.cash_paid) || 0)).toString(),
-          diesel_paid: (prevDiesel + (parseFloat(vw.diesel_paid) || 0)).toString(),
         };
       });
       toast.success(`RST #${rst} auto-filled`);
@@ -498,6 +510,10 @@ export const DCEntries = ({ filters, user }) => {
                     <div><Label className="text-[10px] text-emerald-400 font-semibold">Weight (Qtl)</Label>
                       <Input list="del-weight-list" type="number" step="0.01" value={truck.quantity_qntl} onChange={e => setDelForm(p => ({ ...p, trucks: p.trucks.map((t, i) => i === idx ? { ...t, quantity_qntl: e.target.value } : t) }))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-7 text-xs" data-testid={`delivery-truck-${idx}-qty`} autoComplete="off" /></div>
                   </div>
+                  <div>
+                    <Label className="text-[10px] text-amber-400 font-semibold">Bhada / भाड़ा (Lumpsum) — is truck ka</Label>
+                    <Input type="number" step="0.01" value={truck.bhada || ''} onChange={e => setDelForm(p => ({ ...p, trucks: p.trucks.map((t, i) => i === idx ? { ...t, bhada: e.target.value } : t) }))} placeholder="Truck bhada — e.g. 4000" className="bg-amber-900/20 border-amber-700 text-amber-200 h-7 text-xs font-bold" data-testid={`delivery-truck-${idx}-bhada`} />
+                  </div>
                 </div>
               ))}
               {/* Shared datalists for truck fields — keep outside each truck to avoid duplicates */}
@@ -507,20 +523,21 @@ export const DCEntries = ({ filters, user }) => {
               <datalist id="del-weight-list">{weightSuggestions.map(v => <option key={v} value={v} />)}</datalist>
               <Button type="button" variant="outline" size="sm"
                 className="w-full h-7 text-xs border-dashed border-sky-500/50 text-sky-400 hover:bg-sky-900/30 hover:text-sky-300"
-                onClick={() => setDelForm(p => ({ ...p, trucks: [...(p.trucks || []), { vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "" }] }))}
+                onClick={() => setDelForm(p => ({ ...p, trucks: [...(p.trucks || []), { rst_no: "", vehicle_no: "", driver_name: "", slip_no: "", bags_used: "", quantity_qntl: "", bhada: "" }] }))}
                 data-testid="delivery-add-truck-btn">
                 <Plus className="w-3 h-3 mr-1" /> Add Another Truck
               </Button>
             </div>
 
-            {/* Combined payments + depot expenses */}
-            <div className="grid grid-cols-3 gap-3">
-              <div><Label className="text-xs text-red-400 font-semibold">Cash Paid (Rs.) — Total</Label>
-                <Input type="number" step="0.01" value={delForm.cash_paid} onChange={e => setDelForm(p=>({...p,cash_paid:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-cash" />
-                <p className="text-[9px] text-red-500 mt-0.5">Cash Book auto entry</p></div>
-              <div><Label className="text-xs text-orange-400 font-semibold">Diesel Paid (Rs.) — Total</Label>
-                <Input type="number" step="0.01" value={delForm.diesel_paid} onChange={e => setDelForm(p=>({...p,diesel_paid:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-diesel" />
-                <p className="text-[9px] text-orange-500 mt-0.5">Truck payment auto entry</p></div>
+            {/* Combined: Bhada Total summary + Depot Expenses */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-amber-950/30 border border-amber-700/50 rounded p-2.5">
+                <Label className="text-xs text-amber-400 font-semibold">Total Bhada (sab trucks ka jod)</Label>
+                <div className="text-lg font-bold text-amber-300 mt-1" data-testid="delivery-total-bhada">
+                  Rs.{(delForm.trucks || []).reduce((s, t) => s + (parseFloat(t.bhada) || 0), 0).toLocaleString('en-IN')}
+                </div>
+                <p className="text-[9px] text-amber-500 mt-0.5">Har truck ka bhada uske RST ke truck owner ko auto-jama hota hai</p>
+              </div>
               <div><Label className="text-xs text-purple-400 font-semibold">Depot Expenses (Rs.)</Label>
                 <Input type="number" step="0.01" value={delForm.depot_expenses} onChange={e => setDelForm(p=>({...p,depot_expenses:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-depot-expenses" />
                 <p className="text-[9px] text-purple-500 mt-0.5">Cash Book se auto katega</p></div>

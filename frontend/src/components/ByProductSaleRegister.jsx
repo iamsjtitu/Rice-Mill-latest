@@ -12,6 +12,7 @@ import { Plus, Trash2, Edit, Search, Download, Eye, Filter } from "lucide-react"
 import { fmtDate } from "@/utils/date";
 import { useConfirm } from "./ConfirmProvider";
 import { useCloseFiltersOnEsc } from "../utils/useCloseFiltersOnEsc";
+import { updateVwBhada } from "../utils/vw-bhada";
 import logger from "../utils/logger";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -44,7 +45,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
     split_billing: false, billed_weight_kg: "", kaccha_weight_kg: "", kaccha_rate_per_qtl: "",
     // Helper Qtl displays for split mode (auto-synced with kg)
     billed_weight_qtl_display: "", kaccha_weight_qtl_display: "",
-    cash_paid: "", diesel_paid: "", advance: "", remark: "",
+    cash_paid: "", diesel_paid: "", bhada: "", advance: "", remark: "",
     product, kms_year: filters.kms_year || "", season: filters.season || "",
   };
   const [form, setForm] = useState(blankForm);
@@ -124,6 +125,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             billed_weight_qtl_display: pakkaQtlDefault,
             kaccha_weight_kg: kacchaKgDefault,
             kaccha_weight_qtl_display: kacchaQtlDefault,
+            bhada: e.bhada != null && Number(e.bhada) > 0 ? String(e.bhada) : p.bhada,
           };
         });
         toast.success("RST data fetch ho gaya!");
@@ -206,6 +208,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       billed_weight_qtl_display: s.billed_weight_kg ? String(Math.round(s.billed_weight_kg / 100 * 100) / 100) : "",
       kaccha_weight_qtl_display: s.kaccha_weight_kg ? String(Math.round(s.kaccha_weight_kg / 100 * 100) / 100) : "",
       cash_paid: s.cash_paid ? String(s.cash_paid) : "", diesel_paid: s.diesel_paid ? String(s.diesel_paid) : "",
+      bhada: s.bhada ? String(s.bhada) : "",
       advance: s.advance ? String(s.advance) : "", remark: s.remark || "",
       product: s.product || product, kms_year: s.kms_year || "", season: s.season || "",
     });
@@ -237,6 +240,15 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       } else {
         await axios.post(`${API}/bp-sale-register?username=${user.username}&role=${user.role}`, payload);
         toast.success("Sale saved!");
+      }
+      // Sync Bhada (Lumpsum) to canonical Vehicle Weight entry — single source of truth
+      // for truck-owner ledger. Backend's _sync_*_bhada_ledger updates on PUT to VW edit.
+      const bhadaVal = parseFloat(form.bhada) || 0;
+      if (form.rst_no) {
+        const r = await updateVwBhada(form.rst_no, bhadaVal, user.username, filters.kms_year || "");
+        if (!r.ok && bhadaVal > 0) {
+          toast.warning(`Bhada save hua par truck owner ledger me sync nahi hua (RST not in Vehicle Weight). Pehle Vehicle Weight entry banayein.`, { duration: 6000 });
+        }
       }
       setIsFormOpen(false); fetchData();
     } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
@@ -910,16 +922,14 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             {/* Payment section */}
             <div className="border-t border-slate-600 pt-3">
               <p className="text-[10px] text-amber-400 font-medium mb-2">Payment Details</p>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label className="text-[10px] text-green-400">Cash (Truck ko)</Label>
-                  <Input type="number" value={form.cash_paid} onChange={e => setForm(p => ({ ...p, cash_paid: e.target.value }))}
-                    placeholder="0" className="bg-green-900/20 border-green-700 text-green-300 h-8 text-xs" data-testid="bp-cash" />
-                </div>
-                <div>
-                  <Label className="text-[10px] text-orange-400">Diesel (Pump se)</Label>
-                  <Input type="number" value={form.diesel_paid} onChange={e => setForm(p => ({ ...p, diesel_paid: e.target.value }))}
-                    placeholder="0" className="bg-orange-900/20 border-orange-700 text-orange-300 h-8 text-xs" data-testid="bp-diesel" />
+                  <Label className="text-[10px] text-amber-400 font-semibold">Bhada / भाड़ा (Lumpsum)</Label>
+                  <Input type="number" step="0.01" value={form.bhada}
+                    onChange={e => setForm(p => ({ ...p, bhada: e.target.value }))}
+                    placeholder="Truck bhada (e.g. 4000)"
+                    className="bg-amber-900/20 border-amber-700 text-amber-200 h-8 text-xs font-bold" data-testid="bp-bhada" />
+                  <p className="text-[9px] text-slate-500 mt-0.5">Truck owner ko diya jaane wala lump-sum freight</p>
                 </div>
                 <div>
                   <Label className="text-[10px] text-sky-400">Advance (Party se)</Label>

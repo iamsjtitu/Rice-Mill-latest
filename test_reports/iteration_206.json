@@ -1,0 +1,47 @@
+{
+  "summary": "v104.44.3 Bhada (Lumpsum) feature testing complete. All 14 backend tests pass. All 4 frontend forms verified with Bhada field present and Cash/Diesel fields removed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_bhada_v104_44_3.py",
+    "/app/test_reports/pytest/pytest_results_iteration206.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_bhada_v104_44_3.py"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 tests passed)",
+    "frontend": "100% (all forms verified)"
+  },
+  "test_credentials": "admin / admin123",
+  "seed_data_creation": "Test VW entries created with TEST_BHADA_ prefix and auto-cleaned after tests",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "v104.44.3 Bhada feature fully tested. Backend: Purchase-side bhada ledger sync (vw_purchase_bhada:{rst}) works correctly - create, edit, zero-delete, cascade-delete all verified. Sale-side bhada (vw_sale_bhada:{rst}) regression OK. Frontend: All 4 forms have Bhada field with correct data-testid attributes: bp-bhada (BP Sale Register), sv-bhada (Sale Voucher), pv-bhada (Purchase Voucher), delivery-truck-{idx}-bhada (DC Delivery). Total Bhada summary tile (delivery-total-bhada) present in DC Delivery. WhatsNew modal shows v104.44.3 at top.",
+  "tests_verified": {
+    "backend": [
+      "POST /api/vehicle-weight with trans_type='Receive(Purchase)' + bhada=2500 → vw_purchase_bhada:{rst} ledger created with Truck JAMA entry",
+      "PUT /api/vehicle-weight/{id}/edit with bhada=4000 on Purchase → ledger amount updates to 4000",
+      "PUT /api/vehicle-weight/{id}/edit with bhada=0 on Purchase → ledger auto-deleted",
+      "DELETE /api/vehicle-weight/{id} on Purchase with bhada → cascade-removes ledger",
+      "POST Sale entry with bhada=4000 → vw_sale_bhada:{rst} ledger (regression OK)",
+      "Vehicle Weight CRUD operations (list, create purchase, create sale, edit, delete) - no regression"
+    ],
+    "frontend": [
+      "BP Sale Register (Rice Bran) - Bhada field present (data-testid='bp-bhada'), placeholder 'Truck bhada (e.g. 4000)'",
+      "Sale Voucher (Sale Book) - Bhada field present (data-testid='sv-bhada'), Advance field present, helper text shows VW sync",
+      "Purchase Voucher - Bhada field present (data-testid='pv-bhada'), Advance field present, helper text shows RST auto-fetch",
+      "DC Delivery - Per-truck Bhada field (data-testid='delivery-truck-0-bhada'), Total Bhada summary tile (data-testid='delivery-total-bhada')",
+      "WhatsNew modal - v104.44.3 entry at top with Bhada feature description"
+    ]
+  }
+}
