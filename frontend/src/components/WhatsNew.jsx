@@ -7,6 +7,21 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.43.4",
+    date: "Feb 16, 2026",
+    title: "v104.43.4 — 📁 Smart Party-aware Filenames in Cash Book Excel/PDF/WhatsApp",
+    items: [
+      { type: "improvement", text: "📁 **Smart Filename Embedding** — Cash Book Excel/PDF download buttons aur WhatsApp PDF share teeno ab party-specific filenames generate karte hain — generic `cash_book_<timestamp>.xlsx` ki jagah:" },
+      { type: "improvement", text: "&nbsp;&nbsp;• **Owner ledger** (Titu, etc.) → `Titu_owner_ledger.pdf` / `Titu_owner_ledger.xlsx`" },
+      { type: "improvement", text: "&nbsp;&nbsp;• **Party ledger** (MBOPL (KCA), Cash Test Agent (PKA), etc.) → `MBOPL_KCA__party_ledger.pdf`" },
+      { type: "improvement", text: "&nbsp;&nbsp;• **Cash Book transactions tab** → `cash_transactions.xlsx`" },
+      { type: "improvement", text: "&nbsp;&nbsp;• **Generic Cash Book** (no filter) → `cash_book.pdf`" },
+      { type: "improvement", text: "🔍 **Special chars sanitized** — `()`, spaces, slashes etc. ko `_` se replace karte hain (`MBOPL (KCA)` → `MBOPL_KCA_`) taaki Windows + Linux + WhatsApp file system friendly bane." },
+      { type: "improvement", text: "💬 **WhatsApp PDF Backend Updated** — `/app/backend/routes/whatsapp.py` me `party_type=Owner` URL param read karta hai aur `Titu_owner_ledger.pdf` ya `MBOPL_party_ledger.pdf` accordingly bheij ta hai. Audit aur file management me bahut handy." },
+      { type: "improvement", text: "🔄 **Triple-Backend Parity** — Python whatsapp.py update + Frontend smart naming jo desktop-app + local-server dono Node backends ko transparent hai (frontend filename pass karta hai)." },
+    ],
+  },
+  {
     version: "104.43.3",
     date: "Feb 16, 2026",
     title: "v104.43.3 — 🧹 Cash Book Exports: Removed Useless Summary Table",

@@ -361,10 +361,15 @@ async def send_to_whatsapp_group(data: dict):
         try:
             from urllib.parse import urlparse, parse_qs
             qs = parse_qs(urlparse(pdf_url).query)
+            party_type = (qs.get("party_type", [""])[0] or "").strip()
             party = (qs.get("party_name", [""])[0] or qs.get("category", [""])[0]).strip()
             base = "report"
             if "/party-ledger" in pdf_url: base = f"{party}_party_ledger" if party else "party_ledger"
-            elif "/cash-book" in pdf_url: base = f"{party}_cash_book" if party else "cash_book"
+            elif "/cash-book" in pdf_url:
+                if party:
+                    base = f"{party}_owner_ledger" if party_type == "Owner" else f"{party}_party_ledger"
+                else:
+                    base = "cash_book"
             elif "/sale-book" in pdf_url: base = "sale_book"
             elif "/bp-sale" in pdf_url: base = "rice_bran_sale"
             elif "/stock-register" in pdf_url: base = "stock_register"

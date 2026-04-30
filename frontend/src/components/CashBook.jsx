@@ -337,7 +337,23 @@ const CashBook = ({ filters, user }) => {
       if (txnFilters.party_type) params.append('party_type', txnFilters.party_type);
       if (txnFilters.date_from) params.append('date_from', txnFilters.date_from);
       if (txnFilters.date_to) params.append('date_to', txnFilters.date_to);
-      const fname = `cash_book.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+      // Smart filename:
+      //   Owner ledger view (Titu, etc.)         → `Titu_owner_ledger.<ext>`
+      //   Specific party ledger (MBOPL, agent…)  → `MBOPL_party_ledger.<ext>`
+      //   Cash transactions tab                   → `cash_transactions.<ext>`
+      //   Generic Cash Book                       → `cash_book.<ext>`
+      const ext = format === 'excel' ? 'xlsx' : 'pdf';
+      const safe = (s) => String(s || '').trim().replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'unknown';
+      let base = 'cash_book';
+      if (activeView === 'cash-transactions') {
+        base = 'cash_transactions';
+      } else if (txnFilters.category) {
+        const partyName = safe(txnFilters.category);
+        base = txnFilters.party_type === 'Owner'
+          ? `${partyName}_owner_ledger`
+          : `${partyName}_party_ledger`;
+      }
+      const fname = `${base}.${ext}`;
       await downloadFile(`/api/cash-book/${format}?${params}`, fname);
       toast.success(`${format.toUpperCase()} export ho gaya!`);
     } catch (e) { toast.error("Export failed"); }
