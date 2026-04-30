@@ -97,7 +97,7 @@ function TruckCombobox({ trucks, value, onChange, disabled }) {
 
 export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaymentMade }) {
   const brand = branding || { company_name: "Rice Mill", tagline: "" };
-  const { showConfirm } = useConfirm();
+  const showConfirm = useConfirm();
   const [trucks, setTrucks] = useState([]);
   const [selectedTruck, setSelectedTruck] = useState("");
   const [data, setData] = useState(null);
