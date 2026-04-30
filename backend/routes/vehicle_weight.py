@@ -1950,3 +1950,190 @@ async def set_weighbridge_host(data: dict):
 async def get_live_weight():
     """Web version has no serial port - return disconnected status"""
     return {"connected": False, "weight": 0, "stable": False, "timestamp": 0}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 🛻 TRUCK OWNER — Per-Trip Breakdown (Bhada-based, FIFO settlement)
+# ════════════════════════════════════════════════════════════════════════════
+@router.get("/truck-owner/per-trip-trucks")
+async def list_trucks_with_bhada(kms_year: str = "", season: str = ""):
+    """List all distinct truck numbers that have at least 1 VW entry with bhada > 0.
+
+    Returns: { trucks: [ { vehicle_no, trips_count, total_bhada, drivers: [...] }, ... ] }
+    """
+    q = {"bhada": {"$gt": 0}, "vehicle_no": {"$ne": ""}}
+    if kms_year:
+        q["kms_year"] = kms_year
+    if season:
+        q["season"] = season
+    cursor = db.vehicle_weights.find(q, {"_id": 0, "vehicle_no": 1, "bhada": 1, "farmer_name": 1})
+    agg = {}
+    async for vw in cursor:
+        v = (vw.get("vehicle_no") or "").strip()
+        if not v:
+            continue
+        a = agg.setdefault(v, {"vehicle_no": v, "trips_count": 0, "total_bhada": 0.0})
+        a["trips_count"] += 1
+        a["total_bhada"] += float(vw.get("bhada", 0) or 0)
+    out = sorted(agg.values(), key=lambda x: x["vehicle_no"])
+    return {"trucks": out}
+
+
+@router.get("/truck-owner/{vehicle_no}/per-trip")
+async def truck_owner_per_trip(vehicle_no: str, kms_year: str = "", season: str = "", date_from: str = "", date_to: str = ""):
+    """Per-trip Bhada breakdown for a single truck owner with FIFO settlement.
+
+    Algorithm:
+      1. Fetch all VW entries for `vehicle_no` with `bhada > 0` (chronological).
+      2. Fetch all `cash_transactions` for this truck owner where:
+           account=ledger AND party_type=Truck AND category=vehicle_no AND txn_type=nikasi
+         (Both manual payments and any auto-generated NIKASI count as "paid").
+      3. FIFO-apply nikasi totals on jama trips → derive per-trip status:
+            - settled  : fully covered
+            - partial  : partially covered (paidAmt > 0, < bhada)
+            - pending  : zero coverage
+
+    Returns: { vehicle_no, trips:[...], summary: {...} }
+    """
+    vno = (vehicle_no or "").strip()
+    if not vno:
+        raise HTTPException(status_code=400, detail="vehicle_no required")
+
+    vw_q = {"vehicle_no": vno, "bhada": {"$gt": 0}}
+    if kms_year:
+        vw_q["kms_year"] = kms_year
+    if season:
+        vw_q["season"] = season
+    if date_from:
+        vw_q.setdefault("date", {})["$gte"] = date_from
+    if date_to:
+        vw_q.setdefault("date", {})["$lte"] = date_to
+
+    vws = await db.vehicle_weights.find(vw_q, {"_id": 0}).to_list(length=2000)
+    # Chronological asc for FIFO
+    vws.sort(key=lambda x: (x.get("date", ""), x.get("created_at", ""), x.get("rst_no", 0)))
+
+    nikasi_q = {
+        "account": "ledger",
+        "party_type": "Truck",
+        "category": vno,
+        "txn_type": "nikasi",
+    }
+    if kms_year:
+        nikasi_q["kms_year"] = kms_year
+    nikasis = await db.cash_transactions.find(nikasi_q, {"_id": 0}).to_list(length=5000)
+    nikasis.sort(key=lambda x: (x.get("date", ""), x.get("created_at", "")))
+    pool = sum(float(n.get("amount", 0) or 0) for n in nikasis)
+    total_paid_pool = pool  # Capture before pool gets exhausted
+
+    trips = []
+    for vw in vws:
+        bhada = float(vw.get("bhada", 0) or 0)
+        rst = vw.get("rst_no")
+        trans_type_lower = (vw.get("trans_type", "") or "").lower()
+        is_sale = ("sale" in trans_type_lower) or ("dispatch" in trans_type_lower)
+        is_purchase = ("purchase" in trans_type_lower) or ("receive" in trans_type_lower)
+        ttype = "sale" if is_sale else ("purchase" if is_purchase else "other")
+
+        if pool >= bhada:
+            paid = bhada
+            status = "settled"
+            pool -= bhada
+        elif pool > 0:
+            paid = pool
+            status = "partial"
+            pool = 0
+        else:
+            paid = 0.0
+            status = "pending"
+
+        trips.append({
+            "rst_no": rst,
+            "date": vw.get("date", ""),
+            "trans_type": ttype,
+            "trans_type_raw": vw.get("trans_type", ""),
+            "party_name": vw.get("party_name", ""),
+            "farmer_name": vw.get("farmer_name", ""),
+            "product": vw.get("product", ""),
+            "tot_pkts": vw.get("tot_pkts", 0),
+            "net_wt": vw.get("net_wt", 0),
+            "bhada": bhada,
+            "paid_amount": round(paid, 2),
+            "pending_amount": round(bhada - paid, 2),
+            "status": status,
+            "vw_id": vw.get("id"),
+        })
+    # Newest trips first for display
+    trips.sort(key=lambda x: (x.get("date") or "", x.get("rst_no") or 0), reverse=True)
+
+    total_bhada = sum(t["bhada"] for t in trips)
+    total_paid = sum(t["paid_amount"] for t in trips)
+    total_pending = round(total_bhada - total_paid, 2)
+    settled_count = sum(1 for t in trips if t["status"] == "settled")
+    partial_count = sum(1 for t in trips if t["status"] == "partial")
+    pending_count = sum(1 for t in trips if t["status"] == "pending")
+    sale_count = sum(1 for t in trips if t["trans_type"] == "sale")
+    purchase_count = sum(1 for t in trips if t["trans_type"] == "purchase")
+
+    # Driver name from any nikasi (description) or first VW entry
+    driver_name = ""
+    return {
+        "vehicle_no": vno,
+        "driver_name": driver_name,
+        "trips": trips,
+        "summary": {
+            "total_trips": len(trips),
+            "sale_count": sale_count,
+            "purchase_count": purchase_count,
+            "total_bhada": round(total_bhada, 2),
+            "total_paid": round(total_paid, 2),
+            "total_pending": total_pending,
+            "settled_count": settled_count,
+            "partial_count": partial_count,
+            "pending_count": pending_count,
+            "extra_paid_unallocated": round(max(0, total_paid_pool - total_bhada), 2),
+        },
+    }
+
+
+@router.post("/truck-owner/{vehicle_no}/settle/{rst_no}")
+async def truck_owner_settle_trip(vehicle_no: str, rst_no: int, data: dict):
+    """One-click settle a specific trip's bhada — auto-create NIKASI on truck owner.
+
+    Body: { amount?: number (defaults to pending), description?: string, date?: string, username?: string }
+    """
+    vno = (vehicle_no or "").strip()
+    if not vno or rst_no is None:
+        raise HTTPException(status_code=400, detail="vehicle_no and rst_no required")
+
+    vw = await db.vehicle_weights.find_one({"vehicle_no": vno, "rst_no": rst_no}, {"_id": 0})
+    if not vw:
+        raise HTTPException(status_code=404, detail="VW entry not found")
+    bhada = float(vw.get("bhada", 0) or 0)
+    if bhada <= 0:
+        raise HTTPException(status_code=400, detail="No bhada on this trip")
+
+    amount = float(data.get("amount") or bhada)
+    description = data.get("description") or f"Bhada Settle (RST #{rst_no} → {vw.get('farmer_name') or vw.get('party_name','')})"
+    date_str = data.get("date") or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    username = data.get("username") or "system"
+
+    now = datetime.now(timezone.utc).isoformat()
+    entry = {
+        "id": str(uuid.uuid4()),
+        "date": date_str,
+        "account": "ledger",
+        "txn_type": "nikasi",
+        "category": vno,
+        "party_type": "Truck",
+        "amount": amount,
+        "description": description,
+        "kms_year": vw.get("kms_year", ""),
+        "season": vw.get("season", "Kharif"),
+        "created_by": username,
+        "linked_entry_id": vw.get("id"),
+        "reference": f"truck_settle:{vno}:{rst_no}:{int(datetime.now().timestamp())}",
+        "created_at": now,
+    }
+    await db.cash_transactions.insert_one(entry)
+    return {"success": True, "settled_amount": amount, "rst_no": rst_no}
