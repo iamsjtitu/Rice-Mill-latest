@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Plus, Trash2, CreditCard, History, Printer, IndianRupee, Calendar, Truck, Edit, Send, Users } from "lucide-react";
 import { printHtml } from "@/components/PrintButton";
+import { buildSlipReceipt } from "../utils/slipReceipt";
 import { useConfirm } from "./ConfirmProvider";
 import { fmtDate } from "../utils/date";
 import { downloadFile } from "../utils/download";
@@ -126,107 +127,42 @@ export default function LeasedTruck({ filters }) {
   };
 
   const handlePrintReceipt = (lease, month, record) => {
-    const statusLabel = record.status === 'paid' ? 'PAID / भुगतान हो गया' : record.status === 'partial' ? 'PARTIAL / आंशिक भुगतान' : 'PENDING / बकाया';
-    const statusColor = record.status === 'paid' ? '#059669' : record.status === 'partial' ? '#d97706' : '#dc2626';
+    const statusLabel = record.status === 'paid' ? 'PAID' : record.status === 'partial' ? 'PARTIAL' : 'PENDING';
 
-    // Build payment history rows if available
-    const paymentsHtml = (record.payments || []).map(p => `
-      <tr>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${fmtDate(p.date) || '-'}</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; text-align: right; font-weight: bold; color: #059669;">Rs. ${fmtAmt(p.amount)}</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; text-transform: capitalize;">${p.account || 'cash'}${p.bank_name ? ' - ' + p.bank_name : ''}</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #64748b;">${p.notes || '-'}</td>
-      </tr>
-    `).join('');
+    const sections = [
+      { label: "Truck:", value: lease.truck_no, bold: true },
+      { label: "Owner:", value: lease.owner_name || '-' },
+      { label: "Month:", value: fmtMonth(month) },
+      { label: "Receipt:", value: new Date().toLocaleDateString('en-IN') },
+      ...(lease.start_date ? [null, { label: "Lease Start:", value: lease.start_date }] : []),
+      ...(lease.advance_deposit ? [{ label: "Advance:", value: `Rs. ${fmtAmt(lease.advance_deposit)}`, valColor: "#0891b2" }] : []),
+    ];
 
-    const hasPayments = (record.payments || []).length > 0;
+    // Append payment history rows
+    const payments = record.payments || [];
+    if (payments.length > 0) {
+      sections.push(null);
+      sections.push({ label: "Payment History:", value: `${payments.length} entr${payments.length === 1 ? 'y' : 'ies'}`, bold: true });
+      payments.forEach((p, i) => {
+        sections.push({ label: `  #${i + 1} ${fmtDate(p.date) || '-'}`, value: `Rs. ${fmtAmt(p.amount)}`, valColor: "#059669" });
+        const mode = (p.account || 'cash') + (p.bank_name ? ` - ${p.bank_name}` : '');
+        sections.push({ label: `  Mode:`, value: mode });
+        if (p.notes) sections.push({ label: `  Notes:`, value: String(p.notes).slice(0, 28) });
+      });
+    }
 
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lease Receipt - ${lease.truck_no}</title>
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background: #f5f5f5; }
-      .invoice { max-width: 700px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-      .header { text-align: center; border-bottom: 2px solid #f59e0b; padding-bottom: 15px; margin-bottom: 20px; }
-      .header h1 { color: #f59e0b; font-size: 26px; margin-bottom: 4px; }
-      .header p { color: #666; font-size: 13px; }
-      .receipt-title { text-align: center; background: #0891b2; color: white; padding: 10px; border-radius: 6px; margin-bottom: 20px; font-size: 16px; letter-spacing: 0.5px; }
-      .truck-info { background: #ecfeff; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
-      .truck-info h2 { color: #0e7490; font-size: 22px; margin-bottom: 4px; }
-      .truck-info p { color: #155e75; font-size: 13px; }
-      .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-      .detail-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; }
-      .detail-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-      .detail-value { font-size: 16px; font-weight: bold; color: #1e293b; }
-      table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-      th { background: #1e293b; color: white; padding: 10px 12px; text-align: left; font-size: 12px; }
-      .summary { background: #fef3c7; padding: 20px; border-radius: 8px; margin-top: 15px; }
-      .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #fbbf24; font-size: 14px; }
-      .summary-row:last-child { border-bottom: none; }
-      .summary-row.total { font-size: 20px; font-weight: bold; color: #1e293b; border-top: 2px solid #f59e0b; margin-top: 10px; padding-top: 12px; }
-      .signature-section { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; }
-      .signature-box { text-align: center; }
-      .signature-line { border-top: 1px solid #1e293b; margin-top: 50px; padding-top: 5px; font-size: 11px; color: #64748b; }
-      .print-note { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 20px; }
-      .status-badge { display: inline-block; padding: 4px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; color: white; background: ${statusColor}; }
-      @media print { @page { size: A4; margin: 10mm; } body { background: white; padding: 0; } .invoice { box-shadow: none; max-width: 100%; } .no-print { display: none; } }
-    </style></head>
-    <body>
-      <div class="invoice">
-        <div class="header">
-          <h1>Mill Entry System</h1>
-          <p>Data Management Software</p>
-        </div>
-        <div class="receipt-title">TRUCK LEASE PAYMENT RECEIPT / ट्रक लीज भुगतान रसीद</div>
-        <div class="truck-info">
-          <h2>${lease.truck_no}</h2>
-          <p>Owner: ${lease.owner_name || '-'} | Month: ${fmtMonth(month)} | Receipt Date: ${new Date().toLocaleDateString('en-IN')}</p>
-        </div>
+    const amounts = [
+      { label: "Monthly Rent:", value: `Rs. ${fmtAmt(record.rent)}` },
+      { label: "Total Paid:", value: `Rs. ${fmtAmt(record.paid)}`, color: "#059669" },
+      { label: "BALANCE", value: `Rs. ${fmtAmt(record.balance)}`, bold: true, color: record.balance > 0 ? "#dc2626" : "#059669" },
+    ];
 
-        <div class="details-grid">
-          <div class="detail-box">
-            <div class="detail-label">Monthly Rent / मासिक किराया</div>
-            <div class="detail-value">Rs. ${fmtAmt(record.rent)}</div>
-          </div>
-          <div class="detail-box">
-            <div class="detail-label">Status / स्थिति</div>
-            <div style="margin-top: 2px;"><span class="status-badge">${statusLabel}</span></div>
-          </div>
-          ${lease.start_date ? `<div class="detail-box"><div class="detail-label">Lease Start / लीज शुरू</div><div class="detail-value">${lease.start_date}</div></div>` : ''}
-          ${lease.advance_deposit ? `<div class="detail-box"><div class="detail-label">Advance Deposit / अग्रिम जमा</div><div class="detail-value" style="color:#0891b2;">Rs. ${fmtAmt(lease.advance_deposit)}</div></div>` : ''}
-        </div>
-
-        ${hasPayments ? `
-        <h3 style="font-size: 14px; color: #475569; margin-bottom: 10px;">Payment History / भुगतान विवरण</h3>
-        <table>
-          <thead><tr><th>Date / तारीख</th><th style="text-align:right;">Amount / राशि</th><th>Mode / माध्यम</th><th>Notes</th></tr></thead>
-          <tbody>${paymentsHtml}</tbody>
-        </table>` : ''}
-
-        <div class="summary">
-          <div class="summary-row">
-            <span>Monthly Rent / मासिक किराया</span>
-            <span>Rs. ${fmtAmt(record.rent)}</span>
-          </div>
-          <div class="summary-row total">
-            <span>Total Paid / कुल भुगतान</span>
-            <span style="color: #059669;">Rs. ${fmtAmt(record.paid)}</span>
-          </div>
-          <div class="summary-row" style="color: #dc2626; font-weight: bold;">
-            <span>Balance Due / बकाया राशि</span>
-            <span>Rs. ${fmtAmt(record.balance)}</span>
-          </div>
-        </div>
-
-        <div class="signature-section">
-          <div class="signature-box"><div class="signature-line">Truck Owner Signature / ट्रक मालिक हस्ताक्षर</div></div>
-          <div class="signature-box"><div class="signature-line">Authorized Signature / अधिकृत हस्ताक्षर</div></div>
-        </div>
-        <div class="print-note">This is a computer generated receipt / यह कंप्यूटर जनित रसीद है</div>
-      </div>
-      <div class="no-print" style="text-align: center; margin-top: 20px;">
-        <button onclick="window.print()" style="background: #0891b2; color: white; border: none; padding: 12px 30px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;">Print Receipt</button>
-      </div>
-    </body></html>`;
+    const html = buildSlipReceipt({
+      brand: { company_name: 'Mill Entry System', tagline: 'Data Management Software' },
+      title: "TRUCK LEASE",
+      subtitle: "ट्रक लीज भुगतान रसीद",
+      sections, amounts, statusLabel,
+    });
     printHtml(html, `Lease Receipt - ${lease.truck_no} - ${month}`);
   };
 
