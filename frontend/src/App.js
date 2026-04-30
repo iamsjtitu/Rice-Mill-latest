@@ -48,8 +48,6 @@ const FYSummaryDashboard = lazy(() => import("@/components/FYSummaryDashboard"))
 const BalanceSheet = lazy(() => import("@/components/BalanceSheet"));
 const Vouchers = lazy(() => import("@/components/Vouchers"));
 const StockRegister = lazy(() => import("@/components/StockRegister"));
-// DEMO: Truck Owner Per-Trip Breakdown — visual prototype, opens via #truck-trip-demo URL hash
-const TruckOwnerPerTripDemo = lazy(() => import("@/components/TruckOwnerPerTripDemo"));
 const HemaliPayment = lazy(() => import("@/components/HemaliPayment"));
 const GovtRegisters = lazy(() => import("@/components/GovtRegisters"));
 const Settings = lazy(() => import("@/components/Settings"));
@@ -149,15 +147,6 @@ function MainApp({ user, setUser, onLogout }) {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("entries");
   const [entriesSubTab, setEntriesSubTab] = useState("mill-entries");
-  // Truck-Trip Demo overlay (visual preview only) — opens via #truck-trip-demo URL hash
-  const [showTruckTripDemo, setShowTruckTripDemo] = useState(
-    typeof window !== "undefined" && window.location.hash === "#truck-trip-demo"
-  );
-  useEffect(() => {
-    const onHash = () => setShowTruckTripDemo(window.location.hash === "#truck-trip-demo");
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
-  }, []);
 
   // Use extracted filter hook
   const {
@@ -1118,29 +1107,6 @@ function MainApp({ user, setUser, onLogout }) {
 
       {/* Auto Update Notification */}
       <AutoUpdate />
-
-      {/* Floating Demo CTA — visible only when demo NOT open. Click opens preview. */}
-      {!showTruckTripDemo && (
-        <button
-          type="button"
-          onClick={() => { window.location.hash = "#truck-trip-demo"; setShowTruckTripDemo(true); }}
-          className="fixed bottom-5 right-5 z-[150] group flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full shadow-2xl shadow-amber-900/50 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white text-xs font-bold hover:scale-105 transition-transform duration-150 ring-2 ring-amber-300/40 hover:ring-amber-200/70 animate-[pulse_3s_ease-in-out_infinite]"
-          data-testid="truck-demo-cta-fab"
-          title="Try the new Truck Owner Per-Trip Breakdown — Preview / Demo"
-        >
-          <span className="text-base leading-none">🛻</span>
-          <span className="hidden sm:inline">Truck Per-Trip <span className="opacity-80 font-normal ml-1">(New · Preview)</span></span>
-          <span className="sm:hidden">New: Truck</span>
-          <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] bg-white/25 group-hover:bg-white/40 backdrop-blur-sm uppercase tracking-wide">Beta</span>
-        </button>
-      )}
-
-      {/* Truck-Trip Demo Overlay (visual preview, opens via #truck-trip-demo) */}
-      {showTruckTripDemo && (
-        <Suspense fallback={<LazyFallback />}>
-          <TruckOwnerPerTripDemo onClose={() => { window.location.hash = ""; setShowTruckTripDemo(false); }} />
-        </Suspense>
-      )}
 
       {/* Entries Group Send Dialog */}
       <SendToGroupDialog open={entryGroupDialogOpen} onOpenChange={setEntryGroupDialogOpen} text={entryGroupText} pdfUrl={entryGroupPdfUrl} />

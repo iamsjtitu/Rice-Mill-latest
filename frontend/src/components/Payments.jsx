@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from "react";
 import axios from "axios";
 import { fmtDate } from "@/utils/date";
 import { toast } from "sonner";
@@ -39,6 +39,9 @@ const _isElectronEnv = typeof window !== 'undefined' && (window.electronAPI || w
 
 import { safePrintHTML } from "../utils/print";
 import logger from "../utils/logger";
+
+// 🛻 Per-Trip Bhada panel (lazy-loaded)
+const TruckOwnerPerTripPanel = lazy(() => import("./TruckOwnerPerTripPanel"));
 
 export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsumed }) => {
   const showConfirm = useConfirm();
@@ -940,6 +943,20 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
           Truck Owner ({consolidatedTruckList.length})
         </Button>
         <Button
+          onClick={() => setActivePaymentTab("pertrip-bhada")}
+          variant={activePaymentTab === "pertrip-bhada" ? "default" : "ghost"}
+          size="sm"
+          className={activePaymentTab === "pertrip-bhada"
+            ? "bg-gradient-to-r from-amber-500 to-rose-500 text-white"
+            : "text-amber-300 hover:bg-amber-900/30 border border-amber-700/40"}
+          data-testid="tab-pertrip-bhada"
+          title="Truck-wise Bhada (Lump-sum) per-trip breakdown — Sale + Purchase, FIFO settlement"
+        >
+          <Truck className="w-4 h-4 mr-1" />
+          Per-Trip Bhada
+          <span className="ml-1 px-1 py-0 rounded text-[8px] bg-white/25 uppercase tracking-wide">Beta</span>
+        </Button>
+        <Button
           onClick={() => setActivePaymentTab("agent")}
           variant={activePaymentTab === "agent" ? "default" : "ghost"}
           size="sm"
@@ -1420,6 +1437,13 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* 🛻 Per-Trip Bhada (live preview, integrated) */}
+      {activePaymentTab === "pertrip-bhada" && (
+        <Suspense fallback={<div className="text-center py-12 text-slate-400">Loading per-trip view...</div>}>
+          <TruckOwnerPerTripPanel filters={filters} user={user} />
+        </Suspense>
       )}
 
       {/* Agent Payments Table */}
