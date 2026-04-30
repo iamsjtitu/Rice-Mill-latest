@@ -1,6 +1,50 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.41.2
+## Current Version: v104.44.2
+
+## 🚛 v104.44.2 — Sale Truck Lumpsum Bhada (Triple-Backend Parity)
+**Build date:** 2026-04-30
+
+### Feature
+For Sale dispatches in Vehicle Weight, replaced separate "Cash Paid" + "Diesel Paid" fields with a single **"Bhada (Lumpsum) ₹"** field. The amount automatically creates a JAMA (CR) ledger entry under the truck owner — mill owes the lump-sum freight.
+
+### Implementation Surface
+- **Schema:** `vehicle_weight` records now carry a `bhada` (float) field. Persists across 1st-weight create, 2nd-weight capture, and admin edits.
+- **Auto-Ledger:** New helper `_sync_sale_bhada_ledger` (Python) / `syncSaleBhadaLedger` (Node) maintains an idempotent `cash_transactions` row:
+  - `account=ledger, party_type=Truck, category=<vehicle_no>, txn_type=jama`
+  - `reference=vw_sale_bhada:{rst_no}` → unique → update on edit, delete on bhada=0 / vehicle removed / DELETE entry.
+- **Triggers:** POST `/vehicle-weight`, PUT `/{id}/second-weight`, PUT `/{id}/edit`, DELETE `/{id}` all sync the helper. DELETE additionally cascade-removes the linked `cash_transactions` row.
+- **Sale Excel/PDF Exports:** `trans_type=sale` exports use 11-col layout (Excel) / 12-col layout (PDF):
+  - Sale columns: RST | Date | Vehicle | Party | Destination | Product | Bags | Bag Type | Net Wt | **Bhada** | Remark
+  - Summary banner: 4 stats (Total Entries, Total Bags, Net Wt, **Total Bhada**)
+
+### Triple-Backend Parity (Critical)
+Pichli session me sirf Python backend update hua tha. Yeh fix Node.js backends ko ab Python ke saath sync me laata hai:
+- ✅ Python: `/app/backend/routes/vehicle_weight.py` (already done last session)
+- ✅ Node Desktop: `/app/desktop-app/routes/vehicle_weight.js` (added in v104.44.2)
+- ✅ Node LAN: `/app/local-server/routes/vehicle_weight.js` (added in v104.44.2)
+
+### Verification (curl + node test harness)
+**Python (curl against preview URL):**
+- POST Sale entry with `bhada=4000` → auto-jama `cash_transactions` row created with `category=<vehicle_no>, party_type=Truck, txn_type=jama, amount=4000` ✓
+- Edit bhada=5500 → ledger amount updated ✓
+- Edit bhada=0 → ledger auto-deleted ✓
+- DELETE entry → cascade-removed ledger ✓
+- Sale Excel export header includes "Bhada" not "Cash"/"Diesel" ✓
+- Sale PDF export shows "Bhada" column + "TOTAL BHADA" banner ✓
+
+**Node desktop-app + local-server (in-process express harness):**
+- All 4 lifecycle scenarios (create, edit, bhada=0, DELETE) validated identically to Python ✓
+
+### Files Updated
+- `/app/desktop-app/routes/vehicle_weight.js` (helper + 4 handlers + Excel + PDF Sale layout)
+- `/app/local-server/routes/vehicle_weight.js` (same as above)
+- `/app/desktop-app/package.json` → `104.44.2`
+- `/app/local-server/package.json` → `104.44.2`
+- `/app/frontend/src/utils/constants-version.js` → `104.44.2`
+- `/app/frontend/src/components/WhatsNew.jsx` (top entry)
+
+---
 
 ## 🚨 v104.41.2 — Owner Expense Payment Ledger Fix (Titu's JAMA)
 **Build date:** 2026-02-16

@@ -7,6 +7,19 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.2",
+    date: "Feb 16, 2026",
+    title: "v104.44.2 — 🚛 Sale Truck Lumpsum Bhada (Triple-Backend Parity)",
+    items: [
+      { type: "feature", text: "🚛 **Sale Truck Lumpsum Bhada (Freight)** — Vehicle Weight ke 'Dispatch (Sale)' entries me ab single **'Bhada (Lumpsum) ₹'** field hai (purane Cash/Diesel separate fields ki jagah). Mill ne truck owner ko fix lump-sum freight dena hota hai (e.g. ₹4,000) — yahi amount automatically truck-owner ke ledger me **JAMA (CR)** create karta hai." },
+      { type: "feature", text: "📒 **Auto Truck Owner Ledger Sync** — `cash_transactions` me auto-entry: `account=ledger, party_type=Truck, category=<vehicle_no>, txn_type=jama` with reference `vw_sale_bhada:{rst_no}`. Idempotent — edit pe update, bhada=0 ya delete pe auto-cleanup." },
+      { type: "fix", text: "🔄 **Triple-Backend Parity Fixed** — Pichli session me sirf Python backend (`vehicle_weight.py`) update hua tha. Ab Node.js backends (`desktop-app/routes/vehicle_weight.js` + `local-server/routes/vehicle_weight.js`) bhi sync hain — ye production desktop app aur LAN server me Bhada feature ko complete karta hai." },
+      { type: "fix", text: "📑 **Sale Excel/PDF: Bhada Column** — Sale-mode exports me ab 'Cash' aur 'Diesel' columns ki jagah ek **'Bhada'** column hai (Python + Node teeno me). Summary banner me `Total Bhada` orange tile dikhata hai. Purchase view unchanged." },
+      { type: "fix", text: "🗑️ **DELETE Cascade** — Vehicle Weight entry delete karne par associated `vw_sale_bhada:{rst_no}` ledger entry bhi auto-remove hoti hai (no orphan records)." },
+      { type: "improvement", text: "✅ Synced across all 3 backends (Python FastAPI + Electron Desktop + LAN Express). Node syntax + lint clean." },
+    ],
+  },
+  {
     version: "104.44.1",
     date: "Feb 16, 2026",
     title: "v104.44.1 — 🔄 Auto-sync Sale/Purchase Toggle + Sale Excel/PDF Columns",

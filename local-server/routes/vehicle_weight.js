@@ -942,6 +942,46 @@ module.exports = function(database) {
     }
   }
 
+  function syncSaleBhadaLedger(vwEntry, username) {
+    const rstNo = vwEntry.rst_no;
+    if (rstNo == null) return;
+    const ref = `vw_sale_bhada:${rstNo}`;
+    const isSale = _isVwSale(vwEntry.trans_type);
+    const vehicleNo = (vwEntry.vehicle_no || '').trim();
+    const bhada = parseFloat(vwEntry.bhada || 0) || 0;
+    const ct = col('cash_transactions');
+
+    if (!(isSale && vehicleNo && bhada > 0)) {
+      for (let i = ct.length - 1; i >= 0; i--) {
+        if (ct[i].reference === ref) ct.splice(i, 1);
+      }
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const fields = {
+      date: vwEntry.date || '',
+      account: 'ledger',
+      txn_type: 'jama',
+      category: vehicleNo,
+      party_type: 'Truck',
+      amount: bhada,
+      description: `Sale Bhada (RST #${rstNo}) → ${vwEntry.farmer_name || vwEntry.party_name || ''}`,
+      kms_year: vwEntry.kms_year || '',
+      season: vwEntry.season || 'Kharif',
+      created_by: username || 'system',
+      linked_entry_id: vwEntry.id,
+      reference: ref,
+      updated_at: now,
+    };
+    const idx = ct.findIndex(t => t.reference === ref);
+    if (idx >= 0) {
+      ct[idx] = { ...ct[idx], ...fields };
+    } else {
+      ct.push({ id: uuidv4(), created_at: now, ...fields });
+    }
+  }
+
   router.post('/api/vehicle-weight', safeAsync(async (req, res) => {
     const data = req.body;
     const kmsYear = data.kms_year || '';
@@ -999,6 +1039,7 @@ module.exports = function(database) {
       remark: data.remark || '',
       cash_paid: parseFloat(data.cash_paid || 0) || 0,
       diesel_paid: parseFloat(data.diesel_paid || 0) || 0,
+      bhada: parseFloat(data.bhada || 0) || 0,
       status: 'pending',
       created_at: new Date().toISOString()
     };
@@ -1009,6 +1050,7 @@ module.exports = function(database) {
 
     col('vehicle_weights').push(entry);
     syncSaleBagOut(entry, req.body.username);
+    syncSaleBhadaLedger(entry, req.body.username);
     database.save();
     res.json({ success: true, entry, message: `RST #${rstNo} - First weight saved!` });
   }));
@@ -1046,6 +1088,7 @@ module.exports = function(database) {
 
     if ('cash_paid' in req.body) entry.cash_paid = parseFloat(req.body.cash_paid || 0) || 0;
     if ('diesel_paid' in req.body) entry.diesel_paid = parseFloat(req.body.diesel_paid || 0) || 0;
+    if ('bhada' in req.body) entry.bhada = parseFloat(req.body.bhada || 0) || 0;
     if ('g_issued' in req.body) entry.g_issued = parseFloat(req.body.g_issued || 0) || 0;
     if ('tp_no' in req.body) {
       const newTp = (req.body.tp_no || '').trim();
@@ -1059,6 +1102,7 @@ module.exports = function(database) {
     if ('tot_pkts' in req.body) entry.tot_pkts = parseInt(req.body.tot_pkts || 0) || 0;
 
     syncSaleBagOut(entry, req.body.username);
+    syncSaleBhadaLedger(entry, req.body.username);
     database.save();
     res.json({ success: true, entry, message: `RST #${entry.rst_no} - Net Wt: ${netWt} KG` });
   }));
@@ -1093,11 +1137,14 @@ module.exports = function(database) {
     }
 
     weights.splice(idx, 1);
-    // Cascade: also remove linked sale-bag-out entry
+    // Cascade: also remove linked sale-bag-out + sale-bhada-ledger entries
     if (rstNo !== undefined && rstNo !== null) {
       const gb2 = col('gunny_bags');
-      const ref = `vw_sale_bag:${rstNo}`;
-      for (let i = gb2.length - 1; i >= 0; i--) { if (gb2[i].reference === ref) gb2.splice(i, 1); }
+      const bagRef = `vw_sale_bag:${rstNo}`;
+      for (let i = gb2.length - 1; i >= 0; i--) { if (gb2[i].reference === bagRef) gb2.splice(i, 1); }
+      const ct2 = col('cash_transactions');
+      const bhadaRef = `vw_sale_bhada:${rstNo}`;
+      for (let i = ct2.length - 1; i >= 0; i--) { if (ct2[i].reference === bhadaRef) ct2.splice(i, 1); }
     }
     database.save();
     let msg = 'Entry deleted';
@@ -1111,10 +1158,10 @@ module.exports = function(database) {
     const entry = weights.find(w => w.id === req.params.entry_id);
     if (!entry) return res.status(404).json({ detail: 'Entry not found' });
 
-    const editable = ['vehicle_no', 'party_name', 'farmer_name', 'product', 'tot_pkts', 'bag_type', 'cash_paid', 'diesel_paid', 'g_issued', 'tp_no', 'tp_weight', 'remark'];
+    const editable = ['vehicle_no', 'party_name', 'farmer_name', 'product', 'tot_pkts', 'bag_type', 'cash_paid', 'diesel_paid', 'bhada', 'g_issued', 'tp_no', 'tp_weight', 'remark'];
     for (const f of editable) {
       if (f in req.body) {
-        if (f === 'cash_paid' || f === 'diesel_paid' || f === 'tp_weight') {
+        if (f === 'cash_paid' || f === 'diesel_paid' || f === 'bhada' || f === 'tp_weight') {
           entry[f] = parseFloat(req.body[f] || 0) || 0;
         } else if (f === 'tp_no') {
           const newTp = (req.body[f] || '').trim();
@@ -1146,6 +1193,7 @@ module.exports = function(database) {
     }
 
     syncSaleBagOut(entry, req.query.username);
+    syncSaleBhadaLedger(entry, req.query.username);
     database.save();
     res.json({ success: true, entry });
   }));
@@ -1420,36 +1468,37 @@ module.exports = function(database) {
     const isSale = String(req.query.trans_type || '').toLowerCase().trim() === 'sale';
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet(isSale ? 'Vehicle Weight - Sale' : 'Vehicle Weight');
-    const nCols = isSale ? 12 : 15;
+    const nCols = isSale ? 11 : 15;
+    const lastCol = isSale ? 'K' : 'O';
     let cr = 1;
     if (abParts.length > 0) {
-      ws.mergeCells(`A${cr}:${isSale ? 'L' : 'O'}${cr}`);
+      ws.mergeCells(`A${cr}:${lastCol}${cr}`);
       ws.getCell(`A${cr}`).value = abParts.join('  |  ');
       ws.getCell(`A${cr}`).font = { name: 'Inter', bold: true, size: 10, color: { argb: '8B0000' } };
       ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
       cr++;
     }
-    ws.mergeCells(`A${cr}:${isSale ? 'L' : 'O'}${cr}`);
+    ws.mergeCells(`A${cr}:${lastCol}${cr}`);
     ws.getCell(`A${cr}`).value = `${company} - ${isSale ? 'Vehicle Weight - Sale / बिक्री' : 'Vehicle Weight / तौल पर्ची'}`;
     ws.getCell(`A${cr}`).font = { name: 'Inter', bold: true, size: 14, color: { argb: '1a1a2e' } };
     ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
     cr++;
     const belowAll = [tagline, ...blParts].filter(Boolean);
     if (belowAll.length > 0) {
-      ws.mergeCells(`A${cr}:${isSale ? 'L' : 'O'}${cr}`);
+      ws.mergeCells(`A${cr}:${lastCol}${cr}`);
       ws.getCell(`A${cr}`).value = belowAll.join('  |  ');
       ws.getCell(`A${cr}`).font = { name: 'Inter', size: 9, italic: true, color: { argb: '555555' } };
       ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
       cr++;
     }
-    ws.mergeCells(`A${cr}:${isSale ? 'L' : 'O'}${cr}`);
+    ws.mergeCells(`A${cr}:${lastCol}${cr}`);
     ws.getCell(`A${cr}`).value = `Date: ${fmtDate(req.query.date_from) || 'All'} to ${fmtDate(req.query.date_to) || 'All'} | Total: ${items.length}`;
     ws.getCell(`A${cr}`).font = { name: 'Inter', size: 9, color: { argb: '666666' } };
     ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
     cr++;
 
     const headers = isSale
-      ? ['RST', 'Date', 'Vehicle', 'Party', 'Destination', 'Product', 'Bags', 'Bag Type', 'Net Wt (KG)', 'Cash', 'Diesel', 'Remark']
+      ? ['RST', 'Date', 'Vehicle', 'Party', 'Destination', 'Product', 'Bags', 'Bag Type', 'Net Wt (KG)', 'Bhada', 'Remark']
       : ['RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Trans Type', 'Bags', '1st Wt (KG)', '2nd Wt (KG)', 'Net Wt (KG)', 'TP Wt (Q)', 'G.Issued', 'Cash', 'Diesel'];
     const hdrRowNum = cr + 1;
     const hdrRow = ws.getRow(hdrRowNum);
@@ -1465,13 +1514,13 @@ module.exports = function(database) {
     items.forEach((e, idx) => {
       const row = ws.getRow(hdrRowNum + 1 + idx);
       const vals = isSale
-        ? [e.rst_no, fmtDate(e.date), e.vehicle_no, e.party_name, e.farmer_name, e.product, e.tot_pkts, e.bag_type || '', e.net_wt || 0, e.cash_paid || 0, e.diesel_paid || 0, e.remark || '']
+        ? [e.rst_no, fmtDate(e.date), e.vehicle_no, e.party_name, e.farmer_name, e.product, e.tot_pkts, e.bag_type || '', e.net_wt || 0, parseFloat(e.bhada || 0) || 0, e.remark || '']
         : [e.rst_no, fmtDate(e.date), e.vehicle_no, e.party_name, e.farmer_name, e.product, e.trans_type, e.tot_pkts, e.first_wt || 0, e.second_wt || 0, e.net_wt || 0, parseFloat(e.tp_weight || 0) || 0, e.g_issued || 0, e.cash_paid || 0, e.diesel_paid || 0];
       vals.forEach((v, i) => {
         const cell = row.getCell(i + 1);
         cell.value = v;
         cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
-        if (isSale ? (i === 6 || i >= 8) : (i >= 8)) cell.alignment = { horizontal: 'right' };
+        if (isSale ? (i === 6 || i === 8 || i === 9) : (i >= 8)) cell.alignment = { horizontal: 'right' };
       });
     });
 
@@ -1486,8 +1535,9 @@ module.exports = function(database) {
       const totGIss = items.reduce((s, e) => s + (Number(e.g_issued) || 0), 0);
       const totCash = items.reduce((s, e) => s + (Number(e.cash_paid) || 0), 0);
       const totDiesel = items.reduce((s, e) => s + (Number(e.diesel_paid) || 0), 0);
+      const totBhada = items.reduce((s, e) => s + (parseFloat(e.bhada) || 0), 0);
       const totVals = isSale
-        ? ['', '', '', '', '', 'TOTAL:', totBags, '', totNet, totCash, totDiesel, '']
+        ? ['', '', '', '', '', 'TOTAL:', totBags, '', totNet, totBhada, '']
         : ['', '', '', '', '', '', 'TOTAL:', totBags, tot1st, tot2nd, totNet, totTp, totGIss, totCash, totDiesel];
       const rightFrom = isSale ? 6 : 7;
       totVals.forEach((v, i) => {
@@ -1509,14 +1559,14 @@ module.exports = function(database) {
       const totNet2 = items.reduce((s, e) => s + (Number(e.net_wt) || 0), 0);
       const totCash2 = items.reduce((s, e) => s + (Number(e.cash_paid) || 0), 0);
       const totDiesel2 = items.reduce((s, e) => s + (Number(e.diesel_paid) || 0), 0);
+      const totBhada2 = items.reduce((s, e) => s + (parseFloat(e.bhada) || 0), 0);
       const lastRow = ws.lastRow ? ws.lastRow.number : 5;
       const stats = isSale
         ? [
             { lbl: 'Total Entries', val: String(items.length) },
             { lbl: 'Total Bags', val: totBags2.toLocaleString() },
             { lbl: 'Net Wt', val: `${totNet2.toLocaleString()} KG` },
-            { lbl: 'Cash Paid', val: fmtI(totCash2) },
-            { lbl: 'Diesel', val: fmtI(totDiesel2) },
+            { lbl: 'Total Bhada', val: fmtI(totBhada2) },
           ]
         : [
             { lbl: 'Total Entries', val: String(items.length) },
@@ -1606,13 +1656,13 @@ module.exports = function(database) {
 
     // ── Table ──
     const headers = isSale
-      ? ['#', 'RST', 'Date', 'Vehicle', 'Party', 'Destination', 'Product', 'Bags', 'Bag Type', 'Net Wt', 'Cash', 'Diesel', 'Remark']
+      ? ['#', 'RST', 'Date', 'Vehicle', 'Party', 'Destination', 'Product', 'Bags', 'Bag Type', 'Net Wt', 'Bhada', 'Remark']
       : ['#', 'RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Bags', '1st Wt', '2nd Wt', 'Net Wt', 'TP Wt', 'G.Iss', 'Cash', 'Diesel'];
     const colW = isSale
-      ? [22, 36, 55, 62, 72, 70, 60, 32, 60, 52, 50, 50, 121]
+      ? [22, 36, 55, 62, 72, 70, 60, 32, 60, 52, 60, 161]
       : [22, 36, 55, 62, 68, 64, 55, 32, 52, 52, 52, 36, 36, 46, 46];
     const rightAlign = isSale
-      ? [false, true, false, false, false, false, false, true, false, true, true, true, false]
+      ? [false, true, false, false, false, false, false, true, false, true, true, false]
       : [false, true, false, false, false, false, false, true, true, true, true, true, true, true, true];
 
     const drawTableHeader = (yPos) => {
@@ -1621,9 +1671,9 @@ module.exports = function(database) {
         doc.rect(LM, yPos, infoW, 15).fill('#1a237e');
         const wtW = colW[9];
         doc.rect(LM + infoW, yPos, wtW, 15).fill('#004d40');
-        const monW = colW[10] + colW[11];
+        const monW = colW[10];
         doc.rect(LM + infoW + wtW, yPos, monW, 15).fill('#e65100');
-        doc.rect(LM + infoW + wtW + monW, yPos, colW[12], 15).fill('#1a237e');
+        doc.rect(LM + infoW + wtW + monW, yPos, colW[11], 15).fill('#1a237e');
       } else {
         const infoW = colW.slice(0, 8).reduce((s,w) => s+w, 0);
         doc.rect(LM, yPos, infoW, 15).fill('#1a237e');
@@ -1645,7 +1695,7 @@ module.exports = function(database) {
     y = drawTableHeader(y);
 
     // Totals accumulators
-    let totBags = 0, tot1st = 0, tot2nd = 0, totNet = 0, totTp = 0, totGiss = 0, totCash = 0, totDiesel = 0;
+    let totBags = 0, tot1st = 0, tot2nd = 0, totNet = 0, totTp = 0, totGiss = 0, totCash = 0, totDiesel = 0, totBhada = 0;
     let lastDate = '';
 
     // Data rows
@@ -1682,8 +1732,9 @@ module.exports = function(database) {
       const gIss = Number(e.g_issued || 0);
       const cash = Number(e.cash_paid || 0);
       const diesel = Number(e.diesel_paid || 0);
+      const bhada = parseFloat(e.bhada || 0) || 0;
 
-      totBags += bags; tot1st += first; tot2nd += second; totNet += net; totTp += tpWt; totGiss += gIss; totCash += cash; totDiesel += diesel;
+      totBags += bags; tot1st += first; tot2nd += second; totNet += net; totTp += tpWt; totGiss += gIss; totCash += cash; totDiesel += diesel; totBhada += bhada;
 
       x = LM + 2;
       const vals = isSale
@@ -1691,7 +1742,7 @@ module.exports = function(database) {
             idx + 1, e.rst_no, fmtDate(e.date), e.vehicle_no, e.party_name, e.farmer_name || '-', e.product, bags || '-',
             e.bag_type || '-',
             net ? net.toLocaleString() : '-',
-            cash ? cash.toLocaleString() : '-', diesel ? diesel.toLocaleString() : '-',
+            bhada ? bhada.toLocaleString() : '-',
             (e.remark || '').slice(0, 40),
           ]
         : [
@@ -1707,8 +1758,7 @@ module.exports = function(database) {
           else if (i === 1) { doc.font(efb).fillColor('#1a237e'); }
           else if (i === 2) { doc.font(efn).fillColor('#37474f'); }
           else if (i === 9 && net > 0) { doc.font(efb).fillColor('#1b5e20'); }
-          else if (i === 10 && cash > 0) { doc.font(efb).fillColor('#2e7d32'); }
-          else if (i === 11 && diesel > 0) { doc.font(efb).fillColor('#e65100'); }
+          else if (i === 10 && bhada > 0) { doc.font(efb).fillColor('#e65100'); }
           else { doc.font(efn).fillColor('#212121'); }
         } else {
           if (i === 0) { doc.font(efn).fillColor('#78909c'); }
@@ -1739,12 +1789,17 @@ module.exports = function(database) {
     doc.rect(LM, y, 4, 16).fill('#2e7d32');
     doc.fontSize(8).font(efb).fillColor('#1b5e20');
     x = LM + 2;
-    const totVals = ['', '', '', '', '', '', 'TOTAL:', totBags.toLocaleString(),
-      tot1st.toLocaleString(), tot2nd.toLocaleString(), totNet.toLocaleString(),
-      totTp > 0 ? totTp.toFixed(1) : '-', totGiss > 0 ? totGiss.toLocaleString() : '-',
-      totCash ? totCash.toLocaleString() : '-', totDiesel ? totDiesel.toLocaleString() : '-'];
+    const totVals = isSale
+      ? ['', '', '', '', '', 'TOTAL:', '', totBags.toLocaleString(), '',
+         totNet.toLocaleString(),
+         totBhada ? totBhada.toLocaleString() : '-', '']
+      : ['', '', '', '', '', '', 'TOTAL:', totBags.toLocaleString(),
+         tot1st.toLocaleString(), tot2nd.toLocaleString(), totNet.toLocaleString(),
+         totTp > 0 ? totTp.toFixed(1) : '-', totGiss > 0 ? totGiss.toLocaleString() : '-',
+         totCash ? totCash.toLocaleString() : '-', totDiesel ? totDiesel.toLocaleString() : '-'];
+    const totalLabelIdx = isSale ? 5 : 6;
     totVals.forEach((v, i) => {
-      doc.text(String(v), x, y + 4, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : (i === 6 ? 'right' : 'left') });
+      doc.text(String(v), x, y + 4, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : (i === totalLabelIdx ? 'right' : 'left') });
       x += colW[i];
     });
     doc.lineWidth(1).strokeColor('#2e7d32').moveTo(LM, y + 16).lineTo(LM + TW, y + 16).stroke();
@@ -1758,8 +1813,7 @@ module.exports = function(database) {
         { lbl: 'TOTAL ENTRIES', val: String(items.length), color: SC.primary },
         { lbl: 'TOTAL BAGS', val: totBags.toLocaleString(), color: SC.blue },
         { lbl: 'NET WT', val: totNet.toLocaleString(), color: SC.emerald },
-        { lbl: 'CASH PAID', val: fmtI(totCash), color: SC.green },
-        { lbl: 'DIESEL', val: fmtI(totDiesel), color: SC.orange },
+        { lbl: 'TOTAL BHADA', val: fmtI(totBhada), color: SC.orange },
       ] : [
         { lbl: 'TOTAL ENTRIES', val: String(items.length), color: SC.primary },
         { lbl: 'TOTAL BAGS', val: totBags.toLocaleString(), color: SC.blue },
