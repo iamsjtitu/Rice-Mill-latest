@@ -947,14 +947,13 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
           variant={activePaymentTab === "pertrip-bhada" ? "default" : "ghost"}
           size="sm"
           className={activePaymentTab === "pertrip-bhada"
-            ? "bg-gradient-to-r from-amber-500 to-rose-500 text-white"
-            : "text-amber-300 hover:bg-amber-900/30 border border-amber-700/40"}
+            ? "bg-amber-500 hover:bg-amber-600 text-slate-900"
+            : "text-slate-300 hover:bg-slate-700"}
           data-testid="tab-pertrip-bhada"
           title="Truck-wise Bhada (Lump-sum) per-trip breakdown — Sale + Purchase, FIFO settlement"
         >
           <Truck className="w-4 h-4 mr-1" />
           Per-Trip Bhada
-          <span className="ml-1 px-1 py-0 rounded text-[8px] bg-white/25 uppercase tracking-wide">Beta</span>
         </Button>
         <Button
           onClick={() => setActivePaymentTab("agent")}

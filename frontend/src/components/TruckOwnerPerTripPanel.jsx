@@ -1,6 +1,5 @@
-// 🛻 Truck Owner Per-Trip Bhada Panel — embedded inside Payments tab.
-// Real backend driven, FIFO settlement, one-click Pay.
-// Hits /api/truck-owner endpoints.
+// 🛻 Truck Owner Per-Trip Bhada Panel — restyled to match existing app theme.
+// Brighter accents (cyan/amber/emerald/rose), larger text, solid status pills.
 
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
@@ -13,7 +12,6 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Truck, Calendar, TrendingUp, CheckCircle2, AlertTriangle,
   Download, FileText, MessageCircle, IndianRupee, Eye, Loader2, RefreshCw,
@@ -22,26 +20,36 @@ import {
 const _isElectron = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
 const API = `${_isElectron ? "" : (process.env.REACT_APP_BACKEND_URL || "")}/api`;
 
-const StatTile = ({ icon: Icon, label, value, subtext, color }) => (
-  <div className={`relative overflow-hidden rounded-lg border p-3 ${color}`}>
-    <div className="flex items-start justify-between">
-      <div>
-        <p className="text-[10px] uppercase tracking-wider opacity-75 font-medium">{label}</p>
-        <p className="text-2xl font-bold mt-1">{value}</p>
-        {subtext && <p className="text-[10px] opacity-70 mt-1">{subtext}</p>}
-      </div>
-      <Icon className="w-7 h-7 opacity-30" />
-    </div>
-  </div>
-);
-
-const fmtINR = (n) => `Rs.${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+const fmtINR = (n) => `₹${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 const fmtDateShort = (s) => {
   if (!s) return "—";
   try {
     const [y, m, d] = s.split("-");
     return `${d}-${["", "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(m)] || m}-${y}`;
   } catch { return s; }
+};
+
+// Bright KPI tile matching app's accent style
+const StatTile = ({ icon: Icon, label, value, subtext, accent }) => {
+  const accents = {
+    slate:   "from-slate-700/60 to-slate-800/60 border-slate-600 text-slate-100",
+    amber:   "from-amber-700/30 to-amber-900/30 border-amber-600 text-amber-100",
+    emerald: "from-emerald-700/30 to-emerald-900/30 border-emerald-600 text-emerald-100",
+    rose:    "from-rose-700/30 to-rose-900/30 border-rose-600 text-rose-100",
+  };
+  const iconAccent = { slate: "text-slate-400", amber: "text-amber-400", emerald: "text-emerald-400", rose: "text-rose-400" };
+  return (
+    <div className={`relative overflow-hidden rounded-lg border bg-gradient-to-br p-4 ${accents[accent] || accents.slate}`}>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-wider opacity-80 font-medium">{label}</p>
+          <p className="text-2xl font-bold mt-1.5">{value}</p>
+          {subtext && <p className="text-[11px] opacity-75 mt-1">{subtext}</p>}
+        </div>
+        <Icon className={`w-9 h-9 ${iconAccent[accent] || iconAccent.slate} opacity-60`} />
+      </div>
+    </div>
+  );
 };
 
 export default function TruckOwnerPerTripPanel({ filters, user }) {
@@ -54,7 +62,6 @@ export default function TruckOwnerPerTripPanel({ filters, user }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [settling, setSettling] = useState(null);
 
-  // Load truck list
   const loadTrucks = useCallback(async () => {
     setTrucksLoading(true);
     try {
@@ -117,15 +124,49 @@ export default function TruckOwnerPerTripPanel({ filters, user }) {
     }
   };
 
+  const handleExport = (kind) => {
+    if (!selectedTruck) return;
+    const params = new URLSearchParams();
+    if (filters?.kms_year) params.append("kms_year", filters.kms_year);
+    if (filters?.season) params.append("season", filters.season);
+    if (kind === "pdf") params.append("filter_status", "pending");
+    const url = `${API}/truck-owner/${encodeURIComponent(selectedTruck)}/per-trip-${kind === "pdf" ? "pdf" : "excel"}?${params}`;
+    window.open(url, "_blank");
+  };
+
+  const handleWhatsApp = async () => {
+    if (!selectedTruck) return;
+    try {
+      const params = new URLSearchParams();
+      if (filters?.kms_year) params.append("kms_year", filters.kms_year);
+      if (filters?.season) params.append("season", filters.season);
+      params.append("filter_status", "pending");
+      const r = await axios.get(`${API}/truck-owner/${encodeURIComponent(selectedTruck)}/whatsapp-text?${params}`);
+      const text = r.data?.text || "";
+      if (text) {
+        try {
+          await navigator.clipboard.writeText(text);
+          toast.success("WhatsApp text copy ho gaya — kisi bhi WhatsApp chat me paste karein", { duration: 4000 });
+        } catch {
+          window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+        }
+      }
+    } catch (e) {
+      toast.error("WhatsApp text generate failed: " + (e?.message || ""));
+    }
+  };
+
   return (
     <Card className="bg-slate-800 border-slate-700">
       <CardHeader className="pb-3">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <CardTitle className="text-lg text-amber-400 flex items-center gap-2">
-            <Truck className="w-5 h-5" />
-            🛻 Per-Trip Bhada Breakdown
-            <span className="px-1.5 py-0 text-[9px] rounded bg-amber-900/60 text-amber-300 uppercase tracking-wider">Beta · Preview</span>
-          </CardTitle>
+          <div>
+            <CardTitle className="text-lg text-amber-400 flex items-center gap-2">
+              <Truck className="w-5 h-5" />
+              Per-Trip Bhada Breakdown <span className="text-slate-400 font-normal text-base">(ट्रक मालिक — पर ट्रिप)</span>
+            </CardTitle>
+            <p className="text-slate-400 text-xs mt-1">Har trip ka bhada — Settled / Partial / Pending. Pay button se direct settle karo.</p>
+          </div>
           <div className="flex flex-wrap gap-2 items-center">
             <Select value={selectedTruck} onValueChange={setSelectedTruck} disabled={trucksLoading}>
               <SelectTrigger className="w-[260px] bg-slate-700 border-slate-600 text-slate-200 h-9 text-sm" data-testid="truck-pertrip-select">
@@ -137,7 +178,7 @@ export default function TruckOwnerPerTripPanel({ filters, user }) {
                 )}
                 {trucks.map(t => (
                   <SelectItem key={t.vehicle_no} value={t.vehicle_no} className="text-slate-200 focus:bg-slate-700">
-                    <span className="font-mono">{t.vehicle_no}</span>
+                    <span className="font-mono text-amber-300">{t.vehicle_no}</span>
                     <span className="ml-2 text-[10px] text-slate-400">· {t.trips_count} trips · {fmtINR(t.total_bhada)}</span>
                   </SelectItem>
                 ))}
@@ -147,16 +188,28 @@ export default function TruckOwnerPerTripPanel({ filters, user }) {
               className="h-9 text-xs border-slate-600 bg-slate-700 text-slate-300 hover:bg-slate-600" data-testid="truck-pertrip-refresh">
               <RefreshCw className={`w-3.5 h-3.5 mr-1 ${loading || trucksLoading ? "animate-spin" : ""}`} /> Refresh
             </Button>
+            <Button size="sm" onClick={() => handleExport("excel")} disabled={!selectedTruck || loading}
+              className="h-9 text-xs bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50" data-testid="truck-pertrip-excel">
+              <Download className="w-3.5 h-3.5 mr-1" /> Excel
+            </Button>
+            <Button size="sm" onClick={() => handleExport("pdf")} disabled={!selectedTruck || loading}
+              className="h-9 text-xs bg-red-600 hover:bg-red-700 text-white disabled:opacity-50" title="Pending Bhada PDF — sirf unpaid trips" data-testid="truck-pertrip-pending-pdf">
+              <FileText className="w-3.5 h-3.5 mr-1" /> Pending PDF
+            </Button>
+            <Button size="sm" onClick={handleWhatsApp} disabled={!selectedTruck || loading}
+              className="h-9 text-xs bg-emerald-700 hover:bg-emerald-600 text-white disabled:opacity-50" title="WhatsApp text clipboard pe copy hota hai" data-testid="truck-pertrip-whatsapp">
+              <MessageCircle className="w-3.5 h-3.5 mr-1" /> WhatsApp
+            </Button>
           </div>
         </div>
       </CardHeader>
+
       <CardContent>
-        {/* Empty state */}
         {!selectedTruck && !trucksLoading && (
           <div className="text-center py-12 text-slate-400">
             <Truck className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p className="text-sm">Koi truck nahi mila jo bhada wali entries rakhta ho.</p>
-            <p className="text-xs mt-1 opacity-70">Vehicle Weight, BP Sale, DC Delivery, Sale/Purchase Voucher me Bhada add karein → yahan dikhne lagega.</p>
+            <p className="text-xs mt-1 opacity-70">Vehicle Weight / BP Sale / DC Delivery / Sale-Purchase Voucher me Bhada add karein → yahan dikhne lagega.</p>
           </div>
         )}
 
@@ -164,84 +217,38 @@ export default function TruckOwnerPerTripPanel({ filters, user }) {
           <>
             {/* KPIs */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <StatTile icon={Calendar}      label="Total Trips" value={sm.total_trips} subtext={`${sm.sale_count} Sale · ${sm.purchase_count} Purchase`} color="bg-slate-700/50 border-slate-600 text-slate-200" />
-              <StatTile icon={IndianRupee}   label="Total Bhada" value={fmtINR(sm.total_bhada)} subtext="Cumulative earned" color="bg-amber-900/30 border-amber-700/50 text-amber-200" />
-              <StatTile icon={CheckCircle2}  label="Settled"     value={fmtINR(sm.total_paid)}  subtext={`${sm.settled_count} fully · ${sm.partial_count} partial`} color="bg-emerald-900/30 border-emerald-700/50 text-emerald-200" />
-              <StatTile icon={AlertTriangle} label="Pending"     value={fmtINR(sm.total_pending)} subtext={`${sm.pending_count + sm.partial_count} trips`} color="bg-rose-900/30 border-rose-700/50 text-rose-200" />
+              <StatTile icon={Calendar}      label="Total Trips" value={sm.total_trips} subtext={`${sm.sale_count} Sale · ${sm.purchase_count} Purchase`} accent="slate" />
+              <StatTile icon={IndianRupee}   label="Total Bhada" value={fmtINR(sm.total_bhada)} subtext="Cumulative earned" accent="amber" />
+              <StatTile icon={CheckCircle2}  label="Settled"     value={fmtINR(sm.total_paid)}  subtext={`${sm.settled_count} fully · ${sm.partial_count} partial`} accent="emerald" />
+              <StatTile icon={AlertTriangle} label="Pending"     value={fmtINR(sm.total_pending)} subtext={`${sm.pending_count + sm.partial_count} trips`} accent="rose" />
             </div>
 
-            {/* Filters + Exports */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
-              <div className="flex flex-wrap gap-2">
-                <div className="flex gap-1">
-                  {[["all","All"],["sale","Sale"],["purchase","Purchase"]].map(([v,l]) => (
-                    <Button key={v} size="sm" variant={filter===v?"default":"outline"} onClick={()=>setFilter(v)}
-                      className={filter===v?"bg-sky-600 hover:bg-sky-700 text-white h-7 text-xs":"h-7 text-xs border-slate-600 bg-slate-700 text-slate-300 hover:bg-slate-600"}
-                      data-testid={`truck-pertrip-filter-${v}`}>
-                      {l}
-                    </Button>
-                  ))}
-                </div>
-                <div className="flex gap-1 border-l border-slate-700 pl-2">
-                  {[["all","All"],["pending","⚠️ Pending"],["partial","Partial"],["settled","✅ Settled"]].map(([v,l]) => (
-                    <Button key={v} size="sm" variant={statusFilter===v?"default":"outline"} onClick={()=>setStatusFilter(v)}
-                      className={statusFilter===v?(v==="pending"?"bg-rose-600 hover:bg-rose-700 h-7 text-xs":v==="settled"?"bg-emerald-600 hover:bg-emerald-700 h-7 text-xs":v==="partial"?"bg-amber-600 hover:bg-amber-700 h-7 text-xs":"bg-slate-600 h-7 text-xs"):"h-7 text-xs border-slate-600 bg-slate-700 text-slate-300 hover:bg-slate-600"}
-                      data-testid={`truck-pertrip-status-${v}`}>
-                      {l}
-                    </Button>
-                  ))}
-                </div>
+            {/* Filters */}
+            <div className="flex flex-wrap gap-2 mb-3">
+              <div className="flex gap-1">
+                {[["all","All"],["sale","Sale"],["purchase","Purchase"]].map(([v,l]) => (
+                  <Button key={v} size="sm" variant={filter===v?"default":"outline"} onClick={()=>setFilter(v)}
+                    className={filter===v?"bg-cyan-500 hover:bg-cyan-600 text-slate-900 h-8 text-xs":"h-8 text-xs border-slate-600 bg-slate-700 text-slate-300 hover:bg-slate-600"}
+                    data-testid={`truck-pertrip-filter-${v}`}>
+                    {l}
+                  </Button>
+                ))}
               </div>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={() => {
-                  const params = new URLSearchParams();
-                  if (filters?.kms_year) params.append("kms_year", filters.kms_year);
-                  if (filters?.season) params.append("season", filters.season);
-                  params.append("filter_status", "pending");
-                  window.open(`${API}/truck-owner/${encodeURIComponent(selectedTruck)}/per-trip-pdf?${params}`, "_blank");
-                }} disabled={!selectedTruck || loading}
-                  className="h-7 text-xs bg-rose-600 hover:bg-rose-700 text-white shadow-md disabled:opacity-50" title="Pending Bhada PDF — sirf unpaid trips" data-testid="truck-pertrip-pending-pdf">
-                  <FileText className="w-3 h-3 mr-1" /> Pending PDF
-                </Button>
-                <Button size="sm" onClick={async () => {
-                  if (!selectedTruck) return;
-                  try {
-                    const params = new URLSearchParams();
-                    if (filters?.kms_year) params.append("kms_year", filters.kms_year);
-                    if (filters?.season) params.append("season", filters.season);
-                    params.append("filter_status", "pending");
-                    const r = await axios.get(`${API}/truck-owner/${encodeURIComponent(selectedTruck)}/whatsapp-text?${params}`);
-                    const text = r.data?.text || "";
-                    if (text) {
-                      // Try copy to clipboard, fallback to wa.me
-                      try {
-                        await navigator.clipboard.writeText(text);
-                        toast.success("WhatsApp text copy ho gaya — kisi bhi WhatsApp chat me paste karein", { duration: 4000 });
-                      } catch {
-                        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
-                      }
-                    }
-                  } catch (e) {
-                    toast.error("WhatsApp text generate failed: " + (e?.message || ""));
-                  }
-                }} disabled={!selectedTruck || loading}
-                  className="h-7 text-xs bg-emerald-700 hover:bg-emerald-600 text-white disabled:opacity-50" title="Pending Bhada WhatsApp text — clipboard pe copy hota hai" data-testid="truck-pertrip-whatsapp">
-                  <MessageCircle className="w-3 h-3 mr-1" /> WhatsApp
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => {
-                  const params = new URLSearchParams();
-                  if (filters?.kms_year) params.append("kms_year", filters.kms_year);
-                  if (filters?.season) params.append("season", filters.season);
-                  window.open(`${API}/truck-owner/${encodeURIComponent(selectedTruck)}/per-trip-excel?${params}`, "_blank");
-                }} disabled={!selectedTruck || loading}
-                  className="h-7 text-xs border-slate-600 bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-50" data-testid="truck-pertrip-excel">
-                  <Download className="w-3 h-3 mr-1" /> Excel
-                </Button>
+              <div className="flex gap-1 border-l border-slate-700 pl-2">
+                {[["all","All"],["pending","⚠ Pending"],["partial","Partial"],["settled","✓ Settled"]].map(([v,l]) => (
+                  <Button key={v} size="sm" variant={statusFilter===v?"default":"outline"} onClick={()=>setStatusFilter(v)}
+                    className={statusFilter===v
+                      ? (v==="pending"?"bg-rose-600 hover:bg-rose-700 text-white h-8 text-xs":v==="settled"?"bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-xs":v==="partial"?"bg-amber-500 hover:bg-amber-600 text-slate-900 h-8 text-xs":"bg-slate-500 text-white h-8 text-xs")
+                      : "h-8 text-xs border-slate-600 bg-slate-700 text-slate-300 hover:bg-slate-600"}
+                    data-testid={`truck-pertrip-status-${v}`}>
+                    {l}
+                  </Button>
+                ))}
               </div>
             </div>
 
-            {/* Trips Table */}
-            <div className="rounded-lg border border-slate-700 bg-slate-900/40 overflow-hidden">
+            {/* Table */}
+            <div className="rounded-lg border border-slate-700 bg-slate-900/40 overflow-hidden overflow-x-auto">
               {loading ? (
                 <div className="p-12 flex items-center justify-center text-slate-400">
                   <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading trips...
@@ -249,59 +256,59 @@ export default function TruckOwnerPerTripPanel({ filters, user }) {
               ) : (
                 <Table>
                   <TableHeader>
-                    <TableRow className="border-slate-700 bg-slate-800 hover:bg-slate-800">
-                      <TableHead className="text-[10px] text-slate-400 w-[55px]">RST</TableHead>
-                      <TableHead className="text-[10px] text-slate-400">Date</TableHead>
-                      <TableHead className="text-[10px] text-slate-400">Type</TableHead>
-                      <TableHead className="text-[10px] text-slate-400">Party</TableHead>
-                      <TableHead className="text-[10px] text-slate-400 text-right">Net Wt (KG)</TableHead>
-                      <TableHead className="text-[10px] text-slate-400 text-right">Bhada</TableHead>
-                      <TableHead className="text-[10px] text-slate-400 text-right">Paid</TableHead>
-                      <TableHead className="text-[10px] text-slate-400 text-right">Pending</TableHead>
-                      <TableHead className="text-[10px] text-slate-400">Status</TableHead>
-                      <TableHead className="text-[10px] text-slate-400 text-right">Action</TableHead>
+                    <TableRow className="border-slate-600 bg-slate-800">
+                      <TableHead className="text-slate-300">RST</TableHead>
+                      <TableHead className="text-slate-300">Date</TableHead>
+                      <TableHead className="text-slate-300">Type</TableHead>
+                      <TableHead className="text-slate-300">Party</TableHead>
+                      <TableHead className="text-slate-300 text-right">Net Wt (KG)</TableHead>
+                      <TableHead className="text-slate-300 text-right">Bhada</TableHead>
+                      <TableHead className="text-slate-300 text-right">Paid</TableHead>
+                      <TableHead className="text-slate-300 text-right">Pending</TableHead>
+                      <TableHead className="text-slate-300 text-center">Status</TableHead>
+                      <TableHead className="text-slate-300 text-right">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {trips.length === 0 ? (
                       <TableRow><TableCell colSpan={10} className="text-center text-slate-500 py-8 text-sm">Filter ke andar koi trip nahi — change karke try karein.</TableCell></TableRow>
                     ) : trips.map((t) => (
-                      <TableRow key={`${t.rst_no}-${t.date}`} className="border-slate-700/50 hover:bg-slate-700/30">
-                        <TableCell className="font-mono font-bold text-sky-300 text-xs">#{t.rst_no}</TableCell>
-                        <TableCell className="text-xs text-slate-300">{fmtDateShort(t.date)}</TableCell>
+                      <TableRow key={`${t.rst_no}-${t.date}`} className="border-slate-700 hover:bg-slate-700/40">
+                        <TableCell className="font-mono font-bold text-amber-300">#{t.rst_no}</TableCell>
+                        <TableCell className="text-slate-200 text-sm">{fmtDateShort(t.date)}</TableCell>
                         <TableCell>
                           {t.trans_type === "sale" ? (
-                            <Badge className="bg-emerald-900/40 text-emerald-300 border border-emerald-700/50 text-[10px]">🟢 Sale</Badge>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">Sale</span>
                           ) : t.trans_type === "purchase" ? (
-                            <Badge className="bg-sky-900/40 text-sky-300 border border-sky-700/50 text-[10px]">🔵 Purchase</Badge>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">Purchase</span>
                           ) : (
-                            <Badge className="bg-slate-700 text-slate-300 text-[10px]">{t.trans_type_raw || "Other"}</Badge>
+                            <span className="text-slate-400 text-xs">{t.trans_type_raw || "Other"}</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-xs text-slate-300 max-w-[200px] truncate">{t.party_name || t.farmer_name || "—"}</TableCell>
-                        <TableCell className="text-xs text-slate-400 text-right">{Number(t.net_wt || 0).toLocaleString()}</TableCell>
-                        <TableCell className="text-xs text-amber-300 font-bold text-right">{fmtINR(t.bhada)}</TableCell>
-                        <TableCell className="text-xs text-emerald-400 text-right">{t.paid_amount > 0 ? fmtINR(t.paid_amount) : "—"}</TableCell>
-                        <TableCell className="text-xs text-rose-400 font-bold text-right">{t.pending_amount > 0 ? fmtINR(t.pending_amount) : "—"}</TableCell>
-                        <TableCell>
+                        <TableCell className="text-slate-200 text-sm max-w-[200px] truncate">{t.party_name || t.farmer_name || "—"}</TableCell>
+                        <TableCell className="text-slate-300 text-sm text-right">{Number(t.net_wt || 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-amber-300 font-bold text-right">{fmtINR(t.bhada)}</TableCell>
+                        <TableCell className="text-emerald-400 text-sm text-right">{t.paid_amount > 0 ? fmtINR(t.paid_amount) : "—"}</TableCell>
+                        <TableCell className="text-rose-400 font-bold text-right">{t.pending_amount > 0 ? fmtINR(t.pending_amount) : "—"}</TableCell>
+                        <TableCell className="text-center">
                           {t.status === "settled" ? (
-                            <Badge className="bg-emerald-700 text-emerald-50 text-[10px] gap-1"><CheckCircle2 className="w-2.5 h-2.5"/>Settled</Badge>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500 text-white"><CheckCircle2 className="w-3 h-3"/>Settled</span>
                           ) : t.status === "partial" ? (
-                            <Badge className="bg-amber-700 text-amber-50 text-[10px]">Partial</Badge>
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-400 text-slate-900">Partial</span>
                           ) : (
-                            <Badge className="bg-rose-700 text-rose-50 text-[10px] gap-1"><AlertTriangle className="w-2.5 h-2.5"/>Pending</Badge>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500 text-white"><AlertTriangle className="w-3 h-3"/>Pending</span>
                           )}
                         </TableCell>
                         <TableCell className="text-right">
                           {t.status === "settled" ? (
-                            <Button size="sm" variant="ghost" className="h-6 text-[10px] text-slate-500" disabled>
-                              <Eye className="w-3 h-3 mr-1" />Done
+                            <Button size="sm" variant="ghost" className="h-7 text-xs text-slate-500" disabled>
+                              <Eye className="w-3.5 h-3.5 mr-1" />Done
                             </Button>
                           ) : (
                             <Button size="sm" onClick={() => handleSettle(t)} disabled={settling === t.rst_no || user?.role !== "admin"}
-                              className="h-6 text-[10px] bg-emerald-700 hover:bg-emerald-600 text-white" data-testid={`truck-pertrip-pay-${t.rst_no}`}
+                              className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" data-testid={`truck-pertrip-pay-${t.rst_no}`}
                               title={user?.role !== "admin" ? "Sirf admin settle kar sakta hai" : "Pending bhada settle karein — auto NIKASI banegi"}>
-                              {settling === t.rst_no ? <Loader2 className="w-3 h-3 animate-spin" /> : <><IndianRupee className="w-3 h-3 mr-0.5" />Pay {fmtINR(t.pending_amount)}</>}
+                              {settling === t.rst_no ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><IndianRupee className="w-3.5 h-3.5 mr-0.5" />Pay {fmtINR(t.pending_amount)}</>}
                             </Button>
                           )}
                         </TableCell>
@@ -313,14 +320,13 @@ export default function TruckOwnerPerTripPanel({ filters, user }) {
             </div>
 
             {/* Bottom summary */}
-            <div className="mt-3 flex items-center justify-between p-2 px-3 rounded-lg bg-slate-700/30 border border-slate-700 text-xs text-slate-400">
+            <div className="mt-3 flex flex-wrap items-center gap-3 justify-between p-3 rounded-lg bg-slate-700/40 border border-slate-600 text-sm text-slate-300">
               <div className="flex items-center gap-2">
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-                Showing <span className="text-slate-200 font-semibold">{trips.length}</span> of {sm.total_trips} trips
+                <TrendingUp className="w-4 h-4 text-emerald-400" />
+                <span><span className="text-slate-100 font-bold">{trips.length}</span> of {sm.total_trips} trips shown</span>
                 {sm.total_pending > 0 && <> · <span className="text-rose-300 font-bold">{fmtINR(sm.total_pending)} pending</span></>}
-                {sm.extra_paid_unallocated > 0 && <> · <span className="text-emerald-300">+{fmtINR(sm.extra_paid_unallocated)} extra paid</span></>}
+                {sm.extra_paid_unallocated > 0 && <> · <span className="text-emerald-300 font-bold">+{fmtINR(sm.extra_paid_unallocated)} extra paid</span></>}
               </div>
-              <span className="text-slate-500 italic">Beta — feedback aur final approval ke liye dekh rahe hain</span>
             </div>
           </>
         )}

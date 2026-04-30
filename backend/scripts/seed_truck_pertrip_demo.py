@@ -147,4 +147,11 @@ async def seed():
     print("[demo] DONE")
 
 if __name__ == "__main__":
-    asyncio.run(seed())
+    import sys
+    if "--clean" in sys.argv or "--clear" in sys.argv:
+        async def clean_only():
+            await cleanup_existing_demo()
+            print("[demo] CLEAN done — demo trucks removed.")
+        asyncio.run(clean_only())
+    else:
+        asyncio.run(seed())
