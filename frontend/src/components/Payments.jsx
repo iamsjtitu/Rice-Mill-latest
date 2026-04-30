@@ -765,36 +765,6 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
         </div>
       )}
 
-      {/* Summary Cards - Only for truck and agent tabs */}
-      {(activePaymentTab === "truck" || activePaymentTab === "agent") && (
-      <div className="grid grid-cols-3 gap-4">
-        <Card className="bg-slate-700/50 border-slate-600">
-          <CardContent className="p-4">
-            <p className="text-slate-400 text-xs">Total Amount</p>
-            <p className="text-white text-xl font-bold">
-              ₹{(activePaymentTab === "truck" ? truckTotals.netAmount : agentTotals.totalAmount).toLocaleString()}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="bg-emerald-900/30 border-emerald-600/50">
-          <CardContent className="p-4">
-            <p className="text-emerald-400 text-xs">Paid</p>
-            <p className="text-emerald-400 text-xl font-bold">
-              ₹{(activePaymentTab === "truck" ? truckTotals.paid : agentTotals.paid).toLocaleString()}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="bg-red-900/30 border-red-600/50">
-          <CardContent className="p-4">
-            <p className="text-red-400 text-xs">Balance</p>
-            <p className="text-red-400 text-xl font-bold">
-              ₹{(activePaymentTab === "truck" ? truckTotals.balance : agentTotals.balance).toLocaleString()}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-      )}
-
       {/* Truck Payments Table */}
       {activePaymentTab === "truck" && (
         <Card className="bg-slate-800 border-slate-700">
@@ -1105,34 +1075,6 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                     ))}
                   </TableBody>
                 </Table>
-                
-                {/* Consolidated Total Summary */}
-                <div className="mt-4 p-4 bg-slate-700/50 rounded-lg">
-                  <div className="grid grid-cols-4 gap-4 text-center">
-                    <div>
-                      <p className="text-slate-400 text-xs">Total Trucks</p>
-                      <p className="text-white font-bold text-xl">{consolidatedTruckList.length}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-400 text-xs">Total Net Payable</p>
-                      <p className="text-white font-bold text-xl">
-                        ₹{consolidatedTotals.net.toLocaleString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-slate-400 text-xs">Total Paid</p>
-                      <p className="text-emerald-400 font-bold text-xl">
-                        ₹{consolidatedTotals.paid.toLocaleString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-slate-400 text-xs">Total Balance</p>
-                      <p className="text-red-400 font-bold text-xl">
-                        ₹{consolidatedTotals.balance.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                </div>
               </div>
             ) : (
               <div className="text-center py-8 text-slate-400">

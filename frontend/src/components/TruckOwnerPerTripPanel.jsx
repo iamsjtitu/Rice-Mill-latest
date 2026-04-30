@@ -442,17 +442,6 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
                 </Table>
               )}
             </div>
-
-            {/* Stat strip — moved below table for prominence after data */}
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-3 p-3 rounded-lg bg-slate-700/40 border border-slate-600 text-sm">
-              <div><span className="text-slate-400">Total Trips:</span> <span className="text-slate-100 font-bold">{sm.total_trips}</span> <span className="text-slate-500 text-xs">({sm.sale_count} Sale · {sm.purchase_count} Purchase)</span></div>
-              <div><span className="text-slate-400">Total Bhada:</span> <span className="text-amber-300 font-bold">{fmtINR(sm.total_bhada)}</span></div>
-              <div><span className="text-slate-400">Settled:</span> <span className="text-emerald-300 font-bold">{fmtINR(sm.total_paid)}</span> <span className="text-slate-500 text-xs">({sm.settled_count} fully · {sm.partial_count} partial)</span></div>
-              <div><span className="text-slate-400">Pending:</span> <span className="text-rose-300 font-bold">{fmtINR(sm.total_pending)}</span> <span className="text-slate-500 text-xs">({sm.pending_count + sm.partial_count} trips)</span></div>
-              {sm.extra_paid_unallocated > 0 && (
-                <div><span className="text-slate-400">Extra Paid:</span> <span className="text-emerald-200 font-bold">+{fmtINR(sm.extra_paid_unallocated)}</span></div>
-              )}
-            </div>
           </>
         )}
       </CardContent>
