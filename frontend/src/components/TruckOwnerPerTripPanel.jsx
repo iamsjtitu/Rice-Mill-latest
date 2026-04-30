@@ -24,6 +24,7 @@ import RoundOffInput from "./common/RoundOffInput";
 import { useConfirm } from "./ConfirmProvider";
 import { safePrintHTML } from "../utils/print";
 import { buildSlipReceipt, fmtRupee } from "../utils/slipReceipt";
+import { SendToGroupDialog } from "./SendToGroupDialog";
 
 const _isElectron = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
 const API = `${_isElectron ? "" : (process.env.REACT_APP_BACKEND_URL || "")}/api`;
@@ -46,6 +47,11 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  // Group dialog (Send to WhatsApp Group)
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [groupText, setGroupText] = useState("");
+  const [groupPdfUrl, setGroupPdfUrl] = useState("");
 
   // Pay dialog state
   const [payDialogOpen, setPayDialogOpen] = useState(false);
@@ -210,6 +216,53 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
     }
   };
 
+  /** Send to Group — opens dialog with consolidated all-trucks summary text + PDF link.
+   *  Aggregates current visible trips so user can broadcast filtered view to a WhatsApp group. */
+  const handleHeaderGroup = () => {
+    const sm2 = data?.summary || sm;
+    const trucksInView = [...new Set(trips.map(t => t.vehicle_no))];
+    if (trucksInView.length === 0) { toast.error("Koi trips nahi"); return; }
+
+    const flt = [];
+    if (statusFilter !== "all") flt.push(`Status: ${statusFilter}`);
+    if (filter !== "all") flt.push(`Type: ${filter}`);
+    if (searchQ.trim()) flt.push(`Search: ${searchQ.trim()}`);
+    const fltLine = flt.length ? `\n_Filter: ${flt.join(' · ')}_\n` : '\n';
+
+    const lines = [];
+    lines.push(`*🛻 Per-Trip Bhada Summary*${fltLine}`);
+    lines.push(`📊 Trucks: *${trucksInView.length}*  ·  Trips: *${trips.length}*`);
+    lines.push(`💰 Total Bhada: *${fmtINR(sm2.total_bhada)}*`);
+    lines.push(`✅ Settled: *${fmtINR(sm2.total_paid)}*  (${sm2.settled_count})`);
+    lines.push(`⚠️ Pending: *${fmtINR(sm2.total_pending)}*  (${sm2.pending_count + sm2.partial_count})`);
+    if (trucksInView.length <= 5) {
+      lines.push('');
+      lines.push('*Truck-wise:*');
+      const truckSummary = {};
+      trips.forEach(t => {
+        if (!truckSummary[t.vehicle_no]) truckSummary[t.vehicle_no] = { trips: 0, bhada: 0, pending: 0 };
+        truckSummary[t.vehicle_no].trips++;
+        truckSummary[t.vehicle_no].bhada += t.bhada || 0;
+        truckSummary[t.vehicle_no].pending += t.pending_amount || 0;
+      });
+      Object.entries(truckSummary).forEach(([vno, d]) => {
+        const stEmoji = d.pending === 0 ? '✅' : d.pending < d.bhada ? '🟡' : '⚠️';
+        lines.push(`${stEmoji} *${vno}* — ${d.trips} trips · ${fmtINR(d.bhada)} bhada · ${fmtINR(d.pending)} pending`);
+      });
+    }
+
+    setGroupText(lines.join('\n'));
+    // Build PDF URL with active filters so the dialog can attach it
+    const params = new URLSearchParams();
+    if (filters?.kms_year) params.append("kms_year", filters.kms_year);
+    if (filters?.season) params.append("season", filters.season);
+    if (statusFilter !== "all") params.append("filter_status", statusFilter);
+    if (filter !== "all") params.append("trans_type", filter);
+    if (searchQ.trim()) params.append("search", searchQ.trim());
+    setGroupPdfUrl(`${API}/truck-owner/per-trip-all/pdf?${params.toString()}`);
+    setGroupDialogOpen(true);
+  };
+
   // ── Print Compact E-Receipt for a single trip (uses shared slip builder) ──
   const handlePrintTripReceipt = (t) => {
     if (!t || !t.vehicle_no) return;
@@ -294,6 +347,10 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
               <Button size="sm" variant="ghost" onClick={handleHeaderWhatsApp} disabled={loading}
                 className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600 disabled:opacity-50" title="WhatsApp text (single truck — search to filter)" data-testid="truck-pertrip-whatsapp">
                 <Send className="w-4 h-4" />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={handleHeaderGroup} disabled={loading}
+                className="h-9 w-9 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600 disabled:opacity-50" title="Send to Group (consolidated summary + PDF)" data-testid="truck-pertrip-group">
+                <Users className="w-4 h-4" />
               </Button>
             </div>
           </div>
@@ -522,6 +579,9 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Send to Group Dialog */}
+      <SendToGroupDialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen} text={groupText} pdfUrl={groupPdfUrl} />
     </Card>
   );
 }

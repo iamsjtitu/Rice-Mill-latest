@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.7",
+    date: "Feb 16, 2026",
+    title: "v104.44.7 — 🎯 Truck Payments / Owner / Per-Trip Bhada — Unified Header (Search + Icon Exports + WhatsApp + Group)",
+    items: [
+      { type: "improvement", text: "🧹 **Stat lines hata di** — Truck Payment ke 3 colored Total/Paid/Balance cards, Truck Owner ka 4-column Total Trucks/Net Payable/Paid/Balance summary, aur Per-Trip Bhada ka bottom stat strip — sab hata diye. Cleaner table view." },
+      { type: "feature", text: "🔎 **Truck Owner me search filter** — pehle search box sirf Truck Payment me tha, ab Truck Owner me bhi 'Search truck no...' search box header me available hai. Live filter applies to both table aur summary calculations." },
+      { type: "improvement", text: "📦 **Single-card unified layout** — Truck Payment panel ka filter/export bar pehle Card ke bahar tha (alag block). Ab Per-Trip Bhada jaisa hi single Card me sab kuch (header me title + search + icons, content me table). Truck Owner pehle se single Card me tha — uski header ko bhi same icon-style update kiya." },
+      { type: "feature", text: "💬 **WhatsApp + Group icons header me** — Teeno panels (Truck Payment, Truck Owner, Per-Trip Bhada) me ab 4 icon buttons hain: PDF (red) / Excel (emerald) / WhatsApp (green Send icon) / Group (cyan Users icon). WhatsApp = quick text copy. Group = SendToGroupDialog with consolidated summary text + PDF link attached." },
+      { type: "fix", text: "🧽 **Demo data cleared** — `OD-15-DEMO-1234` aur `OD-21-DEMO-5678` mock trucks DB se hata diye gaye (deployment-ready cleanup)." },
+    ],
+  },
+  {
     version: "104.44.6",
     date: "Feb 16, 2026",
     title: "v104.44.6 — 📊 Per-Trip Bhada Polish: Banner Below + Professional Excel + Node Single-Truck Parity",

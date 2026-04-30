@@ -70,6 +70,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   const [payAcct, setPayAcct] = useState({ account: 'cash', bank_name: '', owner_name: '' });
   const [newRate, setNewRate] = useState("");
   const [truckSearchFilter, setTruckSearchFilter] = useState("");
+  const [truckOwnerSearchFilter, setTruckOwnerSearchFilter] = useState("");
   const [paymentHistory, setPaymentHistory] = useState([]);
   // Truck Owner Payment states
   const [showOwnerPayDialog, setShowOwnerPayDialog] = useState(false);
@@ -218,6 +219,71 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
     const { buildFilename } = await import('../utils/filename-format');
     const fname = buildFilename({ base: 'truck_owner', kmsYear: filters.kms_year, ext: 'pdf' });
     downloadFile(`/api/export/truck-owner-pdf?${params.toString()}`, fname);
+  };
+
+  // ── Header-level Group/WhatsApp handlers (Truck Payment + Truck Owner) ──
+  const _truckPaymentSummaryText = (label, list, totals) => {
+    const lines = [];
+    lines.push(`*🚛 ${label}*`);
+    if (truckSearchFilter) lines.push(`_Search: ${truckSearchFilter}_`);
+    lines.push('');
+    lines.push(`📊 Trucks: *${list.length}*`);
+    lines.push(`💰 Total Net: *₹${(totals?.net ?? totals?.netAmount ?? 0).toLocaleString('en-IN')}*`);
+    lines.push(`✅ Paid: *₹${(totals?.paid || 0).toLocaleString('en-IN')}*`);
+    lines.push(`⚠️ Balance: *₹${(totals?.balance || 0).toLocaleString('en-IN')}*`);
+    if (list.length > 0 && list.length <= 10) {
+      lines.push('');
+      lines.push('*Truck-wise:*');
+      list.forEach(t => {
+        const truckNo = t.truck_no || t.vehicle_no || '?';
+        const balance = parseFloat(t.balance_amount ?? t.total_balance ?? 0);
+        const stEmoji = balance <= 0.01 ? '✅' : balance < (t.net_amount ?? t.total_net ?? balance) ? '🟡' : '⚠️';
+        const net = parseFloat(t.net_amount ?? t.total_net ?? 0);
+        lines.push(`${stEmoji} *${truckNo}* — Net ₹${net.toLocaleString('en-IN')} · Bal ₹${balance.toLocaleString('en-IN')}`);
+      });
+    }
+    return lines.join('\n');
+  };
+
+  const handleHeaderTruckPaymentGroup = () => {
+    if (filteredTruckPayments.length === 0) { toast.error("Koi truck payments nahi"); return; }
+    setGroupText(_truckPaymentSummaryText("Truck Payments (Bhada)", filteredTruckPayments, truckTotals));
+    const params = new URLSearchParams();
+    if (filters.kms_year) params.append('kms_year', filters.kms_year);
+    if (truckSearchFilter) params.append('truck_no', truckSearchFilter);
+    setGroupPdfUrl(`${API}/export/truck-payments-pdf?${params.toString()}`);
+    setGroupDialogOpen(true);
+  };
+
+  const handleHeaderTruckPaymentWhatsApp = async () => {
+    if (filteredTruckPayments.length === 0) { toast.error("Koi truck payments nahi"); return; }
+    const text = _truckPaymentSummaryText("Truck Payments (Bhada)", filteredTruckPayments, truckTotals);
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Summary text copy ho gaya — kisi bhi WhatsApp chat me paste karein", { duration: 4000 });
+    } catch {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    }
+  };
+
+  const handleHeaderTruckOwnerGroup = () => {
+    if (filteredConsolidatedTruckList.length === 0) { toast.error("Koi truck owner records nahi"); return; }
+    setGroupText(_truckPaymentSummaryText("Truck Owner Consolidated", filteredConsolidatedTruckList, consolidatedTotals));
+    const params = new URLSearchParams();
+    if (filters.kms_year) params.append('kms_year', filters.kms_year);
+    setGroupPdfUrl(`${API}/export/truck-owner-pdf?${params.toString()}`);
+    setGroupDialogOpen(true);
+  };
+
+  const handleHeaderTruckOwnerWhatsApp = async () => {
+    if (filteredConsolidatedTruckList.length === 0) { toast.error("Koi truck owner records nahi"); return; }
+    const text = _truckPaymentSummaryText("Truck Owner Consolidated", filteredConsolidatedTruckList, consolidatedTotals);
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Summary text copy ho gaya — kisi bhi WhatsApp chat me paste karein", { duration: 4000 });
+    } catch {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    }
   };
 
   // WhatsApp - Truck Payment (individual trip)
@@ -559,12 +625,18 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   }, {}), [filteredTruckPayments]);
 
   const consolidatedTruckList = useMemo(() => Object.values(truckWiseConsolidated), [truckWiseConsolidated]);
+  // Truck Owner search filter (header-level): truck_no contains
+  const filteredConsolidatedTruckList = useMemo(() => {
+    if (!truckOwnerSearchFilter.trim()) return consolidatedTruckList;
+    const q = truckOwnerSearchFilter.toLowerCase();
+    return consolidatedTruckList.filter(t => (t.truck_no || '').toLowerCase().includes(q));
+  }, [consolidatedTruckList, truckOwnerSearchFilter]);
   const pendingConsolidatedCount = useMemo(() => consolidatedTruckList.filter(t => t.status !== 'paid' && (parseFloat(t.total_balance) || 0) > 0.10).length, [consolidatedTruckList]);
   const consolidatedTotals = useMemo(() => ({
-    net: consolidatedTruckList.reduce((sum, t) => sum + t.total_net, 0),
-    paid: consolidatedTruckList.reduce((sum, t) => sum + t.total_paid, 0),
-    balance: consolidatedTruckList.reduce((sum, t) => sum + t.total_balance, 0),
-  }), [consolidatedTruckList]);
+    net: filteredConsolidatedTruckList.reduce((sum, t) => sum + t.total_net, 0),
+    paid: filteredConsolidatedTruckList.reduce((sum, t) => sum + t.total_paid, 0),
+    balance: filteredConsolidatedTruckList.reduce((sum, t) => sum + t.total_balance, 0),
+  }), [filteredConsolidatedTruckList]);
 
   // Print Consolidated Truck Invoice
   const handlePrintConsolidatedInvoice = (truckData) => {
@@ -633,6 +705,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
           className={activePaymentTab === "truck" 
             ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
             : "text-slate-300 hover:bg-slate-700"}
+          data-testid="tab-truck"
         >
           <Truck className="w-4 h-4 mr-1" />
           Truck Payments ({pendingTruckPaymentsCount})
@@ -644,6 +717,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
           className={activePaymentTab === "consolidated" 
             ? "bg-cyan-500 hover:bg-cyan-600 text-slate-900" 
             : "text-slate-300 hover:bg-slate-700"}
+          data-testid="tab-consolidated"
         >
           <Truck className="w-4 h-4 mr-1" />
           Truck Owner ({pendingConsolidatedCount})
@@ -722,57 +796,56 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
         </Button>
       </div>
 
-      {/* Truck Filter & Export - Only for Truck Tab */}
-      {activePaymentTab === "truck" && (
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex-1 min-w-[200px] max-w-[300px]">
-            <Input
-              placeholder="Truck No. ya Mandi search karein..."
-              value={truckSearchFilter}
-              onChange={(e) => setTruckSearchFilter(e.target.value)}
-              className="bg-slate-700 border-slate-600 text-white text-sm"
-            />
-          </div>
-          {truckSearchFilter && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setTruckSearchFilter("")}
-              className="text-slate-400 hover:text-white"
-            >
-              <X className="w-4 h-4 mr-1" />
-              Clear
-            </Button>
-          )}
-          <div className="flex gap-2 ml-auto">
-            <Button
-              onClick={handleExportTruckExcel}
-              size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              <FileSpreadsheet className="w-4 h-4 mr-1" />
-              Excel
-            </Button>
-            <Button
-              onClick={handleExportTruckPDF}
-              size="sm"
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
-              <FileText className="w-4 h-4 mr-1" />
-              PDF
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Truck Payments Table */}
+      {/* Truck Payments — search & export integrated in single Card */}
       {activePaymentTab === "truck" && (
         <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-amber-400 flex items-center gap-2">
-              <Truck className="w-5 h-5" />
-              Truck Payments (Bhada)
-            </CardTitle>
+          <CardHeader className="pb-3">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div>
+                <CardTitle className="text-lg text-amber-400 flex items-center gap-2">
+                  <Truck className="w-5 h-5" />
+                  Truck Payments (Bhada)
+                </CardTitle>
+                <p className="text-slate-400 text-xs mt-1">Truck-wise per-trip bhada · search se filter karein</p>
+              </div>
+              <div className="flex flex-wrap gap-2 items-center">
+                {/* Search */}
+                <div className="relative w-[260px]">
+                  <Input
+                    placeholder="Search truck / mandi..."
+                    value={truckSearchFilter}
+                    onChange={(e) => setTruckSearchFilter(e.target.value)}
+                    className="pl-3 pr-8 h-9 text-sm bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+                    data-testid="truck-payment-search"
+                  />
+                  {truckSearchFilter && (
+                    <button type="button" onClick={() => setTruckSearchFilter("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                {/* Icon-only export group */}
+                <div className="flex items-center gap-1 ml-1 pl-2 border-l border-slate-600" data-testid="truck-payment-export-group">
+                  <Button size="sm" variant="ghost" onClick={handleExportTruckPDF}
+                    className="h-9 w-9 p-0 text-red-400 hover:bg-red-900/30 border border-red-600" title="PDF Export" data-testid="truck-payment-pdf">
+                    <FileText className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={handleExportTruckExcel}
+                    className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600" title="Excel Export" data-testid="truck-payment-excel">
+                    <Download className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={handleHeaderTruckPaymentWhatsApp}
+                    className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600" title="WhatsApp text (copy summary)" data-testid="truck-payment-whatsapp">
+                    <Send className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={handleHeaderTruckPaymentGroup}
+                    className="h-9 w-9 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600" title="Send to Group (text + PDF)" data-testid="truck-payment-group">
+                    <Users className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -914,39 +987,58 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
       {/* Truck Owner Consolidated Payments */}
       {activePaymentTab === "consolidated" && (
         <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               <div>
                 <CardTitle className="text-lg text-cyan-400 flex items-center gap-2">
                   <Truck className="w-5 h-5" />
                   Truck Owner Consolidated Payments (ट्रक मालिक समेकित भुगतान)
                 </CardTitle>
                 <p className="text-slate-400 text-xs mt-1">
-                  Ek truck ke saare trips ka total - sab cut karke final amount
+                  Ek truck ke saare trips ka total — search se truck filter karein
                 </p>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleExportTruckOwnerExcel}
-                  size="sm"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  <FileSpreadsheet className="w-4 h-4 mr-1" />
-                  Excel
-                </Button>
-                <Button
-                  onClick={handleExportTruckOwnerPDF}
-                  size="sm"
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                >
-                  <FileText className="w-4 h-4 mr-1" />
-                  PDF
-                </Button>
+              <div className="flex flex-wrap gap-2 items-center">
+                {/* Search */}
+                <div className="relative w-[260px]">
+                  <Input
+                    placeholder="Search truck no..."
+                    value={truckOwnerSearchFilter}
+                    onChange={(e) => setTruckOwnerSearchFilter(e.target.value)}
+                    className="pl-3 pr-8 h-9 text-sm bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+                    data-testid="truck-owner-search"
+                  />
+                  {truckOwnerSearchFilter && (
+                    <button type="button" onClick={() => setTruckOwnerSearchFilter("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                {/* Icon-only export group */}
+                <div className="flex items-center gap-1 ml-1 pl-2 border-l border-slate-600" data-testid="truck-owner-export-group">
+                  <Button size="sm" variant="ghost" onClick={handleExportTruckOwnerPDF}
+                    className="h-9 w-9 p-0 text-red-400 hover:bg-red-900/30 border border-red-600" title="PDF Export" data-testid="truck-owner-pdf">
+                    <FileText className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={handleExportTruckOwnerExcel}
+                    className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600" title="Excel Export" data-testid="truck-owner-excel">
+                    <Download className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={handleHeaderTruckOwnerWhatsApp}
+                    className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600" title="WhatsApp text (copy summary)" data-testid="truck-owner-whatsapp">
+                    <Send className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={handleHeaderTruckOwnerGroup}
+                    className="h-9 w-9 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600" title="Send to Group (text + PDF)" data-testid="truck-owner-group">
+                    <Users className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            {consolidatedTruckList.length > 0 ? (
+            {filteredConsolidatedTruckList.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -964,7 +1056,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {consolidatedTruckList.map((truckData, idx) => (
+                    {filteredConsolidatedTruckList.map((truckData, idx) => (
                       <TableRow key={truckData.truck_no || `cons-${idx}`} className="border-slate-700 hover:bg-slate-700/50">
                         <TableCell className="text-white font-bold text-lg">
                           {truckData.truck_no}

@@ -1,6 +1,65 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.6
+## Current Version: v104.44.7
+
+## 🎯 v104.44.7 — Truck Payments / Owner / Per-Trip Bhada — Unified Header (Search + Icon Exports + WhatsApp + Group)
+**Build date:** 2026-04-30
+
+### User Feedback Addressed
+1. Stat lines/cards hatao: Truck Payment 3-card summary + Truck Owner 4-col footer + Per-Trip Bhada bottom strip — all gone
+2. Truck Owner me search filter add karo (pehle nahi tha)
+3. Truck Payment ko ek single white box me layout karo (like Per-Trip Bhada)
+4. Truck Payment + Truck Owner + Per-Trip Bhada teeno me WhatsApp + Group icons add karo
+5. Demo data clear (P1 deployment ready)
+
+### Changes
+- **Stat blocks removed**: 3 places (~50 lines deleted)
+- **Truck Owner search filter**: New `truckOwnerSearchFilter` state + `filteredConsolidatedTruckList` memo. Live filters table + summary calculations.
+- **Single-card unified layout**: Truck Payment ka filter/export bar pehle Card ke bahar tha (alag block) — ab Card header me integrated. Truck Owner pehle se Card me tha — header refactor kiya.
+- **4-icon button pattern across all 3 panels**:
+  - 🔴 PDF (FileText icon) — text export
+  - 🟢 Excel (Download icon) — sheet export
+  - 🟢 WhatsApp (Send icon) — copy summary text to clipboard (or wa.me fallback)
+  - 🔵 Group (Users icon) — opens SendToGroupDialog with text + PDF link
+- **Group dialog text format**: KMS context + filter context + truck count + total bhada + paid + balance + truck-wise mini-list (if ≤10 trucks)
+
+### Demo Data Cleanup
+- Ran `python3 /app/backend/scripts/seed_truck_pertrip_demo.py --clear`
+- Removed 2 demo trucks (`OD-15-DEMO-1234`, `OD-21-DEMO-5678`) and their associated payments
+- DB still has some `CG 07 TEST 111` and `TEST_BHADA_*` entries from earlier testing — user did not request these to be cleared
+
+### Files Updated
+- `/app/frontend/src/components/Payments.jsx`:
+  - State: `truckOwnerSearchFilter`
+  - Memo: `filteredConsolidatedTruckList`, `consolidatedTotals` recomputed
+  - 4 new handlers: `handleHeaderTruckPaymentGroup/WhatsApp`, `handleHeaderTruckOwnerGroup/WhatsApp`
+  - Helper: `_truckPaymentSummaryText(label, list, totals)`
+  - Truck Payment Card refactored — search + 4 icons in header
+  - Truck Owner Card refactored — search + 4 icons in header
+  - 2 stat blocks removed (Truck Payment 3-card, Truck Owner 4-col footer)
+  - 2 missing data-testid added: `tab-truck`, `tab-consolidated`
+- `/app/frontend/src/components/TruckOwnerPerTripPanel.jsx`:
+  - Import `SendToGroupDialog`
+  - State: `groupDialogOpen, groupText, groupPdfUrl`
+  - New: `handleHeaderGroup()` — generates consolidated summary text
+  - 4th icon button (Users / cyan) added in header
+  - SendToGroupDialog mounted at bottom
+  - Bottom stat strip removed
+- `/app/frontend/src/components/WhatsNew.jsx` (top entry)
+- `/app/frontend/src/utils/constants-version.js` → `104.44.7`
+- `/app/desktop-app/package.json` → `104.44.7`
+- `/app/local-server/package.json` → `104.44.7`
+
+### Verification
+- Lint clean (frontend)
+- Frontend smoke test:
+  - Truck Payment: search=✓ PDF=✓ Excel=✓ WhatsApp=✓ Group=✓
+  - Truck Owner: search=✓ PDF=✓ Excel=✓ WhatsApp=✓ Group=✓
+  - Per-Trip Bhada: PDF=✓ Excel=✓ WhatsApp=✓ Group=✓
+  - All 3 panels render in single Card with consistent header layout
+- Demo trucks removed from DB
+
+---
 
 ## 📊 v104.44.6 — Per-Trip Bhada Polish: Banner Below + Professional Excel + Node Single-Truck Parity
 **Build date:** 2026-04-30
