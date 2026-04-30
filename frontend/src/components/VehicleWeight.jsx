@@ -532,8 +532,19 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
   const [linkedRstSale, setLinkedRstSale] = useState(new Set());
   const [linkedRstBpSale, setLinkedRstBpSale] = useState(new Set());
   // Completed Entries view mode: 'purchase' or 'sale'.
-  // Sale view shows BP Sale linked green tick + Destination/Bag Type columns.
-  const [vwViewMode, setVwViewMode] = useState('purchase');
+  // Persisted in localStorage so AutoWeightEntries shares same toggle.
+  const [vwViewMode, setVwViewMode] = useState(() => {
+    try { return localStorage.getItem('vw_view_mode') || 'purchase'; } catch { return 'purchase'; }
+  });
+  // Sync vwViewMode to localStorage
+  useEffect(() => { try { localStorage.setItem('vw_view_mode', vwViewMode); } catch {} }, [vwViewMode]);
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === 'vw_view_mode' && e.newValue && e.newValue !== vwViewMode) setVwViewMode(e.newValue);
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [vwViewMode]);
   const [zoomImg, setZoomImg] = useState(null); // for photo zoom
   const [tpWarning, setTpWarning] = useState("");
   const canManualWeight = user?.permissions?.can_manual_weight !== false && user?.role === 'admin' || user?.permissions?.can_manual_weight === true;
@@ -1197,11 +1208,19 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                     {secondWtMode ? (
                       <Input value={form.trans_type} disabled className="bg-slate-700 border-slate-500 text-slate-200 h-8 text-xs opacity-70 cursor-not-allowed" />
                     ) : (
-                    <Select value={form.trans_type} onValueChange={v => setForm(p => ({
-                      ...p,
-                      trans_type: v,
-                      product: v === "Dispatch(Sale)" ? "RICE (USNA)" : "GOVT PADDY"
-                    }))}>
+                    <Select value={form.trans_type} onValueChange={v => {
+                      setForm(p => ({
+                        ...p,
+                        trans_type: v,
+                        product: v === "Dispatch(Sale)" ? "RICE (USNA)" : "GOVT PADDY"
+                      }));
+                      // Auto-switch Completed Entries + Auto Weight Entries view to match the Trans Type.
+                      // Both components read 'vw_view_mode' from localStorage on mount and on storage events.
+                      const newMode = v === "Dispatch(Sale)" ? 'sale' : 'purchase';
+                      setVwViewMode(newMode);
+                      setVwPage(1);
+                      try { localStorage.setItem('vw_view_mode', newMode); } catch {}
+                    }}>
                       <SelectTrigger className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-trans"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Receive(Purchase)">Receive(Purchase)</SelectItem>

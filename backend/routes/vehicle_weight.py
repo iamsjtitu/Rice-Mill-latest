@@ -1351,13 +1351,26 @@ async def _build_vw_query(kms_year="", status="", date_from="", date_to="",
 async def export_vw_excel(kms_year: str = "", status: str = "completed",
                           date_from: str = "", date_to: str = "",
                           vehicle_no: str = "", party_name: str = "",
-                          farmer_name: str = "", rst_no: str = ""):
-    """Export vehicle weight entries to Excel."""
+                          farmer_name: str = "", rst_no: str = "",
+                          trans_type: str = ""):
+    """Export vehicle weight entries to Excel.
+    trans_type='sale' → sale-specific columns (RST, Date, Vehicle, Party, Destination,
+                       Product, Bags, Bag Type, Net Wt, Cash, Diesel, Remark).
+    trans_type='purchase' → purchase columns (1st/2nd Wt, G.Issued, TP No., TP Wt etc.).
+    Empty → mixed/all columns (legacy behavior).
+    """
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
     from fastapi.responses import StreamingResponse
     from utils.branding_helper import get_branding_data
     query = await _build_vw_query(kms_year, status, date_from, date_to, vehicle_no, party_name, farmer_name, rst_no)
+    # Apply trans_type filter same as list endpoint.
+    if trans_type:
+        tt = trans_type.lower().strip()
+        if tt == "sale":
+            query["trans_type"] = {"$regex": "sale|dispatch", "$options": "i"}
+        elif tt == "purchase":
+            query["trans_type"] = {"$regex": "purchase|receive", "$options": "i"}
     items = await db["vehicle_weights"].find(query, {"_id": 0}).to_list(10000)
     items.sort(key=lambda e: (e.get("date", ""), int(e.get("rst_no") or 0)))
 
@@ -1366,9 +1379,11 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
     tagline = branding.get("tagline", "")
     custom_fields = branding.get("custom_fields", [])
 
+    is_sale = (trans_type or "").lower().strip() == "sale"
+
     wb = Workbook()
     ws = wb.active
-    ws.title = "Vehicle Weight"
+    ws.title = "Vehicle Weight - Sale" if is_sale else "Vehicle Weight"
     thin = Side(style='thin')
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
@@ -1380,16 +1395,18 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
             lbl, val = f.get("label", ""), f.get("value", "")
             if val:
                 above_parts.append(f"{lbl}: {val}" if lbl else val)
+    title_label = "Vehicle Weight - Sale / बिक्री" if is_sale else "Vehicle Weight / तौल पर्ची"
+    n_cols = 12 if is_sale else 15
     if above_parts:
-        ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=15)
+        ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=n_cols)
         cell = ws.cell(row=cur_row, column=1, value="  |  ".join(above_parts))
         cell.font = Font(bold=True, size=10, color="8B0000")
         cell.alignment = Alignment(horizontal='center')
         cur_row += 1
 
     # Company Title
-    ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=15)
-    title_cell = ws.cell(row=cur_row, column=1, value=f"{company_name} - Vehicle Weight / तौल पर्ची")
+    ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=n_cols)
+    title_cell = ws.cell(row=cur_row, column=1, value=f"{company_name} - {title_label}")
     title_cell.font = Font(bold=True, size=14, color="1a1a2e")
     title_cell.alignment = Alignment(horizontal='center')
     cur_row += 1
@@ -1404,13 +1421,13 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
     sub_text = tagline
     if below_parts:
         sub_text += "  |  " + "  |  ".join(below_parts) if sub_text else "  |  ".join(below_parts)
-    ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=15)
+    ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=n_cols)
     ws.cell(row=cur_row, column=1, value=sub_text).font = Font(size=9, color="666666")
     ws.cell(row=cur_row, column=1).alignment = Alignment(horizontal='center')
     cur_row += 1
 
     # Date/count row
-    ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=15)
+    ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=n_cols)
     sub = f"Date: {date_from or 'All'} to {date_to or 'All'} | Total: {len(items)} entries"
     ws.cell(row=cur_row, column=1, value=sub).font = Font(size=9, color="666666")
     ws.cell(row=cur_row, column=1).alignment = Alignment(horizontal='center')
@@ -1419,8 +1436,12 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
     # Header row
     hdr_row = cur_row + 1
 
-    headers = ["RST", "Date", "Vehicle", "Party", "Source/Mandi", "Product", "Trans Type", "Bags",
-               "1st Wt (KG)", "2nd Wt (KG)", "Net Wt (KG)", "TP Wt (Q)", "G.Issued", "Cash", "Diesel"]
+    if is_sale:
+        headers = ["RST", "Date", "Vehicle", "Party", "Destination", "Product",
+                   "Bags", "Bag Type", "Net Wt (KG)", "Cash", "Diesel", "Remark"]
+    else:
+        headers = ["RST", "Date", "Vehicle", "Party", "Source/Mandi", "Product", "Trans Type", "Bags",
+                   "1st Wt (KG)", "2nd Wt (KG)", "Net Wt (KG)", "TP Wt (Q)", "G.Issued", "Cash", "Diesel"]
     hdr_fill = PatternFill(start_color="1a1a2e", end_color="1a1a2e", fill_type="solid")
     hdr_font = Font(bold=True, color="FFFFFF", size=10)
     for c, h in enumerate(headers, 1):
@@ -1431,49 +1452,74 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
         cell.border = border
 
     for i, e in enumerate(items, hdr_row + 1):
-        vals = [e.get("rst_no",""), fmt_date(e.get("date","")), e.get("vehicle_no",""), e.get("party_name",""),
-                e.get("farmer_name",""), e.get("product",""), e.get("trans_type",""), e.get("tot_pkts",""),
-                e.get("first_wt",0), e.get("second_wt",0), e.get("net_wt",0),
-                float(e.get("tp_weight",0) or 0),
-                e.get("g_issued",0), e.get("cash_paid",0), e.get("diesel_paid",0)]
+        if is_sale:
+            vals = [e.get("rst_no",""), fmt_date(e.get("date","")), e.get("vehicle_no",""), e.get("party_name",""),
+                    e.get("farmer_name",""), e.get("product",""), e.get("tot_pkts",""), e.get("bag_type",""),
+                    e.get("net_wt",0), e.get("cash_paid",0), e.get("diesel_paid",0), e.get("remark","")]
+            num_start_col = 9  # right-align from Net Wt onward (Net Wt, Cash, Diesel) — Remark is left
+        else:
+            vals = [e.get("rst_no",""), fmt_date(e.get("date","")), e.get("vehicle_no",""), e.get("party_name",""),
+                    e.get("farmer_name",""), e.get("product",""), e.get("trans_type",""), e.get("tot_pkts",""),
+                    e.get("first_wt",0), e.get("second_wt",0), e.get("net_wt",0),
+                    float(e.get("tp_weight",0) or 0),
+                    e.get("g_issued",0), e.get("cash_paid",0), e.get("diesel_paid",0)]
+            num_start_col = 9
         for c, v in enumerate(vals, 1):
             cell = ws.cell(row=i, column=c, value=v)
             cell.border = border
-            if c >= 9: cell.alignment = Alignment(horizontal='right')
+            # Right-align numeric columns. Sale view: cols 7 (Bags), 9-11 (Net Wt, Cash, Diesel) numeric.
+            if is_sale:
+                if c in (7, 9, 10, 11): cell.alignment = Alignment(horizontal='right')
+            else:
+                if c >= num_start_col: cell.alignment = Alignment(horizontal='right')
 
     # Totals row
     tot_row = hdr_row + 1 + len(items)
     tot_bags = sum(int(e.get("tot_pkts", 0) or 0) for e in items)
-    tot_1st = sum(float(e.get("first_wt", 0) or 0) for e in items)
-    tot_2nd = sum(float(e.get("second_wt", 0) or 0) for e in items)
     tot_net = sum(float(e.get("net_wt", 0) or 0) for e in items)
-    tot_tp = sum(float(e.get("tp_weight", 0) or 0) for e in items)
-    tot_giss = sum(float(e.get("g_issued", 0) or 0) for e in items)
     tot_cash = sum(float(e.get("cash_paid", 0) or 0) for e in items)
     tot_diesel = sum(float(e.get("diesel_paid", 0) or 0) for e in items)
     tot_fill = PatternFill(start_color="1a1a2e", end_color="1a1a2e", fill_type="solid")
     tot_font = Font(bold=True, color="FFFFFF", size=10)
-    tot_vals = ["", "", "", "", "", "", "TOTAL:", tot_bags, tot_1st, tot_2nd, tot_net, tot_tp, tot_giss, tot_cash, tot_diesel]
+    if is_sale:
+        tot_vals = ["", "", "", "", "", "TOTAL:", tot_bags, "", tot_net, tot_cash, tot_diesel, ""]
+        right_from = 7
+    else:
+        tot_1st = sum(float(e.get("first_wt", 0) or 0) for e in items)
+        tot_2nd = sum(float(e.get("second_wt", 0) or 0) for e in items)
+        tot_tp = sum(float(e.get("tp_weight", 0) or 0) for e in items)
+        tot_giss = sum(float(e.get("g_issued", 0) or 0) for e in items)
+        tot_vals = ["", "", "", "", "", "", "TOTAL:", tot_bags, tot_1st, tot_2nd, tot_net, tot_tp, tot_giss, tot_cash, tot_diesel]
+        right_from = 7
     for c, v in enumerate(tot_vals, 1):
         cell = ws.cell(row=tot_row, column=c, value=v)
         cell.font = tot_font
         cell.fill = tot_fill
         cell.border = border
-        if c >= 7: cell.alignment = Alignment(horizontal='right')
+        if c >= right_from: cell.alignment = Alignment(horizontal='right')
 
     # ===== Beautiful single-line teal summary banner =====
     if items:
         from utils.export_helpers import add_excel_summary_banner, fmt_inr
-        sum_stats = [
-            {'label': 'Total Entries', 'value': str(len(items))},
-            {'label': 'Total Bags', 'value': f"{tot_bags:,}"},
-            {'label': '1st Wt', 'value': f"{tot_1st:,.0f} KG"},
-            {'label': '2nd Wt', 'value': f"{tot_2nd:,.0f} KG"},
-            {'label': 'Net Wt', 'value': f"{tot_net:,.0f} KG"},
-            {'label': 'Cash Paid', 'value': fmt_inr(tot_cash)},
-            {'label': 'Diesel', 'value': fmt_inr(tot_diesel)},
-        ]
-        add_excel_summary_banner(ws, tot_row + 2, 15, sum_stats)
+        if is_sale:
+            sum_stats = [
+                {'label': 'Total Entries', 'value': str(len(items))},
+                {'label': 'Total Bags', 'value': f"{tot_bags:,}"},
+                {'label': 'Net Wt', 'value': f"{tot_net:,.0f} KG"},
+                {'label': 'Cash Paid', 'value': fmt_inr(tot_cash)},
+                {'label': 'Diesel', 'value': fmt_inr(tot_diesel)},
+            ]
+        else:
+            sum_stats = [
+                {'label': 'Total Entries', 'value': str(len(items))},
+                {'label': 'Total Bags', 'value': f"{tot_bags:,}"},
+                {'label': '1st Wt', 'value': f"{tot_1st:,.0f} KG"},
+                {'label': '2nd Wt', 'value': f"{tot_2nd:,.0f} KG"},
+                {'label': 'Net Wt', 'value': f"{tot_net:,.0f} KG"},
+                {'label': 'Cash Paid', 'value': fmt_inr(tot_cash)},
+                {'label': 'Diesel', 'value': fmt_inr(tot_diesel)},
+            ]
+        add_excel_summary_banner(ws, tot_row + 2, n_cols, sum_stats)
 
     # Auto width
     from openpyxl.cell.cell import MergedCell
@@ -1486,7 +1532,8 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
-    fname = f"vehicle_weight_{date_from or 'all'}_{date_to or 'all'}.xlsx"
+    suffix = "sales" if is_sale else "vehicle_weight"
+    fname = f"{suffix}_{date_from or 'all'}_{date_to or 'all'}.xlsx"
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                              headers={"Content-Disposition": f"attachment; filename={fname}"})
 
@@ -1495,8 +1542,11 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
 async def export_vw_pdf(kms_year: str = "", status: str = "completed",
                         date_from: str = "", date_to: str = "",
                         vehicle_no: str = "", party_name: str = "",
-                        farmer_name: str = "", rst_no: str = ""):
-    """Export vehicle weight entries to PDF (A4 Landscape)."""
+                        farmer_name: str = "", rst_no: str = "",
+                        trans_type: str = ""):
+    """Export vehicle weight entries to PDF (A4 Landscape).
+    trans_type='sale' → sale-specific layout; 'purchase' → purchase layout; '' → mixed.
+    """
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib import colors
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -1506,8 +1556,16 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
     from utils.branding_helper import get_pdf_header_elements_from_db
 
     query = await _build_vw_query(kms_year, status, date_from, date_to, vehicle_no, party_name, farmer_name, rst_no)
+    if trans_type:
+        tt = trans_type.lower().strip()
+        if tt == "sale":
+            query["trans_type"] = {"$regex": "sale|dispatch", "$options": "i"}
+        elif tt == "purchase":
+            query["trans_type"] = {"$regex": "purchase|receive", "$options": "i"}
     items = await db["vehicle_weights"].find(query, {"_id": 0}).to_list(10000)
     items.sort(key=lambda e: (e.get("date", "")[:10], int(e.get("rst_no") or 0)))
+
+    is_sale = (trans_type or "").lower().strip() == "sale"
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
@@ -1515,57 +1573,98 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
 
     # Branding header with custom fields
     sub = f"Date: {date_from or 'All'} to {date_to or 'All'} | Total: {len(items)} entries"
-    elements.extend(await get_pdf_header_elements_from_db("Vehicle Weight / तौल पर्ची", sub))
+    title = "Vehicle Weight - Sale / बिक्री" if is_sale else "Vehicle Weight / तौल पर्ची"
+    elements.extend(await get_pdf_header_elements_from_db(title, sub))
     elements.append(Spacer(1, 3*mm))
 
     # Table
-    headers = ["RST", "Date", "Vehicle", "Party", "Source/Mandi", "Product", "Trans Type", "Bags", "1st Wt", "2nd Wt", "Net Wt", "TP Wt", "G.Iss", "Cash", "Diesel"]
+    if is_sale:
+        headers = ["RST", "Date", "Vehicle", "Party", "Destination", "Product", "Bags", "Bag Type", "Net Wt", "Cash", "Diesel", "Remark"]
+    else:
+        headers = ["RST", "Date", "Vehicle", "Party", "Source/Mandi", "Product", "Trans Type", "Bags", "1st Wt", "2nd Wt", "Net Wt", "TP Wt", "G.Iss", "Cash", "Diesel"]
     data = [headers]
     for e in items:
-        data.append([
-            e.get("rst_no",""), fmt_date(e.get("date","")), e.get("vehicle_no",""),
-            e.get("party_name",""), e.get("farmer_name",""), e.get("product",""),
-            e.get("trans_type",""), e.get("tot_pkts",""),
-            f"{e.get('first_wt',0):,.0f}", f"{e.get('second_wt',0):,.0f}", f"{e.get('net_wt',0):,.0f}",
-            f"{float(e.get('tp_weight',0) or 0)}" if float(e.get('tp_weight',0) or 0) > 0 else "-",
-            f"{e.get('g_issued',0):,.0f}" if e.get('g_issued') else "-",
-            f"{e.get('cash_paid',0):,.0f}" if e.get('cash_paid') else "-",
-            f"{e.get('diesel_paid',0):,.0f}" if e.get('diesel_paid') else "-"
-        ])
+        if is_sale:
+            data.append([
+                e.get("rst_no",""), fmt_date(e.get("date","")), e.get("vehicle_no",""),
+                e.get("party_name",""), e.get("farmer_name",""), e.get("product",""),
+                e.get("tot_pkts",""), e.get("bag_type","") or "-",
+                f"{e.get('net_wt',0):,.0f}",
+                f"{e.get('cash_paid',0):,.0f}" if e.get('cash_paid') else "-",
+                f"{e.get('diesel_paid',0):,.0f}" if e.get('diesel_paid') else "-",
+                (e.get('remark','') or "")[:30],
+            ])
+        else:
+            data.append([
+                e.get("rst_no",""), fmt_date(e.get("date","")), e.get("vehicle_no",""),
+                e.get("party_name",""), e.get("farmer_name",""), e.get("product",""),
+                e.get("trans_type",""), e.get("tot_pkts",""),
+                f"{e.get('first_wt',0):,.0f}", f"{e.get('second_wt',0):,.0f}", f"{e.get('net_wt',0):,.0f}",
+                f"{float(e.get('tp_weight',0) or 0)}" if float(e.get('tp_weight',0) or 0) > 0 else "-",
+                f"{e.get('g_issued',0):,.0f}" if e.get('g_issued') else "-",
+                f"{e.get('cash_paid',0):,.0f}" if e.get('cash_paid') else "-",
+                f"{e.get('diesel_paid',0):,.0f}" if e.get('diesel_paid') else "-"
+            ])
 
     # Add totals row
     tot_bags = sum(int(e.get("tot_pkts", 0) or 0) for e in items)
-    tot_1st = sum(float(e.get("first_wt", 0) or 0) for e in items)
-    tot_2nd = sum(float(e.get("second_wt", 0) or 0) for e in items)
     tot_net = sum(float(e.get("net_wt", 0) or 0) for e in items)
-    tot_tp = sum(float(e.get("tp_weight", 0) or 0) for e in items)
-    tot_giss = sum(float(e.get("g_issued", 0) or 0) for e in items)
     tot_cash = sum(float(e.get("cash_paid", 0) or 0) for e in items)
     tot_diesel = sum(float(e.get("diesel_paid", 0) or 0) for e in items)
-    data.append(["", "", "", "", "", "", "TOTAL:", str(tot_bags),
-                 f"{tot_1st:,.0f}", f"{tot_2nd:,.0f}", f"{tot_net:,.0f}",
-                 f"{tot_tp}" if tot_tp > 0 else "-", f"{tot_giss:,.0f}",
-                 f"{tot_cash:,.0f}" if tot_cash else "-", f"{tot_diesel:,.0f}" if tot_diesel else "-"])
+    if is_sale:
+        data.append(["", "", "", "", "", "TOTAL:", str(tot_bags), "",
+                     f"{tot_net:,.0f}",
+                     f"{tot_cash:,.0f}" if tot_cash else "-",
+                     f"{tot_diesel:,.0f}" if tot_diesel else "-", ""])
+        col_widths = [35, 58, 65, 75, 70, 60, 38, 50, 55, 50, 50, 75]
+    else:
+        tot_1st = sum(float(e.get("first_wt", 0) or 0) for e in items)
+        tot_2nd = sum(float(e.get("second_wt", 0) or 0) for e in items)
+        tot_tp = sum(float(e.get("tp_weight", 0) or 0) for e in items)
+        tot_giss = sum(float(e.get("g_issued", 0) or 0) for e in items)
+        data.append(["", "", "", "", "", "", "TOTAL:", str(tot_bags),
+                     f"{tot_1st:,.0f}", f"{tot_2nd:,.0f}", f"{tot_net:,.0f}",
+                     f"{tot_tp}" if tot_tp > 0 else "-", f"{tot_giss:,.0f}",
+                     f"{tot_cash:,.0f}" if tot_cash else "-", f"{tot_diesel:,.0f}" if tot_diesel else "-"])
+        col_widths = [35, 58, 65, 70, 65, 55, 52, 30, 50, 50, 50, 38, 38, 42, 42]
 
-    col_widths = [35, 58, 65, 70, 65, 55, 52, 30, 50, 50, 50, 38, 38, 42, 42]
     t = Table(data, colWidths=col_widths, repeatRows=1)
-    
+
     # Color-coded column header: Navy(info), Teal(weights), Orange(money)
     navy = colors.HexColor('#1a237e')
     teal = colors.HexColor('#004d40')
     amber = colors.HexColor('#e65100')
-    
-    style_cmds = [
-        # Header colors by column group
-        ('BACKGROUND', (0, 0), (7, 0), navy),      # Info columns: RST to Bags
-        ('BACKGROUND', (8, 0), (11, 0), teal),      # Weight columns: 1st-Net-TP Wt
-        ('BACKGROUND', (12, 0), (14, 0), amber),    # Money columns: G.Iss-Cash-Diesel
+
+    if is_sale:
+        # Sale layout: cols 0-7 navy(info+bags+bag_type), col 8 teal(net wt), cols 9-10 amber(cash/diesel), col 11 navy(remark)
+        style_cmds = [
+            ('BACKGROUND', (0, 0), (7, 0), navy),
+            ('BACKGROUND', (8, 0), (8, 0), teal),
+            ('BACKGROUND', (9, 0), (10, 0), amber),
+            ('BACKGROUND', (11, 0), (11, 0), navy),
+        ]
+        right_align_from = 6
+        net_wt_col = 8
+        cash_col = 9
+        diesel_col = 10
+    else:
+        style_cmds = [
+            ('BACKGROUND', (0, 0), (7, 0), navy),
+            ('BACKGROUND', (8, 0), (11, 0), teal),
+            ('BACKGROUND', (12, 0), (14, 0), amber),
+        ]
+        right_align_from = 7
+        net_wt_col = 10
+        cash_col = 13
+        diesel_col = 14
+
+    style_cmds.extend([
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('FONTSIZE', (0, 0), (-1, 0), 8),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 1), (-1, -1), 7),
         ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-        ('ALIGN', (7, 1), (-1, -1), 'RIGHT'),
+        ('ALIGN', (right_align_from, 1), (-1, -1), 'RIGHT'),
         ('GRID', (0, 0), (-1, 0), 0.5, colors.HexColor('#ffffff')),
         ('LINEBELOW', (0, 0), (-1, 0), 1.5, colors.HexColor('#f9a825')),
         ('INNERGRID', (0, 1), (-1, -1), 0.3, colors.HexColor('#d0d5dd')),
@@ -1574,28 +1673,28 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('TOPPADDING', (0, 0), (-1, -1), 2),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-    ]
-    
+    ])
+
     # Color-code specific data cells
     for row_idx in range(1, len(data)):
         # RST bold navy
         style_cmds.append(('TEXTCOLOR', (0, row_idx), (0, row_idx), navy))
         style_cmds.append(('FONTNAME', (0, row_idx), (0, row_idx), 'Helvetica-Bold'))
-        # 1st Wt blue
-        style_cmds.append(('TEXTCOLOR', (8, row_idx), (8, row_idx), colors.HexColor('#0277bd')))
-        # 2nd Wt purple
-        style_cmds.append(('TEXTCOLOR', (9, row_idx), (9, row_idx), colors.HexColor('#7b1fa2')))
         # Net Wt green bold
-        style_cmds.append(('TEXTCOLOR', (10, row_idx), (10, row_idx), colors.HexColor('#1b5e20')))
-        style_cmds.append(('FONTNAME', (10, row_idx), (10, row_idx), 'Helvetica-Bold'))
+        style_cmds.append(('TEXTCOLOR', (net_wt_col, row_idx), (net_wt_col, row_idx), colors.HexColor('#1b5e20')))
+        style_cmds.append(('FONTNAME', (net_wt_col, row_idx), (net_wt_col, row_idx), 'Helvetica-Bold'))
         # Cash green bold
-        if data[row_idx][12] != "-":
-            style_cmds.append(('TEXTCOLOR', (12, row_idx), (12, row_idx), colors.HexColor('#2e7d32')))
-            style_cmds.append(('FONTNAME', (12, row_idx), (12, row_idx), 'Helvetica-Bold'))
+        if data[row_idx][cash_col] != "-":
+            style_cmds.append(('TEXTCOLOR', (cash_col, row_idx), (cash_col, row_idx), colors.HexColor('#2e7d32')))
+            style_cmds.append(('FONTNAME', (cash_col, row_idx), (cash_col, row_idx), 'Helvetica-Bold'))
         # Diesel orange bold
-        if data[row_idx][13] != "-":
-            style_cmds.append(('TEXTCOLOR', (13, row_idx), (13, row_idx), colors.HexColor('#e65100')))
-            style_cmds.append(('FONTNAME', (13, row_idx), (13, row_idx), 'Helvetica-Bold'))
+        if data[row_idx][diesel_col] != "-":
+            style_cmds.append(('TEXTCOLOR', (diesel_col, row_idx), (diesel_col, row_idx), colors.HexColor('#e65100')))
+            style_cmds.append(('FONTNAME', (diesel_col, row_idx), (diesel_col, row_idx), 'Helvetica-Bold'))
+        if not is_sale:
+            # 1st Wt blue, 2nd Wt purple (only purchase view)
+            style_cmds.append(('TEXTCOLOR', (8, row_idx), (8, row_idx), colors.HexColor('#0277bd')))
+            style_cmds.append(('TEXTCOLOR', (9, row_idx), (9, row_idx), colors.HexColor('#7b1fa2')))
 
     # Totals row styling
     last_row = len(data) - 1
@@ -1603,22 +1702,31 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
     style_cmds.append(('TEXTCOLOR', (0, last_row), (-1, last_row), colors.white))
     style_cmds.append(('FONTNAME', (0, last_row), (-1, last_row), 'Helvetica-Bold'))
     style_cmds.append(('FONTSIZE', (0, last_row), (-1, last_row), 8))
-    
+
     t.setStyle(TableStyle(style_cmds))
     elements.append(t)
 
     # ===== Beautiful single-line summary banner =====
     from utils.export_helpers import get_pdf_summary_banner, fmt_inr, STAT_COLORS
     page_inner_w = sum(col_widths)
-    summary_stats = [
-        {'label': 'TOTAL ENTRIES', 'value': str(len(items)), 'color': STAT_COLORS['primary']},
-        {'label': 'TOTAL BAGS', 'value': f"{tot_bags:,}", 'color': STAT_COLORS['blue']},
-        {'label': '1ST WT', 'value': f"{tot_1st:,.0f}", 'color': STAT_COLORS['teal']},
-        {'label': '2ND WT', 'value': f"{tot_2nd:,.0f}", 'color': STAT_COLORS['purple']},
-        {'label': 'NET WT', 'value': f"{tot_net:,.0f}", 'color': STAT_COLORS['emerald']},
-        {'label': 'CASH PAID', 'value': fmt_inr(tot_cash), 'color': STAT_COLORS['green']},
-        {'label': 'DIESEL', 'value': fmt_inr(tot_diesel), 'color': STAT_COLORS['orange']},
-    ]
+    if is_sale:
+        summary_stats = [
+            {'label': 'TOTAL ENTRIES', 'value': str(len(items)), 'color': STAT_COLORS['primary']},
+            {'label': 'TOTAL BAGS', 'value': f"{tot_bags:,}", 'color': STAT_COLORS['blue']},
+            {'label': 'NET WT', 'value': f"{tot_net:,.0f}", 'color': STAT_COLORS['emerald']},
+            {'label': 'CASH PAID', 'value': fmt_inr(tot_cash), 'color': STAT_COLORS['green']},
+            {'label': 'DIESEL', 'value': fmt_inr(tot_diesel), 'color': STAT_COLORS['orange']},
+        ]
+    else:
+        summary_stats = [
+            {'label': 'TOTAL ENTRIES', 'value': str(len(items)), 'color': STAT_COLORS['primary']},
+            {'label': 'TOTAL BAGS', 'value': f"{tot_bags:,}", 'color': STAT_COLORS['blue']},
+            {'label': '1ST WT', 'value': f"{tot_1st:,.0f}", 'color': STAT_COLORS['teal']},
+            {'label': '2ND WT', 'value': f"{tot_2nd:,.0f}", 'color': STAT_COLORS['purple']},
+            {'label': 'NET WT', 'value': f"{tot_net:,.0f}", 'color': STAT_COLORS['emerald']},
+            {'label': 'CASH PAID', 'value': fmt_inr(tot_cash), 'color': STAT_COLORS['green']},
+            {'label': 'DIESEL', 'value': fmt_inr(tot_diesel), 'color': STAT_COLORS['orange']},
+        ]
     elements.append(Spacer(1, 4*mm))
     banner = get_pdf_summary_banner(summary_stats, total_width=page_inner_w)
     if banner:

@@ -7,6 +7,20 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.1",
+    date: "Feb 16, 2026",
+    title: "v104.44.1 — 🔄 Auto-sync Sale/Purchase Toggle + Sale Excel/PDF Columns",
+    items: [
+      { type: "feature", text: "🔄 **Auto-sync Toggle** — Vehicle Weight ke 'New Entry' form me jab user 'Trans Type' me **Dispatch(Sale)** select karta hai, dono niche wali tables — **Completed Entries** aur **Auto Weight Entries (Last 7 Days)** — automatically Sale view me switch ho jaati hain. Receive(Purchase) select karne par dono Purchase view me. Toggle state localStorage me persist hoti hai (`vw_view_mode` key) aur cross-component storage events ke through instant sync hoti hai." },
+      { type: "fix", text: "📑 **Sale-mode Excel/PDF Column Layout Fix** — Reported: 'Sale toggle me PDF/Excel ab b purane purchase columns me aata hai, sale ke hisab se nahi.' Fix: Backend `/vehicle-weight/export/excel` aur `/vehicle-weight/export/pdf` endpoints ab `trans_type=sale` query param recognize karte hain aur **sale-specific 12 column layout** generate karte hain:" },
+      { type: "fix", text: "&nbsp;&nbsp;**Sale columns:** RST, Date, Vehicle, Party, Destination, Product, Bags, **Bag Type**, Net Wt, Cash, Diesel, Remark" },
+      { type: "fix", text: "&nbsp;&nbsp;**Purchase columns** (purane jaisa): RST, Date, Vehicle, Party, Source/Mandi, Product, Trans Type, Bags, 1st Wt, 2nd Wt, Net Wt, TP Wt, G.Issued, Cash, Diesel" },
+      { type: "fix", text: "&nbsp;&nbsp;Color-coding bhi sale-aware: Net Wt (green bold), Cash (green), Diesel (orange), Bag Type (info column). Summary banner sale me 5 cards (Total Entries, Total Bags, Net Wt, Cash, Diesel) — purchase me 7 cards (additional 1st/2nd Wt)." },
+      { type: "improvement", text: "📁 **Smart Filename** — Sale exports `vehicle_weight_sales_Apr-2026.pdf` / `auto_weight_sales.xlsx` ke naam se save hote hain — purchase ke `vehicle_weight.pdf` se separate." },
+      { type: "improvement", text: "🔄 **Triple-Backend Parity** — Sale-aware Excel/PDF export Python (web) + Electron desktop-app + local-server teeno backends me applied. `trans_type` param dono routes par dynamically column layout switch karta hai." },
+    ],
+  },
+  {
     version: "104.44.0",
     date: "Feb 16, 2026",
     title: "v104.44.0 — 📁 Global Smart Filenames + Date Range Embedding",

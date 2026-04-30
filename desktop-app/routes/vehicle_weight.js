@@ -1418,36 +1418,41 @@ module.exports = function(database) {
       if (f.placement === 'above') abParts.push(txt); else blParts.push(txt);
     }
 
+    const isSale = String(req.query.trans_type || '').toLowerCase().trim() === 'sale';
     const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Vehicle Weight');
+    const ws = wb.addWorksheet(isSale ? 'Vehicle Weight - Sale' : 'Vehicle Weight');
+    const nCols = isSale ? 12 : 15;
+    const colsRange = isSale ? `A${1}:L` : `A${1}:O`;
     let cr = 1;
     if (abParts.length > 0) {
-      ws.mergeCells(`A${cr}:O${cr}`);
+      ws.mergeCells(`A${cr}:${isSale ? 'L' : 'O'}${cr}`);
       ws.getCell(`A${cr}`).value = abParts.join('  |  ');
       ws.getCell(`A${cr}`).font = { name: 'Inter', bold: true, size: 10, color: { argb: '8B0000' } };
       ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
       cr++;
     }
-    ws.mergeCells(`A${cr}:O${cr}`);
-    ws.getCell(`A${cr}`).value = `${company} - Vehicle Weight / तौल पर्ची`;
+    ws.mergeCells(`A${cr}:${isSale ? 'L' : 'O'}${cr}`);
+    ws.getCell(`A${cr}`).value = `${company} - ${isSale ? 'Vehicle Weight - Sale / बिक्री' : 'Vehicle Weight / तौल पर्ची'}`;
     ws.getCell(`A${cr}`).font = { name: 'Inter', bold: true, size: 14, color: { argb: '1a1a2e' } };
     ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
     cr++;
     const belowAll = [tagline, ...blParts].filter(Boolean);
     if (belowAll.length > 0) {
-      ws.mergeCells(`A${cr}:O${cr}`);
+      ws.mergeCells(`A${cr}:${isSale ? 'L' : 'O'}${cr}`);
       ws.getCell(`A${cr}`).value = belowAll.join('  |  ');
       ws.getCell(`A${cr}`).font = { name: 'Inter', size: 9, italic: true, color: { argb: '555555' } };
       ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
       cr++;
     }
-    ws.mergeCells(`A${cr}:O${cr}`);
+    ws.mergeCells(`A${cr}:${isSale ? 'L' : 'O'}${cr}`);
     ws.getCell(`A${cr}`).value = `Date: ${fmtDate(req.query.date_from) || 'All'} to ${fmtDate(req.query.date_to) || 'All'} | Total: ${items.length}`;
     ws.getCell(`A${cr}`).font = { name: 'Inter', size: 9, color: { argb: '666666' } };
     ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
     cr++;
 
-    const headers = ['RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Trans Type', 'Bags', '1st Wt (KG)', '2nd Wt (KG)', 'Net Wt (KG)', 'TP Wt (Q)', 'G.Issued', 'Cash', 'Diesel'];
+    const headers = isSale
+      ? ['RST', 'Date', 'Vehicle', 'Party', 'Destination', 'Product', 'Bags', 'Bag Type', 'Net Wt (KG)', 'Cash', 'Diesel', 'Remark']
+      : ['RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Trans Type', 'Bags', '1st Wt (KG)', '2nd Wt (KG)', 'Net Wt (KG)', 'TP Wt (Q)', 'G.Issued', 'Cash', 'Diesel'];
     const hdrRowNum = cr + 1;
     const hdrRow = ws.getRow(hdrRowNum);
     headers.forEach((h, i) => {
@@ -1461,11 +1466,15 @@ module.exports = function(database) {
 
     items.forEach((e, idx) => {
       const row = ws.getRow(hdrRowNum + 1 + idx);
-      [e.rst_no, fmtDate(e.date), e.vehicle_no, e.party_name, e.farmer_name, e.product, e.trans_type, e.tot_pkts, e.first_wt || 0, e.second_wt || 0, e.net_wt || 0, parseFloat(e.tp_weight || 0) || 0, e.g_issued || 0, e.cash_paid || 0, e.diesel_paid || 0].forEach((v, i) => {
+      const vals = isSale
+        ? [e.rst_no, fmtDate(e.date), e.vehicle_no, e.party_name, e.farmer_name, e.product, e.tot_pkts, e.bag_type || '', e.net_wt || 0, e.cash_paid || 0, e.diesel_paid || 0, e.remark || '']
+        : [e.rst_no, fmtDate(e.date), e.vehicle_no, e.party_name, e.farmer_name, e.product, e.trans_type, e.tot_pkts, e.first_wt || 0, e.second_wt || 0, e.net_wt || 0, parseFloat(e.tp_weight || 0) || 0, e.g_issued || 0, e.cash_paid || 0, e.diesel_paid || 0];
+      vals.forEach((v, i) => {
         const cell = row.getCell(i + 1);
         cell.value = v;
         cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
-        if (i >= 8) cell.alignment = { horizontal: 'right' };
+        // Sale: right-align Bags + Net Wt + Cash + Diesel (cols 7,9,10,11). Purchase: cols >= 9.
+        if (isSale ? (i === 6 || i >= 8) : (i >= 8)) cell.alignment = { horizontal: 'right' };
       });
     });
 
@@ -1480,42 +1489,52 @@ module.exports = function(database) {
       const totGIss = items.reduce((s, e) => s + (Number(e.g_issued) || 0), 0);
       const totCash = items.reduce((s, e) => s + (Number(e.cash_paid) || 0), 0);
       const totDiesel = items.reduce((s, e) => s + (Number(e.diesel_paid) || 0), 0);
-      const totVals = ['', '', '', '', '', '', 'TOTAL:', totBags, tot1st, tot2nd, totNet, totTp, totGIss, totCash, totDiesel];
+      const totVals = isSale
+        ? ['', '', '', '', '', 'TOTAL:', totBags, '', totNet, totCash, totDiesel, '']
+        : ['', '', '', '', '', '', 'TOTAL:', totBags, tot1st, tot2nd, totNet, totTp, totGIss, totCash, totDiesel];
+      const rightFrom = isSale ? 6 : 7;
       totVals.forEach((v, i) => {
         const cell = totRow.getCell(i + 1);
         cell.value = v;
         cell.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1a1a2e' } };
         cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
-        if (i >= 7) cell.alignment = { horizontal: 'right' };
+        if (i >= rightFrom) cell.alignment = { horizontal: 'right' };
       });
     }
 
-    ws.columns.forEach((c, i) => { c.width = i === 4 ? 22 : 15; }); // Mandi column (index 4) wider
+    ws.columns.forEach((c, i) => { c.width = i === 4 ? 22 : 15; }); // Source/Destination column wider
 
     // Light-themed summary banner
     if (items.length > 0) {
       const { addExcelSummaryBanner: addSB, fmtInr: fmtI } = require('./pdf_helpers');
-      const totBags2 = items.reduce((s, e) => s + (Number(e.bags) || 0), 0);
-      const tot1st2 = items.reduce((s, e) => s + (Number(e.first_weight) || 0), 0);
-      const tot2nd2 = items.reduce((s, e) => s + (Number(e.second_weight) || 0), 0);
-      const totNet2 = items.reduce((s, e) => { const f = Number(e.first_weight) || 0; const s2 = Number(e.second_weight) || 0; return s + (f && s2 ? Math.abs(f - s2) : 0); }, 0);
+      const totBags2 = items.reduce((s, e) => s + (Number(e.tot_pkts) || 0), 0);
+      const totNet2 = items.reduce((s, e) => s + (Number(e.net_wt) || 0), 0);
       const totCash2 = items.reduce((s, e) => s + (Number(e.cash_paid) || 0), 0);
       const totDiesel2 = items.reduce((s, e) => s + (Number(e.diesel_paid) || 0), 0);
       const lastRow = ws.lastRow ? ws.lastRow.number : 5;
-      addSB(ws, lastRow + 2, 15, [
-        { lbl: 'Total Entries', val: String(items.length) },
-        { lbl: 'Total Bags', val: totBags2.toLocaleString() },
-        { lbl: '1st Wt', val: `${tot1st2.toLocaleString()} KG` },
-        { lbl: '2nd Wt', val: `${tot2nd2.toLocaleString()} KG` },
-        { lbl: 'Net Wt', val: `${totNet2.toLocaleString()} KG` },
-        { lbl: 'Cash Paid', val: fmtI(totCash2) },
-        { lbl: 'Diesel', val: fmtI(totDiesel2) },
-      ]);
+      const stats = isSale
+        ? [
+            { lbl: 'Total Entries', val: String(items.length) },
+            { lbl: 'Total Bags', val: totBags2.toLocaleString() },
+            { lbl: 'Net Wt', val: `${totNet2.toLocaleString()} KG` },
+            { lbl: 'Cash Paid', val: fmtI(totCash2) },
+            { lbl: 'Diesel', val: fmtI(totDiesel2) },
+          ]
+        : [
+            { lbl: 'Total Entries', val: String(items.length) },
+            { lbl: 'Total Bags', val: totBags2.toLocaleString() },
+            { lbl: '1st Wt', val: `${items.reduce((s, e) => s + (Number(e.first_wt) || 0), 0).toLocaleString()} KG` },
+            { lbl: '2nd Wt', val: `${items.reduce((s, e) => s + (Number(e.second_wt) || 0), 0).toLocaleString()} KG` },
+            { lbl: 'Net Wt', val: `${totNet2.toLocaleString()} KG` },
+            { lbl: 'Cash Paid', val: fmtI(totCash2) },
+            { lbl: 'Diesel', val: fmtI(totDiesel2) },
+          ];
+      addSB(ws, lastRow + 2, nCols, stats);
     }
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=vehicle_weight.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${isSale ? 'vehicle_weight_sales' : 'vehicle_weight'}.xlsx`);
     await wb.xlsx.write(res);
     res.end();
   }));
@@ -1546,9 +1565,10 @@ module.exports = function(database) {
     const efn = hasFS2 ? 'ExFont' : 'Helvetica';
     const efb = hasFS2 ? 'ExFontBold' : 'Helvetica-Bold';
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=vehicle_weight.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${String(req.query.trans_type||'').toLowerCase()==='sale' ? 'vehicle_weight_sales' : 'vehicle_weight'}.pdf`);
     doc.pipe(res);
 
+    const isSale = String(req.query.trans_type || '').toLowerCase().trim() === 'sale';
     const PW = 792; // A4 landscape width
     const LM = 25;
     const TW = PW - 2 * LM;
@@ -1588,21 +1608,40 @@ module.exports = function(database) {
     let y = subY + 24;
 
     // ── Table ──
-    const headers = ['#', 'RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Bags', '1st Wt', '2nd Wt', 'Net Wt', 'TP Wt', 'G.Iss', 'Cash', 'Diesel'];
-    const colW = [22, 36, 55, 62, 68, 64, 55, 32, 52, 52, 52, 36, 36, 46, 46];
-    const rightAlign = [false, true, false, false, false, false, false, true, true, true, true, true, true, true, true];
+    // Sale view: # RST Date Vehicle Party Destination Product Bags BagType NetWt Cash Diesel Remark
+    // Purchase view: # RST Date Vehicle Party Mandi Product Bags 1stWt 2ndWt NetWt TPWt G.Iss Cash Diesel
+    const headers = isSale
+      ? ['#', 'RST', 'Date', 'Vehicle', 'Party', 'Destination', 'Product', 'Bags', 'Bag Type', 'Net Wt', 'Cash', 'Diesel', 'Remark']
+      : ['#', 'RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Bags', '1st Wt', '2nd Wt', 'Net Wt', 'TP Wt', 'G.Iss', 'Cash', 'Diesel'];
+    const colW = isSale
+      ? [22, 36, 55, 62, 72, 70, 60, 32, 60, 52, 50, 50, 121]
+      : [22, 36, 55, 62, 68, 64, 55, 32, 52, 52, 52, 36, 36, 46, 46];
+    const rightAlign = isSale
+      ? [false, true, false, false, false, false, false, true, false, true, true, true, false]
+      : [false, true, false, false, false, false, false, true, true, true, true, true, true, true, true];
 
     // Column group colors for header: Info=navy, Weight=teal, Money=dark green
     const drawTableHeader = (yPos) => {
-      // Info columns (#, RST, Date, Vehicle, Party, Mandi, Product, Bags) - Navy
-      let infoW = colW.slice(0, 8).reduce((s,w) => s+w, 0);
-      doc.rect(LM, yPos, infoW, 15).fill('#1a237e');
-      // Weight columns (1st, 2nd, Net, TP Wt) - Teal
-      let wtW = colW.slice(8, 12).reduce((s,w) => s+w, 0);
-      doc.rect(LM + infoW, yPos, wtW, 15).fill('#004d40');
-      // Money columns (G.Iss, Cash, Diesel) - Dark amber
-      let monW = colW.slice(12, 15).reduce((s,w) => s+w, 0);
-      doc.rect(LM + infoW + wtW, yPos, monW, 15).fill('#e65100');
+      if (isSale) {
+        // Sale: cols 0-8 navy(info), col 9 teal(net wt), cols 10-11 amber(cash/diesel), col 12 navy(remark)
+        const infoW = colW.slice(0, 9).reduce((s,w) => s+w, 0);
+        doc.rect(LM, yPos, infoW, 15).fill('#1a237e');
+        const wtW = colW[9];
+        doc.rect(LM + infoW, yPos, wtW, 15).fill('#004d40');
+        const monW = colW[10] + colW[11];
+        doc.rect(LM + infoW + wtW, yPos, monW, 15).fill('#e65100');
+        doc.rect(LM + infoW + wtW + monW, yPos, colW[12], 15).fill('#1a237e');
+      } else {
+        // Info columns (#, RST, Date, Vehicle, Party, Mandi, Product, Bags) - Navy
+        const infoW = colW.slice(0, 8).reduce((s,w) => s+w, 0);
+        doc.rect(LM, yPos, infoW, 15).fill('#1a237e');
+        // Weight columns (1st, 2nd, Net, TP Wt) - Teal
+        const wtW = colW.slice(8, 12).reduce((s,w) => s+w, 0);
+        doc.rect(LM + infoW, yPos, wtW, 15).fill('#004d40');
+        // Money columns (G.Iss, Cash, Diesel) - Dark amber
+        const monW = colW.slice(12, 15).reduce((s,w) => s+w, 0);
+        doc.rect(LM + infoW + wtW, yPos, monW, 15).fill('#e65100');
+      }
 
       doc.fontSize(7).font(efb).fillColor('#ffffff');
       let hx = LM + 2;
@@ -1657,23 +1696,44 @@ module.exports = function(database) {
       totBags += bags; tot1st += first; tot2nd += second; totNet += net; totTp += tpWt; totGiss += gIss; totCash += cash; totDiesel += diesel;
 
       x = LM + 2;
-      const vals = [
-        idx + 1, e.rst_no, fmtDate(e.date), e.vehicle_no, e.party_name, e.farmer_name, e.product, bags || '-',
-        first ? first.toLocaleString() : '-', second ? second.toLocaleString() : '-',
-        net ? net.toLocaleString() : '-', tpWt > 0 ? tpWt : '-', gIss > 0 ? gIss.toLocaleString() : '-',
-        cash ? cash.toLocaleString() : '-', diesel ? diesel.toLocaleString() : '-'
-      ];
+      const vals = isSale
+        ? [
+            idx + 1, e.rst_no, fmtDate(e.date), e.vehicle_no, e.party_name, e.farmer_name || '-', e.product, bags || '-',
+            e.bag_type || '-',
+            net ? net.toLocaleString() : '-',
+            cash ? cash.toLocaleString() : '-', diesel ? diesel.toLocaleString() : '-',
+            (e.remark || '').slice(0, 40),
+          ]
+        : [
+            idx + 1, e.rst_no, fmtDate(e.date), e.vehicle_no, e.party_name, e.farmer_name, e.product, bags || '-',
+            first ? first.toLocaleString() : '-', second ? second.toLocaleString() : '-',
+            net ? net.toLocaleString() : '-', tpWt > 0 ? tpWt : '-', gIss > 0 ? gIss.toLocaleString() : '-',
+            cash ? cash.toLocaleString() : '-', diesel ? diesel.toLocaleString() : '-'
+          ];
 
       vals.forEach((v, i) => {
-        if (i === 0) { doc.font(efn).fillColor('#78909c'); } // # column gray
-        else if (i === 1) { doc.font(efb).fillColor('#1a237e'); } // RST bold navy
-        else if (i === 2) { doc.font(efn).fillColor('#37474f'); } // Date dark gray
-        else if (i === 8) { doc.font(efn).fillColor('#0277bd'); } // 1st Wt blue
-        else if (i === 9) { doc.font(efn).fillColor('#7b1fa2'); } // 2nd Wt purple
-        else if (i === 10 && net > 0) { doc.font(efb).fillColor('#1b5e20'); } // Net Wt green bold
-        else if (i === 11 && cash > 0) { doc.font(efb).fillColor('#2e7d32'); } // Cash green
-        else if (i === 12 && diesel > 0) { doc.font(efb).fillColor('#e65100'); } // Diesel orange
-        else { doc.font(efn).fillColor('#212121'); }
+        if (isSale) {
+          // Sale-mode coloring:
+          //   col 0 (#) gray; col 1 (RST) bold navy; col 2 (Date) dark; col 9 (Net Wt) green;
+          //   col 10 (Cash) green; col 11 (Diesel) orange; rest dark.
+          if (i === 0) { doc.font(efn).fillColor('#78909c'); }
+          else if (i === 1) { doc.font(efb).fillColor('#1a237e'); }
+          else if (i === 2) { doc.font(efn).fillColor('#37474f'); }
+          else if (i === 9 && net > 0) { doc.font(efb).fillColor('#1b5e20'); }
+          else if (i === 10 && cash > 0) { doc.font(efb).fillColor('#2e7d32'); }
+          else if (i === 11 && diesel > 0) { doc.font(efb).fillColor('#e65100'); }
+          else { doc.font(efn).fillColor('#212121'); }
+        } else {
+          if (i === 0) { doc.font(efn).fillColor('#78909c'); } // # column gray
+          else if (i === 1) { doc.font(efb).fillColor('#1a237e'); } // RST bold navy
+          else if (i === 2) { doc.font(efn).fillColor('#37474f'); } // Date dark gray
+          else if (i === 8) { doc.font(efn).fillColor('#0277bd'); } // 1st Wt blue
+          else if (i === 9) { doc.font(efn).fillColor('#7b1fa2'); } // 2nd Wt purple
+          else if (i === 10 && net > 0) { doc.font(efb).fillColor('#1b5e20'); } // Net Wt green bold
+          else if (i === 11 && cash > 0) { doc.font(efb).fillColor('#2e7d32'); } // Cash green
+          else if (i === 12 && diesel > 0) { doc.font(efb).fillColor('#e65100'); } // Diesel orange
+          else { doc.font(efn).fillColor('#212121'); }
+        }
         doc.text(String(v || '-'), x, y + 3, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : 'left' });
         x += colW[i];
       });
@@ -1692,12 +1752,17 @@ module.exports = function(database) {
     doc.rect(LM, y, 4, 16).fill('#2e7d32');
     doc.fontSize(8).font(efb).fillColor('#1b5e20');
     x = LM + 2;
-    const totVals = ['', '', '', '', '', '', 'TOTAL:', totBags.toLocaleString(),
-      tot1st.toLocaleString(), tot2nd.toLocaleString(), totNet.toLocaleString(),
-      totTp > 0 ? totTp.toFixed(1) : '-', totGiss > 0 ? totGiss.toLocaleString() : '-',
-      totCash ? totCash.toLocaleString() : '-', totDiesel ? totDiesel.toLocaleString() : '-'];
+    const totVals = isSale
+      ? ['', '', '', '', '', 'TOTAL:', '', totBags.toLocaleString(), '',
+         totNet.toLocaleString(),
+         totCash ? totCash.toLocaleString() : '-', totDiesel ? totDiesel.toLocaleString() : '-', '']
+      : ['', '', '', '', '', '', 'TOTAL:', totBags.toLocaleString(),
+         tot1st.toLocaleString(), tot2nd.toLocaleString(), totNet.toLocaleString(),
+         totTp > 0 ? totTp.toFixed(1) : '-', totGiss > 0 ? totGiss.toLocaleString() : '-',
+         totCash ? totCash.toLocaleString() : '-', totDiesel ? totDiesel.toLocaleString() : '-'];
+    const totalLabelIdx = isSale ? 5 : 6;
     totVals.forEach((v, i) => {
-      doc.text(String(v), x, y + 4, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : (i === 6 ? 'right' : 'left') });
+      doc.text(String(v), x, y + 4, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : (i === totalLabelIdx ? 'right' : 'left') });
       x += colW[i];
     });
     doc.lineWidth(1).strokeColor('#2e7d32').moveTo(LM, y + 16).lineTo(LM + TW, y + 16).stroke();
@@ -1707,7 +1772,13 @@ module.exports = function(database) {
       const { drawSummaryBanner: drawSB, STAT_COLORS: SC, fmtInr: fmtI } = require('./pdf_helpers');
       y += 22;
       if (y + 30 > doc.page.height - doc.page.margins.bottom) doc.addPage();
-      drawSB(doc, [
+      drawSB(doc, isSale ? [
+        { lbl: 'TOTAL ENTRIES', val: String(items.length), color: SC.primary },
+        { lbl: 'TOTAL BAGS', val: totBags.toLocaleString(), color: SC.blue },
+        { lbl: 'NET WT', val: totNet.toLocaleString(), color: SC.emerald },
+        { lbl: 'CASH PAID', val: fmtI(totCash), color: SC.green },
+        { lbl: 'DIESEL', val: fmtI(totDiesel), color: SC.orange },
+      ] : [
         { lbl: 'TOTAL ENTRIES', val: String(items.length), color: SC.primary },
         { lbl: 'TOTAL BAGS', val: totBags.toLocaleString(), color: SC.blue },
         { lbl: '1ST WT', val: tot1st.toLocaleString(), color: SC.teal },

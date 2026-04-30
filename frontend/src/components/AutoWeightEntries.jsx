@@ -41,7 +41,19 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
   const [linkedRstBpSale, setLinkedRstBpSale] = useState(new Set());
   // viewMode: 'purchase' shows Receive(Purchase) entries; 'sale' shows Dispatch(Sale) entries.
   // Each mode has its own table columns + filters + green-tick source.
-  const [viewMode, setViewMode] = useState('purchase');
+  // Persisted in localStorage so VehicleWeight Completed Entries shares same toggle.
+  const [viewMode, setViewMode] = useState(() => {
+    try { return localStorage.getItem('vw_view_mode') || 'purchase'; } catch { return 'purchase'; }
+  });
+  useEffect(() => { try { localStorage.setItem('vw_view_mode', viewMode); } catch {} }, [viewMode]);
+  // Listen for cross-component sync: when VehicleWeight form Trans Type changes the mode, this view refreshes too.
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === 'vw_view_mode' && e.newValue && e.newValue !== viewMode) setViewMode(e.newValue);
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [viewMode]);
   const [showFilters, setShowFilters] = useState(true);
   useCloseFiltersOnEsc(setShowFilters);
   useCloseFiltersOnEsc(setShowFilters);
