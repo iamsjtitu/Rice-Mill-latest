@@ -7,6 +7,15 @@ import uuid
 
 router = APIRouter()
 
+
+def _vlbl(v: dict) -> str:
+    """Return display label for a sale voucher: explicit label or fallback S-NNN."""
+    lbl = (v.get('voucher_no_label') or '').strip()
+    if lbl:
+        return lbl
+    n = v.get('voucher_no', 0) or 0
+    return f"S-{n:03d}"
+
 # ============ GST SETTINGS ============
 
 class GSTSettings(BaseModel):
@@ -44,6 +53,7 @@ class SaleItemCreate(BaseModel):
 class SaleVoucherCreate(BaseModel):
     date: str
     party_name: str
+    voucher_no_label: str = ""  # Editable display label e.g. S-001 (auto-generated if empty)
     invoice_no: str = ""
     bill_book: str = ""
     destination: str = ""
@@ -68,6 +78,8 @@ class SaleVoucher(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     voucher_no: int = 0
+    # Display label like `S-001`. Editable by user; auto-generated if empty.
+    voucher_no_label: str = ""
     invoice_no: str = ""
     bill_book: str = ""
     destination: str = ""
@@ -401,6 +413,16 @@ def _compute_sale_gst(d):
     return items
 
 
+@router.get("/sale-book/next-voucher-label")
+async def next_sale_voucher_label():
+    """Preview the next sale voucher label `S-NNN` (zero-padded to 3 digits).
+    Sequence is based on internal integer voucher_no. If user creates with custom
+    voucher_no_label, the int sequence still continues independently."""
+    last = await db.sale_vouchers.find_one(sort=[("voucher_no", -1)], projection={"_id": 0, "voucher_no": 1})
+    n = (last.get('voucher_no', 0) if last else 0) + 1
+    return {"voucher_no_label": f"S-{n:03d}", "voucher_no": n}
+
+
 @router.post("/sale-book")
 async def create_sale_voucher(input: SaleVoucherCreate, username: str = "", role: str = ""):
     d = input.model_dump()
@@ -409,6 +431,9 @@ async def create_sale_voucher(input: SaleVoucherCreate, username: str = "", role
     
     last = await db.sale_vouchers.find_one(sort=[("voucher_no", -1)], projection={"_id": 0, "voucher_no": 1})
     d['voucher_no'] = (last.get('voucher_no', 0) if last else 0) + 1
+    # Auto-generate display label if user didn't provide a custom one.
+    if not (d.get('voucher_no_label') or '').strip():
+        d['voucher_no_label'] = f"S-{d['voucher_no']:03d}"
     
     obj = SaleVoucher(**d)
     doc = obj.model_dump()
@@ -467,7 +492,10 @@ async def update_sale_voucher(voucher_id: str, input: SaleVoucherCreate, usernam
     d = input.model_dump()
     items = _compute_sale_gst(d)
     d['updated_at'] = datetime.now(timezone.utc).isoformat()
-    
+    # If user cleared the label field, fall back to auto S-NNN based on existing voucher_no.
+    if not (d.get('voucher_no_label') or '').strip():
+        d['voucher_no_label'] = f"S-{existing.get('voucher_no', 0):03d}"
+
     await db.sale_vouchers.update_one({"id": voucher_id}, {"$set": d})
     
     # Delete old entries and recreate
@@ -565,7 +593,7 @@ async def export_sale_book_pdf(kms_year: Optional[str] = None, season: Optional[
         g["paid"] += ledger_paid
         g["bal"] += ledger_bal
         table_data.append([
-            Paragraph(f"#{v.get('voucher_no','')}", cell_s),
+            Paragraph(_vlbl(v), cell_s),
             Paragraph(fd, cell_s),
             Paragraph(str(v.get('invoice_no', '')), cell_s),
             Paragraph(f"<b>{pn}</b>", cell_s),
@@ -719,7 +747,7 @@ async def export_sale_book_excel(kms_year: Optional[str] = None, season: Optiona
         g["paid"] += ledger_paid
         g["bal"] += ledger_bal
         
-        row_data = [v.get('voucher_no',''), fd, v.get('invoice_no',''), pn, items_str, truck_rst,
+        row_data = [_vlbl(v), fd, v.get('invoice_no',''), pn, items_str, truck_rst,
                     total, v.get('advance', 0) or 0, v.get('cash_paid', 0) or 0, v.get('diesel_paid', 0) or 0,
                     ledger_paid, ledger_bal, status]
         for ci, val in enumerate(row_data, 1):
@@ -885,8 +913,8 @@ async def export_single_sale_voucher_pdf(voucher_id: str):
                 Paragraph(f'<b>{l2}:</b>', s_lbl), Paragraph(str(v2), s_val)]
 
     det = [
-        _row("Invoice No", v.get('invoice_no', '') or f"SV-{v.get('voucher_no', '')}", "Date", date_str),
-        _row("Party Name", v.get('party_name', ''), "Voucher No", f"#{v.get('voucher_no', '')}"),
+        _row("Invoice No", v.get('invoice_no', '') or _vlbl(v), "Date", date_str),
+        _row("Party Name", v.get('party_name', ''), "Voucher No", _vlbl(v)),
     ]
     if v.get('buyer_gstin') or v.get('buyer_address'):
         det.append(_row("Buyer GSTIN", v.get('buyer_gstin', '-'), "Buyer Address", v.get('buyer_address', '-')))
@@ -1168,7 +1196,7 @@ async def whatsapp_send_sale_voucher(voucher_id: str, request: Request):
         f"*{company}*\n"
         f"━━━━━━━━━━━━━━━━\n"
         f"*{'TAX INVOICE' if has_gst else 'SALE INVOICE'}*\n"
-        f"Voucher: #{v.get('voucher_no', '')}\n"
+        f"Voucher: {_vlbl(v)}\n"
         f"Date: {date_str}\n"
     )
     if v.get('invoice_no'):
@@ -1245,7 +1273,7 @@ async def whatsapp_send_sale_voucher(voucher_id: str, request: Request):
     hd_s = ParagraphStyle('H', parent=styles['Normal'], fontSize=8, leading=11, fontName='FreeSansBold', textColor=colors.white)
 
     info_data = [
-        [Paragraph('<b>Voucher:</b>', label_s), Paragraph(f"#{v.get('voucher_no', '')}", val_s),
+        [Paragraph('<b>Voucher:</b>', label_s), Paragraph(_vlbl(v), val_s),
          Paragraph('<b>Date:</b>', label_s), Paragraph(date_str, val_s)],
         [Paragraph('<b>Party:</b>', label_s), Paragraph(v.get('party_name', ''), val_s),
          Paragraph('<b>Invoice:</b>', label_s), Paragraph(v.get('invoice_no', ''), val_s)],

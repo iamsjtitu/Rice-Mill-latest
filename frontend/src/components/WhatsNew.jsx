@@ -7,6 +7,19 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.43.1",
+    date: "Feb 16, 2026",
+    title: "v104.43.1 — 🎫 Sale Book + Purchase Voucher: S-001 / P-001 Auto Prefix (Editable)",
+    items: [
+      { type: "feature", text: "🎫 **Sale Voucher Auto Number `S-001`** — GST Sale Book me ab New Sale form khulte hi 'Voucher No.' field auto-fill ho jaata hai next serial ke saath: `S-001`, `S-002`, `S-003`. Backend integer voucher_no internal sequence rakhta hai (sorting/queries ke liye); display label `voucher_no_label` field me alag store hota hai. User chahe toh `S-050` se start kar sakta hai ya `CUSTOM-XYZ` likh sakta hai — full edit allowed." },
+      { type: "feature", text: "🎫 **Purchase Voucher Auto Number `P-001`** — Same flow Purchase Book me bhi: form khulte hi `P-001` pre-fill, editable. PDF, table, WhatsApp message — sab jagah `P-001` format. Backend bhi `P-NNN` format hi PDF aur Excel exports me bhejta hai." },
+      { type: "feature", text: "🔍 **2 New Endpoints** — `GET /api/sale-book/next-voucher-label` aur `GET /api/purchase-book/next-voucher-label` — front-end form open karte time call karta hai aur next serial preview milta hai (e.g. `{voucher_no_label: 'S-005', voucher_no: 5}`)." },
+      { type: "improvement", text: "📄 **Display Standardized** — Sab jagah `#1, #2` ki jagah `S-001, P-001` dikhne laga hai: GST Sale Book table, Purchase Voucher table, voucher PDF (top right + summary), GST Summary dialog (header), WhatsApp message text, PDF filename (`sale_invoice_S-001.pdf` instead of `sale_invoice_1.pdf`)." },
+      { type: "improvement", text: "🔄 **Triple-Backend Parity** — Voucher prefix logic Python (web) + Electron desktop-app + local-server teeno me parallel applied. Node Backends bhi ab voucher_no auto-increment karte hain (pehle req.body se directly leta tha)." },
+      { type: "improvement", text: "↩️ **Backward Compat** — Existing vouchers jinka `voucher_no_label` set nahi hai (purane records), unke liye fallback `S-{padStart(voucher_no, 3, '0')}` automatically dikhta hai (helper `formatVoucherNo()`). Koi DB migration ki zarurat nahi." },
+    ],
+  },
+  {
     version: "104.43.0",
     date: "Feb 16, 2026",
     title: "v104.43.0 — 🚛 Auto Vehicle Weight: Purchase / Sale Toggle + BP-Sale Green Tick",

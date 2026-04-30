@@ -234,9 +234,19 @@ module.exports = function(database) {
     res.json(vouchers);
   }));
 
+  router.get('/api/purchase-book/next-voucher-label', safeHandler(async (req, res) => {
+    ensure();
+    const max = (database.data.purchase_vouchers || []).reduce((m, v) => Math.max(m, Number(v.voucher_no) || 0), 0);
+    const n = max + 1;
+    res.json({ voucher_no_label: `P-${String(n).padStart(3, '0')}`, voucher_no: n });
+  }));
+
   router.post('/api/purchase-book', safeHandler(async (req, res) => {
     ensure();
-    const d = { id: uuidv4(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString() };
+    const max = (database.data.purchase_vouchers || []).reduce((m, v) => Math.max(m, Number(v.voucher_no) || 0), 0);
+    const voucherNo = max + 1;
+    const d = { id: uuidv4(), ...req.body, voucher_no: voucherNo, created_by: req.query.username || '', created_at: new Date().toISOString() };
+    if (!String(d.voucher_no_label || '').trim()) d.voucher_no_label = `P-${String(voucherNo).padStart(3, '0')}`;
     const items = d.items || [];
     d.subtotal = Math.round(items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0) * 100) / 100;
     const cgstP = parseFloat(d.cgst_percent) || 0, sgstP = parseFloat(d.sgst_percent) || 0, igstP = parseFloat(d.igst_percent) || 0;
@@ -255,7 +265,9 @@ module.exports = function(database) {
     ensure();
     const idx = database.data.purchase_vouchers.findIndex(v => v.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
-    const d = { ...database.data.purchase_vouchers[idx], ...req.body, updated_at: new Date().toISOString() };
+    const existing = database.data.purchase_vouchers[idx];
+    const d = { ...existing, ...req.body, updated_at: new Date().toISOString() };
+    if (!String(d.voucher_no_label || '').trim()) d.voucher_no_label = `P-${String(existing.voucher_no || 0).padStart(3, '0')}`;
     const items = d.items || [];
     d.subtotal = Math.round(items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0) * 100) / 100;
     d.cgst_amount = Math.round(d.subtotal * (parseFloat(d.cgst_percent) || 0) / 100 * 100) / 100;

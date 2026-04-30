@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import {
   Plus, Trash2, RefreshCw, Search, FileText, FileSpreadsheet, Eye, ShoppingBag, IndianRupee, Receipt, Clock, History, Undo2, Printer,
 } from "lucide-react";
+import { formatPurchaseVoucher } from "../utils/voucher-format";
 import { downloadFile, fetchAsBlob } from "../utils/download";
 import { ShareFileViaWhatsApp } from "./common/ShareFileViaWhatsApp";
 import RoundOffInput from "./common/RoundOffInput";
@@ -69,7 +70,7 @@ export default function PurchaseVouchers({ filters, user }) {
   };
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
-    party_name: "", invoice_no: "", rst_no: "", truck_no: "", eway_bill_no: "",
+    party_name: "", voucher_no_label: "", invoice_no: "", rst_no: "", truck_no: "", eway_bill_no: "",
     items: [{ ...emptyItem }],
     gst_type: "none", cgst_percent: 0, sgst_percent: 0, igst_percent: 0,
     cash_paid: "", diesel_paid: "", advance: "", remark: "",
@@ -134,7 +135,7 @@ export default function PurchaseVouchers({ filters, user }) {
   const resetForm = () => {
     setForm({
       date: new Date().toISOString().split('T')[0],
-      party_name: "", invoice_no: "", rst_no: "", truck_no: "", eway_bill_no: "",
+      party_name: "", voucher_no_label: "", invoice_no: "", rst_no: "", truck_no: "", eway_bill_no: "",
       items: [{ ...emptyItem }],
       gst_type: "none", cgst_percent: 0, sgst_percent: 0, igst_percent: 0,
       cash_paid: "", diesel_paid: "", advance: "", remark: "",
@@ -205,7 +206,9 @@ export default function PurchaseVouchers({ filters, user }) {
 
   const handleEdit = (v) => {
     setForm({
-      date: v.date || "", party_name: v.party_name || "", invoice_no: v.invoice_no || "",
+      date: v.date || "", party_name: v.party_name || "",
+      voucher_no_label: v.voucher_no_label || formatPurchaseVoucher(v),
+      invoice_no: v.invoice_no || "",
       rst_no: v.rst_no || "", truck_no: v.truck_no || "", eway_bill_no: v.eway_bill_no || "",
       items: (v.items || []).map(i => ({
         item_name: i.item_name || "", quantity: String(i.quantity || ""),
@@ -254,7 +257,7 @@ export default function PurchaseVouchers({ filters, user }) {
   };
 
   const handlePrintInvoice = (v) => {
-    downloadFile(`${API}/purchase-book/${v.id}/pdf`, `purchase_invoice_${v.voucher_no || v.id}.pdf`);
+    downloadFile(`${API}/purchase-book/${v.id}/pdf`, `purchase_invoice_${formatPurchaseVoucher(v) || v.id}.pdf`);
   };
 
   const handlePayment = async () => {
@@ -320,7 +323,15 @@ export default function PurchaseVouchers({ filters, user }) {
 
       {/* Toolbar */}
       <div className="flex flex-wrap gap-2 items-center">
-        <Button onClick={() => { resetForm(); setDialogOpen(true); }} className="bg-emerald-500 hover:bg-emerald-600 text-white" size="sm" data-testid="pv-add-btn">
+        <Button onClick={async () => {
+          resetForm();
+          setDialogOpen(true);
+          // Pre-fill next P-NNN serial; user can edit.
+          try {
+            const r = await axios.get(`${API}/purchase-book/next-voucher-label`);
+            if (r.data?.voucher_no_label) setForm(p => ({ ...p, voucher_no_label: r.data.voucher_no_label }));
+          } catch (e) { /* silent */ }
+        }} className="bg-emerald-500 hover:bg-emerald-600 text-white" size="sm" data-testid="pv-add-btn">
           <Plus className="w-4 h-4 mr-1" /> Nayi Entry
         </Button>
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="pv-refresh-btn">
@@ -380,7 +391,7 @@ export default function PurchaseVouchers({ filters, user }) {
                     <input type="checkbox" checked={selectedIds.includes(v.id)} onChange={() => toggleSelect(v.id)}
                       className="accent-emerald-500 w-3.5 h-3.5 cursor-pointer" data-testid={`pv-select-${v.id}`} />
                   </TableCell>
-                  <TableCell className="text-slate-400 text-xs">{v.voucher_no}</TableCell>
+                  <TableCell className="text-amber-400 text-xs font-mono" data-testid={`pv-row-vno-${v.id}`}>{formatPurchaseVoucher(v)}</TableCell>
                   <TableCell className="text-white text-xs whitespace-nowrap">{fmtDate(v.date)}</TableCell>
                   <TableCell className="text-cyan-400 text-xs">{v.invoice_no || '-'}</TableCell>
                   <TableCell className="text-purple-400 text-xs">{v.rst_no || '-'}</TableCell>
@@ -445,8 +456,13 @@ export default function PurchaseVouchers({ filters, user }) {
             <ShoppingBag className="w-5 h-5" /> {editId ? "Edit Purchase Voucher" : "Nayi Purchase Entry"}
           </DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Row 1: Invoice No, Date, Party, RST */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {/* Row 1: Voucher No, Invoice No, Date, Party, RST */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div>
+                <Label className="text-xs text-amber-400 font-semibold">Voucher No.</Label>
+                <Input value={form.voucher_no_label} onChange={e => setForm(p => ({ ...p, voucher_no_label: e.target.value }))}
+                  placeholder="P-001" className="bg-slate-700 border-slate-600 text-amber-400 font-mono h-8 text-sm" data-testid="pv-voucher-no" />
+              </div>
               <div>
                 <Label className="text-xs text-cyan-400 font-semibold flex items-center gap-1"><Receipt className="w-3 h-3" /> Invoice No.</Label>
                 <Input value={form.invoice_no} onChange={e => setForm(p => ({ ...p, invoice_no: e.target.value }))}

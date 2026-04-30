@@ -7,6 +7,16 @@ import uuid
 
 router = APIRouter()
 
+
+def _vlbl(v: dict) -> str:
+    """Return display label for a purchase voucher: explicit label or fallback P-NNN."""
+    lbl = (v.get('voucher_no_label') or '').strip()
+    if lbl:
+        return lbl
+    n = v.get('voucher_no', 0) or 0
+    return f"P-{n:03d}"
+
+
 # ============ PURCHASE VOUCHERS ============
 
 class PurchaseItemCreate(BaseModel):
@@ -18,6 +28,7 @@ class PurchaseItemCreate(BaseModel):
 class PurchaseVoucherCreate(BaseModel):
     date: str
     party_name: str
+    voucher_no_label: str = ""  # Editable display label e.g. P-001 (auto-generated if empty)
     invoice_no: str = ""
     rst_no: str = ""
     items: list[PurchaseItemCreate] = []
@@ -38,6 +49,8 @@ class PurchaseVoucher(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     voucher_no: int = 0
+    # Display label like `P-001`. Editable by user; auto-generated if empty.
+    voucher_no_label: str = ""
     invoice_no: str = ""
     rst_no: str = ""
     date: str = ""
@@ -240,6 +253,14 @@ async def get_purchase_vouchers(kms_year: Optional[str] = None, season: Optional
     return vouchers
 
 
+@router.get("/purchase-book/next-voucher-label")
+async def next_purchase_voucher_label():
+    """Preview the next purchase voucher label `P-NNN` (zero-padded to 3 digits)."""
+    last = await db.purchase_vouchers.find_one(sort=[("voucher_no", -1)], projection={"_id": 0, "voucher_no": 1})
+    n = (last.get('voucher_no', 0) if last else 0) + 1
+    return {"voucher_no_label": f"P-{n:03d}", "voucher_no": n}
+
+
 @router.post("/purchase-book")
 async def create_purchase_voucher(input: PurchaseVoucherCreate, username: str = "", role: str = ""):
     d = input.model_dump()
@@ -270,6 +291,9 @@ async def create_purchase_voucher(input: PurchaseVoucherCreate, username: str = 
 
     last = await db.purchase_vouchers.find_one(sort=[("voucher_no", -1)], projection={"_id": 0, "voucher_no": 1})
     d['voucher_no'] = (last.get('voucher_no', 0) if last else 0) + 1
+    # Auto-generate display label if user didn't provide a custom one.
+    if not (d.get('voucher_no_label') or '').strip():
+        d['voucher_no_label'] = f"P-{d['voucher_no']:03d}"
 
     obj = PurchaseVoucher(**d)
     doc = obj.model_dump()
@@ -311,6 +335,9 @@ async def update_purchase_voucher(voucher_id: str, input: PurchaseVoucherCreate,
     d['paid_amount'] = round(advance, 2)
     d['balance'] = round(total - advance, 2)
     d['updated_at'] = datetime.now(timezone.utc).isoformat()
+    # If user cleared the label field, fall back to auto P-NNN based on existing voucher_no.
+    if not (d.get('voucher_no_label') or '').strip():
+        d['voucher_no_label'] = f"P-{existing.get('voucher_no', 0):03d}"
 
     await db.purchase_vouchers.update_one({"id": voucher_id}, {"$set": d})
 
@@ -691,7 +718,7 @@ async def export_purchase_book_pdf(kms_year: Optional[str] = None, season: Optio
         g["paid"] += ledger_paid
         g["bal"] += ledger_bal
         table_data.append([
-            Paragraph(f"{v.get('voucher_no','')}", cell_s),
+            Paragraph(_vlbl(v), cell_s),
             Paragraph(dt, cell_s),
             Paragraph(str(v.get('invoice_no', '')), cell_s),
             Paragraph(f"<b>{pn}</b>", cell_s),
@@ -837,7 +864,7 @@ async def export_purchase_book_excel(kms_year: Optional[str] = None, season: Opt
             g["paid"] += ledger_paid
             g["bal"] += ledger_bal
 
-            row_data = [v.get('voucher_no', ''), dt, v.get('invoice_no', ''), pn, items_str,
+            row_data = [_vlbl(v), dt, v.get('invoice_no', ''), pn, items_str,
                         v.get('truck_no', ''), total, v.get('advance', 0) or 0, v.get('cash_paid', 0) or 0,
                         v.get('diesel_paid', 0) or 0, ledger_paid, ledger_bal, status]
             for ci, val in enumerate(row_data, 1):
@@ -930,7 +957,7 @@ async def export_single_purchase_voucher_pdf(voucher_id: str):
     date_str = f"{dp[2]}/{dp[1]}/{dp[0]}" if len(dp) == 3 else v.get('date', '')
 
     info_data = [
-        [Paragraph('<b>Voucher No:</b>', label_s), Paragraph(f"#{v.get('voucher_no', '')}", val_s),
+        [Paragraph('<b>Voucher No:</b>', label_s), Paragraph(_vlbl(v), val_s),
          Paragraph('<b>Date:</b>', label_s), Paragraph(date_str, val_s)],
         [Paragraph('<b>Party/Seller:</b>', label_s), Paragraph(v.get('party_name', ''), val_s),
          Paragraph('<b>Invoice No:</b>', label_s), Paragraph(v.get('invoice_no', ''), val_s)],

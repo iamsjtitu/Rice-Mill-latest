@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, FileText, IndianRupee, Edit, Download, Search, FileSpreadsheet, Printer, Clock, History, Undo2, Building2, CheckSquare, Receipt, Send, Users } from "lucide-react";
 import { ShareFileViaWhatsApp } from "./common/ShareFileViaWhatsApp";
 import { fetchAsBlob } from "../utils/download";
+import { formatSaleVoucher } from "../utils/voucher-format";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = `${_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')}/api`;
@@ -74,7 +75,7 @@ export default function SaleBook({ filters, user, category }) {
   const emptyItem = { item_name: "", quantity: "", rate: "", unit: "KG", hsn_code: "", gst_percent: 5, oil_percent: "" };
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
-    party_name: "", invoice_no: "", bill_book: "", destination: "", buyer_gstin: "", buyer_address: "",
+    party_name: "", voucher_no_label: "", invoice_no: "", bill_book: "", destination: "", buyer_gstin: "", buyer_address: "",
     items: [{ ...emptyItem }],
     gst_type: "none",
     truck_no: "", rst_no: "", remark: "", cash_paid: "", diesel_paid: "", advance: "", eway_bill_no: "",
@@ -102,25 +103,31 @@ export default function SaleBook({ filters, user, category }) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const openNewForm = () => {
+  const openNewForm = async () => {
     setEditingId(null);
     const defaultItem = category
       ? { ...emptyItem, item_name: category }
       : { ...emptyItem };
     setForm({
-      date: new Date().toISOString().split('T')[0], party_name: "", invoice_no: "", bill_book: "", destination: "",
+      date: new Date().toISOString().split('T')[0], party_name: "", voucher_no_label: "", invoice_no: "", bill_book: "", destination: "",
       buyer_gstin: "", buyer_address: "",
       items: [defaultItem], gst_type: "none",
       truck_no: "", rst_no: "", remark: "", cash_paid: "", diesel_paid: "", advance: "", eway_bill_no: "",
       kms_year: filters.kms_year || "", season: filters.season || "",
     });
     setIsFormOpen(true);
+    // Pre-fill next serial S-NNN; user can edit.
+    try {
+      const r = await axios.get(`${API}/sale-book/next-voucher-label`);
+      if (r.data?.voucher_no_label) setForm(p => ({ ...p, voucher_no_label: r.data.voucher_no_label }));
+    } catch (e) { /* silent */ }
   };
 
   const openEditForm = (v) => {
     setEditingId(v.id);
     setForm({
-      date: v.date || "", party_name: v.party_name || "", invoice_no: v.invoice_no || "",
+      date: v.date || "", party_name: v.party_name || "", voucher_no_label: v.voucher_no_label || formatSaleVoucher(v),
+      invoice_no: v.invoice_no || "",
       bill_book: v.bill_book || "", destination: v.destination || "",
       buyer_gstin: v.buyer_gstin || "", buyer_address: v.buyer_address || "",
       items: (v.items || []).map(i => ({ item_name: i.item_name, quantity: String(i.quantity || ""), rate: String(i.rate || ""), unit: i.unit || "KG", hsn_code: i.hsn_code || "", gst_percent: i.gst_percent ?? 5, oil_percent: i.oil_percent ? String(i.oil_percent) : "" })),
@@ -249,7 +256,7 @@ export default function SaleBook({ filters, user, category }) {
 
   const handlePrintInvoice = async (v) => {
     const { downloadFile } = await import('../utils/download');
-    downloadFile(`${API}/sale-book/${v.id}/pdf`, `sale_invoice_${v.voucher_no || v.id}.pdf`);
+    downloadFile(`${API}/sale-book/${v.id}/pdf`, `sale_invoice_${formatSaleVoucher(v) || v.id}.pdf`);
   };
 
   const getStockForItem = (itemName) => {
@@ -289,7 +296,7 @@ export default function SaleBook({ filters, user, category }) {
 
   const openGroupSendSale = (v) => {
     const total = (v.items || []).reduce((s, i) => s + (i.amount || 0), 0);
-    setGroupText(`*Sale Voucher*\nNo: ${v.voucher_no || v.id}\nDate: ${v.date}\nParty: *${v.party_name}*\nTotal: *Rs.${total.toLocaleString()}*`);
+    setGroupText(`*Sale Voucher*\nNo: ${formatSaleVoucher(v) || v.id}\nDate: ${v.date}\nParty: *${v.party_name}*\nTotal: *Rs.${total.toLocaleString()}*`);
     setGroupPdfUrl(`/api/sale-book/${v.id}/pdf`);
     setGroupDialogOpen(true);
   };
@@ -423,7 +430,7 @@ export default function SaleBook({ filters, user, category }) {
                     <input type="checkbox" checked={selectedIds.includes(v.id)} onChange={() => toggleSelect(v.id)}
                       className="accent-amber-500 w-3.5 h-3.5 cursor-pointer" data-testid={`sv-select-${v.id}`} />
                   </TableCell>
-                  <TableCell className="text-amber-400 font-mono text-xs">#{v.voucher_no}</TableCell>
+                  <TableCell className="text-amber-400 font-mono text-xs" data-testid={`sb-row-vno-${v.id}`}>{formatSaleVoucher(v)}</TableCell>
                   <TableCell className="text-white text-xs">{fmtDate(v.date)}</TableCell>
                   <TableCell className="text-slate-300 text-xs">{v.invoice_no || '-'}</TableCell>
                   <TableCell className="text-white text-sm font-medium">{v.party_name}</TableCell>
@@ -496,8 +503,13 @@ export default function SaleBook({ filters, user, category }) {
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Row 1: Bill No, Date, Party, RST, Bill Book */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {/* Row 1: Voucher No, Bill No, Date, Party, RST, Bill Book */}
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+              <div>
+                <Label className="text-xs text-slate-400">Voucher No.</Label>
+                <Input value={form.voucher_no_label} onChange={e => setForm(p => ({ ...p, voucher_no_label: e.target.value }))}
+                  placeholder="S-001" className="bg-slate-700 border-slate-600 text-amber-400 font-mono h-8 text-sm" data-testid="sv-form-voucher-no" />
+              </div>
               <div>
                 <Label className="text-xs text-slate-400">Bill No.</Label>
                 <Input value={form.invoice_no} onChange={e => setForm(p => ({ ...p, invoice_no: e.target.value }))}
@@ -849,7 +861,7 @@ export default function SaleBook({ filters, user, category }) {
             <div className="space-y-3">
               <div className="flex justify-between text-sm text-slate-300 border-b border-slate-600 pb-2">
                 <span>Party: {gstSummaryVoucher.party_name}</span>
-                <span>#{gstSummaryVoucher.voucher_no} | {fmtDate(gstSummaryVoucher.date)}</span>
+                <span>{formatSaleVoucher(gstSummaryVoucher)} | {fmtDate(gstSummaryVoucher.date)}</span>
               </div>
               <Table>
                 <TableHeader>

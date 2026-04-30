@@ -205,10 +205,22 @@ module.exports = function(database) {
     d.balance = Math.round((d.total - advance) * 100) / 100;
   }
 
+  // GET /api/sale-book/next-voucher-label
+  router.get('/api/sale-book/next-voucher-label', safeHandler(async (req, res) => {
+    ensure();
+    const max = (database.data.sale_vouchers || []).reduce((m, v) => Math.max(m, Number(v.voucher_no) || 0), 0);
+    const n = max + 1;
+    res.json({ voucher_no_label: `S-${String(n).padStart(3, '0')}`, voucher_no: n });
+  }));
+
   // POST /api/sale-book
   router.post('/api/sale-book', safeHandler(async (req, res) => {
     ensure();
-    const d = { id: uuidv4(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString() };
+    const max = (database.data.sale_vouchers || []).reduce((m, v) => Math.max(m, Number(v.voucher_no) || 0), 0);
+    const voucherNo = max + 1;
+    const d = { id: uuidv4(), ...req.body, voucher_no: voucherNo, created_by: req.query.username || '', created_at: new Date().toISOString() };
+    // Auto-generate display label if user didn't supply one.
+    if (!String(d.voucher_no_label || '').trim()) d.voucher_no_label = `S-${String(voucherNo).padStart(3, '0')}`;
     computeSaleGst(d);
     database.data.sale_vouchers.push(d);
     createSaleLedgerEntries(d, d.id, d.voucher_no, d.items || []);
@@ -221,7 +233,9 @@ module.exports = function(database) {
     ensure();
     const idx = database.data.sale_vouchers.findIndex(v => v.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
-    const d = { ...database.data.sale_vouchers[idx], ...req.body, updated_at: new Date().toISOString() };
+    const existing = database.data.sale_vouchers[idx];
+    const d = { ...existing, ...req.body, updated_at: new Date().toISOString() };
+    if (!String(d.voucher_no_label || '').trim()) d.voucher_no_label = `S-${String(existing.voucher_no || 0).padStart(3, '0')}`;
     computeSaleGst(d);
     database.data.sale_vouchers[idx] = d;
     cleanupSaleEntries(d.id);
