@@ -643,19 +643,9 @@ module.exports = function(database) {
         cell.border = { top: { style: 'medium', color: { argb: 'FFF59E0B' } }, bottom: { style: 'medium', color: { argb: 'FFF59E0B' } } };
       }
       widths.forEach((w, i) => ws.getColumn(i + 1).width = w);
-      
-      // Light-themed summary banner
-      if (txns.length > 0) {
-        const net = totals.total_jama - totals.total_nikasi;
-        addExcelSummaryBanner(ws, trow + 2, cols.length, [
-          { lbl: 'Total Entries', val: String(txns.length) },
-          { lbl: 'Total Jama', val: fmtInr(totals.total_jama) },
-          { lbl: 'Total Nikasi', val: fmtInr(totals.total_nikasi) },
-          { lbl: 'Net Movement', val: fmtInr(net) },
-          { lbl: 'Closing Balance', val: fmtInr(runBal) },
-        ]);
-      }
-      
+
+      // Summary banner removed (not useful — totals row at bottom of table is enough)
+
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
@@ -736,21 +726,9 @@ module.exports = function(database) {
       
       addPdfTable(doc, headers, rows, colW, { fontSize: 7 });
       addTotalsRow(doc, ['', '', '', '', '', 'TOTAL', pFmt(totalJama), pFmt(totalNikasi), pFmt(+(totalJama - totalNikasi).toFixed(2))], colW, { fontSize: 7 });
-      
-      // Light-themed summary banner
-      if (txns.length > 0) {
-        const tableW = colW.reduce((a, b) => a + b, 0);
-        if (doc.y + 30 > doc.page.height - doc.page.margins.bottom) doc.addPage();
-        const net = totalJama - totalNikasi;
-        drawSummaryBanner(doc, [
-          { lbl: 'TOTAL ENTRIES', val: String(txns.length), color: STAT_COLORS.primary },
-          { lbl: 'TOTAL JAMA', val: fmtInr(totalJama), color: STAT_COLORS.emerald },
-          { lbl: 'TOTAL NIKASI', val: fmtInr(totalNikasi), color: STAT_COLORS.red },
-          { lbl: 'NET MOVEMENT', val: fmtInr(net), color: net >= 0 ? STAT_COLORS.gold : STAT_COLORS.orange },
-          { lbl: 'CLOSING BALANCE', val: fmtInr(runBal), color: runBal >= 0 ? STAT_COLORS.blue : STAT_COLORS.red },
-        ], doc.page.margins.left, doc.y + 6, tableW);
-      }
-      
+
+      // PDF summary banner removed (not useful — totals row at bottom of table is enough)
+
       await safePdfPipe(doc, res);
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));

@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.43.3",
+    date: "Feb 16, 2026",
+    title: "v104.43.3 — 🧹 Cash Book Exports: Removed Useless Summary Table",
+    items: [
+      { type: "improvement", text: "🧹 **Summary Table Removed** — Reported: 'Excel/PDF/WhatsApp PDF me Summary table aata hai (Cash/Bank breakdown), iska koi kaam nahi hai aur columns me `######` overflow bhi dikhta tha.' Fix: Cash Book ke saare exports (Python web + Electron + local-server) me top par jo 'Summary / सारांश' section tha (Cash/Bank ke Jama/Nikasi/Balance + closing/net banner cards) — wo poora hata diya gaya. Ab exports directly **'Transactions / लेनदेन'** se shuru hote hain, table ke last row par TOTAL automatic dikhta hai (jo enough hai)." },
+      { type: "improvement", text: "📐 **Column Width Fix** — Account/Type columns ki width 10/8 → 12/13 ki, aur amount columns 14 → 16/17 ki — Indian-style currency `1,00,000.00` cleanly fit ho jaata hai bina ###### ke." },
+      { type: "improvement", text: "🔄 **Triple-Backend Parity** — Removal Python web backend + Electron desktop-app + local-server teeno me applied. Excel + PDF + WhatsApp PDF (jo PDF endpoint share karta hai) — sab clean exports." },
+    ],
+  },
+  {
     version: "104.43.2",
     date: "Feb 16, 2026",
     title: "v104.43.2 — 📑 Cash Book PDF / Excel / WhatsApp PDF: Same Order as Desktop UI",

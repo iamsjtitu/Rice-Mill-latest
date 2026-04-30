@@ -707,7 +707,7 @@
         "pdf_header": "Acct",
         "type": "text",
         "align": "left",
-        "width_excel": 10,
+        "width_excel": 12,
         "width_pdf_mm": 16
       },
       {
@@ -716,7 +716,7 @@
         "pdf_header": "Type",
         "type": "text",
         "align": "left",
-        "width_excel": 8,
+        "width_excel": 13,
         "width_pdf_mm": 14
       },
       {
@@ -743,7 +743,7 @@
         "pdf_header": "Desc",
         "type": "text",
         "align": "left",
-        "width_excel": 40,
+        "width_excel": 38,
         "width_pdf_mm": 65
       },
       {
@@ -752,7 +752,7 @@
         "pdf_header": "Jama(Cr)",
         "type": "number",
         "align": "right",
-        "width_excel": 14,
+        "width_excel": 16,
         "width_pdf_mm": 22,
         "show_total": true,
         "total_key": "total_jama"
@@ -763,7 +763,7 @@
         "pdf_header": "Nikasi(Dr)",
         "type": "number",
         "align": "right",
-        "width_excel": 14,
+        "width_excel": 16,
         "width_pdf_mm": 22,
         "show_total": true,
         "total_key": "total_nikasi"
@@ -774,7 +774,7 @@
         "pdf_header": "Balance",
         "type": "number",
         "align": "right",
-        "width_excel": 14,
+        "width_excel": 17,
         "width_pdf_mm": 22,
         "show_total": true,
         "total_key": "closing_balance"

@@ -1400,29 +1400,9 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
         if date_to: date_parts.append(f"To: {date_to}")
         subtitle = " | ".join(date_parts)
     style_excel_title(ws, title, ncols, subtitle)
-    
-    # Summary section
-    ws.cell(row=4, column=1, value="Summary / सारांश").font = Font(bold=True, size=11, color=COLORS['title_text'])
-    style_excel_summary_header(ws, 5, 4)
-    for col, h in enumerate(['', 'Jama (Cr)', 'Nikasi (Dr)', 'Balance'], 1):
-        ws.cell(row=5, column=col, value=h)
-    
-    summary_fill = PatternFill(start_color='F0F7FF', fill_type='solid')
-    for col, v in enumerate(['Cash (नकद)', summary['cash_in'], summary['cash_out'], summary['cash_balance']], 1):
-        c = ws.cell(row=6, column=col, value=v); c.border = tb; c.fill = summary_fill
-        if col >= 2: c.alignment = Alignment(horizontal='right'); c.number_format = '#,##0.00'
-        if col == 4 and isinstance(v, (int, float)):
-            c.font = Font(bold=True, color=COLORS['jama_text'] if v >= 0 else COLORS['nikasi_text'])
-    for col, v in enumerate(['Bank (बैंक)', summary['bank_in'], summary['bank_out'], summary['bank_balance']], 1):
-        c = ws.cell(row=7, column=col, value=v); c.border = tb
-        if col >= 2: c.alignment = Alignment(horizontal='right'); c.number_format = '#,##0.00'
-    
-    style_excel_total_row(ws, 8, 4)
-    ws.cell(row=8, column=1, value="Total / कुल")
-    ws.cell(row=8, column=4, value=summary['total_balance']).number_format = '#,##0.00'
-    
-    # Transactions section
-    row_num = 10
+
+    # Transactions section (Summary table removed - not useful for party ledger views)
+    row_num = 4
     ws.cell(row=row_num, column=1, value="Transactions / लेनदेन").font = Font(bold=True, size=11, color=COLORS['title_text'])
     ws.cell(row=row_num, column=ncols, value=f"{len(rows)} entries").font = Font(size=9, italic=True, color='888888')
     ws.cell(row=row_num, column=ncols).alignment = Alignment(horizontal='right')
@@ -1575,27 +1555,9 @@ async def _generate_cash_book_pdf_bytes(kms_year=None, season=None, account=None
         subtitle_parts.append(" | ".join(dp))
     elements.append(Paragraph(" | ".join(subtitle_parts), title_style))
     elements.append(Spacer(1, 6))
-    
-    # Summary table with colors
-    sdata = [['', 'Jama (Cr)', 'Nikasi (Dr)', 'Balance'],
-             ['Cash (नकद)', summary['cash_in'], summary['cash_out'], summary['cash_balance']],
-             ['Bank (बैंक)', summary['bank_in'], summary['bank_out'], summary['bank_balance']],
-             ['Total / कुल', round(summary['cash_in']+summary['bank_in'],2), round(summary['cash_out']+summary['bank_out'],2), summary['total_balance']]]
-    st = RLTable(sdata, colWidths=[80, 80, 80, 80])
-    st.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTNAME', (0,0), (-1,-1), 'FreeSans'),
-        ('FONTSIZE', (0,0), (-1,-1), 8), ('ALIGN', (1,0), (-1,-1), 'RIGHT'), 
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#D0D5DD')),
-        ('FONTNAME', (0,0), (-1,0), 'FreeSansBold'), ('FONTNAME', (0,-1), (-1,-1), 'FreeSansBold'),
-        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#FEF3C7')),
-        ('LINEABOVE', (0,-1), (-1,-1), 1.5, colors.HexColor('#F59E0B')),
-        ('TEXTCOLOR', (1,1), (1,-2), colors.HexColor('#16A34A')),
-        ('TEXTCOLOR', (2,1), (2,-2), colors.HexColor('#DC2626')),
-        ('BACKGROUND', (0,1), (-1,1), colors.HexColor('#F0F7FF')),
-    ]))
-    elements.append(st); elements.append(Spacer(1, 10))
-    
+
+    # Summary table removed (not useful for party ledger views)
+
     # Transactions table
     desc_style = ParagraphStyle('desc', fontName='FreeSans', fontSize=6, leading=7.5, alignment=TA_LEFT)
     party_style = ParagraphStyle('party', fontName='FreeSans', fontSize=6, leading=7.5, alignment=TA_LEFT)
