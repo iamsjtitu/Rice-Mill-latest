@@ -1976,6 +1976,56 @@ async def list_trucks_with_bhada(kms_year: str = "", season: str = ""):
     return {"trucks": out}
 
 
+@router.get("/truck-owner/per-trip-all")
+async def per_trip_all(kms_year: str = "", season: str = "", date_from: str = "", date_to: str = "", filter_status: str = ""):
+    """Aggregate per-trip view across ALL trucks. Used as the default view in Payments tab.
+
+    Returns: { trips: [...with vehicle_no...], summary: aggregated KPIs }
+    """
+    q = {"bhada": {"$gt": 0}, "vehicle_no": {"$ne": ""}}
+    if kms_year:
+        q["kms_year"] = kms_year
+    if season:
+        q["season"] = season
+    distinct_vnos = await db.vehicle_weights.distinct("vehicle_no", q)
+
+    all_trips = []
+    agg = {
+        "total_trips": 0, "sale_count": 0, "purchase_count": 0,
+        "total_bhada": 0.0, "total_paid": 0.0, "total_pending": 0.0,
+        "settled_count": 0, "partial_count": 0, "pending_count": 0,
+        "extra_paid_unallocated": 0.0,
+    }
+    for vno in distinct_vnos:
+        try:
+            data = await truck_owner_per_trip(vno, kms_year, season, date_from, date_to)
+            for t in data["trips"]:
+                t_with_v = {**t, "vehicle_no": vno}
+                all_trips.append(t_with_v)
+            sm = data["summary"]
+            agg["total_trips"]    += sm.get("total_trips", 0)
+            agg["sale_count"]     += sm.get("sale_count", 0)
+            agg["purchase_count"] += sm.get("purchase_count", 0)
+            agg["total_bhada"]    += sm.get("total_bhada", 0)
+            agg["total_paid"]     += sm.get("total_paid", 0)
+            agg["total_pending"]  += sm.get("total_pending", 0)
+            agg["settled_count"]  += sm.get("settled_count", 0)
+            agg["partial_count"]  += sm.get("partial_count", 0)
+            agg["pending_count"]  += sm.get("pending_count", 0)
+            agg["extra_paid_unallocated"] += sm.get("extra_paid_unallocated", 0)
+        except Exception:
+            continue
+
+    if filter_status and filter_status != "all":
+        all_trips = [t for t in all_trips if t.get("status") == filter_status]
+    # Newest first
+    all_trips.sort(key=lambda x: (x.get("date") or "", x.get("rst_no") or 0), reverse=True)
+
+    for k in ("total_bhada", "total_paid", "total_pending", "extra_paid_unallocated"):
+        agg[k] = round(agg[k], 2)
+    return {"trips": all_trips, "summary": agg, "total_trucks": len(distinct_vnos)}
+
+
 @router.get("/truck-owner/per-trip-pending-count")
 async def per_trip_pending_count(kms_year: str = "", season: str = ""):
     """Total count of trips with pending/partial bhada (across all trucks).

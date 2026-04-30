@@ -1983,6 +1983,92 @@ module.exports = function(database) {
     res.json({ trucks: out });
   }));
 
+  router.get('/api/truck-owner/per-trip-all', safeAsync(async (req, res) => {
+    const { kms_year, season, date_from, date_to, filter_status } = req.query;
+    const vws = col('vehicle_weights');
+    const truckMap = {};
+    for (const vw of vws) {
+      const v = (vw.vehicle_no || '').trim();
+      const b = parseFloat(vw.bhada || 0) || 0;
+      if (!v || b <= 0) continue;
+      if (kms_year && vw.kms_year !== kms_year) continue;
+      if (season && vw.season !== season) continue;
+      if (!truckMap[v]) truckMap[v] = [];
+      truckMap[v].push(vw);
+    }
+    const ledgerNikasis = col('cash_transactions').filter(t =>
+      t.account === 'ledger' && t.party_type === 'Truck' && t.txn_type === 'nikasi' &&
+      (!kms_year || t.kms_year === kms_year)
+    );
+    const allTrips = [];
+    const agg = { total_trips: 0, sale_count: 0, purchase_count: 0, total_bhada: 0, total_paid: 0, total_pending: 0, settled_count: 0, partial_count: 0, pending_count: 0, extra_paid_unallocated: 0 };
+
+    for (const [vno, trucks] of Object.entries(truckMap)) {
+      const truckVWs = [...trucks].filter(vw => {
+        if (date_from && (vw.date || '') < date_from) return false;
+        if (date_to && (vw.date || '') > date_to) return false;
+        return true;
+      }).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      const truckNiks = ledgerNikasis.filter(n => n.category === vno);
+      const directPaid = {};
+      let pool = 0;
+      let totalPaidPool = 0;
+      for (const n of truckNiks) {
+        const ref = n.reference || '';
+        const amt = parseFloat(n.amount) || 0;
+        totalPaidPool += amt;
+        if (ref.startsWith('truck_settle_ledger:')) {
+          const parts = ref.split(':');
+          const rst = parseInt(parts[parts.length - 1]);
+          if (!isNaN(rst)) { directPaid[rst] = (directPaid[rst] || 0) + amt; continue; }
+        }
+        pool += amt;
+      }
+      let totalBhadaTruck = 0;
+      for (const vw of truckVWs) {
+        const bhada = parseFloat(vw.bhada || 0) || 0;
+        const tt = (vw.trans_type || '').toLowerCase();
+        const isSale = tt.includes('sale') || tt.includes('dispatch');
+        const isPurchase = tt.includes('purchase') || tt.includes('receive');
+        const ttype = isSale ? 'sale' : (isPurchase ? 'purchase' : 'other');
+        let paid = Math.min(directPaid[vw.rst_no] || 0, bhada);
+        const remaining = bhada - paid;
+        if (remaining > 0 && pool > 0) { const take = Math.min(pool, remaining); paid += take; pool -= take; }
+        let status;
+        if (paid >= bhada && bhada > 0) status = 'settled';
+        else if (paid > 0) status = 'partial';
+        else status = 'pending';
+        allTrips.push({
+          rst_no: vw.rst_no, date: vw.date || '', vehicle_no: vno,
+          trans_type: ttype, trans_type_raw: vw.trans_type || '',
+          party_name: vw.party_name || '', farmer_name: vw.farmer_name || '',
+          product: vw.product || '', tot_pkts: vw.tot_pkts || 0, net_wt: vw.net_wt || 0,
+          bhada, paid_amount: Math.round(paid * 100) / 100,
+          pending_amount: Math.round((bhada - paid) * 100) / 100, status, vw_id: vw.id,
+        });
+        agg.total_trips++;
+        if (ttype === 'sale') agg.sale_count++; else if (ttype === 'purchase') agg.purchase_count++;
+        agg.total_bhada += bhada; agg.total_paid += paid;
+        if (status === 'settled') agg.settled_count++;
+        else if (status === 'partial') agg.partial_count++;
+        else agg.pending_count++;
+        totalBhadaTruck += bhada;
+      }
+      agg.extra_paid_unallocated += Math.max(0, totalPaidPool - totalBhadaTruck);
+    }
+    agg.total_pending = Math.round((agg.total_bhada - agg.total_paid) * 100) / 100;
+    agg.total_bhada = Math.round(agg.total_bhada * 100) / 100;
+    agg.total_paid = Math.round(agg.total_paid * 100) / 100;
+    agg.extra_paid_unallocated = Math.round(agg.extra_paid_unallocated * 100) / 100;
+
+    let filtered = allTrips;
+    if (filter_status && filter_status !== 'all') {
+      filtered = filtered.filter(t => t.status === filter_status);
+    }
+    filtered.sort((a, b) => (b.date || '').localeCompare(a.date || '') || ((b.rst_no || 0) - (a.rst_no || 0)));
+    res.json({ trips: filtered, summary: agg, total_trucks: Object.keys(truckMap).length });
+  }));
+
   router.get('/api/truck-owner/per-trip-pending-count', safeAsync(async (req, res) => {
     const { kms_year, season } = req.query;
     const vws = col('vehicle_weights');

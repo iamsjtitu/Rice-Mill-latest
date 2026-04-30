@@ -1,7 +1,7 @@
 // 🛻 Truck Owner Per-Trip Bhada Panel — light-theme friendly, icon actions, full payment flow.
 // Backend: /api/truck-owner/{vno}/per-trip · /settle/{rst} · /trip-history/{rst}
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -37,72 +37,13 @@ const fmtDateShort = (s) => {
   } catch { return s; }
 };
 
-// ── Searchable Combobox for trucks ──────────────────────────────────
-function TruckCombobox({ trucks, value, onChange, disabled }) {
-  const [q, setQ] = useState("");
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef(null);
-
-  useEffect(() => {
-    const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const display = value || "";
-  const filtered = q.trim()
-    ? trucks.filter(t => t.vehicle_no.toLowerCase().includes(q.toLowerCase()))
-    : trucks;
-
-  return (
-    <div ref={wrapRef} className="relative w-[280px]">
-      <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-        <Input
-          value={open ? q : display}
-          onChange={(e) => { setQ(e.target.value); setOpen(true); }}
-          onFocus={() => { setOpen(true); setQ(""); }}
-          placeholder="Truck search... (e.g. MH-12)"
-          disabled={disabled}
-          className="pl-8 h-9 text-sm bg-slate-700 border-slate-600 text-slate-100 font-mono placeholder:text-slate-400 placeholder:font-normal"
-          data-testid="truck-pertrip-search"
-        />
-        {value && (
-          <button type="button" onClick={() => { onChange(""); setQ(""); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200">
-            <X className="w-3.5 h-3.5" />
-          </button>
-        )}
-      </div>
-      {open && (
-        <div className="absolute z-30 mt-1 w-full max-h-64 overflow-y-auto rounded-md border border-slate-600 bg-slate-800 shadow-2xl">
-          {filtered.length === 0 ? (
-            <div className="p-3 text-xs text-slate-400 text-center">Koi truck match nahi mila</div>
-          ) : filtered.map(t => (
-            <button
-              type="button"
-              key={t.vehicle_no}
-              onClick={() => { onChange(t.vehicle_no); setOpen(false); setQ(""); }}
-              className={`w-full text-left px-3 py-2 hover:bg-slate-700 flex items-center justify-between gap-2 ${value === t.vehicle_no ? 'bg-slate-700/60' : ''}`}
-              data-testid={`truck-pertrip-option-${t.vehicle_no}`}
-            >
-              <span className="font-mono text-amber-300 text-sm font-semibold">{t.vehicle_no}</span>
-              <span className="text-xs text-slate-400">{t.trips_count} trips · {fmtINR(t.total_bhada)}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
+// ── Main Per-Trip Panel ──
 export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaymentMade }) {
   const brand = branding || { company_name: "Rice Mill", tagline: "" };
   const showConfirm = useConfirm();
-  const [trucks, setTrucks] = useState([]);
-  const [selectedTruck, setSelectedTruck] = useState("");
+  const [searchQ, setSearchQ] = useState("");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [trucksLoading, setTrucksLoading] = useState(false);
   const [filter, setFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
@@ -121,49 +62,35 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
   const [historyData, setHistoryData] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  const loadTrucks = useCallback(async () => {
-    setTrucksLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (filters?.kms_year) params.append("kms_year", filters.kms_year);
-      if (filters?.season) params.append("season", filters.season);
-      const r = await axios.get(`${API}/truck-owner/per-trip-trucks?${params}`);
-      const list = r.data?.trucks || [];
-      setTrucks(list);
-      if (list.length && !selectedTruck) setSelectedTruck(list[0].vehicle_no);
-      else if (!list.length) { setSelectedTruck(""); setData(null); }
-    } catch (e) {
-      toast.error("Truck list load failed: " + (e?.message || ""));
-    } finally {
-      setTrucksLoading(false);
-    }
-  }, [filters?.kms_year, filters?.season]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => { loadTrucks(); }, [loadTrucks]);
-
-  const fetchData = useCallback(async (vno) => {
-    if (!vno) return;
+  // Fetch all trips across all trucks (default view)
+  const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (filters?.kms_year) params.append("kms_year", filters.kms_year);
       if (filters?.season) params.append("season", filters.season);
-      const r = await axios.get(`${API}/truck-owner/${encodeURIComponent(vno)}/per-trip?${params}`);
+      const r = await axios.get(`${API}/truck-owner/per-trip-all?${params}`);
       setData(r.data);
     } catch (e) {
-      toast.error("Per-trip load failed: " + (e?.response?.data?.detail || e?.message));
+      toast.error("Per-trip data load failed: " + (e?.response?.data?.detail || e?.message));
       setData(null);
     } finally {
       setLoading(false);
     }
   }, [filters?.kms_year, filters?.season]);
 
-  useEffect(() => { if (selectedTruck) fetchData(selectedTruck); }, [selectedTruck, fetchData]);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const trips = (data?.trips || []).filter((t) =>
-    (filter === "all" || t.trans_type === filter) &&
-    (statusFilter === "all" || t.status === statusFilter)
-  );
+  const trips = (data?.trips || []).filter((t) => {
+    if (filter !== "all" && t.trans_type !== filter) return false;
+    if (statusFilter !== "all" && t.status !== statusFilter) return false;
+    if (searchQ.trim()) {
+      const q = searchQ.toLowerCase();
+      const hay = `${t.vehicle_no || ''} ${t.party_name || ''} ${t.farmer_name || ''} ${t.rst_no || ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
   const sm = data?.summary || { total_trips: 0, sale_count: 0, purchase_count: 0, total_bhada: 0, total_paid: 0, total_pending: 0, settled_count: 0, partial_count: 0, pending_count: 0 };
 
   // ── Actions ───────────────────────────────────────────────────────
@@ -177,14 +104,14 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
   };
 
   const submitPay = async () => {
-    if (!payTrip || !data?.vehicle_no) return;
+    if (!payTrip || !payTrip.vehicle_no) return;
     const amt = parseFloat(payAmount) || 0;
     if (amt <= 0) { toast.error("Amount > 0 hona chahiye"); return; }
     if (payAcct.account === 'bank' && !payAcct.bank_name) { toast.error("Bank select karein"); return; }
     if (payAcct.account === 'owner' && !payAcct.owner_name) { toast.error("Owner account select karein"); return; }
     setPaySubmitting(true);
     try {
-      await axios.post(`${API}/truck-owner/${encodeURIComponent(data.vehicle_no)}/settle/${payTrip.rst_no}`, {
+      await axios.post(`${API}/truck-owner/${encodeURIComponent(payTrip.vehicle_no)}/settle/${payTrip.rst_no}`, {
         amount: amt,
         note: payNote,
         round_off: parseFloat(payRoundOff) || 0,
@@ -193,9 +120,9 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
         owner_name: payAcct.owner_name,
         username: user?.username || "admin",
       });
-      toast.success(`RST #${payTrip.rst_no} ka ${fmtINR(amt)} payment ho gaya — ${payAcct.account === 'cash' ? 'Cash' : payAcct.account === 'bank' ? `Bank: ${payAcct.bank_name}` : `Owner: ${payAcct.owner_name}`} se kata`);
+      toast.success(`RST #${payTrip.rst_no} (${payTrip.vehicle_no}) ka ${fmtINR(amt)} payment ho gaya — ${payAcct.account === 'cash' ? 'Cash' : payAcct.account === 'bank' ? `Bank: ${payAcct.bank_name}` : `Owner: ${payAcct.owner_name}`} se kata`);
       setPayDialogOpen(false);
-      fetchData(selectedTruck);
+      fetchAll();
       if (typeof onPaymentMade === 'function') onPaymentMade();
     } catch (e) {
       toast.error("Payment failed: " + (e?.response?.data?.detail || e?.message));
@@ -205,15 +132,15 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
   };
 
   const handleMarkPaid = async (trip) => {
-    if (!trip.pending_amount) return;
-    if (!await showConfirm("Mark Paid", `RST #${trip.rst_no} ka full pending bhada ${fmtINR(trip.pending_amount)} cash se settle kar dein?`)) return;
+    if (!trip.pending_amount || !trip.vehicle_no) return;
+    if (!await showConfirm("Mark Paid", `${trip.vehicle_no} — RST #${trip.rst_no} ka full pending bhada ${fmtINR(trip.pending_amount)} cash se settle kar dein?`)) return;
     try {
-      await axios.post(`${API}/truck-owner/${encodeURIComponent(data.vehicle_no)}/settle/${trip.rst_no}`, {
+      await axios.post(`${API}/truck-owner/${encodeURIComponent(trip.vehicle_no)}/settle/${trip.rst_no}`, {
         amount: trip.pending_amount, account: 'cash', username: user?.username || "admin",
         note: 'Quick mark-paid',
       });
-      toast.success(`RST #${trip.rst_no} settled (cash)`);
-      fetchData(selectedTruck);
+      toast.success(`RST #${trip.rst_no} (${trip.vehicle_no}) settled (cash)`);
+      fetchAll();
       if (typeof onPaymentMade === 'function') onPaymentMade();
     } catch (e) {
       toast.error("Mark paid failed: " + (e?.response?.data?.detail || e?.message));
@@ -227,7 +154,7 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
     try {
       const params = new URLSearchParams();
       if (filters?.kms_year) params.append("kms_year", filters.kms_year);
-      const r = await axios.get(`${API}/truck-owner/${encodeURIComponent(data.vehicle_no)}/trip-history/${trip.rst_no}?${params}`);
+      const r = await axios.get(`${API}/truck-owner/${encodeURIComponent(trip.vehicle_no)}/trip-history/${trip.rst_no}?${params}`);
       setHistoryData(r.data?.payments || []);
     } catch (e) {
       toast.error("History load failed: " + (e?.message || ""));
@@ -238,17 +165,50 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
   };
 
   const handleHeaderExport = (kind) => {
-    if (!selectedTruck) return;
+    // For "all-trucks" view we don't have a single PDF endpoint; user must filter to one truck via search first.
+    // Show a hint if no truck is uniquely identified.
+    const trucksInView = [...new Set(trips.map(t => t.vehicle_no))];
+    if (trucksInView.length === 0) { toast.error("Koi trips nahi"); return; }
+    if (trucksInView.length > 1) {
+      toast.warning("Pehle ek truck ke liye search karein, fir export click karein", { duration: 4000 });
+      return;
+    }
     const params = new URLSearchParams();
     if (filters?.kms_year) params.append("kms_year", filters.kms_year);
     if (filters?.season) params.append("season", filters.season);
     const ep = kind === "pdf" ? "per-trip-pdf" : "per-trip-excel";
-    window.open(`${API}/truck-owner/${encodeURIComponent(selectedTruck)}/${ep}?${params}`, "_blank");
+    window.open(`${API}/truck-owner/${encodeURIComponent(trucksInView[0])}/${ep}?${params}`, "_blank");
+  };
+
+  const handleHeaderWhatsApp = async () => {
+    const trucksInView = [...new Set(trips.map(t => t.vehicle_no))];
+    if (trucksInView.length === 0) { toast.error("Koi trips nahi"); return; }
+    if (trucksInView.length > 1) {
+      toast.warning("Pehle ek truck ke liye search karein, fir WhatsApp click karein", { duration: 4000 });
+      return;
+    }
+    try {
+      const params = new URLSearchParams();
+      if (filters?.kms_year) params.append("kms_year", filters.kms_year);
+      params.append("filter_status", "pending");
+      const r = await axios.get(`${API}/truck-owner/${encodeURIComponent(trucksInView[0])}/whatsapp-text?${params}`);
+      const text = r.data?.text || "";
+      if (text) {
+        try {
+          await navigator.clipboard.writeText(text);
+          toast.success("WhatsApp text copy ho gaya — kisi bhi WhatsApp chat me paste karein", { duration: 4000 });
+        } catch {
+          window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+        }
+      }
+    } catch (e) {
+      toast.error("WhatsApp text generate failed: " + (e?.message || ""));
+    }
   };
 
   // ── Print Compact E-Receipt for a single trip (uses shared slip builder) ──
   const handlePrintTripReceipt = (t) => {
-    if (!t || !data?.vehicle_no) return;
+    if (!t || !t.vehicle_no) return;
     const netQtl = (Number(t.net_wt || 0) / 100).toFixed(2);
     const statusLabel = t.status === 'settled' ? 'PAID' : t.status === 'partial' ? 'PARTIAL' : 'PENDING';
     const tagLabel = t.trans_type === 'sale' ? 'Sale' : t.trans_type === 'purchase' ? 'Purchase' : (t.trans_type_raw || '-');
@@ -257,7 +217,7 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
       { label: "Receipt:", value: new Date().toLocaleDateString('en-IN') },
       { label: "Trip Date:", value: fmtDateShort(t.date) },
       { label: "RST No:", value: `#${t.rst_no}`, bold: true },
-      { label: "Truck:", value: data.vehicle_no, bold: true },
+      { label: "Truck:", value: t.vehicle_no, bold: true },
       { label: "Type:", value: tagLabel },
       null, // dashed separator
       { label: "Party:", value: (t.party_name || '-').slice(0, 22) },
@@ -283,63 +243,52 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
     safePrintHTML(html);
   };
 
-  const handleHeaderWhatsApp = async () => {
-    if (!selectedTruck) return;
-    try {
-      const params = new URLSearchParams();
-      if (filters?.kms_year) params.append("kms_year", filters.kms_year);
-      params.append("filter_status", "pending");
-      const r = await axios.get(`${API}/truck-owner/${encodeURIComponent(selectedTruck)}/whatsapp-text?${params}`);
-      const text = r.data?.text || "";
-      if (text) {
-        try {
-          await navigator.clipboard.writeText(text);
-          toast.success("WhatsApp text copy ho gaya — kisi bhi WhatsApp chat me paste karein", { duration: 4000 });
-        } catch {
-          window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
-        }
-      }
-    } catch (e) {
-      toast.error("WhatsApp text generate failed: " + (e?.message || ""));
-    }
-  };
-
   return (
     <Card className="bg-slate-800 border-slate-700">
       <CardHeader className="pb-3">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-            <CardTitle className="text-lg flex items-center gap-2 flex-wrap">
+            <CardTitle className="text-lg flex items-center gap-2">
               <Truck className="w-5 h-5 text-amber-400" />
               <span className="text-amber-400">Per-Trip Bhada</span>
-              {selectedTruck && (
-                <span className="font-mono text-xl text-sky-300 bg-slate-700/60 px-2 py-0.5 rounded ml-1" data-testid="truck-pertrip-current-vno">
-                  {selectedTruck}
-                </span>
-              )}
-              <span className="text-slate-400 font-normal text-sm ml-1">— Truck-wise (पर ट्रिप)</span>
+              <span className="text-slate-400 font-normal text-sm">— All Trucks (पर ट्रिप)</span>
+              {data?.total_trucks > 0 && <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-200">{data.total_trucks} trucks</span>}
             </CardTitle>
-            <p className="text-slate-400 text-xs mt-1">Search truck → trip-wise bhada · Settled/Pending status · 1-click Pay (Cash/Bank/Owner)</p>
+            <p className="text-slate-400 text-xs mt-1">Sab trucks ka data — RST/truck/party search se filter karein. 1-click Pay (Cash/Bank/Owner)</p>
           </div>
           <div className="flex flex-wrap gap-2 items-center">
-            <TruckCombobox trucks={trucks} value={selectedTruck} onChange={setSelectedTruck} disabled={trucksLoading} />
-            <Button size="sm" variant="ghost" onClick={() => { loadTrucks(); if (selectedTruck) fetchData(selectedTruck); }} disabled={loading || trucksLoading}
+            <div className="relative w-[260px]">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+              <Input
+                value={searchQ}
+                onChange={(e) => setSearchQ(e.target.value)}
+                placeholder="Search truck / RST / party..."
+                className="pl-8 h-9 text-sm bg-slate-700 border-slate-600 text-slate-100 placeholder:text-slate-400"
+                data-testid="truck-pertrip-search"
+              />
+              {searchQ && (
+                <button type="button" onClick={() => setSearchQ("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <Button size="sm" variant="ghost" onClick={fetchAll} disabled={loading}
               className="h-9 w-9 p-0 text-slate-300 hover:bg-slate-700 border border-slate-600" title="Refresh" data-testid="truck-pertrip-refresh">
-              <RefreshCw className={`w-3.5 h-3.5 ${loading || trucksLoading ? "animate-spin" : ""}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             </Button>
 
             {/* Icon-only export group */}
             <div className="flex items-center gap-1 ml-1 pl-2 border-l border-slate-600" data-testid="truck-pertrip-export-group">
-              <Button size="sm" variant="ghost" onClick={() => handleHeaderExport("pdf")} disabled={!selectedTruck || loading}
-                className="h-9 w-9 p-0 text-red-400 hover:bg-red-900/30 border border-red-600 disabled:opacity-50" title="PDF Export" data-testid="truck-pertrip-pdf">
+              <Button size="sm" variant="ghost" onClick={() => handleHeaderExport("pdf")} disabled={loading}
+                className="h-9 w-9 p-0 text-red-400 hover:bg-red-900/30 border border-red-600 disabled:opacity-50" title="PDF Export (filter to 1 truck first)" data-testid="truck-pertrip-pdf">
                 <FileText className="w-4 h-4" />
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => handleHeaderExport("excel")} disabled={!selectedTruck || loading}
-                className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600 disabled:opacity-50" title="Excel Export" data-testid="truck-pertrip-excel">
+              <Button size="sm" variant="ghost" onClick={() => handleHeaderExport("excel")} disabled={loading}
+                className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600 disabled:opacity-50" title="Excel Export (filter to 1 truck first)" data-testid="truck-pertrip-excel">
                 <Download className="w-4 h-4" />
               </Button>
-              <Button size="sm" variant="ghost" onClick={handleHeaderWhatsApp} disabled={!selectedTruck || loading}
-                className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600 disabled:opacity-50" title="WhatsApp (Pending Summary)" data-testid="truck-pertrip-whatsapp">
+              <Button size="sm" variant="ghost" onClick={handleHeaderWhatsApp} disabled={loading}
+                className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600 disabled:opacity-50" title="WhatsApp (filter to 1 truck first)" data-testid="truck-pertrip-whatsapp">
                 <Send className="w-4 h-4" />
               </Button>
             </div>
@@ -348,15 +297,15 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
       </CardHeader>
 
       <CardContent>
-        {!selectedTruck && !trucksLoading && (
+        {(!data || (data?.summary?.total_trips === 0)) && !loading && (
           <div className="text-center py-12 text-slate-400">
             <Truck className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">Koi truck nahi mila jo bhada wali entries rakhta ho.</p>
+            <p className="text-sm">Koi truck/trip nahi mila jo bhada wali entries rakhta ho.</p>
             <p className="text-xs mt-1 opacity-70">Vehicle Weight / BP Sale / DC Delivery / Sale-Purchase Voucher me Bhada add karein → yahan dikhne lagega.</p>
           </div>
         )}
 
-        {selectedTruck && (
+        {data && (data?.summary?.total_trips > 0 || loading) && (
           <>
             {/* Filters */}
             <div className="flex flex-wrap gap-2 mb-3">
@@ -394,6 +343,7 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
                     <TableRow className="border-slate-600 bg-slate-800">
                       <TableHead className="text-slate-300">RST</TableHead>
                       <TableHead className="text-slate-300">Date</TableHead>
+                      <TableHead className="text-slate-300">Truck No</TableHead>
                       <TableHead className="text-slate-300">Type</TableHead>
                       <TableHead className="text-slate-300">Party</TableHead>
                       <TableHead className="text-slate-300">Destination</TableHead>
@@ -406,13 +356,14 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
                   </TableHeader>
                   <TableBody>
                     {trips.length === 0 ? (
-                      <TableRow><TableCell colSpan={10} className="text-center text-slate-500 py-8 text-sm">Filter ke andar koi trip nahi — change karke try karein.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={11} className="text-center text-slate-500 py-8 text-sm">Filter ke andar koi trip nahi — change karke try karein.</TableCell></TableRow>
                     ) : trips.map((t) => {
                       const isAdmin = user?.role === 'admin';
                       return (
-                        <TableRow key={`${t.rst_no}-${t.date}`} className="border-slate-700 hover:bg-slate-700/40">
+                        <TableRow key={`${t.vehicle_no}-${t.rst_no}-${t.date}`} className="border-slate-700 hover:bg-slate-700/40">
                           <TableCell className="font-mono font-bold text-amber-300">#{t.rst_no}</TableCell>
                           <TableCell className="text-slate-200 text-sm">{fmtDateShort(t.date)}</TableCell>
+                          <TableCell className="font-mono text-sky-300 text-sm font-bold">{t.vehicle_no || '—'}</TableCell>
                           <TableCell>
                             {t.trans_type === "sale" ? (
                               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-600 text-white">Sale</span>
@@ -507,7 +458,7 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
         <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md">
           <DialogHeader>
             <DialogTitle className="text-emerald-400">
-              Make Payment — RST #{payTrip?.rst_no} <span className="text-slate-400 text-sm font-normal">({data?.vehicle_no})</span>
+              Make Payment — RST #{payTrip?.rst_no} <span className="text-slate-400 text-sm font-normal">({payTrip?.vehicle_no || ''})</span>
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
@@ -553,7 +504,7 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
             <DialogTitle className="text-purple-400 flex items-center gap-2">
               <History className="w-4 h-4" />
               Payment History — RST #{historyTrip?.rst_no}
-              <span className="text-slate-400 text-xs font-normal">({data?.vehicle_no})</span>
+              <span className="text-slate-400 text-xs font-normal">({historyTrip?.vehicle_no || ''})</span>
             </DialogTitle>
           </DialogHeader>
           {historyLoading ? (
