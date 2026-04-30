@@ -48,6 +48,8 @@ const FYSummaryDashboard = lazy(() => import("@/components/FYSummaryDashboard"))
 const BalanceSheet = lazy(() => import("@/components/BalanceSheet"));
 const Vouchers = lazy(() => import("@/components/Vouchers"));
 const StockRegister = lazy(() => import("@/components/StockRegister"));
+// DEMO: Truck Owner Per-Trip Breakdown — visual prototype, opens via #truck-trip-demo URL hash
+const TruckOwnerPerTripDemo = lazy(() => import("@/components/TruckOwnerPerTripDemo"));
 const HemaliPayment = lazy(() => import("@/components/HemaliPayment"));
 const GovtRegisters = lazy(() => import("@/components/GovtRegisters"));
 const Settings = lazy(() => import("@/components/Settings"));
@@ -147,6 +149,15 @@ function MainApp({ user, setUser, onLogout }) {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("entries");
   const [entriesSubTab, setEntriesSubTab] = useState("mill-entries");
+  // Truck-Trip Demo overlay (visual preview only) — opens via #truck-trip-demo URL hash
+  const [showTruckTripDemo, setShowTruckTripDemo] = useState(
+    typeof window !== "undefined" && window.location.hash === "#truck-trip-demo"
+  );
+  useEffect(() => {
+    const onHash = () => setShowTruckTripDemo(window.location.hash === "#truck-trip-demo");
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
 
   // Use extracted filter hook
   const {
@@ -1107,6 +1118,13 @@ function MainApp({ user, setUser, onLogout }) {
 
       {/* Auto Update Notification */}
       <AutoUpdate />
+
+      {/* Truck-Trip Demo Overlay (visual preview, opens via #truck-trip-demo) */}
+      {showTruckTripDemo && (
+        <Suspense fallback={<LazyFallback />}>
+          <TruckOwnerPerTripDemo onClose={() => { window.location.hash = ""; setShowTruckTripDemo(false); }} />
+        </Suspense>
+      )}
 
       {/* Entries Group Send Dialog */}
       <SendToGroupDialog open={entryGroupDialogOpen} onOpenChange={setEntryGroupDialogOpen} text={entryGroupText} pdfUrl={entryGroupPdfUrl} />
