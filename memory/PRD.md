@@ -1,6 +1,63 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.2
+## Current Version: v104.44.3
+
+## 🚛 v104.44.3 — Bhada (Lumpsum) Across All Sale/Purchase Forms
+**Build date:** 2026-04-30
+
+### Feature
+Single **Bhada (Lumpsum) ₹** field added across **4 forms** — replacing previous separate `Cash (Truck ko)` + `Diesel (Pump se)` UI. Single source of truth = `vehicle_weights.bhada`. RST se auto-fetch + canonical update.
+
+### Forms Updated
+1. **BP Sale Register** (`ByProductSaleRegister.jsx`) — Rice Bran/Broken/Kanki/Husk
+2. **Sale Voucher** (`SaleBook.jsx`)
+3. **DC Delivery** (`DCTracker.jsx`) — multi-truck setup, per-truck Bhada
+4. **Pvt Purchase Vouchers** (`PurchaseVouchers.jsx`)
+
+### Architecture
+- **Single source of truth**: `vehicle_weights.bhada` (canonical). All 4 forms read & write via existing `/api/vehicle-weight/by-rst/{rst_no}` (auto-fetch on RST blur) and `/api/vehicle-weight/{id}/edit` (sync on save).
+- **Helper utility** (`/app/frontend/src/utils/vw-bhada.js`):
+  - `fetchVwByRst(rstNo, kmsYear)` — pulls VW entry + bhada
+  - `updateVwBhada(rstNo, bhada, username, kmsYear)` — pushes new bhada → triggers backend `_sync_*_bhada_ledger`
+- **Backend helper extended** (`_sync_sale_bhada_ledger`):
+  - Now handles **Sale** (`vw_sale_bhada:{rst}`) AND **Purchase** (`vw_purchase_bhada:{rst}`) trips with distinct refs (no collision on same RST).
+  - Both trans_types create `cash_transactions` JAMA entries on truck owner.
+  - Description prefix: "Sale Bhada" or "Purchase Bhada" based on trans_type.
+  - DELETE cascade cleans both refs.
+
+### Triple-Backend Parity
+- ✅ Python: `/app/backend/routes/vehicle_weight.py`
+- ✅ Node Desktop: `/app/desktop-app/routes/vehicle_weight.js`
+- ✅ Node LAN: `/app/local-server/routes/vehicle_weight.js`
+
+### Verification (testing_agent_v3_fork — iteration_206)
+- **Backend**: 14/14 tests passed (100%)
+  - Purchase POST + auto-jama → ✓
+  - Purchase edit → ledger update ✓
+  - Purchase bhada=0 → ledger auto-delete ✓
+  - Purchase DELETE → cascade-remove ✓
+  - Sale regression (existing `vw_sale_bhada`) ✓
+  - VW CRUD no regression ✓
+- **Frontend**: All 4 forms verified
+  - `bp-bhada`, `sv-bhada`, `pv-bhada`, `delivery-truck-{idx}-bhada` data-testids present ✓
+  - Cash + Diesel UI removed ✓
+  - WhatsNew modal v104.44.3 at top ✓
+
+### Files Updated
+- `/app/backend/routes/vehicle_weight.py` (helper extended for purchase, DELETE cascade for both refs)
+- `/app/desktop-app/routes/vehicle_weight.js` (same parity)
+- `/app/local-server/routes/vehicle_weight.js` (same parity)
+- `/app/frontend/src/utils/vw-bhada.js` (NEW shared helper)
+- `/app/frontend/src/components/ByProductSaleRegister.jsx`
+- `/app/frontend/src/components/SaleBook.jsx`
+- `/app/frontend/src/components/PurchaseVouchers.jsx`
+- `/app/frontend/src/components/DCTracker.jsx`
+- `/app/frontend/src/components/WhatsNew.jsx` (top entry)
+- `/app/frontend/src/utils/constants-version.js` → `104.44.3`
+- `/app/desktop-app/package.json` → `104.44.3`
+- `/app/local-server/package.json` → `104.44.3`
+
+---
 
 ## 🚛 v104.44.2 — Sale Truck Lumpsum Bhada (Triple-Backend Parity)
 **Build date:** 2026-04-30
