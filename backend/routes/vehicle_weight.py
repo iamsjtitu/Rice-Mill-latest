@@ -73,6 +73,54 @@ async def _sync_sale_bag_out(vw_entry_id: str, vw_entry: dict, username: str = "
         await db.gunny_bags.insert_one(fields)
 
 
+async def _sync_sale_bhada_ledger(vw_entry_id: str, vw_entry: dict, username: str = "system"):
+    """Sync truck-owner ledger entry for sale-trip bhada (lump-sum truck rent).
+
+    For Sale dispatches, mill ne truck owner ko bhada dena hota hai (e.g. ₹4000 fixed).
+    Yeh function `cash_transactions` me ek auto-ledger entry maintain karta hai:
+        account=ledger, party_type=Truck, category=<vehicle_no>, txn_type=jama (CR — mill owes)
+        amount = bhada
+    Reference: `vw_sale_bhada:{rst_no}` (so update/delete idempotent).
+
+    Conditions to keep the entry:  trans_type==sale, vehicle_no set, bhada > 0
+    """
+    rst_no = vw_entry.get("rst_no")
+    if rst_no is None:
+        return
+    ref = f"vw_sale_bhada:{rst_no}"
+    is_sale = _is_sale(vw_entry.get("trans_type", ""))
+    vehicle_no = (vw_entry.get("vehicle_no") or "").strip()
+    bhada = float(vw_entry.get("bhada", 0) or 0)
+
+    if not (is_sale and vehicle_no and bhada > 0):
+        await db.cash_transactions.delete_many({"reference": ref})
+        return
+
+    existing = await db.cash_transactions.find_one({"reference": ref}, {"_id": 0})
+    now = datetime.now(timezone.utc).isoformat()
+    fields = {
+        "date": vw_entry.get("date", ""),
+        "account": "ledger",
+        "txn_type": "jama",
+        "category": vehicle_no,
+        "party_type": "Truck",
+        "amount": bhada,
+        "description": f"Sale Bhada (RST #{rst_no}) → {vw_entry.get('farmer_name') or vw_entry.get('party_name','')}",
+        "kms_year": vw_entry.get("kms_year", ""),
+        "season": vw_entry.get("season", "Kharif"),
+        "created_by": username or "system",
+        "linked_entry_id": vw_entry_id,
+        "reference": ref,
+        "updated_at": now,
+    }
+    if existing:
+        await db.cash_transactions.update_one({"reference": ref}, {"$set": fields})
+    else:
+        fields["id"] = str(uuid.uuid4())
+        fields["created_at"] = now
+        await db.cash_transactions.insert_one(fields)
+
+
 def _save_image(entry_id: str, tag: str, b64data) -> str:
     try:
         if not b64data or not isinstance(b64data, str):
@@ -671,6 +719,7 @@ async def create_weight_entry(data: dict):
         "remark": data.get("remark", ""),
         "cash_paid": float(data.get("cash_paid", 0) or 0),
         "diesel_paid": float(data.get("diesel_paid", 0) or 0),
+        "bhada": float(data.get("bhada", 0) or 0),
         "status": "pending",
         "created_at": datetime.now(timezone.utc).isoformat()
     }
@@ -683,6 +732,8 @@ async def create_weight_entry(data: dict):
     entry.pop("_id", None)
     # Sync gunny bag stock-out for sale dispatches
     await _sync_sale_bag_out(entry["id"], entry, data.get("username", "system"))
+    # Sync truck-owner bhada ledger for sale dispatches
+    await _sync_sale_bhada_ledger(entry["id"], entry, data.get("username", "system"))
     return {"success": True, "entry": entry, "message": f"RST #{rst_no} - First weight saved!"}
 
 
@@ -724,6 +775,8 @@ async def update_second_weight(entry_id: str, data: dict):
         update_fields["cash_paid"] = float(data.get("cash_paid", 0) or 0)
     if "diesel_paid" in data:
         update_fields["diesel_paid"] = float(data.get("diesel_paid", 0) or 0)
+    if "bhada" in data:
+        update_fields["bhada"] = float(data.get("bhada", 0) or 0)
     if "g_issued" in data:
         update_fields["g_issued"] = float(data.get("g_issued", 0) or 0)
     if "tp_no" in data:
@@ -748,6 +801,9 @@ async def update_second_weight(entry_id: str, data: dict):
     )
 
     updated = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
+    # Sync truck-owner bhada ledger after second weight capture (if Sale + bhada provided)
+    if updated:
+        await _sync_sale_bhada_ledger(entry_id, updated, "system")
     return {"success": True, "entry": updated, "message": f"RST #{entry['rst_no']} - Net Wt: {net_wt} KG"}
 
 
@@ -781,9 +837,10 @@ async def delete_weight_entry(entry_id: str, username: str = "", role: str = "")
             cascade_deleted.append(f"Mill Entry RST #{rst_no}")
 
     await db["vehicle_weights"].delete_one({"id": entry_id})
-    # Cascade: also remove linked sale-bag-out entry if any
+    # Cascade: also remove linked sale-bag-out + bhada-ledger entries if any
     if rst_no is not None:
         await db.gunny_bags.delete_many({"reference": f"vw_sale_bag:{rst_no}"})
+        await db.cash_transactions.delete_many({"reference": f"vw_sale_bhada:{rst_no}"})
     msg = "Entry deleted"
     if cascade_deleted:
         msg += f" + {', '.join(cascade_deleted)} bhi delete kiya"
@@ -802,10 +859,10 @@ async def edit_weight_entry(entry_id: str, data: dict, username: str = "", role:
         raise HTTPException(status_code=403, detail=message)
 
     update_fields = {}
-    editable = ["vehicle_no", "party_name", "farmer_name", "product", "tot_pkts", "bag_type", "cash_paid", "diesel_paid", "g_issued", "tp_no", "tp_weight", "remark"]
+    editable = ["vehicle_no", "party_name", "farmer_name", "product", "tot_pkts", "bag_type", "cash_paid", "diesel_paid", "bhada", "g_issued", "tp_no", "tp_weight", "remark"]
     for f in editable:
         if f in data:
-            if f in ("cash_paid", "diesel_paid", "tp_weight"):
+            if f in ("cash_paid", "diesel_paid", "bhada", "tp_weight"):
                 update_fields[f] = float(data[f] or 0)
             elif f == "tot_pkts":
                 update_fields[f] = data[f]
@@ -851,6 +908,8 @@ async def edit_weight_entry(entry_id: str, data: dict, username: str = "", role:
     updated = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
     # Re-sync bag stock-out (in case bag_type / tot_pkts edited)
     await _sync_sale_bag_out(entry_id, updated, username or "system")
+    # Re-sync truck-owner bhada ledger (in case bhada / vehicle_no edited)
+    await _sync_sale_bhada_ledger(entry_id, updated, username or "system")
     return {"success": True, "entry": updated}
 
 
@@ -1396,7 +1455,7 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
             if val:
                 above_parts.append(f"{lbl}: {val}" if lbl else val)
     title_label = "Vehicle Weight - Sale / बिक्री" if is_sale else "Vehicle Weight / तौल पर्ची"
-    n_cols = 12 if is_sale else 15
+    n_cols = 11 if is_sale else 15
     if above_parts:
         ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=n_cols)
         cell = ws.cell(row=cur_row, column=1, value="  |  ".join(above_parts))
@@ -1438,7 +1497,8 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
 
     if is_sale:
         headers = ["RST", "Date", "Vehicle", "Party", "Destination", "Product",
-                   "Bags", "Bag Type", "Net Wt (KG)", "Cash", "Diesel", "Remark"]
+                   "Bags", "Bag Type", "Net Wt (KG)", "Bhada", "Remark"]
+        n_cols = 11
     else:
         headers = ["RST", "Date", "Vehicle", "Party", "Source/Mandi", "Product", "Trans Type", "Bags",
                    "1st Wt (KG)", "2nd Wt (KG)", "Net Wt (KG)", "TP Wt (Q)", "G.Issued", "Cash", "Diesel"]
@@ -1455,8 +1515,8 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
         if is_sale:
             vals = [e.get("rst_no",""), fmt_date(e.get("date","")), e.get("vehicle_no",""), e.get("party_name",""),
                     e.get("farmer_name",""), e.get("product",""), e.get("tot_pkts",""), e.get("bag_type",""),
-                    e.get("net_wt",0), e.get("cash_paid",0), e.get("diesel_paid",0), e.get("remark","")]
-            num_start_col = 9  # right-align from Net Wt onward (Net Wt, Cash, Diesel) — Remark is left
+                    e.get("net_wt",0), e.get("bhada",0), e.get("remark","")]
+            num_start_col = 9
         else:
             vals = [e.get("rst_no",""), fmt_date(e.get("date","")), e.get("vehicle_no",""), e.get("party_name",""),
                     e.get("farmer_name",""), e.get("product",""), e.get("trans_type",""), e.get("tot_pkts",""),
@@ -1467,9 +1527,9 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
         for c, v in enumerate(vals, 1):
             cell = ws.cell(row=i, column=c, value=v)
             cell.border = border
-            # Right-align numeric columns. Sale view: cols 7 (Bags), 9-11 (Net Wt, Cash, Diesel) numeric.
+            # Right-align numeric columns. Sale: cols 7 (Bags), 9-10 (Net Wt, Bhada).
             if is_sale:
-                if c in (7, 9, 10, 11): cell.alignment = Alignment(horizontal='right')
+                if c in (7, 9, 10): cell.alignment = Alignment(horizontal='right')
             else:
                 if c >= num_start_col: cell.alignment = Alignment(horizontal='right')
 
@@ -1479,10 +1539,11 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
     tot_net = sum(float(e.get("net_wt", 0) or 0) for e in items)
     tot_cash = sum(float(e.get("cash_paid", 0) or 0) for e in items)
     tot_diesel = sum(float(e.get("diesel_paid", 0) or 0) for e in items)
+    tot_bhada = sum(float(e.get("bhada", 0) or 0) for e in items)
     tot_fill = PatternFill(start_color="1a1a2e", end_color="1a1a2e", fill_type="solid")
     tot_font = Font(bold=True, color="FFFFFF", size=10)
     if is_sale:
-        tot_vals = ["", "", "", "", "", "TOTAL:", tot_bags, "", tot_net, tot_cash, tot_diesel, ""]
+        tot_vals = ["", "", "", "", "", "TOTAL:", tot_bags, "", tot_net, tot_bhada, ""]
         right_from = 7
     else:
         tot_1st = sum(float(e.get("first_wt", 0) or 0) for e in items)
@@ -1506,8 +1567,7 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
                 {'label': 'Total Entries', 'value': str(len(items))},
                 {'label': 'Total Bags', 'value': f"{tot_bags:,}"},
                 {'label': 'Net Wt', 'value': f"{tot_net:,.0f} KG"},
-                {'label': 'Cash Paid', 'value': fmt_inr(tot_cash)},
-                {'label': 'Diesel', 'value': fmt_inr(tot_diesel)},
+                {'label': 'Total Bhada', 'value': fmt_inr(tot_bhada)},
             ]
         else:
             sum_stats = [
@@ -1579,7 +1639,7 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
 
     # Table
     if is_sale:
-        headers = ["RST", "Date", "Vehicle", "Party", "Destination", "Product", "Bags", "Bag Type", "Net Wt", "Cash", "Diesel", "Remark"]
+        headers = ["RST", "Date", "Vehicle", "Party", "Destination", "Product", "Bags", "Bag Type", "Net Wt", "Bhada", "Remark"]
     else:
         headers = ["RST", "Date", "Vehicle", "Party", "Source/Mandi", "Product", "Trans Type", "Bags", "1st Wt", "2nd Wt", "Net Wt", "TP Wt", "G.Iss", "Cash", "Diesel"]
     data = [headers]
@@ -1590,8 +1650,7 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
                 e.get("party_name",""), e.get("farmer_name",""), e.get("product",""),
                 e.get("tot_pkts",""), e.get("bag_type","") or "-",
                 f"{e.get('net_wt',0):,.0f}",
-                f"{e.get('cash_paid',0):,.0f}" if e.get('cash_paid') else "-",
-                f"{e.get('diesel_paid',0):,.0f}" if e.get('diesel_paid') else "-",
+                f"{e.get('bhada',0):,.0f}" if e.get('bhada') else "-",
                 (e.get('remark','') or "")[:30],
             ])
         else:
@@ -1611,12 +1670,12 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
     tot_net = sum(float(e.get("net_wt", 0) or 0) for e in items)
     tot_cash = sum(float(e.get("cash_paid", 0) or 0) for e in items)
     tot_diesel = sum(float(e.get("diesel_paid", 0) or 0) for e in items)
+    tot_bhada = sum(float(e.get("bhada", 0) or 0) for e in items)
     if is_sale:
         data.append(["", "", "", "", "", "TOTAL:", str(tot_bags), "",
                      f"{tot_net:,.0f}",
-                     f"{tot_cash:,.0f}" if tot_cash else "-",
-                     f"{tot_diesel:,.0f}" if tot_diesel else "-", ""])
-        col_widths = [35, 58, 65, 75, 70, 60, 38, 50, 55, 50, 50, 75]
+                     f"{tot_bhada:,.0f}" if tot_bhada else "-", ""])
+        col_widths = [35, 58, 65, 75, 70, 60, 38, 50, 55, 60, 110]
     else:
         tot_1st = sum(float(e.get("first_wt", 0) or 0) for e in items)
         tot_2nd = sum(float(e.get("second_wt", 0) or 0) for e in items)
@@ -1636,17 +1695,17 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
     amber = colors.HexColor('#e65100')
 
     if is_sale:
-        # Sale layout: cols 0-7 navy(info+bags+bag_type), col 8 teal(net wt), cols 9-10 amber(cash/diesel), col 11 navy(remark)
+        # Sale layout: cols 0-7 navy(info+bags+bag_type), col 8 teal(net wt), col 9 amber(bhada), col 10 navy(remark)
         style_cmds = [
             ('BACKGROUND', (0, 0), (7, 0), navy),
             ('BACKGROUND', (8, 0), (8, 0), teal),
-            ('BACKGROUND', (9, 0), (10, 0), amber),
-            ('BACKGROUND', (11, 0), (11, 0), navy),
+            ('BACKGROUND', (9, 0), (9, 0), amber),
+            ('BACKGROUND', (10, 0), (10, 0), navy),
         ]
         right_align_from = 6
         net_wt_col = 8
-        cash_col = 9
-        diesel_col = 10
+        cash_col = 9   # bhada in sale view (re-using variable name for color logic)
+        diesel_col = 9
     else:
         style_cmds = [
             ('BACKGROUND', (0, 0), (7, 0), navy),
@@ -1714,8 +1773,7 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
             {'label': 'TOTAL ENTRIES', 'value': str(len(items)), 'color': STAT_COLORS['primary']},
             {'label': 'TOTAL BAGS', 'value': f"{tot_bags:,}", 'color': STAT_COLORS['blue']},
             {'label': 'NET WT', 'value': f"{tot_net:,.0f}", 'color': STAT_COLORS['emerald']},
-            {'label': 'CASH PAID', 'value': fmt_inr(tot_cash), 'color': STAT_COLORS['green']},
-            {'label': 'DIESEL', 'value': fmt_inr(tot_diesel), 'color': STAT_COLORS['orange']},
+            {'label': 'TOTAL BHADA', 'value': fmt_inr(tot_bhada), 'color': STAT_COLORS['orange']},
         ]
     else:
         summary_stats = [

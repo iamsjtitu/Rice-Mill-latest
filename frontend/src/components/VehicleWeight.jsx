@@ -507,7 +507,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
 });
 
 export default function VehicleWeight({ filters, user, onVwChange }) {
-  const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Purchase)", bag_type: "", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "", cash_paid: "", diesel_paid: "", rst_no: "", g_issued: "", tp_no: "", tp_weight: "" };
+  const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Purchase)", bag_type: "", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "", cash_paid: "", diesel_paid: "", bhada: "", rst_no: "", g_issued: "", tp_no: "", tp_weight: "" };
   const [form, setForm] = useState(blank);
   const [bagStock, setBagStock] = useState({ new: 0, old: 0, bran_plastic: 0, broken_plastic: 0 });
   const [rstEditable, setRstEditable] = useState(false);
@@ -707,6 +707,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
       tp_weight: entry.tp_weight ? String(entry.tp_weight) : "",
       cash_paid: entry.cash_paid ? String(entry.cash_paid) : "",
       diesel_paid: entry.diesel_paid ? String(entry.diesel_paid) : "",
+      bhada: entry.bhada ? String(entry.bhada) : "",
       g_issued: entry.g_issued ? String(entry.g_issued) : "",
       rst_no: ""
     });
@@ -731,6 +732,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
         second_wt: secondWtValue,
         cash_paid: form.cash_paid || "0",
         diesel_paid: form.diesel_paid || "0",
+        bhada: form.bhada || "0",
         g_issued: form.g_issued || "0",
         tp_no: form.tp_no || "",
         tp_weight: form.tp_weight || "0",
@@ -873,6 +875,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
       tot_pkts: entry.tot_pkts || "",
       cash_paid: entry.cash_paid || "",
       diesel_paid: entry.diesel_paid || "",
+      bhada: entry.bhada || "",
       g_issued: entry.g_issued || "",
       tp_no: entry.tp_no || "",
       tp_weight: entry.tp_weight ? String(entry.tp_weight) : "",
@@ -1294,16 +1297,30 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       placeholder="0" className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-g-issued" />
                   </div>
                   )}
-                  <div>
-                    <Label className="text-green-700 text-[10px] mb-0.5 block font-semibold">Cash Paid</Label>
-                    <Input type="number" value={form.cash_paid} onChange={e => setForm(p => ({ ...p, cash_paid: e.target.value }))}
-                      placeholder="0" className="bg-green-50/50 border-green-300 text-green-800 h-8 text-xs font-medium" data-testid="vw-cash" />
-                  </div>
-                  <div>
-                    <Label className="text-orange-700 text-[10px] mb-0.5 block font-semibold">Diesel Paid</Label>
-                    <Input type="number" value={form.diesel_paid} onChange={e => setForm(p => ({ ...p, diesel_paid: e.target.value }))}
-                      placeholder="0" className="bg-orange-50/50 border-orange-300 text-orange-800 h-8 text-xs font-medium" data-testid="vw-diesel" />
-                  </div>
+                  {/* Cash & Diesel only for Purchase. Sale me lump-sum Bhada (truck rent) field aata hai. */}
+                  {form.trans_type !== "Dispatch(Sale)" ? (
+                    <>
+                      <div>
+                        <Label className="text-green-700 text-[10px] mb-0.5 block font-semibold">Cash Paid</Label>
+                        <Input type="number" value={form.cash_paid} onChange={e => setForm(p => ({ ...p, cash_paid: e.target.value }))}
+                          placeholder="0" className="bg-green-50/50 border-green-300 text-green-800 h-8 text-xs font-medium" data-testid="vw-cash" />
+                      </div>
+                      <div>
+                        <Label className="text-orange-700 text-[10px] mb-0.5 block font-semibold">Diesel Paid</Label>
+                        <Input type="number" value={form.diesel_paid} onChange={e => setForm(p => ({ ...p, diesel_paid: e.target.value }))}
+                          placeholder="0" className="bg-orange-50/50 border-orange-300 text-orange-800 h-8 text-xs font-medium" data-testid="vw-diesel" />
+                      </div>
+                    </>
+                  ) : (
+                    <div>
+                      <Label className="text-amber-700 text-[10px] mb-0.5 block font-semibold">Bhada / भाड़ा (Lumpsum)</Label>
+                      <Input type="number" value={form.bhada || ""}
+                        onChange={e => setForm(p => ({ ...p, bhada: e.target.value }))}
+                        placeholder="e.g. 4000"
+                        className="bg-amber-50/50 border-amber-300 text-amber-800 h-8 text-xs font-medium font-bold"
+                        data-testid="vw-bhada" />
+                    </div>
+                  )}
                 </div>
 
                 {/* Weight Input Section */}
