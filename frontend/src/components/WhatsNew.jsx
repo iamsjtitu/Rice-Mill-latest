@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.9",
+    date: "Feb 16, 2026",
+    title: "v104.44.9 — 📊 GLOBAL Excel Polish: Auto-filter + Freeze Header on EVERY Excel Download",
+    items: [
+      { type: "feature", text: "🎯 **170+ Excel endpoints upgraded across all 3 backends** — Python (50+) + Node Desktop (60+) + Node LAN (60+). Har Excel download me ab automatic milta hai: ① **Auto-filter dropdown** har column header pe (sort & filter per-column directly inside Excel) ② **Frozen header row** (jab scroll karein to header dikta rahega) ③ **Gridlines off** (cleaner look — borders provide structure)." },
+      { type: "feature", text: "📋 **Coverage**: Cash Book / Party Summary, Outstanding Reports, Sale Book / Purchase Book, FRK Purchases, Byproduct Sales, Milling Report, Paddy Custody, Paddy Chalna, Truck Payments, Truck Owner Consolidated, Per-Trip Bhada (single + all-trucks), Hemali Payments, Hemali Monthly Summary, MSP Payments, DC Register (both sheets), Gunny Bags, Gunny Purchase Report, Vehicle Weight Register, Govt Registers (8), Cash Book Daily, Trial Balance, Diesel, Mill Parts, Oil Premium, Staff, Private Trading — sab me." },
+      { type: "improvement", text: "🛡️ **Idempotent helper** — `apply_consolidated_excel_polish(ws)` (Python) / `applyConsolidatedExcelPolish(ws)` (Node). Agar route ne explicitly correct header row set kar rakha hai (jaise Per-Trip Bhada me row 5), helper usse override nahi karta — sirf gridlines disable kar deta hai. Otherwise auto-detects header row (4+ non-empty cells in first 5 columns)." },
+      { type: "improvement", text: "🔄 **Triple-Backend Parity** — Same helper teeno backends me identical signature + behavior. `/app/backend/utils/export_helpers.py`, `/app/desktop-app/routes/pdf_helpers.js`, `/app/local-server/routes/pdf_helpers.js` — all in sync." },
+      { type: "fix", text: "✅ Auto-injection scripts handle 5 different Excel write patterns: `await wb.xlsx.write(res); res.end()`, `await wb.xlsx.writeBuffer()`, `wb.xlsx.write().then()`, `wb.xlsx.writeBuffer().then()`, plus standalone `await wb.xlsx.write()`. 100% Excel endpoint coverage in Node." },
+    ],
+  },
+  {
     version: "104.44.8",
     date: "Feb 16, 2026",
     title: "v104.44.8 — 🎯 Agent Payments + Local Party — Same Unified Header (Search + 4 Icons)",

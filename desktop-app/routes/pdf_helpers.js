@@ -623,4 +623,68 @@ function ensureSpace(doc, needed) {
   }
 }
 
-module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F, autoF, hasDeva, safePdfPipe, drawWatermark, createPdfDoc, drawSummaryBanner, drawSectionBand, ensureSpace, addExcelSummaryBanner, STAT_COLORS, fmtInr };
+// ════════════════════════════════════════════════════════════════════════════
+// 🎯 v104.44.9 — CONSOLIDATED EXCEL POLISH (auto-filter + freeze + no gridlines)
+// Mirrors Python utils.export_helpers.apply_consolidated_excel_polish()
+// ════════════════════════════════════════════════════════════════════════════
+/**
+ * Apply standard "consolidated multi-record" Excel polish to an exceljs worksheet.
+ *
+ * Adds 3 things that make Excel reports usable across the entire app:
+ *   1. Auto-filter dropdowns on the header row (sort/filter per column)
+ *   2. Freeze panes below the header row (header sticks while scrolling)
+ *   3. Gridlines disabled (cleaner look — borders provide structure instead)
+ *
+ * @param {ExcelJS.Worksheet} ws
+ * @param {Object} opts
+ * @param {number} [opts.headerRow] - 1-indexed header row. If omitted, auto-detected.
+ * @param {number} [opts.nCols] - Total cols. If omitted, ws.actualColumnCount used.
+ * @param {number} [opts.lastDataRow] - Last data row. If omitted, ws.actualRowCount used.
+ */
+function applyConsolidatedExcelPolish(ws, opts = {}) {
+  if (!ws) return;
+  let { headerRow, nCols, lastDataRow } = opts;
+
+  // Idempotency: if route already set autoFilter + freeze explicitly, respect existing config
+  // (only ensure gridlines disabled — keep route's correct header row choice).
+  const alreadyHasFilter = !!ws.autoFilter && (typeof ws.autoFilter === 'string' || ws.autoFilter.from);
+  const alreadyFrozen = ws.views?.[0]?.state === 'frozen';
+  if (alreadyHasFilter && alreadyFrozen) {
+    try {
+      ws.views = [{ ...(ws.views[0] || {}), showGridLines: false }];
+    } catch (_) { /* best-effort */ }
+    return;
+  }
+
+  // Auto-detect header row: first row where 4+ of first 5 cells are non-empty
+  if (!headerRow) {
+    headerRow = 1;
+    for (let r = 1; r <= 8; r++) {
+      try {
+        const row = ws.getRow(r);
+        let nonEmpty = 0;
+        for (let c = 1; c <= 5; c++) {
+          const v = row.getCell(c).value;
+          if (v !== null && v !== undefined && String(v).trim() !== '') nonEmpty++;
+        }
+        if (nonEmpty >= 4) { headerRow = r; break; }
+      } catch (_) { /* ignore */ }
+    }
+  }
+  if (!nCols) nCols = ws.actualColumnCount || ws.columnCount || 1;
+  if (!lastDataRow) lastDataRow = Math.max(ws.actualRowCount || ws.rowCount || headerRow, headerRow);
+
+  // 1. Disable gridlines
+  try {
+    ws.views = [{ ...(ws.views?.[0] || {}), showGridLines: false, state: 'frozen', ySplit: headerRow }];
+  } catch (_) { /* best-effort */ }
+
+  // 2. Auto-filter on header → last data row
+  if (nCols > 0 && lastDataRow >= headerRow) {
+    try {
+      ws.autoFilter = { from: { row: headerRow, column: 1 }, to: { row: lastDataRow, column: nCols } };
+    } catch (_) { /* best-effort */ }
+  }
+}
+
+module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F, autoF, hasDeva, safePdfPipe, drawWatermark, createPdfDoc, drawSummaryBanner, drawSectionBand, ensureSpace, addExcelSummaryBanner, STAT_COLORS, fmtInr, applyConsolidatedExcelPolish };

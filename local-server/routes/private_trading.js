@@ -308,13 +308,15 @@ module.exports = function(database) {
     widths.forEach((w,i) => ws.getColumn(i+1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=party_summary.xlsx`);
+    // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+    try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     wb.xlsx.write(res).then(() => res.end());
   }));
 
   // ===== PARTY SUMMARY PDF =====
   router.get('/api/private-trading/party-summary/pdf', safeSync(async (req, res) => {
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt, safePdfPipe, fmtDate } = require('./pdf_helpers');
+    const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt, safePdfPipe, fmtDate, applyConsolidatedExcelPolish} = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
     if (!database.data.private_paddy) database.data.private_paddy = [];
     if (!database.data.rice_sales) database.data.rice_sales = [];
@@ -390,6 +392,8 @@ module.exports = function(database) {
     widths.forEach((w, i) => ws.getColumn(i+1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=pvt_paddy.xlsx`);
+    // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+    try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     wb.xlsx.write(res).then(() => res.end());
   }));
 
@@ -467,6 +471,8 @@ module.exports = function(database) {
     widths.forEach((w, i) => ws.getColumn(i+1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=rice_sales.xlsx`);
+    // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+    try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     wb.xlsx.write(res).then(() => res.end());
   }));
 

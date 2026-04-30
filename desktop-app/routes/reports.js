@@ -4,7 +4,7 @@ const { safeAsync, safeSync, roundAmount } = require('./safe_handler');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, addSectionTitle, addTotalsRow, fmtAmt, fmtDate, C, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, addSectionTitle, addTotalsRow, fmtAmt, fmtDate, C, registerFonts, F , safePdfPipe, applyConsolidatedExcelPolish} = require('./pdf_helpers');
 const rptHelper = require('../shared/report_helper');
 
 module.exports = function(database) {
@@ -216,6 +216,8 @@ module.exports = function(database) {
       for (const a of Object.values(agentMap)) { [a.agent, a.entries, Math.round(a.qty*100)/100].forEach((v, i) => { ws.getCell(row, i+1).value = v; }); row++; }
 
       ws.columns.forEach(c => { c.width = 16; });
+      // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+      try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       const buf = await wb.xlsx.writeBuffer();
       res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename=outstanding_${Date.now()}.xlsx` }); res.send(Buffer.from(buf));
     } catch (err) { res.status(500).json({ detail: 'Excel export failed: ' + err.message }); }
@@ -292,6 +294,8 @@ module.exports = function(database) {
       ws.getCell(totalRow, 6).value = Math.round(ledger.reduce((s, l) => s + l.credit, 0)*100)/100; ws.getCell(totalRow, 6).font = { bold: true };
 
       ws.columns.forEach(c => { c.width = 18; }); ws.getColumn(4).width = 40;
+      // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+      try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       const buf = await wb.xlsx.writeBuffer();
       res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename=party_ledger_${Date.now()}.xlsx` }); res.send(Buffer.from(buf));
     } catch (err) { res.status(500).json({ detail: 'Excel export failed: ' + err.message }); }
@@ -514,6 +518,8 @@ module.exports = function(database) {
     grandVals.forEach((v,i) => { if (v !== null) { const c = ws.getCell(row,i+1); c.value = v; c.fill = gFill; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; }});
 
     widths.forEach((w,i) => { ws.getColumn(i+1).width = w; });
+    // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+    try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=agent_mandi_report.xlsx`);
@@ -686,6 +692,8 @@ module.exports = function(database) {
 
     res.setHeader('Content-Disposition', 'attachment; filename=weight_discrepancy.xlsx');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+    try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     const buf = await wb.xlsx.writeBuffer(); res.send(Buffer.from(buf));
   }));
 
@@ -979,6 +987,8 @@ module.exports = function(database) {
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=mandi_custody_register.xlsx');
+    // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+    try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res);
   }));
 

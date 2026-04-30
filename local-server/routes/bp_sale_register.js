@@ -242,7 +242,7 @@ module.exports = function(database) {
       ensure();
       const ExcelJS = require('exceljs');
       const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
-      const { fmtDate } = require('./pdf_helpers');
+      const { fmtDate, applyConsolidatedExcelPolish} = require('./pdf_helpers');
       let sales = [...database.data.bp_sale_register];
       const { product, kms_year, season, date_from, date_to, billing_date_from, billing_date_to, rst_no, vehicle_no, bill_from, party_name, destination } = req.query;
       if (product) sales = sales.filter(s => s.product === product);
@@ -326,6 +326,8 @@ module.exports = function(database) {
       styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition',`attachment; filename=${(product||'bp').toLowerCase().replace(/ /g,'_')}_sales_${Date.now()}.xlsx`);
+      // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+      try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       await wb.xlsx.write(res); res.end();
     } catch(e) { res.status(500).json({detail:'Export failed: '+e.message}); }
   });

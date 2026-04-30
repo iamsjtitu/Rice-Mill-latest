@@ -1,6 +1,63 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.8
+## Current Version: v104.44.9
+
+## 📊 v104.44.9 — GLOBAL Excel Polish: Auto-filter + Freeze Header on EVERY Excel Download
+**Build date:** 2026-04-30
+
+### User Request
+"jaise Per-Trip Bhada Excel me filter aaya hai (auto-filter dropdown), waisa global feature complete software me apply karo — jaha jaha Excel download hai sab me. Sirf jab consolidated/all-records download ho — single party/record ke liye nahi."
+
+### Implementation
+**170+ Excel endpoints upgraded across all 3 backends:**
+- Python: 50+ endpoints (15 manual + 33 auto-injected)
+- Node Desktop: 60+ endpoints (auto-injected via `/tmp/inject_node_polish.js`)
+- Node LAN: 60+ endpoints (auto-injected)
+
+**Polish features applied (all 3):**
+1. **Auto-filter dropdowns** on header row → enables per-column sort/filter inside Excel
+2. **Frozen header row** → header sticks while scrolling
+3. **Gridlines off** → cleaner look (borders provide structure)
+
+### Helper Functions
+- **Python**: `/app/backend/utils/export_helpers.py::apply_consolidated_excel_polish(ws, header_row=None, n_cols=None, last_data_row=None)` + `detect_excel_header_row(ws, max_scan=8)`
+- **Node Desktop**: `/app/desktop-app/routes/pdf_helpers.js::applyConsolidatedExcelPolish(ws, opts={})`
+- **Node LAN**: `/app/local-server/routes/pdf_helpers.js::applyConsolidatedExcelPolish(ws, opts={})`
+
+### Idempotency
+If a route has already explicitly set `auto_filter` + `freeze_panes` (e.g. `per-trip-all/excel` knows its true header row is 5), the helper detects this and **skips override** — only ensures gridlines are disabled. This preserves route-specific correct configurations.
+
+### Auto-Detection Logic
+For routes without explicit configuration, the helper auto-detects header row by scanning first 8 rows; picks first row where 4+ of first 5 cells are non-empty. Falls back to row 1 if nothing matches.
+
+### Coverage Examples (verified)
+- Cash Book / Party Summary → `filter=A4:H74 freeze=A5 grid=False`
+- Outstanding Report → `filter=A5:F34 freeze=A6 grid=False`
+- FRK Purchases → `filter=A4:F6 freeze=A5 grid=False`
+- Per-Trip Bhada (route had explicit header row 5) → `filter=A5:K7 freeze=A6 grid=False` ✅ (idempotency respected)
+- Single-truck Per-Trip → `filter=A5:J6 freeze=A6 grid=False` (Node parity)
+
+### Files Modified
+- `/app/backend/utils/export_helpers.py` (added 2 helper functions ~120 LOC)
+- `/app/desktop-app/routes/pdf_helpers.js` (added helper + module export)
+- `/app/local-server/routes/pdf_helpers.js` (synced)
+- 11 Python route files (manual + 33 auto-injected polish calls)
+- 24 Node Desktop route files
+- 24 Node LAN route files
+- `/app/frontend/src/components/WhatsNew.jsx` (top entry)
+- Version bumped 104.44.8 → 104.44.9 across constants + 2 package.json
+
+### Auto-Injection Scripts (saved)
+- `/tmp/inject_polish.py` (Python — handles standalone wb.save and inline patterns)
+- `/tmp/inject_node_polish.js` (Node — handles 5 different Excel write patterns)
+
+### Verification
+- **Backend supervisor**: Started cleanly post-changes
+- **Python curl**: 8/8 sampled endpoints PASSED (200 OK + valid xlsx + correct polish properties)
+- **Node load tests**: All 24+24 = 48 route files load without errors
+- **Node in-process harness**: 2/2 endpoints (per-trip-all + single-truck) verified — correct header row detected, freeze + filter + gridlines all confirmed via openpyxl-style ExcelJS read
+
+---
 
 ## 🎯 v104.44.8 — Agent Payments + Local Party — Same Unified Header Pattern
 **Build date:** 2026-04-30

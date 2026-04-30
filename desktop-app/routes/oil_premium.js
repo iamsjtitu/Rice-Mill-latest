@@ -99,7 +99,7 @@ module.exports = function(database) {
       ensure();
       const ExcelJS = require('exceljs');
       const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
-      const { fmtDate } = require('./pdf_helpers');
+      const { fmtDate, applyConsolidatedExcelPolish} = require('./pdf_helpers');
       let items = [...database.data.oil_premium];
       const { kms_year, season, bran_type, date_from, date_to, party_name } = req.query;
       if (kms_year) items = items.filter(i => i.kms_year === kms_year);
@@ -142,6 +142,8 @@ module.exports = function(database) {
       styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition',`attachment; filename=oil_premium_${Date.now()}.xlsx`);
+      // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+      try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       await wb.xlsx.write(res); res.end();
     } catch(e) { res.status(500).json({detail:'Export failed: '+e.message}); }
   });

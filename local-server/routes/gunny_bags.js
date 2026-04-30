@@ -4,7 +4,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate , safePdfPipe} = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate , safePdfPipe, applyConsolidatedExcelPolish} = require('./pdf_helpers');
 
 module.exports = function(database) {
 
@@ -189,6 +189,8 @@ module.exports = function(database) {
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=gunny_bags.xlsx`);
+    // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+    try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
   }));
 
@@ -247,6 +249,8 @@ module.exports = function(database) {
       ws.addRow(['Date', 'Supplier', 'Qty', 'Rate', 'Amount', 'Description']);
       entries.forEach(e => ws.addRow([fmtDate(e.date), e.supplier || e.party_name || '', e.quantity || 0, e.rate || 0, e.amount || 0, e.description || '']));
       ws.columns.forEach(c => c.width = 15);
+      // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+      try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       const buf = await wb.xlsx.writeBuffer();
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=gunny_purchase_report.xlsx`);

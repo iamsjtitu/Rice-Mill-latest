@@ -1,6 +1,6 @@
 const express = require('express');
 const { safeAsync, safeSync } = require('./safe_handler');
-const { safePdfPipe, addSummaryBox, addPdfHeader } = require('./pdf_helpers');
+const { safePdfPipe, addSummaryBox, addPdfHeader, applyConsolidatedExcelPolish} = require('./pdf_helpers');
 const router = express.Router();
 
 module.exports = function(database) {
@@ -107,6 +107,8 @@ router.get('/api/reports/season-pnl/excel', safeAsync(async (req, res) => {
   ws.getColumn('A').width = 22; ws.getColumn('B').width = 22;
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=season_pnl.xlsx`);
+  // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+  try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
   await wb.xlsx.write(res); res.end();
 }));
 
@@ -172,6 +174,8 @@ router.get('/api/reports/cmr-vs-dc/excel', safeAsync(async (req, res) => {
   ws.getColumn('A').width=22; ws.getColumn('B').width=22;
   res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=cmr_vs_dc.xlsx`);
+  // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+  try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
   await wb.xlsx.write(res); res.end();
 }));
 

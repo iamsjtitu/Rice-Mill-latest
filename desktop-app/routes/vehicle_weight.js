@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const { safeAsync } = require('./safe_handler');
 const { waHostname, waPathPrefix } = require('./wa_helper');
-const { fmtDate, createPdfDoc, registerFonts, F, autoF, addPdfHeader } = require('./pdf_helpers');
+const { fmtDate, createPdfDoc, registerFonts, F, autoF, addPdfHeader, applyConsolidatedExcelPolish} = require('./pdf_helpers');
 const router = express.Router();
 
 module.exports = function(database) {
@@ -1608,6 +1608,8 @@ module.exports = function(database) {
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=${isSale ? 'vehicle_weight_sales' : 'vehicle_weight'}.xlsx`);
+    // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+    try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res);
     res.end();
   }));
@@ -2808,6 +2810,8 @@ module.exports = function(database) {
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=${opts.filenameBase}${opts.fnameSuffix || ''}.xlsx`);
+    // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+    try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res);
     res.end();
   }

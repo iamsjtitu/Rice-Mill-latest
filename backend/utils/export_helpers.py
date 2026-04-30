@@ -771,6 +771,10 @@ def apply_consolidated_excel_polish(ws, header_row: int = None, n_cols: int = No
       2. Freeze panes below the header row (header sticks while scrolling)
       3. Gridlines disabled (cleaner look — borders provide structure instead)
 
+    Idempotency: If the calling route has already explicitly set auto_filter +
+    freeze_panes (e.g. per-trip-all/excel which knows its true header row),
+    we only ensure gridlines are disabled and keep the route's existing config.
+
     Args:
         ws: openpyxl Worksheet instance
         header_row: 1-indexed header row. If None → auto-detected.
@@ -781,6 +785,17 @@ def apply_consolidated_excel_polish(ws, header_row: int = None, n_cols: int = No
     or single-record exports (where filter doesn't add value), skip this call.
     """
     from openpyxl.utils import get_column_letter
+
+    # ── Idempotency check ──
+    already_has_filter = ws.auto_filter and ws.auto_filter.ref
+    already_frozen = bool(getattr(ws, 'freeze_panes', None))
+    if already_has_filter and already_frozen:
+        # Just ensure gridlines off, keep route's correct config
+        try:
+            ws.sheet_view.showGridLines = False
+        except Exception:
+            pass
+        return
 
     # Auto-detect missing args
     if header_row is None:

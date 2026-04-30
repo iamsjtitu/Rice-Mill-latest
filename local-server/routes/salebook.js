@@ -281,7 +281,7 @@ module.exports = function(database) {
   // PDF export
   router.get('/api/sale-book/export/pdf', safeHandler(async (req, res) => {
     ensure();
-    const { addPdfHeader, addPdfTable, addTotalsRow, fmtAmt, safePdfPipe, fmtDate, drawSummaryBanner, STAT_COLORS, fmtInr } = require('./pdf_helpers');
+    const { addPdfHeader, addPdfTable, addTotalsRow, fmtAmt, safePdfPipe, fmtDate, drawSummaryBanner, STAT_COLORS, fmtInr, applyConsolidatedExcelPolish} = require('./pdf_helpers');
     let vouchers = [...database.data.sale_vouchers];
     const { kms_year, season } = req.query;
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
@@ -380,6 +380,8 @@ module.exports = function(database) {
       ]);
     }
 
+    // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+    try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=sale_book.xlsx`);
@@ -794,6 +796,8 @@ module.exports = function(database) {
     footCell.font = { name: 'Inter', size: 7, color: { argb: 'FF999999' }, italic: true };
     footCell.alignment = { horizontal: 'center' };
 
+    // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+    try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=stock_summary.xlsx`);

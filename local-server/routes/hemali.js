@@ -4,7 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const { safeHandler } = require('./safe_handler');
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
-const { safePdfPipe, addPdfHeader, addPdfTable, registerFonts, fmtDate, fmtAmt, drawSummaryBanner, addExcelSummaryBanner, STAT_COLORS, F } = require('./pdf_helpers');
+const { safePdfPipe, addPdfHeader, addPdfTable, registerFonts, fmtDate, fmtAmt, drawSummaryBanner, addExcelSummaryBanner, STAT_COLORS, F, applyConsolidatedExcelPolish} = require('./pdf_helpers');
 const { filterByFy, getAdvanceBalance, calcHemaliTotals, createHemaliPaymentSideEffects, markHemaliPaidSideEffects, undoHemaliPaidSideEffects, deleteHemaliPaymentSideEffects } = require('../shared/hemali-service');
 
 module.exports = (database) => {
@@ -648,6 +648,8 @@ module.exports = (database) => {
 
     [12, 22, 16, 16, 16, 18].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
+    // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+    try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=hemali_monthly_summary.xlsx`);
@@ -878,6 +880,8 @@ module.exports = (database) => {
 
     [5, 14, 12, 16, 38, 13, 14, 13, 13, 13, 12].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
+    // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+    try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=hemali_payments.xlsx`);

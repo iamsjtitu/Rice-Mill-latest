@@ -308,6 +308,8 @@ router.get('/api/local-party/excel', safeAsync(async (req, res) => {
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=local_party_account.xlsx`);
+  // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+  try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
   await wb.xlsx.write(res);
   res.end();
 }));
@@ -315,7 +317,7 @@ router.get('/api/local-party/excel', safeAsync(async (req, res) => {
 // ============ PDF EXPORT ============
 router.get('/api/local-party/pdf', safeSync(async (req, res) => {
   const PDFDocument = require('pdfkit');
-  const { addPdfHeader, addPdfTable, addTotalsRow, safePdfPipe, fmtDate } = require('./pdf_helpers');
+  const { addPdfHeader, addPdfTable, addTotalsRow, safePdfPipe, fmtDate, applyConsolidatedExcelPolish} = require('./pdf_helpers');
   ensureCollection('local_party_accounts');
   let txns = [...database.data.local_party_accounts];
   if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);

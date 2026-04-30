@@ -2,7 +2,7 @@ const express = require('express');
 const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { fmtDate, fmtAmt, addPdfTable, addPdfHeader, registerFonts, F, C, safePdfPipe} = require('./pdf_helpers');
+const { fmtDate, fmtAmt, addPdfTable, addPdfHeader, registerFonts, F, C, safePdfPipe, applyConsolidatedExcelPolish} = require('./pdf_helpers');
 const { calculateAdvanceBalance, createStaffAdvanceCashEntries, deleteStaffAdvanceCashEntries, createStaffPaymentCashEntry, deleteStaffPaymentCashEntry } = require('../shared/staff-service');
 
 module.exports = function(database) {
@@ -635,6 +635,8 @@ router.get('/api/staff/export/attendance', safeSync(async (req, res) => {
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=staff_attendance_${date_from}_to_${date_to}.xlsx`);
+    // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+    try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     wb.xlsx.write(res).then(() => res.end());
   }
 }));
@@ -702,6 +704,8 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
     for (let i = 1; i <= 7; i++) ws.getColumn(i).width = 18;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=staff_payments.xlsx`);
+    // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+    try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
   }
 }));
@@ -743,6 +747,8 @@ router.post('/api/staff/advance-ledger/export', safeAsync(async (req, res) => {
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=advance_ledger_${staff_name || 'all'}.xlsx`);
+  // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+  try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
   await wb.xlsx.write(res); res.end();
 }));
 

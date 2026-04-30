@@ -2,7 +2,7 @@ const express = require('express');
 const { safeAsync, safeSync, roundAmount } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { safePdfPipe, addPdfTable, registerFonts, fmtDate, createPdfDoc } = require('./pdf_helpers');
+const { safePdfPipe, addPdfTable, registerFonts, fmtDate, createPdfDoc, applyConsolidatedExcelPolish} = require('./pdf_helpers');
 
 module.exports = function(database) {
 
@@ -477,6 +477,8 @@ router.get('/api/mill-parts/store-room-report/excel', safeAsync(async (req, res)
   }
 
   ws.columns = [{ width: 22 }, { width: 14 }, { width: 8 }, { width: 12 }, { width: 12 }, { width: 14 }];
+  // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+  try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
   const buf = await wb.xlsx.writeBuffer();
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=store_room_report.xlsx`);
@@ -587,6 +589,8 @@ router.get('/api/mill-parts/summary/excel', safeAsync(async (req, res) => {
   [20, 14, 14, 8, 12, 12, 14, 18, 25].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=mill_parts_stock.xlsx`);
+  // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+  try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
   await wb.xlsx.write(res); res.end();
 }));
 
@@ -693,6 +697,8 @@ router.get('/api/mill-parts-stock/export/excel', safeAsync(async (req, res) => {
   [12, 18, 12, 8, 8, 10, 14, 18, 12, 18].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=mill_parts_transactions.xlsx`);
+  // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+  try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
   await wb.xlsx.write(res); res.end();
 }));
 
@@ -854,6 +860,8 @@ router.get('/api/mill-parts/part-summary/excel', safeAsync(async (req, res) => {
   [12, 8, 8, 10, 14, 18, 12, 18].forEach((w, i) => ws.getColumn(i + 1).width = w);
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=${part_name.replace(/ /g, '_')}_summary.xlsx`);
+  // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+  try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
   await wb.xlsx.write(res); res.end();
 }));
 

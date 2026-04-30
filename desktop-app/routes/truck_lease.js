@@ -176,7 +176,7 @@ module.exports = function(database) {
 
   router.get('/api/truck-leases/export/pdf', safeSync(async (req, res) => {
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt , safePdfPipe, fmtDate} = require('./pdf_helpers');
+    const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt , safePdfPipe, fmtDate, applyConsolidatedExcelPolish} = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
     let leases = database.data.truck_leases || [];
     if (req.query.kms_year) leases = leases.filter(l => l.kms_year === req.query.kms_year);
@@ -284,6 +284,8 @@ module.exports = function(database) {
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=truck_lease_report.xlsx`);
+    // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+    try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     wb.xlsx.write(res).then(() => res.end());
   }));
 

@@ -330,7 +330,7 @@ module.exports = function(database) {
     const v = database.data.purchase_vouchers.find(x => x.id === req.params.id);
     if (!v) return res.status(404).json({ detail: 'Not found' });
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, fmtAmt: pFmt, safePdfPipe, fmtDate } = require('./pdf_helpers');
+    const { addPdfHeader: _addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, fmtAmt: pFmt, safePdfPipe, fmtDate, applyConsolidatedExcelPolish} = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
     const doc = new PDFDocument({ size: 'A4', margin: 25 });
     res.setHeader('Content-Type', 'application/pdf');
@@ -447,6 +447,8 @@ module.exports = function(database) {
       ]);
     }
 
+    // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+    try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=purchase_book.xlsx`);

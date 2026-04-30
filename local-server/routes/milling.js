@@ -1,6 +1,6 @@
 const express = require('express');
 const { safeSync, safeAsync, roundAmount } = require('./safe_handler');
-const { addPdfHeader: _addPdfHeader, addPdfTable, fmtAmt, fmtDate, C, registerFonts, F, safePdfPipe } = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, fmtAmt, fmtDate, C, registerFonts, F, safePdfPipe, applyConsolidatedExcelPolish} = require('./pdf_helpers');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 const router = express.Router();
@@ -425,6 +425,8 @@ module.exports = function(database) {
     ws.getCell(row, 6).value = `${entries.length} entries`; ws.getCell(row, 6).font = { bold: true };
 
     [6, 14, 14, 16, 16, 35].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+    try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=paddy_chalna.xlsx');

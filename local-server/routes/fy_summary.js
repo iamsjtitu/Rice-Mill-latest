@@ -455,7 +455,7 @@ module.exports = function(database) {
   router.get('/api/fy-summary/balance-sheet/pdf', async (req, res) => {
     try {
       const PDFDocument = require('pdfkit');
-      const { fmtAmt, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
+      const { fmtAmt, registerFonts, F , safePdfPipe, applyConsolidatedExcelPolish} = require('./pdf_helpers');
       // Re-fetch balance sheet data inline
       const bsReq = { query: req.query };
       const bsRes = {
@@ -770,6 +770,8 @@ module.exports = function(database) {
         row.getCell(5).numFmt = '#,##0.00';
       }
 
+      // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
+      try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       wb.xlsx.writeBuffer().then(buf => {
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=Balance_Sheet_${req.query.kms_year||'all'}.xlsx`);
