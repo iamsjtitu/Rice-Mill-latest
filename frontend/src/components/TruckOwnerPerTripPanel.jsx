@@ -384,11 +384,11 @@ export default function TruckOwnerPerTripPanel({ filters, user }) {
                           <TableCell className="text-slate-200 text-sm">{fmtDateShort(t.date)}</TableCell>
                           <TableCell>
                             {t.trans_type === "sale" ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">Sale</span>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-600 text-white">Sale</span>
                             ) : t.trans_type === "purchase" ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">Purchase</span>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-cyan-600 text-white">Purchase</span>
                             ) : (
-                              <span className="text-slate-400 text-xs">{t.trans_type_raw || "Other"}</span>
+                              <span className="text-slate-400 dark:text-slate-400 text-xs">{t.trans_type_raw || "Other"}</span>
                             )}
                           </TableCell>
                           <TableCell className="text-slate-200 text-sm max-w-[180px] truncate">{t.party_name || "—"}</TableCell>
