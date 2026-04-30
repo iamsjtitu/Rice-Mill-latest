@@ -309,10 +309,15 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
       <CardHeader className="pb-3">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-            <CardTitle className="text-lg text-amber-400 flex items-center gap-2">
-              <Truck className="w-5 h-5" />
-              Per-Trip Bhada
-              <span className="text-slate-400 font-normal text-sm">— Truck-wise (पर ट्रिप)</span>
+            <CardTitle className="text-lg flex items-center gap-2 flex-wrap">
+              <Truck className="w-5 h-5 text-amber-400" />
+              <span className="text-amber-400">Per-Trip Bhada</span>
+              {selectedTruck && (
+                <span className="font-mono text-xl text-sky-300 bg-slate-700/60 px-2 py-0.5 rounded ml-1" data-testid="truck-pertrip-current-vno">
+                  {selectedTruck}
+                </span>
+              )}
+              <span className="text-slate-400 font-normal text-sm ml-1">— Truck-wise (पर ट्रिप)</span>
             </CardTitle>
             <p className="text-slate-400 text-xs mt-1">Search truck → trip-wise bhada · Settled/Pending status · 1-click Pay (Cash/Bank/Owner)</p>
           </div>
@@ -340,19 +345,6 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
             </div>
           </div>
         </div>
-
-        {/* Compact stat strip — replaces the gradient KPI tiles (no more cards) */}
-        {selectedTruck && (
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-3 pt-3 border-t border-slate-700 text-sm">
-            <div><span className="text-slate-400">Total Trips:</span> <span className="text-slate-100 font-bold">{sm.total_trips}</span> <span className="text-slate-500 text-xs">({sm.sale_count} Sale · {sm.purchase_count} Purchase)</span></div>
-            <div><span className="text-slate-400">Total Bhada:</span> <span className="text-amber-300 font-bold">{fmtINR(sm.total_bhada)}</span></div>
-            <div><span className="text-slate-400">Settled:</span> <span className="text-emerald-300 font-bold">{fmtINR(sm.total_paid)}</span> <span className="text-slate-500 text-xs">({sm.settled_count} fully · {sm.partial_count} partial)</span></div>
-            <div><span className="text-slate-400">Pending:</span> <span className="text-rose-300 font-bold">{fmtINR(sm.total_pending)}</span> <span className="text-slate-500 text-xs">({sm.pending_count + sm.partial_count} trips)</span></div>
-            {sm.extra_paid_unallocated > 0 && (
-              <div><span className="text-slate-400">Extra Paid:</span> <span className="text-emerald-200 font-bold">+{fmtINR(sm.extra_paid_unallocated)}</span></div>
-            )}
-          </div>
-        )}
       </CardHeader>
 
       <CardContent>
@@ -405,8 +397,6 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
                       <TableHead className="text-slate-300">Type</TableHead>
                       <TableHead className="text-slate-300">Party</TableHead>
                       <TableHead className="text-slate-300">Destination</TableHead>
-                      <TableHead className="text-slate-300 text-right">Net Wt (Qtl)</TableHead>
-                      <TableHead className="text-slate-300 text-right">Bag</TableHead>
                       <TableHead className="text-slate-300 text-right">Bhada</TableHead>
                       <TableHead className="text-slate-300 text-right">Paid</TableHead>
                       <TableHead className="text-slate-300 text-right">Pending</TableHead>
@@ -416,9 +406,8 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
                   </TableHeader>
                   <TableBody>
                     {trips.length === 0 ? (
-                      <TableRow><TableCell colSpan={12} className="text-center text-slate-500 py-8 text-sm">Filter ke andar koi trip nahi — change karke try karein.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={10} className="text-center text-slate-500 py-8 text-sm">Filter ke andar koi trip nahi — change karke try karein.</TableCell></TableRow>
                     ) : trips.map((t) => {
-                      const netQtl = (Number(t.net_wt || 0) / 100).toFixed(2);
                       const isAdmin = user?.role === 'admin';
                       return (
                         <TableRow key={`${t.rst_no}-${t.date}`} className="border-slate-700 hover:bg-slate-700/40">
@@ -435,8 +424,6 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
                           </TableCell>
                           <TableCell className="text-slate-200 text-sm max-w-[180px] truncate">{t.party_name || "—"}</TableCell>
                           <TableCell className="text-slate-300 text-sm max-w-[180px] truncate">{t.farmer_name || "—"}</TableCell>
-                          <TableCell className="text-slate-200 text-sm text-right font-semibold">{netQtl}</TableCell>
-                          <TableCell className="text-slate-300 text-sm text-right">{Number(t.tot_pkts || 0).toLocaleString()}</TableCell>
                           <TableCell className="text-amber-300 font-bold text-right">{fmtINR(t.bhada)}</TableCell>
                           <TableCell className="text-emerald-400 text-sm text-right">{t.paid_amount > 0 ? fmtINR(t.paid_amount) : "—"}</TableCell>
                           <TableCell className="text-rose-400 font-bold text-right">{t.pending_amount > 0 ? fmtINR(t.pending_amount) : "—"}</TableCell>
@@ -498,6 +485,17 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
                     })}
                   </TableBody>
                 </Table>
+              )}
+            </div>
+
+            {/* Stat strip — moved below table for prominence after data */}
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-3 p-3 rounded-lg bg-slate-700/40 border border-slate-600 text-sm">
+              <div><span className="text-slate-400">Total Trips:</span> <span className="text-slate-100 font-bold">{sm.total_trips}</span> <span className="text-slate-500 text-xs">({sm.sale_count} Sale · {sm.purchase_count} Purchase)</span></div>
+              <div><span className="text-slate-400">Total Bhada:</span> <span className="text-amber-300 font-bold">{fmtINR(sm.total_bhada)}</span></div>
+              <div><span className="text-slate-400">Settled:</span> <span className="text-emerald-300 font-bold">{fmtINR(sm.total_paid)}</span> <span className="text-slate-500 text-xs">({sm.settled_count} fully · {sm.partial_count} partial)</span></div>
+              <div><span className="text-slate-400">Pending:</span> <span className="text-rose-300 font-bold">{fmtINR(sm.total_pending)}</span> <span className="text-slate-500 text-xs">({sm.pending_count + sm.partial_count} trips)</span></div>
+              {sm.extra_paid_unallocated > 0 && (
+                <div><span className="text-slate-400">Extra Paid:</span> <span className="text-emerald-200 font-bold">+{fmtINR(sm.extra_paid_unallocated)}</span></div>
               )}
             </div>
           </>
