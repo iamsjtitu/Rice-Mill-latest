@@ -1353,7 +1353,7 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
         if date_from: date_q["$gte"] = date_from
         if date_to: date_q["$lte"] = date_to
         query["date"] = date_q
-    txns = await db.cash_transactions.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
+    txns = await db.cash_transactions.find(query, {"_id": 0}).sort([("date", 1), ("created_at", 1)]).to_list(10000)
     # Owner ledger view → flip txn_type for display ONLY for account=owner entries
     # (cash/bank entries with category=<owner> are already in Owner perspective).
     if is_owner_view:
@@ -1524,7 +1524,7 @@ async def _generate_cash_book_pdf_bytes(kms_year=None, season=None, account=None
         if date_from: date_q["$gte"] = date_from
         if date_to: date_q["$lte"] = date_to
         query["date"] = date_q
-    txns = await db.cash_transactions.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
+    txns = await db.cash_transactions.find(query, {"_id": 0}).sort([("date", 1), ("created_at", 1)]).to_list(10000)
     # Owner ledger view → flip txn_type for display ONLY for account=owner entries
     if is_owner_view:
         for t in txns:

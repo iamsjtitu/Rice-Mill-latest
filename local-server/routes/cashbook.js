@@ -570,7 +570,7 @@ module.exports = function(database) {
       }
       if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
       if (req.query.date_to) txns = txns.filter(t => (t.date || '') <= req.query.date_to);
-      txns.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
+      txns.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)) || (a.created_at||'').localeCompare(b.created_at||''));
       
       const cols = getColumns('cashbook_report');
       const headers = getExcelHeaders(cols);
@@ -691,7 +691,7 @@ module.exports = function(database) {
       }
       if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
       if (req.query.date_to) txns = txns.filter(t => (t.date || '') <= req.query.date_to);
-      txns.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
+      txns.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)) || (a.created_at||'').localeCompare(b.created_at||''));
 
       const titleParts = ['Daily Cash Book'];
       if (req.query.category) titleParts.push(`- ${req.query.category}`);

@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.43.2",
+    date: "Feb 16, 2026",
+    title: "v104.43.2 — 📑 Cash Book PDF / Excel / WhatsApp PDF: Same Order as Desktop UI",
+    items: [
+      { type: "fix", text: "📑 **Sort Order Fix** — Reported issue: 'PDF, WhatsApp PDF, aur Excel exports me transactions desktop UI ke jaisa order me nahi aate, galat aata hai.' Cause: Cash Book ke export endpoints (`/cash-book/pdf`, `/cash-book/excel`, WhatsApp PDF jo `_generate_cash_book_pdf_bytes` use karta hai) sirf `date` se ASC sort karte the. Ek hi date par multiple txns the (e.g. 29-04-2026 par Titu ke 5 txns), aur unka order MongoDB ke insertion order par random tha — desktop UI me jo chronological dikhta hai (oldest first → newest last by `created_at`) wo PDF/Excel me match nahi karta tha." },
+      { type: "fix", text: "🔧 **Fix Applied** — Ab exports `[(date, ASC), (created_at, ASC)]` se compound sort karte hain — bilkul desktop UI ke jaisa exact same order. Verification (Titu owner ledger): UI me 1L Jama → 1k Tractor Jama → 50k Jama → 1L Nikasi → 27k Trahikara Jama → balance ₹78,000 CR. **PDF aur Excel ab bhi exactly yahi order me aate hain** with same running balance. WhatsApp PDF bhi same logic share karta hai (uses same generator function)." },
+      { type: "improvement", text: "🔄 **Triple-Backend Parity** — Sort fix Python (web) + Electron desktop-app + local-server teeno me applied: `txns.sort((a,b) => date_ASC || created_at_ASC)` JS me, MongoDB compound sort Python me." },
+    ],
+  },
+  {
     version: "104.43.1",
     date: "Feb 16, 2026",
     title: "v104.43.1 — 🎫 Sale Book + Purchase Voucher: S-001 / P-001 Auto Prefix (Editable)",
