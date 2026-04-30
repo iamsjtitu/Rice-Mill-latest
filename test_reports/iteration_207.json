@@ -1,0 +1,61 @@
+{
+  "summary": "v104.44.4 Per-Trip Bhada Breakdown feature testing complete. All 22 backend tests pass. All frontend UI elements verified including truck dropdown, KPIs, filters, Pay button, and export buttons.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pertrip_bhada_v104_44_4.py",
+    "/app/test_reports/pytest/pytest_results_iteration207.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_pertrip_bhada_v104_44_4.py"
+  ],
+  "success_rate": {
+    "backend": "100% (22/22 tests passed)",
+    "frontend": "100% (all UI elements verified)"
+  },
+  "test_credentials": "admin / admin123",
+  "seed_data_creation": "Demo data seeded via /app/backend/scripts/seed_truck_pertrip_demo.py - 2 trucks (OD-15-DEMO-1234 with 7 trips + 3 nikasis, OD-21-DEMO-5678 with 3 trips + 0 nikasis)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "v104.44.4 Per-Trip Bhada feature fully tested. Backend: 6 new endpoints verified - GET /per-trip-trucks (list trucks with bhada>0), GET /{vno}/per-trip (FIFO settlement breakdown), POST /{vno}/settle/{rst} (one-click settle creates NIKASI), GET /{vno}/per-trip-pdf (PDF export), GET /{vno}/per-trip-excel (Excel export), GET /{vno}/whatsapp-text (WhatsApp text). Frontend: TruckOwnerPerTripPanel.jsx with data-testid attributes for all interactive elements. WhatsNew modal shows v104.44.4 at top.",
+  "tests_verified": {
+    "backend": [
+      "GET /api/truck-owner/per-trip-trucks → returns trucks with bhada>0, includes trips_count and total_bhada",
+      "GET /api/truck-owner/{vno}/per-trip → returns trips with FIFO settlement (settled/partial/pending), summary KPIs",
+      "POST /api/truck-owner/{vno}/settle/{rst} → creates NIKASI entry, increases total_paid",
+      "POST /api/truck-owner/INVALID/settle/9999 → returns 404 'VW entry not found'",
+      "GET /api/truck-owner/{vno}/per-trip-pdf → returns PDF (Content-Type: application/pdf)",
+      "GET /api/truck-owner/{vno}/per-trip-pdf?filter_status=pending → returns filtered PDF",
+      "GET /api/truck-owner/{vno}/per-trip-excel → returns xlsx",
+      "GET /api/truck-owner/{vno}/whatsapp-text → returns formatted WhatsApp text",
+      "Existing VW CRUD endpoints (list, pending, next-rst) - no regression"
+    ],
+    "frontend": [
+      "Per-Trip Bhada tab visible in Payments (data-testid='tab-pertrip-bhada') with BETA badge",
+      "Truck dropdown (data-testid='truck-pertrip-select') shows demo trucks with trip count and total bhada",
+      "KPIs populate correctly: Total Trips, Total Bhada, Settled, Pending",
+      "Trips table shows Sale/Purchase tags, status badges (Settled/Partial/Pending)",
+      "Filter buttons (All/Sale/Purchase) and (All/Pending/Partial/Settled) work correctly",
+      "Pay button (data-testid='truck-pertrip-pay-{rst}') settles trip, shows toast, updates KPIs",
+      "Pending PDF button (data-testid='truck-pertrip-pending-pdf') present",
+      "Excel button (data-testid='truck-pertrip-excel') present",
+      "WhatsApp button (data-testid='truck-pertrip-whatsapp') present",
+      "Refresh button (data-testid='truck-pertrip-refresh') reloads data",
+      "WhatsNew modal v104.44.4 shows Per-Trip Bhada feature description at top"
+    ]
+  },
+  "fifo_settlement_verified": {
+    "description": "FIFO settlement algorithm verified - payments applied to oldest trips first",
+    "test_case": "Settled RST #1006 (Rs.4,000) → FIFO pool applied to older trips, RST #1006 shows 'Partial' with Rs.2,000 paid",
+    "kpi_update": "Pending decreased from Rs.6,000 to Rs.2,000, Settled increased from Rs.16,200 to Rs.20,200"
+  }
+}

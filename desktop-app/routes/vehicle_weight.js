@@ -1979,5 +1979,124 @@ module.exports = function(database) {
     res.json({ success: true, message: `${deleted} purani images delete hui`, deleted });
   }));
 
+  // ════════════════════════════════════════════════════════════════════════
+  // 🛻 TRUCK OWNER — Per-Trip Breakdown (Bhada-based, FIFO settlement)
+  // ════════════════════════════════════════════════════════════════════════
+
+  router.get('/api/truck-owner/per-trip-trucks', safeAsync(async (req, res) => {
+    const { kms_year, season } = req.query;
+    const vws = col('vehicle_weights');
+    const agg = {};
+    for (const vw of vws) {
+      const v = (vw.vehicle_no || '').trim();
+      const b = parseFloat(vw.bhada || 0) || 0;
+      if (!v || b <= 0) continue;
+      if (kms_year && vw.kms_year !== kms_year) continue;
+      if (season && vw.season !== season) continue;
+      if (!agg[v]) agg[v] = { vehicle_no: v, trips_count: 0, total_bhada: 0 };
+      agg[v].trips_count += 1;
+      agg[v].total_bhada += b;
+    }
+    const out = Object.values(agg).sort((a, b) => a.vehicle_no.localeCompare(b.vehicle_no));
+    res.json({ trucks: out });
+  }));
+
+  router.get('/api/truck-owner/:vehicle_no/per-trip', safeAsync(async (req, res) => {
+    const vno = (req.params.vehicle_no || '').trim();
+    if (!vno) return res.status(400).json({ detail: 'vehicle_no required' });
+    const { kms_year, season, date_from, date_to } = req.query;
+
+    const vws = col('vehicle_weights').filter(vw => {
+      if ((vw.vehicle_no || '').trim() !== vno) return false;
+      const b = parseFloat(vw.bhada || 0) || 0;
+      if (b <= 0) return false;
+      if (kms_year && vw.kms_year !== kms_year) return false;
+      if (season && vw.season !== season) return false;
+      if (date_from && (vw.date || '') < date_from) return false;
+      if (date_to && (vw.date || '') > date_to) return false;
+      return true;
+    });
+    vws.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.created_at || '').localeCompare(b.created_at || '') || ((a.rst_no || 0) - (b.rst_no || 0)));
+
+    const nikasis = col('cash_transactions').filter(t =>
+      t.account === 'ledger' && t.party_type === 'Truck' && t.category === vno && t.txn_type === 'nikasi' &&
+      (!kms_year || t.kms_year === kms_year)
+    );
+    nikasis.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    let pool = nikasis.reduce((s, n) => s + (parseFloat(n.amount || 0) || 0), 0);
+    const totalPaidPool = pool;
+
+    const trips = [];
+    for (const vw of vws) {
+      const bhada = parseFloat(vw.bhada || 0) || 0;
+      const tt = (vw.trans_type || '').toLowerCase();
+      const isSale = tt.includes('sale') || tt.includes('dispatch');
+      const isPurchase = tt.includes('purchase') || tt.includes('receive');
+      const ttype = isSale ? 'sale' : (isPurchase ? 'purchase' : 'other');
+      let paid, status;
+      if (pool >= bhada) { paid = bhada; status = 'settled'; pool -= bhada; }
+      else if (pool > 0) { paid = pool; status = 'partial'; pool = 0; }
+      else { paid = 0; status = 'pending'; }
+      trips.push({
+        rst_no: vw.rst_no, date: vw.date || '', trans_type: ttype, trans_type_raw: vw.trans_type || '',
+        party_name: vw.party_name || '', farmer_name: vw.farmer_name || '',
+        product: vw.product || '', tot_pkts: vw.tot_pkts || 0, net_wt: vw.net_wt || 0,
+        bhada, paid_amount: Math.round(paid * 100) / 100,
+        pending_amount: Math.round((bhada - paid) * 100) / 100,
+        status, vw_id: vw.id,
+      });
+    }
+    trips.sort((a, b) => (b.date || '').localeCompare(a.date || '') || ((b.rst_no || 0) - (a.rst_no || 0)));
+
+    const totalBhada = trips.reduce((s, t) => s + t.bhada, 0);
+    const totalPaid = trips.reduce((s, t) => s + t.paid_amount, 0);
+    res.json({
+      vehicle_no: vno, driver_name: '',
+      trips,
+      summary: {
+        total_trips: trips.length,
+        sale_count: trips.filter(t => t.trans_type === 'sale').length,
+        purchase_count: trips.filter(t => t.trans_type === 'purchase').length,
+        total_bhada: Math.round(totalBhada * 100) / 100,
+        total_paid: Math.round(totalPaid * 100) / 100,
+        total_pending: Math.round((totalBhada - totalPaid) * 100) / 100,
+        settled_count: trips.filter(t => t.status === 'settled').length,
+        partial_count: trips.filter(t => t.status === 'partial').length,
+        pending_count: trips.filter(t => t.status === 'pending').length,
+        extra_paid_unallocated: Math.round(Math.max(0, totalPaidPool - totalBhada) * 100) / 100,
+      },
+    });
+  }));
+
+  router.post('/api/truck-owner/:vehicle_no/settle/:rst_no', safeAsync(async (req, res) => {
+    const vno = (req.params.vehicle_no || '').trim();
+    const rstNo = parseInt(req.params.rst_no);
+    if (!vno || isNaN(rstNo)) return res.status(400).json({ detail: 'vehicle_no + rst_no required' });
+
+    const vw = col('vehicle_weights').find(v => (v.vehicle_no || '').trim() === vno && Number(v.rst_no) === rstNo);
+    if (!vw) return res.status(404).json({ detail: 'VW entry not found' });
+    const bhada = parseFloat(vw.bhada || 0) || 0;
+    if (bhada <= 0) return res.status(400).json({ detail: 'No bhada on this trip' });
+
+    const data = req.body || {};
+    const amount = parseFloat(data.amount || bhada) || bhada;
+    const description = data.description || `Bhada Settle (RST #${rstNo} → ${vw.farmer_name || vw.party_name || ''})`;
+    const dateStr = data.date || new Date().toISOString().split('T')[0];
+    const username = data.username || 'system';
+
+    const now = new Date().toISOString();
+    const entry = {
+      id: uuidv4(), date: dateStr, account: 'ledger', txn_type: 'nikasi',
+      category: vno, party_type: 'Truck', amount, description,
+      kms_year: vw.kms_year || '', season: vw.season || 'Kharif',
+      created_by: username, linked_entry_id: vw.id,
+      reference: `truck_settle:${vno}:${rstNo}:${Math.floor(Date.now() / 1000)}`,
+      created_at: now,
+    };
+    col('cash_transactions').push(entry);
+    database.save();
+    res.json({ success: true, settled_amount: amount, rst_no: rstNo });
+  }));
+
   return router;
 };

@@ -193,13 +193,48 @@ export default function TruckOwnerPerTripPanel({ filters, user }) {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" disabled className="h-7 text-xs bg-rose-600/60 text-white opacity-60 cursor-not-allowed" title="Pending PDF (final implementation me activate)">
+                <Button size="sm" onClick={() => {
+                  const params = new URLSearchParams();
+                  if (filters?.kms_year) params.append("kms_year", filters.kms_year);
+                  if (filters?.season) params.append("season", filters.season);
+                  params.append("filter_status", "pending");
+                  window.open(`${API}/truck-owner/${encodeURIComponent(selectedTruck)}/per-trip-pdf?${params}`, "_blank");
+                }} disabled={!selectedTruck || loading}
+                  className="h-7 text-xs bg-rose-600 hover:bg-rose-700 text-white shadow-md disabled:opacity-50" title="Pending Bhada PDF — sirf unpaid trips" data-testid="truck-pertrip-pending-pdf">
                   <FileText className="w-3 h-3 mr-1" /> Pending PDF
                 </Button>
-                <Button size="sm" disabled className="h-7 text-xs bg-emerald-700/60 text-white opacity-60 cursor-not-allowed" title="WhatsApp share (final implementation me)">
+                <Button size="sm" onClick={async () => {
+                  if (!selectedTruck) return;
+                  try {
+                    const params = new URLSearchParams();
+                    if (filters?.kms_year) params.append("kms_year", filters.kms_year);
+                    if (filters?.season) params.append("season", filters.season);
+                    params.append("filter_status", "pending");
+                    const r = await axios.get(`${API}/truck-owner/${encodeURIComponent(selectedTruck)}/whatsapp-text?${params}`);
+                    const text = r.data?.text || "";
+                    if (text) {
+                      // Try copy to clipboard, fallback to wa.me
+                      try {
+                        await navigator.clipboard.writeText(text);
+                        toast.success("WhatsApp text copy ho gaya — kisi bhi WhatsApp chat me paste karein", { duration: 4000 });
+                      } catch {
+                        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+                      }
+                    }
+                  } catch (e) {
+                    toast.error("WhatsApp text generate failed: " + (e?.message || ""));
+                  }
+                }} disabled={!selectedTruck || loading}
+                  className="h-7 text-xs bg-emerald-700 hover:bg-emerald-600 text-white disabled:opacity-50" title="Pending Bhada WhatsApp text — clipboard pe copy hota hai" data-testid="truck-pertrip-whatsapp">
                   <MessageCircle className="w-3 h-3 mr-1" /> WhatsApp
                 </Button>
-                <Button size="sm" disabled variant="outline" className="h-7 text-xs border-slate-600 bg-slate-700 text-slate-400 opacity-60 cursor-not-allowed">
+                <Button size="sm" variant="outline" onClick={() => {
+                  const params = new URLSearchParams();
+                  if (filters?.kms_year) params.append("kms_year", filters.kms_year);
+                  if (filters?.season) params.append("season", filters.season);
+                  window.open(`${API}/truck-owner/${encodeURIComponent(selectedTruck)}/per-trip-excel?${params}`, "_blank");
+                }} disabled={!selectedTruck || loading}
+                  className="h-7 text-xs border-slate-600 bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-50" data-testid="truck-pertrip-excel">
                   <Download className="w-3 h-3 mr-1" /> Excel
                 </Button>
               </div>

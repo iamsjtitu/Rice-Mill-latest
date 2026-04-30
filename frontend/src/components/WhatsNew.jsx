@@ -7,6 +7,20 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.4",
+    date: "Feb 16, 2026",
+    title: "v104.44.4 — 🛻 Truck Owner Per-Trip Bhada (Production Ready)",
+    items: [
+      { type: "feature", text: "🛻 **Per-Trip Bhada Tab in Payments** — Naya subtab `Payments → Per-Trip Bhada` jo har truck ka trip-wise (RST-wise) bhada breakdown dikhata hai. Sale + Purchase dono trips, Settled / Partial / Pending status, summary KPIs (Total Trips, Bhada, Settled, Pending), Sale/Purchase count split. Truck dropdown se asaani se switch kar sakte hain." },
+      { type: "feature", text: "💰 **One-Click Settle (Pay button)** — Pending ya Partial trip pe `Pay ₹X` button click karte hi backend automatic NIKASI entry banata hai (`account=ledger, party_type=Truck, txn_type=nikasi`) — table refresh hoke status `Settled` ho jata hai. FIFO pool-based settlement (oldest trip pehle settle hoti hai)." },
+      { type: "feature", text: "📑 **Pending PDF Export** — `Pending PDF` button click pe sirf unpaid/partial trips ka PDF generate hota hai with color-coded status cells (red/amber/green). Truck owner ko WhatsApp pe forward karne ke liye perfect." },
+      { type: "feature", text: "📥 **Excel Export** — All trips ka Excel with color-coded status cells aur summary banner." },
+      { type: "feature", text: "💬 **WhatsApp Share** — Pending trips ka formatted text auto-clipboard pe copy hota hai (RST + date + party + amount + status emoji). Ek click se driver/owner ko forward kar sakte hain." },
+      { type: "feature", text: "📊 **FIFO Settlement Algorithm** — Existing Cash Book NIKASI payments ko chronologically oldest trip pe pool-apply karta hai (settled → partial → pending logic). Manual + auto NIKASI dono count hote hain." },
+      { type: "improvement", text: "✅ Triple-backend (Python + Node Desktop + Node LAN) parity. 3 endpoints in sync: `GET /api/truck-owner/per-trip-trucks`, `GET /api/truck-owner/{vno}/per-trip`, `POST /api/truck-owner/{vno}/settle/{rst}`. Plus Python-only export endpoints: `/per-trip-pdf`, `/per-trip-excel`, `/whatsapp-text` (Node parity in next release)." },
+    ],
+  },
+  {
     version: "104.44.3",
     date: "Feb 16, 2026",
     title: "v104.44.3 — 🚛 Bhada (Lumpsum) Across All Sale/Purchase Forms",

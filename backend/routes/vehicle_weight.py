@@ -2137,3 +2137,222 @@ async def truck_owner_settle_trip(vehicle_no: str, rst_no: int, data: dict):
     }
     await db.cash_transactions.insert_one(entry)
     return {"success": True, "settled_amount": amount, "rst_no": rst_no}
+
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 🛻 TRUCK OWNER — Pending PDF / Excel / WhatsApp Export
+# ════════════════════════════════════════════════════════════════════════════
+async def _build_pertrip_payload(vehicle_no: str, kms_year: str = "", season: str = "", date_from: str = "", date_to: str = "", filter_status: str = ""):
+    """Reuse the per-trip endpoint logic to build a payload for export."""
+    full = await truck_owner_per_trip(vehicle_no, kms_year, season, date_from, date_to)
+    if filter_status and filter_status != "all":
+        full["trips"] = [t for t in full["trips"] if t.get("status") == filter_status]
+    return full
+
+
+@router.get("/truck-owner/{vehicle_no}/per-trip-pdf")
+async def truck_owner_per_trip_pdf(vehicle_no: str, kms_year: str = "", season: str = "", date_from: str = "", date_to: str = "", filter_status: str = ""):
+    """Generate per-trip Bhada PDF — defaults to all trips, filter_status=pending for unpaid only."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from reportlab.lib.utils import ImageReader  # noqa: F401
+    from fastapi.responses import StreamingResponse
+    from utils.branding_helper import get_pdf_header_elements_from_db
+    from utils.export_helpers import register_hindi_fonts
+    from utils.date_format import fmt_date as fmt_d
+    register_hindi_fonts()
+
+    payload = await _build_pertrip_payload(vehicle_no, kms_year, season, date_from, date_to, filter_status)
+    trips = payload["trips"]
+    sm = payload["summary"]
+
+    buf = io.BytesIO()
+    title_kind = "Pending Bhada" if filter_status == "pending" else "Per-Trip Bhada"
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=12*mm, rightMargin=12*mm, topMargin=10*mm, bottomMargin=10*mm)
+    elements = []
+    header_elems = await get_pdf_header_elements_from_db(title=f"🛻 {title_kind} — {vehicle_no}", subtitle=f"KMS: {kms_year or 'All'} · Season: {season or 'All'}")
+    elements.extend(header_elems)
+
+    # Summary banner
+    summary_data = [[
+        f"Trips: {sm['total_trips']}",
+        f"Total Bhada: ₹{sm['total_bhada']:,.0f}",
+        f"Settled: ₹{sm['total_paid']:,.0f}",
+        f"Pending: ₹{sm['total_pending']:,.0f}",
+    ]]
+    summary_tbl = Table(summary_data, colWidths=[45*mm, 45*mm, 45*mm, 45*mm])
+    summary_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#1a237e')),
+        ('TEXTCOLOR', (0,0), (-1,-1), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTSIZE', (0,0), (-1,-1), 10),
+        ('FONTNAME', (0,0), (-1,-1), 'Helvetica-Bold'),
+        ('LEADING', (0,0), (-1,-1), 14),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#1a237e')),
+    ]))
+    elements.append(summary_tbl)
+    elements.append(Spacer(1, 4*mm))
+
+    # Trips table
+    headers = ["RST", "Date", "Type", "Party", "Net Wt", "Bhada", "Paid", "Pending", "Status"]
+    rows = [headers]
+    for t in trips:
+        rows.append([
+            f"#{t['rst_no']}", fmt_d(t['date']),
+            "Sale" if t['trans_type'] == 'sale' else ("Purchase" if t['trans_type'] == 'purchase' else (t.get('trans_type_raw') or '-')),
+            (t.get('party_name') or t.get('farmer_name') or '-')[:28],
+            f"{int(t.get('net_wt') or 0):,}" if t.get('net_wt') else '-',
+            f"₹{t['bhada']:,.0f}",
+            f"₹{t['paid_amount']:,.0f}" if t['paid_amount'] else '-',
+            f"₹{t['pending_amount']:,.0f}" if t['pending_amount'] else '-',
+            t['status'].title(),
+        ])
+    if len(rows) == 1:
+        rows.append(["—", "Koi trip nahi", "", "", "", "", "", "", ""])
+    trips_tbl = Table(rows, colWidths=[14*mm, 22*mm, 18*mm, 50*mm, 18*mm, 22*mm, 22*mm, 22*mm, 22*mm], repeatRows=1)
+    trips_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#004d40')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTSIZE', (0,0), (-1,-1), 8),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('ALIGN', (0,0), (0,-1), 'CENTER'),    # RST
+        ('ALIGN', (4,1), (-2,-1), 'RIGHT'),    # numbers
+        ('ALIGN', (-1,0), (-1,-1), 'CENTER'),  # Status
+        ('GRID', (0,0), (-1,-1), 0.3, colors.HexColor('#cccccc')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f5f5f5')]),
+        ('LEADING', (0,0), (-1,-1), 11),
+    ]))
+    # Color status cells based on value
+    for i, t in enumerate(trips, start=1):
+        st = t.get('status')
+        if st == 'settled':
+            trips_tbl.setStyle(TableStyle([('BACKGROUND', (-1,i), (-1,i), colors.HexColor('#c8e6c9')), ('TEXTCOLOR', (-1,i), (-1,i), colors.HexColor('#1b5e20'))]))
+        elif st == 'partial':
+            trips_tbl.setStyle(TableStyle([('BACKGROUND', (-1,i), (-1,i), colors.HexColor('#ffe0b2')), ('TEXTCOLOR', (-1,i), (-1,i), colors.HexColor('#e65100'))]))
+        else:
+            trips_tbl.setStyle(TableStyle([('BACKGROUND', (-1,i), (-1,i), colors.HexColor('#ffcdd2')), ('TEXTCOLOR', (-1,i), (-1,i), colors.HexColor('#b71c1c'))]))
+    elements.append(trips_tbl)
+
+    # Footer
+    elements.append(Spacer(1, 4*mm))
+    style_small = ParagraphStyle('small', fontSize=8, alignment=TA_CENTER, textColor=colors.grey)
+    elements.append(Paragraph(f"Generated: {fmt_d(datetime.now(timezone.utc).strftime('%Y-%m-%d'))} · {len(trips)} trip(s)", style_small))
+
+    doc.build(elements)
+    buf.seek(0)
+    safe_vno = "".join(c for c in vehicle_no if c.isalnum() or c in "-_").strip("-_") or "truck"
+    fname = f"{safe_vno}_{title_kind.replace(' ', '_')}.pdf"
+    return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
+@router.get("/truck-owner/{vehicle_no}/per-trip-excel")
+async def truck_owner_per_trip_excel(vehicle_no: str, kms_year: str = "", season: str = "", date_from: str = "", date_to: str = "", filter_status: str = ""):
+    """Excel export of per-trip Bhada."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from fastapi.responses import StreamingResponse
+
+    payload = await _build_pertrip_payload(vehicle_no, kms_year, season, date_from, date_to, filter_status)
+    trips = payload["trips"]
+    sm = payload["summary"]
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Per-Trip Bhada"
+
+    title_kind = "Pending Bhada" if filter_status == "pending" else "Per-Trip Bhada"
+    title_font = Font(name="Inter", bold=True, size=14, color="1a1a2e")
+    sub_font = Font(name="Inter", size=10, color="555555")
+    hdr_font = Font(name="Inter", bold=True, size=10, color="FFFFFF")
+    hdr_fill = PatternFill(start_color="004D40", end_color="004D40", fill_type="solid")
+    sub_fill = PatternFill(start_color="1A237E", end_color="1A237E", fill_type="solid")
+    thin = Side(style="thin", color="cccccc")
+    bd = Border(top=thin, bottom=thin, left=thin, right=thin)
+
+    ws.merge_cells("A1:I1")
+    ws.cell(row=1, column=1, value=f"🛻 {title_kind} — {vehicle_no}").font = title_font
+    ws.cell(row=1, column=1).alignment = Alignment(horizontal="center")
+
+    ws.merge_cells("A2:I2")
+    ws.cell(row=2, column=1, value=f"KMS: {kms_year or 'All'} · Season: {season or 'All'} · Trips: {sm['total_trips']} · Total Bhada: ₹{sm['total_bhada']:,.0f} · Settled: ₹{sm['total_paid']:,.0f} · Pending: ₹{sm['total_pending']:,.0f}").font = sub_font
+    ws.cell(row=2, column=1).alignment = Alignment(horizontal="center")
+
+    headers = ["RST", "Date", "Type", "Party", "Net Wt (KG)", "Bhada", "Paid", "Pending", "Status"]
+    for col_idx, h in enumerate(headers, start=1):
+        c = ws.cell(row=4, column=col_idx, value=h)
+        c.font = hdr_font; c.fill = hdr_fill; c.border = bd
+        c.alignment = Alignment(horizontal="center")
+
+    for ri, t in enumerate(trips, start=5):
+        vals = [
+            f"#{t['rst_no']}", t['date'],
+            "Sale" if t['trans_type'] == 'sale' else ("Purchase" if t['trans_type'] == 'purchase' else (t.get('trans_type_raw') or '-')),
+            t.get('party_name') or t.get('farmer_name') or '-',
+            int(t.get('net_wt') or 0),
+            float(t['bhada']),
+            float(t['paid_amount']),
+            float(t['pending_amount']),
+            t['status'].title(),
+        ]
+        for col_idx, v in enumerate(vals, start=1):
+            c = ws.cell(row=ri, column=col_idx, value=v)
+            c.border = bd
+            if col_idx in (5, 6, 7, 8):
+                c.alignment = Alignment(horizontal="right")
+                c.number_format = '#,##0'
+        # Status cell color
+        st_cell = ws.cell(row=ri, column=9)
+        if t['status'] == 'settled':
+            st_cell.fill = PatternFill(start_color="C8E6C9", end_color="C8E6C9", fill_type="solid")
+        elif t['status'] == 'partial':
+            st_cell.fill = PatternFill(start_color="FFE0B2", end_color="FFE0B2", fill_type="solid")
+        else:
+            st_cell.fill = PatternFill(start_color="FFCDD2", end_color="FFCDD2", fill_type="solid")
+
+    # Auto-width
+    widths = {1: 10, 2: 14, 3: 12, 4: 32, 5: 14, 6: 14, 7: 14, 8: 14, 9: 14}
+    for k, w in widths.items():
+        ws.column_dimensions[chr(64 + k)].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    safe_vno = "".join(c for c in vehicle_no if c.isalnum() or c in "-_").strip("-_") or "truck"
+    fname = f"{safe_vno}_{title_kind.replace(' ', '_')}.xlsx"
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
+@router.get("/truck-owner/{vehicle_no}/whatsapp-text")
+async def truck_owner_whatsapp_text(vehicle_no: str, kms_year: str = "", season: str = "", filter_status: str = "pending"):
+    """Generate a plain-text WhatsApp message summarizing trips for the truck owner."""
+    payload = await _build_pertrip_payload(vehicle_no, kms_year, season, "", "", filter_status)
+    sm = payload["summary"]
+    trips = payload["trips"][:10]  # limit to 10 trips
+
+    lines = []
+    lines.append(f"🛻 *{vehicle_no}* — {'Pending' if filter_status == 'pending' else 'Per-Trip'} Bhada")
+    lines.append("")
+    lines.append(f"📊 Trips: {sm['total_trips']}  ·  Bhada: ₹{sm['total_bhada']:,.0f}")
+    lines.append(f"✅ Paid: ₹{sm['total_paid']:,.0f}  ·  ⚠️ Pending: ₹{sm['total_pending']:,.0f}")
+    lines.append("")
+    if trips:
+        lines.append("*Trip details:*")
+        for t in trips:
+            tag = "🟢" if t['trans_type'] == 'sale' else "🔵"
+            status_emoji = "✅" if t['status'] == 'settled' else ("🟡" if t['status'] == 'partial' else "⚠️")
+            party = (t.get('party_name') or t.get('farmer_name') or '')[:22]
+            lines.append(f"{tag} RST #{t['rst_no']} · {t['date']} · {party} · ₹{t['bhada']:,.0f} {status_emoji}")
+    if len(payload["trips"]) > 10:
+        lines.append(f"... +{len(payload['trips']) - 10} more")
+    lines.append("")
+    lines.append(f"_Total pending: ₹{sm['total_pending']:,.0f}_")
+
+    return {"text": "\n".join(lines), "vehicle_no": vehicle_no, "summary": sm}
