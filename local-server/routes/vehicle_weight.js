@@ -1983,6 +1983,48 @@ module.exports = function(database) {
     res.json({ trucks: out });
   }));
 
+  router.get('/api/truck-owner/per-trip-pending-count', safeAsync(async (req, res) => {
+    const { kms_year, season } = req.query;
+    const vws = col('vehicle_weights');
+    const truckMap = {};
+    for (const vw of vws) {
+      const v = (vw.vehicle_no || '').trim();
+      const b = parseFloat(vw.bhada || 0) || 0;
+      if (!v || b <= 0) continue;
+      if (kms_year && vw.kms_year !== kms_year) continue;
+      if (season && vw.season !== season) continue;
+      if (!truckMap[v]) truckMap[v] = [];
+      truckMap[v].push(vw);
+    }
+    let pending = 0;
+    const ledgerNikasis = col('cash_transactions').filter(t =>
+      t.account === 'ledger' && t.party_type === 'Truck' && t.txn_type === 'nikasi'
+    );
+    for (const [vno, trucks] of Object.entries(truckMap)) {
+      const truckVWs = [...trucks].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      const truckNiks = ledgerNikasis.filter(n => n.category === vno);
+      const directPaid = {};
+      let pool = 0;
+      for (const n of truckNiks) {
+        const ref = n.reference || '';
+        if (ref.startsWith('truck_settle_ledger:')) {
+          const parts = ref.split(':');
+          const targetRst = parseInt(parts[parts.length - 1]);
+          if (!isNaN(targetRst)) { directPaid[targetRst] = (directPaid[targetRst] || 0) + (parseFloat(n.amount) || 0); continue; }
+        }
+        pool += parseFloat(n.amount) || 0;
+      }
+      for (const vw of truckVWs) {
+        const bhada = parseFloat(vw.bhada || 0) || 0;
+        let paid = Math.min(directPaid[vw.rst_no] || 0, bhada);
+        const remaining = bhada - paid;
+        if (remaining > 0 && pool > 0) { const take = Math.min(pool, remaining); paid += take; pool -= take; }
+        if (paid < bhada) pending++;
+      }
+    }
+    res.json({ pending_count: pending });
+  }));
+
   router.get('/api/truck-owner/:vehicle_no/per-trip', safeAsync(async (req, res) => {
     const vno = (req.params.vehicle_no || '').trim();
     if (!vno) return res.status(400).json({ detail: 'vehicle_no required' });

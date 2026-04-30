@@ -120,6 +120,22 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
       )
     : truckPayments;
 
+  // Pending counts (status !== 'paid' or balance > 0) — used in tab badges; auto-decrement on payment
+  const pendingTruckPaymentsCount = filteredTruckPayments.filter(p => p.status !== 'paid' && (parseFloat(p.balance_amount) || 0) > 0.001).length;
+  const pendingAgentPaymentsCount = agentPayments.filter(p => p.status !== 'paid' && (parseFloat(p.balance_amount) || 0) > 0.001).length;
+
+  // Per-Trip Bhada pending count (across all trucks). Fetched from backend; auto-refreshed.
+  const [pertripPendingCount, setPertripPendingCount] = useState(0);
+  const fetchPertripPendingCount = useCallback(async () => {
+    try {
+      const r = await axios.get(`${API}/truck-owner/per-trip-pending-count`, {
+        params: filters?.kms_year ? { kms_year: filters.kms_year } : {},
+      });
+      setPertripPendingCount(r.data?.pending_count || 0);
+    } catch { /* silent */ }
+  }, [filters?.kms_year]);
+  useEffect(() => { fetchPertripPendingCount(); }, [fetchPertripPendingCount, activePaymentTab]);
+
   // Export truck payments to Excel
   const handleExportTruckExcel = async () => {
     const params = new URLSearchParams();
@@ -543,6 +559,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   }, {}), [filteredTruckPayments]);
 
   const consolidatedTruckList = useMemo(() => Object.values(truckWiseConsolidated), [truckWiseConsolidated]);
+  const pendingConsolidatedCount = useMemo(() => consolidatedTruckList.filter(t => t.status !== 'paid' && (parseFloat(t.total_balance) || 0) > 0.10).length, [consolidatedTruckList]);
   const consolidatedTotals = useMemo(() => ({
     net: consolidatedTruckList.reduce((sum, t) => sum + t.total_net, 0),
     paid: consolidatedTruckList.reduce((sum, t) => sum + t.total_paid, 0),
@@ -618,7 +635,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
             : "text-slate-300 hover:bg-slate-700"}
         >
           <Truck className="w-4 h-4 mr-1" />
-          Truck Payments ({filteredTruckPayments.length})
+          Truck Payments ({pendingTruckPaymentsCount})
         </Button>
         <Button
           onClick={() => setActivePaymentTab("consolidated")}
@@ -629,7 +646,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
             : "text-slate-300 hover:bg-slate-700"}
         >
           <Truck className="w-4 h-4 mr-1" />
-          Truck Owner ({consolidatedTruckList.length})
+          Truck Owner ({pendingConsolidatedCount})
         </Button>
         <Button
           onClick={() => setActivePaymentTab("pertrip-bhada")}
@@ -642,7 +659,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
           title="Truck-wise Bhada (Lump-sum) per-trip breakdown — Sale + Purchase, FIFO settlement"
         >
           <Truck className="w-4 h-4 mr-1" />
-          Per-Trip Bhada
+          Per-Trip Bhada{pertripPendingCount > 0 ? ` (${pertripPendingCount})` : ""}
         </Button>
         <Button
           onClick={() => setActivePaymentTab("agent")}
@@ -653,7 +670,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
             : "text-slate-300 hover:bg-slate-700"}
         >
           <Users className="w-4 h-4 mr-1" />
-          Agent Payments ({agentPayments.length})
+          Agent Payments ({pendingAgentPaymentsCount})
         </Button>
         <Button
           onClick={() => setActivePaymentTab("diesel")}
@@ -1130,7 +1147,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
       {/* 🛻 Per-Trip Bhada (live preview, integrated) */}
       {activePaymentTab === "pertrip-bhada" && (
         <Suspense fallback={<div className="text-center py-12 text-slate-400">Loading per-trip view...</div>}>
-          <TruckOwnerPerTripPanel filters={filters} user={user} branding={branding} />
+          <TruckOwnerPerTripPanel filters={filters} user={user} branding={branding} onPaymentMade={fetchPertripPendingCount} />
         </Suspense>
       )}
 

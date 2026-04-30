@@ -95,7 +95,7 @@ function TruckCombobox({ trucks, value, onChange, disabled }) {
   );
 }
 
-export default function TruckOwnerPerTripPanel({ filters, user, branding }) {
+export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaymentMade }) {
   const brand = branding || { company_name: "Rice Mill", tagline: "" };
   const { showConfirm } = useConfirm();
   const [trucks, setTrucks] = useState([]);
@@ -196,6 +196,7 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding }) {
       toast.success(`RST #${payTrip.rst_no} ka ${fmtINR(amt)} payment ho gaya — ${payAcct.account === 'cash' ? 'Cash' : payAcct.account === 'bank' ? `Bank: ${payAcct.bank_name}` : `Owner: ${payAcct.owner_name}`} se kata`);
       setPayDialogOpen(false);
       fetchData(selectedTruck);
+      if (typeof onPaymentMade === 'function') onPaymentMade();
     } catch (e) {
       toast.error("Payment failed: " + (e?.response?.data?.detail || e?.message));
     } finally {
@@ -213,6 +214,7 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding }) {
       });
       toast.success(`RST #${trip.rst_no} settled (cash)`);
       fetchData(selectedTruck);
+      if (typeof onPaymentMade === 'function') onPaymentMade();
     } catch (e) {
       toast.error("Mark paid failed: " + (e?.response?.data?.detail || e?.message));
     }

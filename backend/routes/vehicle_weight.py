@@ -1957,10 +1957,7 @@ async def get_live_weight():
 # ════════════════════════════════════════════════════════════════════════════
 @router.get("/truck-owner/per-trip-trucks")
 async def list_trucks_with_bhada(kms_year: str = "", season: str = ""):
-    """List all distinct truck numbers that have at least 1 VW entry with bhada > 0.
-
-    Returns: { trucks: [ { vehicle_no, trips_count, total_bhada, drivers: [...] }, ... ] }
-    """
+    """List all distinct truck numbers that have at least 1 VW entry with bhada > 0."""
     q = {"bhada": {"$gt": 0}, "vehicle_no": {"$ne": ""}}
     if kms_year:
         q["kms_year"] = kms_year
@@ -1977,6 +1974,27 @@ async def list_trucks_with_bhada(kms_year: str = "", season: str = ""):
         a["total_bhada"] += float(vw.get("bhada", 0) or 0)
     out = sorted(agg.values(), key=lambda x: x["vehicle_no"])
     return {"trucks": out}
+
+
+@router.get("/truck-owner/per-trip-pending-count")
+async def per_trip_pending_count(kms_year: str = "", season: str = ""):
+    """Total count of trips with pending/partial bhada (across all trucks).
+    Used by Payments tab badge — auto-decrements on Pay action."""
+    q = {"bhada": {"$gt": 0}, "vehicle_no": {"$ne": ""}}
+    if kms_year:
+        q["kms_year"] = kms_year
+    if season:
+        q["season"] = season
+    # Group VWs by truck → call per-trip endpoint logic for each → count non-settled
+    trucks_with_bhada = await db.vehicle_weights.distinct("vehicle_no", q)
+    pending = 0
+    for vno in trucks_with_bhada:
+        try:
+            data = await truck_owner_per_trip(vno, kms_year, season, "", "")
+            pending += sum(1 for t in data["trips"] if t.get("status") != "settled")
+        except Exception:
+            continue
+    return {"pending_count": pending}
 
 
 @router.get("/truck-owner/{vehicle_no}/per-trip")
