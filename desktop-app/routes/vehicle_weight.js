@@ -2023,8 +2023,26 @@ module.exports = function(database) {
       (!kms_year || t.kms_year === kms_year)
     );
     nikasis.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-    let pool = nikasis.reduce((s, n) => s + (parseFloat(n.amount || 0) || 0), 0);
-    const totalPaidPool = pool;
+
+    // Step 1: Direct trip-targeted settlements (reference = truck_settle_ledger:{vno}:{rst})
+    const directPaid = {};
+    const poolNikasis = [];
+    for (const n of nikasis) {
+      const ref = n.reference || '';
+      if (ref.startsWith('truck_settle_ledger:')) {
+        const parts = ref.split(':');
+        if (parts.length >= 3) {
+          const targetRst = parseInt(parts[parts.length - 1]);
+          if (!isNaN(targetRst)) {
+            directPaid[targetRst] = (directPaid[targetRst] || 0) + (parseFloat(n.amount || 0) || 0);
+            continue;
+          }
+        }
+      }
+      poolNikasis.push(n);
+    }
+    let pool = poolNikasis.reduce((s, n) => s + (parseFloat(n.amount || 0) || 0), 0);
+    const totalPaidPool = nikasis.reduce((s, n) => s + (parseFloat(n.amount || 0) || 0), 0);
 
     const trips = [];
     for (const vw of vws) {
@@ -2033,10 +2051,20 @@ module.exports = function(database) {
       const isSale = tt.includes('sale') || tt.includes('dispatch');
       const isPurchase = tt.includes('purchase') || tt.includes('receive');
       const ttype = isSale ? 'sale' : (isPurchase ? 'purchase' : 'other');
-      let paid, status;
-      if (pool >= bhada) { paid = bhada; status = 'settled'; pool -= bhada; }
-      else if (pool > 0) { paid = pool; status = 'partial'; pool = 0; }
-      else { paid = 0; status = 'pending'; }
+
+      let paid = Math.min(directPaid[vw.rst_no] || 0, bhada);
+      const remaining = bhada - paid;
+      if (remaining > 0 && pool > 0) {
+        const take = Math.min(pool, remaining);
+        paid += take;
+        pool -= take;
+      }
+
+      let status;
+      if (paid >= bhada && bhada > 0) status = 'settled';
+      else if (paid > 0) status = 'partial';
+      else status = 'pending';
+
       trips.push({
         rst_no: vw.rst_no, date: vw.date || '', trans_type: ttype, trans_type_raw: vw.trans_type || '',
         party_name: vw.party_name || '', farmer_name: vw.farmer_name || '',
@@ -2080,22 +2108,59 @@ module.exports = function(database) {
 
     const data = req.body || {};
     const amount = parseFloat(data.amount || bhada) || bhada;
-    const description = data.description || `Bhada Settle (RST #${rstNo} → ${vw.farmer_name || vw.party_name || ''})`;
+    if (amount <= 0) return res.status(400).json({ detail: 'Amount > 0 chahiye' });
+    const note = data.note || '';
+    const roundOff = parseFloat(data.round_off || 0) || 0;
+    let payAccount = (data.account || data.payment_mode || 'cash').toLowerCase();
+    if (!['cash', 'bank', 'owner'].includes(payAccount)) payAccount = 'cash';
+    if (payAccount === 'bank' && !data.bank_name) return res.status(400).json({ detail: 'Bank name select karein' });
+    if (payAccount === 'owner' && !data.owner_name) return res.status(400).json({ detail: 'Owner account select karein' });
+    const bankName = payAccount === 'bank' ? (data.bank_name || '') : '';
+    const ownerName = payAccount === 'owner' ? (data.owner_name || '') : '';
     const dateStr = data.date || new Date().toISOString().split('T')[0];
     const username = data.username || 'system';
+    const partyLabel = vw.farmer_name || vw.party_name || '';
+    let descBase = `Bhada Settle (RST #${rstNo} → ${partyLabel})`;
+    if (note) descBase += ` - ${note}`;
+    const nowIso = new Date().toISOString();
+    const ts = `${Date.now()}_${vno}_${rstNo}`;
 
-    const now = new Date().toISOString();
-    const entry = {
-      id: uuidv4(), date: dateStr, account: 'ledger', txn_type: 'nikasi',
-      category: vno, party_type: 'Truck', amount, description,
-      kms_year: vw.kms_year || '', season: vw.season || 'Kharif',
-      created_by: username, linked_entry_id: vw.id,
-      reference: `truck_settle:${vno}:${rstNo}:${Math.floor(Date.now() / 1000)}`,
-      created_at: now,
-    };
-    col('cash_transactions').push(entry);
+    // 1. Cash/Bank/Owner NIKASI
+    col('cash_transactions').push({
+      id: `txn_${ts}`,
+      date: dateStr, account: payAccount, bank_name: bankName, owner_name: ownerName,
+      txn_type: 'nikasi', category: vno, party_type: 'Truck',
+      description: descBase, amount,
+      reference: `truck_settle:${vno}:${rstNo}`,
+      linked_entry_id: vw.id, kms_year: vw.kms_year || '', season: vw.season || 'Kharif',
+      created_by: username, created_at: nowIso,
+    });
+
+    // 2. Ledger NIKASI for FIFO settlement
+    const ownerTotal = Math.round((amount + roundOff) * 100) / 100;
+    const descLedger = descBase + (roundOff ? ` (Pay: ${amount}, Round Off: ${roundOff})` : '');
+    col('cash_transactions').push({
+      id: `txn_ledger_${ts}_${uuidv4().slice(0, 6)}`,
+      date: dateStr, account: 'ledger',
+      txn_type: 'nikasi', category: vno, party_type: 'Truck',
+      description: descLedger, amount: ownerTotal,
+      reference: `truck_settle_ledger:${vno}:${rstNo}`,
+      linked_entry_id: vw.id, kms_year: vw.kms_year || '', season: vw.season || 'Kharif',
+      created_by: username, created_at: nowIso,
+    });
+
     database.save();
-    res.json({ success: true, settled_amount: amount, rst_no: rstNo });
+    res.json({ success: true, settled_amount: amount, round_off: roundOff, rst_no: rstNo, payment_mode: payAccount });
+  }));
+
+  router.get('/api/truck-owner/:vehicle_no/trip-history/:rst_no', safeAsync(async (req, res) => {
+    const vno = (req.params.vehicle_no || '').trim();
+    const rstNo = parseInt(req.params.rst_no);
+    const direct = col('cash_transactions').filter(t =>
+      t.category === vno && t.party_type === 'Truck' && t.txn_type === 'nikasi' &&
+      (t.reference === `truck_settle:${vno}:${rstNo}` || t.reference === `truck_settle_ledger:${vno}:${rstNo}`)
+    ).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    res.json({ vehicle_no: vno, rst_no: rstNo, payments: direct });
   }));
 
   return router;

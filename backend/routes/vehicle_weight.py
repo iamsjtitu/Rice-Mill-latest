@@ -2023,8 +2023,25 @@ async def truck_owner_per_trip(vehicle_no: str, kms_year: str = "", season: str 
         nikasi_q["kms_year"] = kms_year
     nikasis = await db.cash_transactions.find(nikasi_q, {"_id": 0}).to_list(length=5000)
     nikasis.sort(key=lambda x: (x.get("date", ""), x.get("created_at", "")))
-    pool = sum(float(n.get("amount", 0) or 0) for n in nikasis)
-    total_paid_pool = pool  # Capture before pool gets exhausted
+
+    # Step 1: Apply trip-targeted direct settlements first (reference = truck_settle_ledger:{vno}:{rst})
+    direct_paid = {}  # rst_no → cumulative paid
+    pool_nikasis = []
+    for n in nikasis:
+        ref = n.get("reference", "") or ""
+        if ref.startswith("truck_settle_ledger:"):
+            parts = ref.split(":")
+            if len(parts) >= 3:
+                try:
+                    target_rst = int(parts[-1])
+                    direct_paid[target_rst] = direct_paid.get(target_rst, 0) + float(n.get("amount", 0) or 0)
+                    continue
+                except Exception:
+                    pass
+        # Otherwise add to FIFO pool
+        pool_nikasis.append(n)
+    pool = sum(float(n.get("amount", 0) or 0) for n in pool_nikasis)
+    total_paid_pool = sum(float(n.get("amount", 0) or 0) for n in nikasis)  # Both direct + pool
 
     trips = []
     for vw in vws:
@@ -2035,16 +2052,20 @@ async def truck_owner_per_trip(vehicle_no: str, kms_year: str = "", season: str 
         is_purchase = ("purchase" in trans_type_lower) or ("receive" in trans_type_lower)
         ttype = "sale" if is_sale else ("purchase" if is_purchase else "other")
 
-        if pool >= bhada:
-            paid = bhada
+        # Direct trip-targeted payment first
+        paid = min(direct_paid.get(rst, 0), bhada)
+        # Then apply pool FIFO to remaining
+        remaining = bhada - paid
+        if remaining > 0 and pool > 0:
+            take = min(pool, remaining)
+            paid += take
+            pool -= take
+
+        if paid >= bhada and bhada > 0:
             status = "settled"
-            pool -= bhada
-        elif pool > 0:
-            paid = pool
+        elif paid > 0:
             status = "partial"
-            pool = 0
         else:
-            paid = 0.0
             status = "pending"
 
         trips.append({
@@ -2098,9 +2119,21 @@ async def truck_owner_per_trip(vehicle_no: str, kms_year: str = "", season: str 
 
 @router.post("/truck-owner/{vehicle_no}/settle/{rst_no}")
 async def truck_owner_settle_trip(vehicle_no: str, rst_no: int, data: dict):
-    """One-click settle a specific trip's bhada — auto-create NIKASI on truck owner.
+    """One-click settle a specific trip's bhada — creates dual cash_transactions entries
+    matching the existing /truck-owner/{truck_no}/pay pattern:
+      • Cash/Bank/Owner NIKASI → deducts from selected payment mode
+      • Ledger NIKASI         → marks bhada settled (FIFO algo picks this up)
 
-    Body: { amount?: number (defaults to pending), description?: string, date?: string, username?: string }
+    Body: {
+      amount?: number (defaults to pending bhada),
+      account?: "cash"|"bank"|"owner",
+      bank_name?: string,
+      owner_name?: string,
+      round_off?: number,
+      note?: string,
+      date?: string,
+      username?: string
+    }
     """
     vno = (vehicle_no or "").strip()
     if not vno or rst_no is None:
@@ -2114,29 +2147,91 @@ async def truck_owner_settle_trip(vehicle_no: str, rst_no: int, data: dict):
         raise HTTPException(status_code=400, detail="No bhada on this trip")
 
     amount = float(data.get("amount") or bhada)
-    description = data.get("description") or f"Bhada Settle (RST #{rst_no} → {vw.get('farmer_name') or vw.get('party_name','')})"
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount > 0 hona chahiye")
+
+    note = data.get("note", "") or ""
+    round_off = float(data.get("round_off") or 0)
+    pay_account = (data.get("account") or data.get("payment_mode") or "cash").lower()
+    if pay_account not in ("cash", "bank", "owner"):
+        pay_account = "cash"
+    if pay_account == "bank" and not data.get("bank_name"):
+        raise HTTPException(status_code=400, detail="Bank name select karein")
+    if pay_account == "owner" and not data.get("owner_name"):
+        raise HTTPException(status_code=400, detail="Owner account select karein")
+
+    pay_bank_name = data.get("bank_name", "") if pay_account == "bank" else ""
+    pay_owner_name = data.get("owner_name", "") if pay_account == "owner" else ""
     date_str = data.get("date") or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     username = data.get("username") or "system"
+    party_label = vw.get('farmer_name') or vw.get('party_name', '')
+    desc_base = f"Bhada Settle (RST #{rst_no} → {party_label})"
+    if note:
+        desc_base = f"{desc_base} - {note}"
 
-    now = datetime.now(timezone.utc).isoformat()
-    entry = {
-        "id": str(uuid.uuid4()),
+    now_iso = datetime.now(timezone.utc).isoformat()
+    txn_suffix = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{vno}_{rst_no}"
+
+    # 1. Cash/Bank/Owner NIKASI — deducts payment mode balance
+    cash_txn = {
+        "id": f"txn_{txn_suffix}",
+        "date": date_str,
+        "account": pay_account,
+        "bank_name": pay_bank_name,
+        "owner_name": pay_owner_name,
+        "txn_type": "nikasi",
+        "category": vno,
+        "party_type": "Truck",
+        "description": desc_base,
+        "amount": amount,
+        "reference": f"truck_settle:{vno}:{rst_no}",
+        "linked_entry_id": vw.get("id"),
+        "kms_year": vw.get("kms_year", ""),
+        "season": vw.get("season", "Kharif"),
+        "created_by": username,
+        "created_at": now_iso,
+    }
+    await db.cash_transactions.insert_one(cash_txn)
+
+    # 2. Ledger NIKASI — picked up by FIFO settlement algorithm
+    owner_total = round(amount + round_off, 2)
+    desc_ledger = desc_base + (f" (Pay: {amount}, Round Off: {round_off})" if round_off else "")
+    ledger_txn = {
+        "id": f"txn_ledger_{txn_suffix}_{uuid.uuid4().hex[:6]}",
         "date": date_str,
         "account": "ledger",
         "txn_type": "nikasi",
         "category": vno,
         "party_type": "Truck",
-        "amount": amount,
-        "description": description,
+        "description": desc_ledger,
+        "amount": owner_total,
+        "reference": f"truck_settle_ledger:{vno}:{rst_no}",
+        "linked_entry_id": vw.get("id"),
         "kms_year": vw.get("kms_year", ""),
         "season": vw.get("season", "Kharif"),
         "created_by": username,
-        "linked_entry_id": vw.get("id"),
-        "reference": f"truck_settle:{vno}:{rst_no}:{int(datetime.now().timestamp())}",
-        "created_at": now,
+        "created_at": now_iso,
     }
-    await db.cash_transactions.insert_one(entry)
-    return {"success": True, "settled_amount": amount, "rst_no": rst_no}
+    await db.cash_transactions.insert_one(ledger_txn)
+
+    return {"success": True, "settled_amount": amount, "round_off": round_off, "rst_no": rst_no, "payment_mode": pay_account}
+
+
+@router.get("/truck-owner/{vehicle_no}/trip-history/{rst_no}")
+async def truck_owner_trip_history(vehicle_no: str, rst_no: int, kms_year: str = ""):
+    """Return all payment history for a specific RST trip (settle entries + truck-level NIKASI)."""
+    vno = (vehicle_no or "").strip()
+    # Direct trip-specific settle entries
+    direct = await db.cash_transactions.find({
+        "category": vno,
+        "party_type": "Truck",
+        "txn_type": "nikasi",
+        "$or": [
+            {"reference": f"truck_settle:{vno}:{rst_no}"},
+            {"reference": f"truck_settle_ledger:{vno}:{rst_no}"},
+        ],
+    }, {"_id": 0}).sort("date", 1).to_list(length=200)
+    return {"vehicle_no": vno, "rst_no": rst_no, "payments": direct}
 
 
 
