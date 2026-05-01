@@ -141,6 +141,58 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
         elif status == "holiday": holiday_c += 1
         else: not_marked_c += 1
 
+    # ══ v104.44.18 — P0 NEW SECTIONS ══
+    # Vehicle Weight (Auto Vehicle Weight) — Sale + Purchase trips with Bag Type + Bhada
+    vw_entries = await db.vehicle_weights.find(q_date, {"_id": 0}).to_list(500)
+    vw_sale = [v for v in vw_entries if (v.get("trans_type") or "").lower() in ("dispatch", "dispatch(sale)", "sale")]
+    vw_purchase = [v for v in vw_entries if (v.get("trans_type") or "").lower() in ("receive", "receive(purchase)", "purchase")]
+    vw_sale_bhada_total = sum(float(v.get("bhada", 0) or 0) for v in vw_sale)
+    vw_sale_bags = sum(int(v.get("bags", 0) or 0) for v in vw_sale)
+    vw_sale_net = sum(float(v.get("net_weight", 0) or 0) for v in vw_sale)
+    vw_purchase_bhada_total = sum(float(v.get("bhada", 0) or 0) for v in vw_purchase)
+    vw_purchase_bags = sum(int(v.get("bags", 0) or 0) for v in vw_purchase)
+    vw_purchase_net = sum(float(v.get("net_weight", 0) or 0) for v in vw_purchase)
+
+    # Truck Owner Per-Trip Bhada — trips with bhada from VW (today's date), settled/partial/pending by truck
+    # Simple view: aggregate today's VW trips grouped by vehicle_no, along with bhada amounts
+    pertrip_by_truck = {}
+    for v in vw_entries:
+        vn = (v.get("vehicle_no") or "").strip().upper()
+        if not vn:
+            continue
+        bhada = float(v.get("bhada", 0) or 0)
+        if bhada <= 0:
+            continue
+        row = pertrip_by_truck.setdefault(vn, {"vehicle_no": vn, "trips": 0, "bhada": 0.0})
+        row["trips"] += 1
+        row["bhada"] += bhada
+    # Payments made to truck_owner type parties today (any truck) as a total
+    truck_owner_paid = sum(float(t.get("amount", 0) or 0) for t in cash_txns
+        if (t.get("party_type") or "").lower() == "truck" and t.get("txn_type") == "nikasi")
+    per_trip_trucks_list = list(pertrip_by_truck.values())
+    per_trip_trucks_list.sort(key=lambda x: x["bhada"], reverse=True)
+
+    # Truck / Agent / LocalParty payment summaries — derived from cash_txns
+    def _party_txn_summary(party_type_label: str):
+        filt = [t for t in cash_txns if (t.get("party_type") or "").lower() == party_type_label.lower()]
+        jama = sum(float(t.get("amount", 0) or 0) for t in filt if t.get("txn_type") == "jama")
+        nikasi = sum(float(t.get("amount", 0) or 0) for t in filt if t.get("txn_type") == "nikasi")
+        return {
+            "count": len(filt),
+            "jama": round(jama, 2), "nikasi": round(nikasi, 2),
+            "net": round(jama - nikasi, 2),
+            "details": [{
+                "party": t.get("category", "") or t.get("party_name", ""),
+                "txn_type": t.get("txn_type", ""),
+                "amount": round(float(t.get("amount", 0) or 0), 2),
+                "account": t.get("account", ""),
+                "description": t.get("description", ""),
+            } for t in filt],
+        }
+    truck_payments_summary = _party_txn_summary("Truck")
+    agent_payments_summary = _party_txn_summary("Agent")
+    localparty_payments_summary = _party_txn_summary("LocalParty")
+
     is_detail = mode == "detail"
 
     # Build entry_id -> mandi_name map for diesel mandi lookup
@@ -341,7 +393,56 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
                 "description": t.get("description", ""),
                 "payment_mode": "Cash"
             } for t in cash_txns if t.get("account") == "cash"]
-        }
+        },
+        # ══ v104.44.18 — P0 New Sections ══
+        "vehicle_weight": {
+            "sale_count": len(vw_sale),
+            "sale_bags": vw_sale_bags,
+            "sale_net_qntl": round(vw_sale_net / 100, 2),
+            "sale_bhada_total": round(vw_sale_bhada_total, 2),
+            "purchase_count": len(vw_purchase),
+            "purchase_bags": vw_purchase_bags,
+            "purchase_net_qntl": round(vw_purchase_net / 100, 2),
+            "purchase_bhada_total": round(vw_purchase_bhada_total, 2),
+            "sale_details": [{
+                "rst_no": v.get("rst_no", ""),
+                "vehicle_no": v.get("vehicle_no", ""),
+                "party": v.get("party_name", ""),
+                "destination": v.get("destination", "") or v.get("mandi_name", ""),
+                "product": v.get("product", ""),
+                "bags": v.get("bags", 0),
+                "bag_type": v.get("bag_type", ""),
+                "net_wt": v.get("net_weight", 0),
+                "bhada": float(v.get("bhada", 0) or 0),
+                "remark": v.get("remark", ""),
+            } for v in vw_sale],
+            "purchase_details": [{
+                "rst_no": v.get("rst_no", ""),
+                "vehicle_no": v.get("vehicle_no", ""),
+                "party": v.get("party_name", ""),
+                "mandi": v.get("mandi_name", ""),
+                "product": v.get("product", ""),
+                "bags": v.get("bags", 0),
+                "net_wt": v.get("net_weight", 0),
+                "bhada": float(v.get("bhada", 0) or 0),
+                "remark": v.get("remark", ""),
+            } for v in vw_purchase] if is_detail else [],
+        },
+        "per_trip_bhada": {
+            "truck_count": len(per_trip_trucks_list),
+            "trip_count": sum(x["trips"] for x in per_trip_trucks_list),
+            "bhada_total": round(sum(x["bhada"] for x in per_trip_trucks_list), 2),
+            "paid_today": round(truck_owner_paid, 2),
+            "pending_today": round(sum(x["bhada"] for x in per_trip_trucks_list) - truck_owner_paid, 2),
+            "details": [{
+                "vehicle_no": x["vehicle_no"],
+                "trips": x["trips"],
+                "bhada": round(x["bhada"], 2),
+            } for x in per_trip_trucks_list],
+        },
+        "truck_payments": truck_payments_summary,
+        "agent_payments": agent_payments_summary,
+        "local_party_payments": localparty_payments_summary,
     }
     return result
 

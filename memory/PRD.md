@@ -1,6 +1,20 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.17
+## Current Version: v104.44.18
+
+## 🎯 v104.44.18 — Daily Report P0 Expansion (Vehicle Weight + Per-Trip Bhada + Party Payments)
+**Build date:** 2026-02-17
+
+Added 5 new sections to Daily Report across all 3 backends (Python + Node Desktop + Node LAN) + frontend:
+1. `vehicle_weight` — Sale/Purchase trips from vehicle_weights collection with BagType + Bhada
+2. `per_trip_bhada` — Today's bhada activity by truck
+3. `truck_payments` — Cash txn summary filtered by party_type=Truck
+4. `agent_payments` — Cash txn summary filtered by party_type=Agent
+5. `local_party_payments` — Cash txn summary filtered by party_type=LocalParty
+
+**Pending (next iterations)**: Leased Truck, Lab Test/Oil Premium, DC Delivery (Govt Rice), Mandi Custody, Govt Registers (8 sub), Weight Discrepancy, Stock changes, Letter Pad.
+
+---
 
 ## 🎯 v104.44.17 — Shortcuts Cheat Sheet Updated (Alt+Shift Actions)
 **Build date:** 2026-02-17

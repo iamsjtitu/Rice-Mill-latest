@@ -726,6 +726,168 @@ const DailyReport = ({ filters }) => {
             </Section>
           )}
 
+          {/* ══ v104.44.18 — P0 NEW SECTIONS ══ */}
+
+          {/* Vehicle Weight — Auto Vehicle Weight (Sale + Purchase trips) */}
+          {data.vehicle_weight && (data.vehicle_weight.sale_count > 0 || data.vehicle_weight.purchase_count > 0) && (
+            <Section title="Vehicle Weight / ऑटो वज़न (Sale + Purchase)" icon={Truck} color="text-sky-400">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                {[
+                  ["Sale Trips", data.vehicle_weight.sale_count, "text-emerald-400"],
+                  ["Sale Net (Q)", data.vehicle_weight.sale_net_qntl, "text-emerald-300"],
+                  ["Sale Bhada", `₹${(data.vehicle_weight.sale_bhada_total || 0).toLocaleString('en-IN')}`, "text-orange-400"],
+                  ["Sale Bags", data.vehicle_weight.sale_bags, "text-slate-300"],
+                ].map(([l,v,c]) => (
+                  <div key={l} className="text-center p-2 bg-slate-900/50 rounded" data-testid={`vw-sale-${l.toLowerCase().replace(/\s/g,'-')}`}>
+                    <p className="text-[10px] text-slate-400">{l}</p>
+                    <p className={`text-sm font-bold ${c}`}>{v}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-2">
+                {[
+                  ["Purchase Trips", data.vehicle_weight.purchase_count, "text-blue-400"],
+                  ["Purchase Net (Q)", data.vehicle_weight.purchase_net_qntl, "text-blue-300"],
+                  ["Purchase Bhada", `₹${(data.vehicle_weight.purchase_bhada_total || 0).toLocaleString('en-IN')}`, "text-orange-400"],
+                  ["Purchase Bags", data.vehicle_weight.purchase_bags, "text-slate-300"],
+                ].map(([l,v,c]) => (
+                  <div key={l} className="text-center p-2 bg-slate-900/50 rounded" data-testid={`vw-purchase-${l.toLowerCase().replace(/\s/g,'-')}`}>
+                    <p className="text-[10px] text-slate-400">{l}</p>
+                    <p className={`text-sm font-bold ${c}`}>{v}</p>
+                  </div>
+                ))}
+              </div>
+              {data.vehicle_weight.sale_details?.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-[10px] text-emerald-400 font-semibold mb-1">Sale / Dispatch:</p>
+                  <DetailTable
+                    headers={[{key:'rst',label:'RST',align:'left'},{key:'veh',label:'Vehicle',align:'left'},
+                      {key:'party',label:'Party',align:'left'},{key:'dest',label:'Destination',align:'left'},
+                      {key:'prod',label:'Product',align:'left'},{key:'bags',label:'Bags',align:'right'},
+                      {key:'bagtype',label:'Bag Type',align:'left'},{key:'net',label:'Net Wt',align:'right'},
+                      {key:'bhada',label:'Bhada',align:'right'}]}
+                    rows={data.vehicle_weight.sale_details.map((d,i) => (<>
+                      <td className="py-1 px-2 text-slate-300">{d.rst_no || '-'}</td>
+                      <td className="py-1 px-2 text-white">{d.vehicle_no}</td>
+                      <td className="py-1 px-2 text-slate-300">{d.party}</td>
+                      <td className="py-1 px-2 text-slate-400">{d.destination || '-'}</td>
+                      <td className="py-1 px-2 text-slate-300">{d.product}</td>
+                      <td className="py-1 px-2 text-right text-slate-300">{d.bags}</td>
+                      <td className="py-1 px-2 text-cyan-400 text-[10px]">{d.bag_type || '-'}</td>
+                      <td className="py-1 px-2 text-right text-emerald-400">{d.net_wt}</td>
+                      <td className="py-1 px-2 text-right text-orange-400 font-semibold">₹{(d.bhada||0).toLocaleString('en-IN')}</td>
+                    </>))}
+                  />
+                </div>
+              )}
+              {isDetail && data.vehicle_weight.purchase_details?.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-[10px] text-blue-400 font-semibold mb-1">Purchase / Receive:</p>
+                  <DetailTable
+                    headers={[{key:'rst',label:'RST',align:'left'},{key:'veh',label:'Vehicle',align:'left'},
+                      {key:'party',label:'Party',align:'left'},{key:'mandi',label:'Mandi',align:'left'},
+                      {key:'prod',label:'Product',align:'left'},{key:'bags',label:'Bags',align:'right'},
+                      {key:'net',label:'Net Wt',align:'right'},{key:'bhada',label:'Bhada',align:'right'}]}
+                    rows={data.vehicle_weight.purchase_details.map((d,i) => (<>
+                      <td className="py-1 px-2 text-slate-300">{d.rst_no || '-'}</td>
+                      <td className="py-1 px-2 text-white">{d.vehicle_no}</td>
+                      <td className="py-1 px-2 text-slate-300">{d.party}</td>
+                      <td className="py-1 px-2 text-slate-400">{d.mandi || '-'}</td>
+                      <td className="py-1 px-2 text-slate-300">{d.product}</td>
+                      <td className="py-1 px-2 text-right text-slate-300">{d.bags}</td>
+                      <td className="py-1 px-2 text-right text-blue-400">{d.net_wt}</td>
+                      <td className="py-1 px-2 text-right text-orange-400 font-semibold">₹{(d.bhada||0).toLocaleString('en-IN')}</td>
+                    </>))}
+                  />
+                </div>
+              )}
+            </Section>
+          )}
+
+          {/* Per-Trip Bhada Summary (by truck) */}
+          {data.per_trip_bhada && data.per_trip_bhada.truck_count > 0 && (
+            <Section title="Per-Trip Bhada / प्रति यात्रा भाड़ा" icon={Truck} color="text-orange-400" count={data.per_trip_bhada.trip_count}>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-2">
+                {[
+                  ["Trucks", data.per_trip_bhada.truck_count, "text-white"],
+                  ["Bhada Total", `₹${(data.per_trip_bhada.bhada_total || 0).toLocaleString('en-IN')}`, "text-orange-400"],
+                  ["Paid Today", `₹${(data.per_trip_bhada.paid_today || 0).toLocaleString('en-IN')}`, "text-emerald-400"],
+                  ["Pending", `₹${(data.per_trip_bhada.pending_today || 0).toLocaleString('en-IN')}`, "text-red-400"],
+                ].map(([l,v,c]) => (
+                  <div key={l} className="text-center p-2 bg-slate-900/50 rounded" data-testid={`pertrip-${l.toLowerCase().replace(/\s/g,'-')}`}>
+                    <p className="text-[10px] text-slate-400">{l}</p>
+                    <p className={`text-sm font-bold ${c}`}>{v}</p>
+                  </div>
+                ))}
+              </div>
+              {data.per_trip_bhada.details?.length > 0 && (
+                <DetailTable
+                  headers={[{key:'veh',label:'Vehicle',align:'left'},{key:'trips',label:'Trips',align:'right'},
+                    {key:'bhada',label:'Bhada Total',align:'right'}]}
+                  rows={data.per_trip_bhada.details.map((d,i) => (<>
+                    <td className="py-1 px-2 text-white font-medium">{d.vehicle_no}</td>
+                    <td className="py-1 px-2 text-right text-slate-300">{d.trips}</td>
+                    <td className="py-1 px-2 text-right text-orange-400 font-semibold">₹{(d.bhada||0).toLocaleString('en-IN')}</td>
+                  </>))}
+                />
+              )}
+            </Section>
+          )}
+
+          {/* Truck / Agent / LocalParty Payment Summaries (from cash_transactions) */}
+          {(data.truck_payments?.count > 0 || data.agent_payments?.count > 0 || data.local_party_payments?.count > 0) && (
+            <Section title="Party Payments Breakdown / पार्टी भुगतान सार" icon={IndianRupee} color="text-purple-400">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {[
+                  {key: 'truck', label: '🛻 Truck Owner', data: data.truck_payments, color: 'blue'},
+                  {key: 'agent', label: '👤 Agent', data: data.agent_payments, color: 'amber'},
+                  {key: 'local', label: '🏬 Local Party', data: data.local_party_payments, color: 'teal'},
+                ].map(({key, label, data: pd, color}) => (
+                  <div key={key} className={`p-3 bg-slate-900/50 rounded border border-${color}-900/30`} data-testid={`party-payment-${key}`}>
+                    <p className={`text-xs font-semibold text-${color}-400 mb-2`}>{label} ({pd?.count || 0})</p>
+                    <div className="grid grid-cols-2 gap-1 text-[11px]">
+                      <span className="text-slate-400">Jama:</span>
+                      <span className="text-emerald-400 text-right">₹{(pd?.jama || 0).toLocaleString('en-IN')}</span>
+                      <span className="text-slate-400">Nikasi:</span>
+                      <span className="text-red-400 text-right">₹{(pd?.nikasi || 0).toLocaleString('en-IN')}</span>
+                      <span className="text-slate-400 pt-1 border-t border-slate-700 col-span-1">Net:</span>
+                      <span className={`pt-1 border-t border-slate-700 text-right font-bold ${(pd?.net || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>₹{(pd?.net || 0).toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {isDetail && (
+                <div className="mt-3 space-y-3">
+                  {[
+                    {key: 'truck', label: 'Truck Owner Details', data: data.truck_payments, color: 'text-blue-400'},
+                    {key: 'agent', label: 'Agent Details', data: data.agent_payments, color: 'text-amber-400'},
+                    {key: 'local', label: 'Local Party Details', data: data.local_party_payments, color: 'text-teal-400'},
+                  ].filter(x => x.data?.details?.length > 0).map(({key, label, data: pd, color}) => (
+                    <div key={key}>
+                      <p className={`text-[11px] font-semibold mb-1 ${color}`}>{label}:</p>
+                      <DetailTable
+                        headers={[{key:'party',label:'Party',align:'left'},{key:'type',label:'Type',align:'left'},
+                          {key:'acc',label:'Account',align:'left'},{key:'amt',label:'Amount',align:'right'},
+                          {key:'desc',label:'Description',align:'left'}]}
+                        rows={pd.details.map((d,i) => (<>
+                          <td className="py-1 px-2 text-white">{d.party || '-'}</td>
+                          <td className="py-1 px-2">
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${d.txn_type === 'jama' ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>
+                              {d.txn_type === 'jama' ? 'JAMA' : 'NIKASI'}
+                            </span>
+                          </td>
+                          <td className="py-1 px-2 text-slate-400 text-[10px]">{(d.account || '').toUpperCase()}</td>
+                          <td className={`py-1 px-2 text-right font-semibold ${d.txn_type === 'jama' ? 'text-green-400' : 'text-red-400'}`}>₹{(d.amount||0).toLocaleString('en-IN')}</td>
+                          <td className="py-1 px-2 text-slate-400 text-[10px]">{d.description || '-'}</td>
+                        </>))}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Section>
+          )}
+
           {/* Sale Vouchers */}
           {data.sale_vouchers && data.sale_vouchers.count > 0 && (
             <Section title="Sale Vouchers / बिक्री वाउचर" icon={IndianRupee} color="text-green-400">

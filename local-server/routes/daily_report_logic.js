@@ -98,6 +98,55 @@ function getDailyReportData(database, query) {
     g_issued: e.g_issued||0, cash_paid: e.cash_paid||0, diesel_paid: e.diesel_paid||0
   }));
 
+  // ══ v104.44.18 — P0 NEW SECTIONS ══
+  const vwEntries = col('vehicle_weights').filter(v => v.date === date);
+  const isSale = (v) => ['dispatch','dispatch(sale)','sale'].includes((v.trans_type||'').toLowerCase());
+  const isPurchase = (v) => ['receive','receive(purchase)','purchase'].includes((v.trans_type||'').toLowerCase());
+  const vwSale = vwEntries.filter(isSale);
+  const vwPurchase = vwEntries.filter(isPurchase);
+  const vwSaleBhadaTotal = vwSale.reduce((s,v) => s + (parseFloat(v.bhada||0)||0), 0);
+  const vwSaleBags = vwSale.reduce((s,v) => s + (parseInt(v.bags||0)||0), 0);
+  const vwSaleNet = vwSale.reduce((s,v) => s + (parseFloat(v.net_weight||0)||0), 0);
+  const vwPurchaseBhadaTotal = vwPurchase.reduce((s,v) => s + (parseFloat(v.bhada||0)||0), 0);
+  const vwPurchaseBags = vwPurchase.reduce((s,v) => s + (parseInt(v.bags||0)||0), 0);
+  const vwPurchaseNet = vwPurchase.reduce((s,v) => s + (parseFloat(v.net_weight||0)||0), 0);
+
+  const pertripByTruck = {};
+  for (const v of vwEntries) {
+    const vn = (v.vehicle_no||'').trim().toUpperCase();
+    const bhada = parseFloat(v.bhada||0)||0;
+    if (!vn || bhada <= 0) continue;
+    if (!pertripByTruck[vn]) pertripByTruck[vn] = { vehicle_no: vn, trips: 0, bhada: 0 };
+    pertripByTruck[vn].trips++;
+    pertripByTruck[vn].bhada += bhada;
+  }
+  const truckOwnerPaidToday = cashTxns.filter(t => (t.party_type||'').toLowerCase() === 'truck' && t.txn_type === 'nikasi')
+    .reduce((s,t) => s + (t.amount||0), 0);
+  const perTripTrucksList = Object.values(pertripByTruck).sort((a,b) => b.bhada - a.bhada);
+  const perTripBhadaTotal = perTripTrucksList.reduce((s,x) => s + x.bhada, 0);
+
+  function partyTxnSummary(typeLabel) {
+    const t = typeLabel.toLowerCase();
+    const filt = cashTxns.filter(x => (x.party_type||'').toLowerCase() === t);
+    const jama = filt.filter(x => x.txn_type === 'jama').reduce((s,x) => s + (x.amount||0), 0);
+    const nikasi = filt.filter(x => x.txn_type === 'nikasi').reduce((s,x) => s + (x.amount||0), 0);
+    return {
+      count: filt.length,
+      jama: Math.round(jama * 100)/100, nikasi: Math.round(nikasi * 100)/100,
+      net: Math.round((jama - nikasi) * 100)/100,
+      details: filt.map(x => ({
+        party: x.category || x.party_name || '',
+        txn_type: x.txn_type || '',
+        amount: Math.round((x.amount||0) * 100)/100,
+        account: x.account || '',
+        description: x.description || '',
+      })),
+    };
+  }
+  const truckPaymentsSummary = partyTxnSummary('Truck');
+  const agentPaymentsSummary = partyTxnSummary('Agent');
+  const localPartyPaymentsSummary = partyTxnSummary('LocalParty');
+
   return {
     date, mode: mode || 'normal',
     paddy_entries: {
@@ -229,7 +278,42 @@ function getDailyReportData(database, query) {
         voucher_no: pv.voucher_no || '', date: pv.date || '', party: pv.party_name || pv.seller_name || '',
         items_count: (pv.items || []).length, amount: pv.total || pv.subtotal || 0
       }))
-    }
+    },
+    // ══ v104.44.18 — P0 New Sections ══
+    vehicle_weight: {
+      sale_count: vwSale.length,
+      sale_bags: vwSaleBags,
+      sale_net_qntl: Math.round((vwSaleNet / 100) * 100) / 100,
+      sale_bhada_total: Math.round(vwSaleBhadaTotal * 100) / 100,
+      purchase_count: vwPurchase.length,
+      purchase_bags: vwPurchaseBags,
+      purchase_net_qntl: Math.round((vwPurchaseNet / 100) * 100) / 100,
+      purchase_bhada_total: Math.round(vwPurchaseBhadaTotal * 100) / 100,
+      sale_details: vwSale.map(v => ({
+        rst_no: v.rst_no||'', vehicle_no: v.vehicle_no||'', party: v.party_name||'',
+        destination: v.destination||v.mandi_name||'', product: v.product||'', bags: v.bags||0,
+        bag_type: v.bag_type||'', net_wt: v.net_weight||0,
+        bhada: parseFloat(v.bhada||0)||0, remark: v.remark||'',
+      })),
+      purchase_details: isDetail ? vwPurchase.map(v => ({
+        rst_no: v.rst_no||'', vehicle_no: v.vehicle_no||'', party: v.party_name||'',
+        mandi: v.mandi_name||'', product: v.product||'', bags: v.bags||0,
+        net_wt: v.net_weight||0, bhada: parseFloat(v.bhada||0)||0, remark: v.remark||'',
+      })) : [],
+    },
+    per_trip_bhada: {
+      truck_count: perTripTrucksList.length,
+      trip_count: perTripTrucksList.reduce((s,x) => s + x.trips, 0),
+      bhada_total: Math.round(perTripBhadaTotal * 100) / 100,
+      paid_today: Math.round(truckOwnerPaidToday * 100) / 100,
+      pending_today: Math.round((perTripBhadaTotal - truckOwnerPaidToday) * 100) / 100,
+      details: perTripTrucksList.map(x => ({
+        vehicle_no: x.vehicle_no, trips: x.trips, bhada: Math.round(x.bhada * 100) / 100,
+      })),
+    },
+    truck_payments: truckPaymentsSummary,
+    agent_payments: agentPaymentsSummary,
+    local_party_payments: localPartyPaymentsSummary,
   };
 }
 

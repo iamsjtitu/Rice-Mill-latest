@@ -7,6 +7,19 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.18",
+    date: "Feb 17, 2026",
+    title: "v104.44.18 — 📊 Daily Report P0 Expansion: Vehicle Weight + Per-Trip Bhada + Party Payments",
+    items: [
+      { type: "feature", text: "🚛 **Vehicle Weight section added** — Daily Report me ab 'Vehicle Weight / ऑटो वज़न' section aata hai jisme Sale (Dispatch) + Purchase (Receive) dono trips dikhte hain. 8 KPI tiles: Sale/Purchase Trips, Net Weight (Q), Total Bhada, Total Bags. Detail mode me RST/Vehicle/Party/Destination (Sale) ya Mandi (Purchase)/Product/Bags/BagType/NetWt/Bhada sab columns." },
+      { type: "feature", text: "🛻 **Per-Trip Bhada section added** — Trucks ki aaj ki bhada activity at a glance: 4 tiles (Trucks count / Bhada Total / Paid Today / Pending). Table me har truck ka vehicle_no, trip count, bhada total dikhta hai. Paid = aaj ke truck owner cash txns (party_type=Truck, nikasi)." },
+      { type: "feature", text: "💰 **Party Payments Breakdown added** — 3-column card layout me Truck Owner / Agent / Local Party ka aaj ka cash txn summary (count + Jama + Nikasi + Net). Detail mode me poori transaction list per party type — party name, txn_type badge, account, amount, description." },
+      { type: "improvement", text: "🔄 **Triple-Backend Parity** — Python (`daily_report.py`) + Node Desktop (`daily_report_logic.js`) + Node LAN — teeno me identical data shape aur field names. API endpoint `/api/reports/daily` ab 5 naye keys return karta hai: `vehicle_weight`, `per_trip_bhada`, `truck_payments`, `agent_payments`, `local_party_payments`." },
+      { type: "fix", text: "✅ **Tested via curl** — Preview backend 5/5 new sections properly return karta hai with correct shape. Lint clean (both Node + Frontend)." },
+      { type: "improvement", text: "📌 **Upcoming (P1/P2)**: Leased Truck, Lab Test (Oil Premium), DC Delivery (Govt Rice) vouchers, Mandi Custody, Govt Registers (8 sub), Weight Discrepancy, Stock changes, Letter Pad — ye sections next iterations me add honge." },
+    ],
+  },
+  {
     version: "104.44.17",
     date: "Feb 17, 2026",
     title: "v104.44.17 — 📖 Shortcuts Cheat Sheet Updated with Alt+Shift Actions",
