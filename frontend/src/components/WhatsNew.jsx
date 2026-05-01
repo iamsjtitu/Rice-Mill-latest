@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.16",
+    date: "Feb 17, 2026",
+    title: "v104.44.16 — ⌨️ Keyboard Shortcuts for Icon Buttons (Alt+Shift+P/E/W/G)",
+    items: [
+      { type: "feature", text: "⌨️ **Alt+Shift+ shortcuts live** — Payments (Truck / Truck Owner / Per-Trip Bhada / Agent) aur Local Party panels me icon buttons ke liye keyboard shortcuts: `Alt+Shift+P` → PDF Export, `Alt+Shift+E` → Excel Export, `Alt+Shift+W` → WhatsApp text copy, `Alt+Shift+G` → Group dialog open. Mouse-free workflow for power users." },
+      { type: "feature", text: "🎯 **Tab-aware routing (Payments)** — Payments tabs me hotkey automatically active sub-tab ke handler ko route karta hai — Truck tab pe Alt+Shift+E → Truck Excel, Agent tab pe Alt+Shift+E → Agent Excel. No re-binding needed when switching." },
+      { type: "improvement", text: "💡 **Tooltip hints** — Har icon button ke `title` attribute me shortcut hint append hota hai (e.g. 'PDF Export (Alt+Shift+P)'), screen readers bhi `aria-label` ke through same information read karte hain. Fully accessible." },
+      { type: "improvement", text: "🛡️ **Smart guard** — Hook `useActionShortcuts` input/textarea/select focused hone par auto-disable ho jata hai — toh search box me 'e' type karne se Excel trigger nahi hoga. Capture-phase listener se global shortcut conflicts se bachta hai. **Browser-safe** — Alt+Shift+P/E Chrome/Firefox me reserved nahi hain." },
+      { type: "fix", text: "✅ **Tested** — 4/4 tooltips verified with shortcut hints. Alt+Shift+W aur Alt+Shift+G pressing se actual handlers fire hote hain (Per-Trip Bhada me 'Koi trips nahi' toast triggered as expected on empty state)." },
+    ],
+  },
+  {
     version: "104.44.15",
     date: "Feb 16, 2026",
     title: "v104.44.15 — 🎯 GLOBAL Icon-only Buttons (Excel/PDF/WhatsApp/Group/Telegram/Refresh/Filter)",

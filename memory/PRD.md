@@ -1,6 +1,29 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.11
+## Current Version: v104.44.16
+
+## 🎯 v104.44.16 — Keyboard Shortcuts for Icon Buttons (Alt+Shift+P/E/W/G)
+**Build date:** 2026-02-17
+
+### User Request
+"Keyboard shortcuts test karo" + "version bump + whatsnew"
+
+### Verification
+Tested via Playwright browser automation on Per-Trip Bhada panel:
+- ✅ 4/4 tooltips show correct shortcut hints (Alt+Shift+P/E/W/G)
+- ✅ All 4 data-testid'd buttons present in DOM
+- ✅ `Alt+Shift+W` fired → `handleHeaderWhatsApp` executed → 'Koi trips nahi' toast
+- ✅ `Alt+Shift+G` fired → `handleHeaderGroup` executed → 'Koi trips nahi' toast
+- ✅ Guard works: input-focused state auto-disables shortcuts
+
+### Changes
+- Bumped frontend version: `104.44.15` → `104.44.16` (`constants-version.js`)
+- Bumped Node versions: `desktop-app/package.json`, `local-server/package.json`
+- Added v104.44.16 entry to `WhatsNew.jsx` changelog (5 items: feature/improvement/fix)
+
+---
+
+## 🎯 v104.44.15 — GLOBAL Icon-only Buttons
 
 ## 🎯 v104.44.11 — Excel Filter Row Fix (Triple-Backend)
 **Build date:** 2026-04-30
