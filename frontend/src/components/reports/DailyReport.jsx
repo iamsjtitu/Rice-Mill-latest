@@ -81,16 +81,21 @@ const DailyReport = ({ filters }) => {
 
   const isDetail = mode === "detail";
 
-  const Section = ({ title, icon: Icon, color, children, count }) => (
-    <Card className="bg-slate-800 border-slate-700">
-      <CardHeader className="pb-1 pt-3 px-4">
-        <CardTitle className={`text-sm ${color} flex items-center gap-2`}>
-          {Icon && <Icon className="w-4 h-4" />} {title} {count !== undefined && <span className="text-slate-500 text-xs">({count})</span>}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-1 pb-3 px-4">{children}</CardContent>
-    </Card>
-  );
+  // Auto-slug from title for Jump-to-Section nav
+  const _slugify = (t) => (t || '').split('/')[0].trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 40);
+  const Section = ({ title, icon: Icon, color, children, count, sectionId }) => {
+    const id = sectionId || `section-${_slugify(title)}`;
+    return (
+      <Card id={id} data-section-id={id} className="bg-slate-800 border-slate-700 scroll-mt-24">
+        <CardHeader className="pb-1 pt-3 px-4">
+          <CardTitle className={`text-sm ${color} flex items-center gap-2`}>
+            {Icon && <Icon className="w-4 h-4" />} {title} {count !== undefined && <span className="text-slate-500 text-xs">({count})</span>}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-1 pb-3 px-4">{children}</CardContent>
+      </Card>
+    );
+  };
 
   const DetailTable = ({ headers, rows, className = "" }) => (
     <div className={`overflow-x-auto text-xs mt-2 ${className}`}>
@@ -192,6 +197,54 @@ const DailyReport = ({ filters }) => {
       {loading ? <div className="text-center py-8 text-slate-400">Loading...</div>
       : !data ? null : (
         <div className="space-y-3">
+          {/* 🎯 v104.44.20 — Jump to Section Nav */}
+          <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-sm border border-slate-700 rounded-lg px-3 py-2 flex items-center gap-2" data-testid="jump-to-section">
+            <span className="text-[11px] text-slate-400 font-semibold whitespace-nowrap">Jump to:</span>
+            <select
+              className="flex-1 bg-slate-800 text-white text-xs border border-slate-600 rounded px-2 py-1 cursor-pointer hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              onChange={(e) => {
+                const id = e.target.value;
+                if (!id) return;
+                const el = document.getElementById(id);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                e.target.value = '';
+              }}
+              data-testid="jump-to-section-select"
+              defaultValue=""
+            >
+              <option value="" disabled>-- Select Section --</option>
+              {(() => {
+                const sections = [
+                  ['Paddy Entries / धान', 'paddy-entries', data.paddy_entries?.count > 0],
+                  ['Milling / पिसाई', 'milling', data.milling?.count > 0],
+                  ['Private Trading', 'private-trading', (data.private_paddy_purchase?.count || 0) + (data.private_rice_sale?.count || 0) > 0],
+                  ['Cash Flow / नकद', 'cash-flow', true],
+                  ['Cash Transactions', 'cash-transactions', data.cash_transactions?.count > 0],
+                  ['Payments Summary', 'payments-summary', true],
+                  ['Pump Account / डीज़ल', 'pump-account', data.pump_account?.details?.length > 0],
+                  ['DC Deliveries', 'dc-deliveries', data.dc_deliveries?.count > 0],
+                  ['Mill Parts Stock', 'mill-parts-stock', data.mill_parts?.in_count + data.mill_parts?.used_count > 0],
+                  ['Staff Attendance / हाज़िरी', 'staff-attendance', data.staff_attendance?.total > 0],
+                  ['Hemali Payments / हेमाली', 'hemali-payments', data.hemali_payments?.count > 0],
+                  ['Paddy Chalna / छलना', 'paddy-chalna', data.paddy_cutting?.count > 0],
+                  ['Vehicle Weight (Auto)', 'vehicle-weight', data.vehicle_weight?.sale_count + data.vehicle_weight?.purchase_count > 0],
+                  ['Per-Trip Bhada', 'per-trip-bhada', data.per_trip_bhada?.truck_count > 0],
+                  ['Party Payments Breakdown', 'party-payments-breakdown', (data.truck_payments?.count || 0) + (data.agent_payments?.count || 0) + (data.local_party_payments?.count || 0) > 0],
+                  ['Leased Truck / लीज़ ट्रक', 'leased-truck', data.leased_truck?.count > 0],
+                  ['Oil Premium / Lab Test', 'oil-premium', data.oil_premium?.count > 0],
+                  ['Sale Vouchers', 'sale-vouchers', data.sale_vouchers?.count > 0],
+                  ['Purchase Vouchers', 'purchase-vouchers', data.purchase_vouchers?.count > 0],
+                  ['By-Product Sales', 'by-product-sales', data.byproducts?.count > 0],
+                  ['FRK Purchases', 'frk-purchases', data.frk?.count > 0],
+                ];
+                return sections.filter(([_,__,show]) => show).map(([label, slug]) => (
+                  <option key={slug} value={`section-${slug}`}>{label}</option>
+                ));
+              })()}
+            </select>
+            <span className="text-[10px] text-slate-500 italic hidden md:inline">⬆ Auto-scroll</span>
+          </div>
+
           {/* Paddy Entries */}
           <Section title="Paddy Entries / धान" icon={Truck} color="text-blue-400" count={data.paddy_entries.count}>
             <div className="grid grid-cols-5 gap-3 mb-2">

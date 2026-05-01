@@ -193,6 +193,68 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
     }
   }
 
+  // ══ v104.44.19 — P0/P1 NEW SECTIONS (EXCEL) ══
+  const vw = data.vehicle_weight;
+  if (vw && (vw.sale_count || vw.purchase_count)) {
+    row++;
+    writeSection(`Vehicle Weight (Auto) — Sale: ${vw.sale_count} | Purchase: ${vw.purchase_count}`);
+    if (vw.sale_details && vw.sale_details.length) {
+      writeHeaders(['RST', 'Vehicle', 'Party', 'Destination', 'Product', 'Bags', 'Bag Type', 'Net Wt', 'Bhada']);
+      vw.sale_details.forEach(d => writeRow([d.rst_no || '-', d.vehicle_no, d.party, d.destination || '-', d.product, d.bags, d.bag_type || '-', d.net_wt, d.bhada]));
+    }
+    if (isDetail && vw.purchase_details && vw.purchase_details.length) {
+      row++;
+      writeHeaders(['RST', 'Vehicle', 'Party', 'Mandi', 'Product', 'Bags', 'Net Wt', 'Bhada']);
+      vw.purchase_details.forEach(d => writeRow([d.rst_no || '-', d.vehicle_no, d.party, d.mandi || '-', d.product, d.bags, d.net_wt, d.bhada]));
+    }
+  }
+
+  const ptb = data.per_trip_bhada;
+  if (ptb && ptb.truck_count > 0) {
+    row++;
+    writeSection(`Per-Trip Bhada — ${ptb.truck_count} trucks · ${ptb.trip_count} trips`);
+    writeHeaders(['Trucks', 'Trips', 'Bhada Total', 'Paid Today', 'Pending']);
+    writeRow([ptb.truck_count, ptb.trip_count, ptb.bhada_total, ptb.paid_today, ptb.pending_today]);
+    if (ptb.details && ptb.details.length) {
+      writeHeaders(['Vehicle', 'Trips', 'Bhada Total']);
+      ptb.details.forEach(d => writeRow([d.vehicle_no, d.trips, d.bhada]));
+    }
+  }
+
+  for (const [key, label] of [['truck_payments', 'Truck Owner Payments'], ['agent_payments', 'Agent Payments'], ['local_party_payments', 'Local Party Payments']]) {
+    const ps = data[key];
+    if (ps && ps.count > 0) {
+      row++;
+      writeSection(`${label} (${ps.count})`);
+      writeHeaders(['Jama', 'Nikasi', 'Net']);
+      writeRow([ps.jama, ps.nikasi, ps.net]);
+      if (isDetail && ps.details && ps.details.length) {
+        writeHeaders(['Party', 'Type', 'Account', 'Amount', 'Description']);
+        ps.details.forEach(d => writeRow([d.party || '-', (d.txn_type || '').toUpperCase(), (d.account || '').toUpperCase(), d.amount, d.description || '-']));
+      }
+    }
+  }
+
+  const lt = data.leased_truck;
+  if (lt && lt.count) {
+    row++;
+    writeSection(`Leased Truck Payments (${lt.count}) — Total Paid: Rs.${lt.total_paid.toLocaleString('en-IN')}`);
+    if (lt.details && lt.details.length) {
+      writeHeaders(['Truck No', 'Owner', 'Payment Type', 'Mode', 'Amount', 'Remark']);
+      lt.details.forEach(d => writeRow([d.truck_no || '-', d.owner || '-', d.payment_type || '-', d.mode || '-', d.amount, d.remark || '-']));
+    }
+  }
+
+  const op = data.oil_premium;
+  if (op && op.count) {
+    row++;
+    writeSection(`Lab Test / Oil Premium (${op.count}) — Net: Rs.${op.total_premium.toLocaleString('en-IN')}`);
+    if (op.details && op.details.length) {
+      writeHeaders(['V.No', 'RST', 'Party', 'Qty(Q)', 'Sauda Amt', 'Diff %', 'Premium', 'Remark']);
+      op.details.forEach(d => writeRow([d.voucher_no || '-', d.rst_no || '-', d.party || '-', d.qty_qntl, d.rate, `${(d.diff_pct >= 0 ? '+' : '')}${(d.diff_pct || 0).toFixed(2)}%`, d.premium_amount, d.remark || '-']));
+    }
+  }
+
   // Apply column widths: use tracked max from sections, then auto-fit remaining
   for (let i = 1; i <= ws.columnCount; i++) {
     if (colMaxWidths[i]) {

@@ -1,6 +1,16 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.19
+## Current Version: v104.44.20
+
+## 🎯 v104.44.20 — Jump-to-Section Nav + Excel/PDF Export Updated
+**Build date:** 2026-02-17
+
+- Added sticky "Jump to Section" dropdown at top of Daily Report — scrollIntoView smooth, only non-empty sections listed
+- Excel export: added all 7 new sections (Vehicle Weight, Per-Trip Bhada, Truck/Agent/Local Party Payments, Leased Truck, Oil Premium) — triple-backend parity
+- PDF export: same 7 sections added with normal/detail mode handling
+- Verified on 2026-04-29: Excel shows 4/4 applicable sections correctly, Jump dropdown auto-scrolls to target
+
+---
 
 ## 🎯 v104.44.19 — Daily Report P1 Expansion (Leased Truck + Oil Premium)
 **Build date:** 2026-02-17

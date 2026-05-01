@@ -998,6 +998,117 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
             elements.append(make_table(ct_headers, ct_rows, ct_widths))
         elements.append(Spacer(1, 4))
 
+    # ══ v104.44.19 — P0/P1 NEW SECTIONS (PDF) ══
+    # Vehicle Weight
+    vw = data.get("vehicle_weight", {})
+    if vw.get("sale_count", 0) or vw.get("purchase_count", 0):
+        elements.append(Spacer(1, 4))
+        elements.append(Paragraph(f"Vehicle Weight (Auto) — Sale: {vw.get('sale_count',0)} trips | Purchase: {vw.get('purchase_count',0)} trips", section_style))
+        vw_sum = [
+            ['Sale Trips', 'Sale Net(Q)', 'Sale Bhada', 'Sale Bags', 'Purchase Trips', 'Purchase Net(Q)', 'Purchase Bhada', 'Purchase Bags'],
+            [str(vw.get('sale_count',0)), str(vw.get('sale_net_qntl',0)), f"Rs.{_fmt_amt(vw.get('sale_bhada_total',0))}", str(vw.get('sale_bags',0)),
+             str(vw.get('purchase_count',0)), str(vw.get('purchase_net_qntl',0)), f"Rs.{_fmt_amt(vw.get('purchase_bhada_total',0))}", str(vw.get('purchase_bags',0))]
+        ]
+        vwt = RTable(vw_sum, colWidths=[60]*8)
+        vwt.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0f2fe')),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 7),
+            ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ]))
+        elements.append(vwt)
+        if vw.get("sale_details"):
+            elements.append(Paragraph("<b>Sale / Dispatch:</b>", ParagraphStyle('sub', parent=styles['Normal'], fontSize=7, spaceBefore=4, spaceAfter=2)))
+            elements.append(make_table(
+                ['RST', 'Vehicle', 'Party', 'Destination', 'Product', 'Bags', 'Bag Type', 'Net Wt', 'Bhada'],
+                [[d.get("rst_no","") or "-", d.get("vehicle_no",""), d.get("party",""),
+                  d.get("destination","") or "-", d.get("product",""), str(d.get("bags",0)),
+                  d.get("bag_type","") or "-", str(d.get("net_wt",0)),
+                  f"Rs.{_fmt_amt(d.get('bhada',0))}"] for d in vw["sale_details"]],
+                [45, 60, 75, 65, 60, 30, 55, 40, 55], font_size=6
+            ))
+        if is_detail and vw.get("purchase_details"):
+            elements.append(Paragraph("<b>Purchase / Receive:</b>", ParagraphStyle('sub', parent=styles['Normal'], fontSize=7, spaceBefore=4, spaceAfter=2)))
+            elements.append(make_table(
+                ['RST', 'Vehicle', 'Party', 'Mandi', 'Product', 'Bags', 'Net Wt', 'Bhada'],
+                [[d.get("rst_no","") or "-", d.get("vehicle_no",""), d.get("party",""),
+                  d.get("mandi","") or "-", d.get("product",""), str(d.get("bags",0)),
+                  str(d.get("net_wt",0)), f"Rs.{_fmt_amt(d.get('bhada',0))}"] for d in vw["purchase_details"]],
+                [45, 60, 80, 70, 60, 40, 50, 65], font_size=6
+            ))
+
+    # Per-Trip Bhada
+    ptb = data.get("per_trip_bhada", {})
+    if ptb.get("truck_count", 0) > 0:
+        elements.append(Spacer(1, 4))
+        elements.append(Paragraph(f"Per-Trip Bhada — {ptb['truck_count']} trucks · {ptb['trip_count']} trips", section_style))
+        ptb_sum = [
+            ['Trucks', 'Trips', 'Bhada Total', 'Paid Today', 'Pending'],
+            [str(ptb.get('truck_count',0)), str(ptb.get('trip_count',0)),
+             f"Rs.{_fmt_amt(ptb.get('bhada_total',0))}", f"Rs.{_fmt_amt(ptb.get('paid_today',0))}",
+             f"Rs.{_fmt_amt(ptb.get('pending_today',0))}"]
+        ]
+        ptbt = RTable(ptb_sum, colWidths=[100]*5)
+        ptbt.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#fff7ed')),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ]))
+        elements.append(ptbt)
+        if ptb.get("details"):
+            elements.append(make_table(
+                ['Vehicle', 'Trips', 'Bhada Total'],
+                [[d.get("vehicle_no",""), str(d.get("trips",0)), f"Rs.{_fmt_amt(d.get('bhada',0))}"] for d in ptb["details"]],
+                [200, 100, 200]
+            ))
+
+    # Party Payments Breakdown — Truck / Agent / LocalParty (from cash_txns)
+    for party_key, party_label, party_color in [
+        ("truck_payments", "Truck Owner Payments", '#dbeafe'),
+        ("agent_payments", "Agent Payments", '#fef3c7'),
+        ("local_party_payments", "Local Party Payments", '#ccfbf1'),
+    ]:
+        ps = data.get(party_key, {})
+        if ps.get("count", 0) > 0:
+            elements.append(Spacer(1, 4))
+            elements.append(Paragraph(f"{party_label} ({ps['count']}) — Jama: Rs.{_fmt_amt(ps.get('jama',0))} | Nikasi: Rs.{_fmt_amt(ps.get('nikasi',0))} | Net: Rs.{_fmt_amt(ps.get('net',0))}", section_style))
+            if is_detail and ps.get("details"):
+                elements.append(make_table(
+                    ['Party', 'Type', 'Account', 'Amount', 'Description'],
+                    [[d.get("party","") or "-", d.get("txn_type","").upper(),
+                      d.get("account","").upper(), f"Rs.{_fmt_amt(d.get('amount',0))}",
+                      d.get("description","") or "-"] for d in ps["details"]],
+                    [120, 50, 60, 80, 190], font_size=6
+                ))
+
+    # Leased Truck
+    lt = data.get("leased_truck", {})
+    if lt.get("count", 0):
+        elements.append(Spacer(1, 4))
+        elements.append(Paragraph(f"Leased Truck Payments ({lt['count']}) — Total Paid: Rs.{_fmt_amt(lt.get('total_paid',0))}", section_style))
+        if lt.get("details"):
+            elements.append(make_table(
+                ['Truck No', 'Owner', 'Payment Type', 'Mode', 'Amount', 'Remark'],
+                [[d.get("truck_no","") or "-", d.get("owner","") or "-",
+                  d.get("payment_type","") or "-", d.get("mode","") or "-",
+                  f"Rs.{_fmt_amt(d.get('amount',0))}", d.get("remark","") or "-"] for d in lt["details"]],
+                [80, 90, 80, 55, 70, 125], font_size=6
+            ))
+
+    # Oil Premium / Lab Test
+    op = data.get("oil_premium", {})
+    if op.get("count", 0):
+        elements.append(Spacer(1, 4))
+        elements.append(Paragraph(f"Lab Test / Oil Premium ({op['count']}) — Positive: {op.get('positive_count',0)} | Negative: {op.get('negative_count',0)} | Net: Rs.{_fmt_amt(op.get('total_premium',0))}", section_style))
+        if op.get("details"):
+            elements.append(make_table(
+                ['V.No', 'RST', 'Party', 'Qty(Q)', 'Sauda Amt', 'Diff %', 'Premium'],
+                [[d.get("voucher_no","") or "-", d.get("rst_no","") or "-",
+                  d.get("party","") or "-", str(d.get("qty_qntl",0)),
+                  f"Rs.{d.get('rate',0)}", f"{d.get('diff_pct',0):+.2f}%",
+                  f"Rs.{_fmt_amt(d.get('premium_amount',0))}"] for d in op["details"]],
+                [50, 45, 110, 50, 65, 55, 75], font_size=6
+            ))
+
     # Build
     doc.build(elements)
     buf.seek(0)
@@ -1308,6 +1419,91 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
                     write_row([fmt_date(d.get("date","")), d.get("party_name",""), txn_label, round(d.get("amount",0), 2), d.get("description",""), d.get("payment_mode","")])
                 else:
                     write_row([fmt_date(d.get("date","")), d.get("party_name",""), txn_label, round(d.get("amount",0), 2), d.get("payment_mode","")])
+
+    # ══ v104.44.19 — P0/P1 NEW SECTIONS (EXCEL) ══
+    # Vehicle Weight
+    vw = data.get("vehicle_weight", {})
+    if vw.get("sale_count", 0) or vw.get("purchase_count", 0):
+        row += 1
+        write_section(f"Vehicle Weight (Auto) — Sale: {vw.get('sale_count',0)} | Purchase: {vw.get('purchase_count',0)}")
+        write_sub(f"Sale: Net {vw.get('sale_net_qntl',0)}Q, Bhada Rs.{vw.get('sale_bhada_total',0):,.0f}, Bags {vw.get('sale_bags',0)} | Purchase: Net {vw.get('purchase_net_qntl',0)}Q, Bhada Rs.{vw.get('purchase_bhada_total',0):,.0f}, Bags {vw.get('purchase_bags',0)}")
+        if vw.get("sale_details"):
+            write_sub("Sale / Dispatch:")
+            write_headers(['RST', 'Vehicle', 'Party', 'Destination', 'Product', 'Bags', 'Bag Type', 'Net Wt', 'Bhada'])
+            for d in vw["sale_details"]:
+                write_row([d.get("rst_no","") or "-", d.get("vehicle_no",""), d.get("party",""),
+                    d.get("destination","") or "-", d.get("product",""), d.get("bags",0),
+                    d.get("bag_type","") or "-", d.get("net_wt",0), d.get("bhada",0)])
+            set_col_widths([10, 12, 20, 15, 15, 8, 14, 10, 12])
+        if is_detail and vw.get("purchase_details"):
+            write_sub("Purchase / Receive:")
+            write_headers(['RST', 'Vehicle', 'Party', 'Mandi', 'Product', 'Bags', 'Net Wt', 'Bhada'])
+            for d in vw["purchase_details"]:
+                write_row([d.get("rst_no","") or "-", d.get("vehicle_no",""), d.get("party",""),
+                    d.get("mandi","") or "-", d.get("product",""), d.get("bags",0),
+                    d.get("net_wt",0), d.get("bhada",0)])
+
+    # Per-Trip Bhada
+    ptb = data.get("per_trip_bhada", {})
+    if ptb.get("truck_count", 0) > 0:
+        row += 1
+        write_section(f"Per-Trip Bhada — {ptb['truck_count']} trucks · {ptb['trip_count']} trips")
+        write_headers(['Trucks', 'Trips', 'Bhada Total', 'Paid Today', 'Pending'])
+        write_row([ptb.get('truck_count',0), ptb.get('trip_count',0),
+                   ptb.get('bhada_total',0), ptb.get('paid_today',0), ptb.get('pending_today',0)])
+        if ptb.get("details"):
+            write_headers(['Vehicle', 'Trips', 'Bhada Total'])
+            for d in ptb["details"]:
+                write_row([d.get("vehicle_no",""), d.get("trips",0), d.get("bhada",0)])
+            set_col_widths([15, 10, 15])
+
+    # Party Payments Breakdown
+    for party_key, party_label in [
+        ("truck_payments", "Truck Owner Payments"),
+        ("agent_payments", "Agent Payments"),
+        ("local_party_payments", "Local Party Payments"),
+    ]:
+        ps = data.get(party_key, {})
+        if ps.get("count", 0) > 0:
+            row += 1
+            write_section(f"{party_label} ({ps['count']})")
+            write_sub(f"Jama: Rs.{ps.get('jama',0):,.0f} | Nikasi: Rs.{ps.get('nikasi',0):,.0f} | Net: Rs.{ps.get('net',0):,.0f}")
+            if is_detail and ps.get("details"):
+                write_headers(['Party', 'Type', 'Account', 'Amount', 'Description'])
+                for d in ps["details"]:
+                    write_row([d.get("party","") or "-", d.get("txn_type","").upper(),
+                        d.get("account","").upper(), round(d.get("amount",0), 2),
+                        d.get("description","") or "-"])
+                set_col_widths([22, 10, 10, 14, 35])
+
+    # Leased Truck
+    lt = data.get("leased_truck", {})
+    if lt.get("count", 0):
+        row += 1
+        write_section(f"Leased Truck Payments ({lt['count']})")
+        write_sub(f"Total Paid: Rs.{lt.get('total_paid',0):,.0f}")
+        if lt.get("details"):
+            write_headers(['Truck No', 'Owner', 'Payment Type', 'Mode', 'Amount', 'Remark'])
+            for d in lt["details"]:
+                write_row([d.get("truck_no","") or "-", d.get("owner","") or "-",
+                    d.get("payment_type","") or "-", d.get("mode","") or "-",
+                    round(d.get("amount",0), 2), d.get("remark","") or "-"])
+            set_col_widths([12, 18, 14, 10, 14, 25])
+
+    # Oil Premium / Lab Test
+    op = data.get("oil_premium", {})
+    if op.get("count", 0):
+        row += 1
+        write_section(f"Lab Test / Oil Premium ({op['count']})")
+        write_sub(f"Positive: {op.get('positive_count',0)} | Negative: {op.get('negative_count',0)} | Net: Rs.{op.get('total_premium',0):,.0f}")
+        if op.get("details"):
+            write_headers(['V.No', 'RST', 'Party', 'Qty(Q)', 'Sauda Amt', 'Diff %', 'Premium', 'Remark'])
+            for d in op["details"]:
+                write_row([d.get("voucher_no","") or "-", d.get("rst_no","") or "-",
+                    d.get("party","") or "-", d.get("qty_qntl",0),
+                    d.get("rate",0), f"{d.get('diff_pct',0):+.2f}%",
+                    round(d.get("premium_amount",0), 2), d.get("remark","") or "-"])
+            set_col_widths([10, 10, 20, 10, 12, 10, 14, 20])
 
     # Apply collected column widths + smart auto-fit
     from openpyxl.utils import get_column_letter

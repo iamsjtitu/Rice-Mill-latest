@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.20",
+    date: "Feb 17, 2026",
+    title: "v104.44.20 — 🧭 Jump-to-Section Nav + Excel/PDF Export Updated",
+    items: [
+      { type: "feature", text: "🧭 **Sticky Jump-to-Section Dropdown** — Daily Report page ke top pe ek sticky dropdown add kiya hai (z-20 backdrop-blur) jo sirf un sections ko dikhata hai jinki count > 0. Selected section par `scrollIntoView({behavior:smooth})` fire hota hai. 21 sections supported auto-generated slug IDs se (`section-paddy-entries`, `section-vehicle-weight`, etc)." },
+      { type: "feature", text: "📊 **Excel Export Updated** — Daily Report Excel download me ab sare 7 naye sections aate hain: Vehicle Weight (Sale + Purchase details), Per-Trip Bhada, Truck/Agent/Local Party Payments, Leased Truck, Oil Premium. Empty sections skip ho jate hain (count=0 → section hidden). Col widths auto-track. **Python + Node Desktop + Node LAN — triple-backend parity maintained.**" },
+      { type: "feature", text: "📄 **PDF Export Updated** — Daily Report PDF me bhi sare 7 naye sections added: Vehicle Weight, Per-Trip Bhada, Party Payments (Truck/Agent/Local), Leased Truck, Oil Premium. Normal mode me sirf summary, Detail mode me poori tables (Purchase details, txn descriptions etc)." },
+      { type: "fix", text: "✅ **Tested** — Excel on 2026-04-29: 4/4 visible sections verified (Vehicle Weight, Per-Trip Bhada, Truck Owner Payments, Oil Premium). Browser test: Jump dropdown correctly renders 8 visible sections + auto-scroll works. Triple-backend lint clean." },
+    ],
+  },
+  {
     version: "104.44.19",
     date: "Feb 17, 2026",
     title: "v104.44.19 — 📊 Daily Report P1 Expansion: Leased Truck + Lab Test (Oil Premium)",
