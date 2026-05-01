@@ -169,7 +169,9 @@ export default function MillPartsStock({ filters, user }) {
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
       if (filters.season) p.append('season', filters.season);
       const url = `${API}/mill-parts/store-room-report/${type}?${p}`;
-      downloadFile(url, `store_room_report.${type === 'excel' ? 'xlsx' : 'pdf'}`);
+      const { buildFilename } = await import('../utils/filename-format');
+      const fname = buildFilename({ base: 'store-room', kmsYear: filters.kms_year, ext: type === 'excel' ? 'xlsx' : 'pdf' });
+      downloadFile(url, fname);
     } catch (e) { logger.error(e); toast.error("Export nahi hua"); }
   };
 
@@ -192,7 +194,9 @@ export default function MillPartsStock({ filters, user }) {
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
     if (filters.season) p.append('season', filters.season);
     const { downloadFile } = await import('../utils/download');
-    downloadFile(`/api/mill-parts/summary/${format}?${p}`, `mill_parts_stock.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
+    const { buildFilename } = await import('../utils/filename-format');
+    const fname = buildFilename({ base: 'mill-parts-stock', kmsYear: filters.kms_year, ext: format === 'pdf' ? 'pdf' : 'xlsx' });
+    downloadFile(`/api/mill-parts/summary/${format}?${p}`, fname);
   };
 
   const exportTxns = async (format) => {
@@ -439,11 +443,11 @@ export default function MillPartsStock({ filters, user }) {
             </div>
             {searchPart && (
               <div className="flex gap-2">
-                <Button onClick={() => { const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season); p.append('part_name', searchPart); downloadFile(`/api/mill-parts/part-summary/excel?${p}`, `${searchPart}_summary.xlsx`); }}
+                <Button onClick={async () => { const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season); p.append('part_name', searchPart); const { buildFilename } = await import('../utils/filename-format'); downloadFile(`/api/mill-parts/part-summary/excel?${p}`, buildFilename({ base: 'summary', party: searchPart, kmsYear: filters.kms_year, ext: 'xlsx' })); }}
                   variant="outline" size="sm" className="border-emerald-600/50 text-emerald-400 hover:bg-emerald-900/30" data-testid="partwise-export-excel">
                   <Download className="w-4 h-4 mr-1" /> Excel
                 </Button>
-                <Button onClick={() => { const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season); p.append('part_name', searchPart); downloadFile(`/api/mill-parts/part-summary/pdf?${p}`, `${searchPart}_summary.pdf`); }}
+                <Button onClick={async () => { const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season); p.append('part_name', searchPart); const { buildFilename } = await import('../utils/filename-format'); downloadFile(`/api/mill-parts/part-summary/pdf?${p}`, buildFilename({ base: 'summary', party: searchPart, kmsYear: filters.kms_year, ext: 'pdf' })); }}
                   variant="outline" size="sm" className="border-red-600/50 text-red-400 hover:bg-red-900/30" data-testid="partwise-export-pdf">
                   <FileText className="w-4 h-4 mr-1" /> PDF
                 </Button>

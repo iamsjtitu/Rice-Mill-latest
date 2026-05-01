@@ -121,7 +121,15 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
     if (!await showConfirm("Delete", "Kya aap ye entry delete karna chahte hain?")) return;
     try { await axios.delete(`${API}/vehicle-weight/${id}`); toast.success("Deleted"); fetchData(); if (onVwChange) onVwChange(); } catch (err) { toast.error(err?.response?.data?.detail || "Error"); }
   };
-  const handlePdf = (e) => { const u = `${API}/vehicle-weight/${e.id}/weight-report-pdf`; _isElectron ? downloadFile(u, `WeightReport_RST${e.rst_no}.pdf`) : window.open(u, "_blank"); };
+  const handlePdf = async (e) => {
+    const u = `${API}/vehicle-weight/${e.id}/weight-report-pdf`;
+    if (_isElectron) {
+      const { buildFilename } = await import('../utils/filename-format');
+      downloadFile(u, buildFilename({ base: 'weight-slip', party: e.vehicle_no, extra: `rst-${e.rst_no}`, ext: 'pdf' }));
+    } else {
+      window.open(u, "_blank");
+    }
+  };
 
   // ── Print A5 with 2 copies (Party Copy + Customer Copy) — SAME as VehicleWeight ──
   const handlePrint = async (e) => {

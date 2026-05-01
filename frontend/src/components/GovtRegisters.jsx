@@ -1267,7 +1267,8 @@ export function MillingRegister({ filters, user }) {
       params.append("rice_recovery", String(vrForm.rice_recovery || 0.67));
       params.append("variety", vrForm.variety || "Boiled");
       const { downloadFile } = await import('../utils/download');
-      downloadFile(`/api/govt-registers/verification-report/pdf?${params}`, `Verification_Report_${vrForm.to_date}.pdf`);
+      const { buildFilename } = await import('../utils/filename-format');
+      downloadFile(`/api/govt-registers/verification-report/pdf?${params}`, buildFilename({ base: 'verification', dateTo: vrForm.to_date, ext: 'pdf' }));
       toast.success("PDF downloaded!");
     } catch (e) { toast.error("PDF download failed"); }
   };
@@ -1354,11 +1355,11 @@ export function MillingRegister({ filters, user }) {
         <div className="flex items-center gap-2">
           {vrTab === "register" && (
             <>
-              <Button onClick={async () => { try { const params = new URLSearchParams(); if(filters.kms_year) params.append('kms_year',filters.kms_year); if(filters.season) params.append('season',filters.season); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/govt-registers/milling-register/excel?${params}`, 'milling_register.xlsx'); toast.success("Excel!"); } catch(e) { toast.error("Export failed"); }}}
+              <Button onClick={async () => { try { const params = new URLSearchParams(); if(filters.kms_year) params.append('kms_year',filters.kms_year); if(filters.season) params.append('season',filters.season); const { downloadFile } = await import('../utils/download'); const { buildFilename } = await import('../utils/filename-format'); downloadFile(`/api/govt-registers/milling-register/excel?${params}`, buildFilename({ base: 'milling-register', kmsYear: filters.kms_year, ext: 'xlsx' })); toast.success("Excel!"); } catch(e) { toast.error("Export failed"); }}}
                 variant="outline" size="sm" className="border-slate-600 text-green-600 dark:text-green-400 hover:bg-slate-100 dark:hover:bg-slate-700 h-7 text-[10px]" data-testid="mr-export-excel">
                 <Download className="w-3 h-3 mr-1" /> Excel
               </Button>
-              <Button onClick={async () => { try { const params = new URLSearchParams(); if(filters.kms_year) params.append('kms_year',filters.kms_year); if(filters.season) params.append('season',filters.season); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/govt-registers/milling-register/pdf?${params}`, 'milling_register.pdf'); toast.success("PDF!"); } catch(e) { toast.error("Export failed"); }}}
+              <Button onClick={async () => { try { const params = new URLSearchParams(); if(filters.kms_year) params.append('kms_year',filters.kms_year); if(filters.season) params.append('season',filters.season); const { downloadFile } = await import('../utils/download'); const { buildFilename } = await import('../utils/filename-format'); downloadFile(`/api/govt-registers/milling-register/pdf?${params}`, buildFilename({ base: 'milling-register', kmsYear: filters.kms_year, ext: 'pdf' })); toast.success("PDF!"); } catch(e) { toast.error("Export failed"); }}}
                 variant="outline" size="sm" className="border-slate-600 text-red-600 dark:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-700 h-7 text-[10px]" data-testid="mr-export-pdf">
                 <Download className="w-3 h-3 mr-1" /> PDF
               </Button>

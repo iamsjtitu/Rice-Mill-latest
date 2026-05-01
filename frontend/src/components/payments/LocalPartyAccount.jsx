@@ -147,26 +147,19 @@ const LocalPartyAccount = ({ filters, user }) => {
     try {
       const p = new URLSearchParams();
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
-      // 🎯 v104.44.12 — pass selected party so backend filters + filename includes party name
       if (selectedParty && selectedParty !== "__all__") p.append('party_name', selectedParty);
-      // 🎯 v104.44.13 — pass date range so backend filters + filename reflects range
       if (dateFrom) p.append('date_from', dateFrom);
       if (dateTo) p.append('date_to', dateTo);
 
-      // Build party-aware filename: "debujain-report.xlsx" or "debujain-report-2026-04-01-to-2026-04-30.xlsx"
-      const safeName = (selectedParty && selectedParty !== "__all__")
-        ? selectedParty.replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/[\s_]+/g, '-').toLowerCase()
-        : 'local-party';
-      let fnameBase = `${safeName}-report`;
-      if (dateFrom || dateTo) {
-        const f = dateFrom || 'start';
-        const t = dateTo || 'end';
-        fnameBase = `${safeName}-report-${f}-to-${t}`;
-      }
       const ext = format === 'pdf' ? 'pdf' : 'xlsx';
-      const fname = `${fnameBase}.${ext}`;
-
       const { downloadFile } = await import('../../utils/download');
+      const { buildFilename } = await import('../../utils/filename-format');
+      const fname = buildFilename({
+        base: 'report',
+        party: (selectedParty && selectedParty !== "__all__") ? selectedParty : 'local-party',
+        dateFrom, dateTo,
+        ext,
+      });
       downloadFile(`/api/local-party/${format}?${p}`, fname);
     } catch (e) { toast.error(`${format.toUpperCase()} export failed`); }
   };

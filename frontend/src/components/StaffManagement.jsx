@@ -148,7 +148,9 @@ const Attendance = ({ staff, filters }) => {
     const to = `${month}-${String(d.getDate()).padStart(2,'0')}`;
     const p = new URLSearchParams({ date_from: from, date_to: to, fmt });
     const { downloadFile } = await import('../utils/download');
-    downloadFile(`/api/staff/export/attendance?${p}`, `staff_attendance_${from}_to_${to}.${fmt === 'pdf' ? 'pdf' : 'xlsx'}`);
+    const { buildFilename } = await import('../utils/filename-format');
+    const fname = buildFilename({ base: 'staff-attendance', dateFrom: from, dateTo: to, ext: fmt === 'pdf' ? 'pdf' : 'xlsx' });
+    downloadFile(`/api/staff/export/attendance?${p}`, fname);
   };
 
   const statusConfig = {
@@ -296,7 +298,9 @@ const QuickMonthlyReport = ({ staff, filters }) => {
   const exportReport = async (fmt) => {
     const p = new URLSearchParams({ date_from: dateFrom, date_to: dateTo, fmt });
     const { downloadFile } = await import('../utils/download');
-    downloadFile(`/api/staff/export/attendance?${p}`, `monthly_report_${month}.${fmt === 'pdf' ? 'pdf' : 'xlsx'}`);
+    const { buildFilename } = await import('../utils/filename-format');
+    const fname = buildFilename({ base: 'staff-monthly', dateFrom, dateTo, ext: fmt === 'pdf' ? 'pdf' : 'xlsx' });
+    downloadFile(`/api/staff/export/attendance?${p}`, fname);
   };
 
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -739,7 +743,9 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
     if (filters.kms_year) p.append("kms_year", filters.kms_year);
     
     const { downloadFile } = await import('../utils/download');
-    downloadFile(`/api/staff/export/payments?${p}`, `staff_payments.${fmt === 'pdf' ? 'pdf' : 'xlsx'}`);
+    const { buildFilename } = await import('../utils/filename-format');
+    const fname = buildFilename({ base: 'staff-payments', kmsYear: filters.kms_year, ext: fmt === 'pdf' ? 'pdf' : 'xlsx' });
+    downloadFile(`/api/staff/export/payments?${p}`, fname);
   };
 
   return (

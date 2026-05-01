@@ -454,7 +454,8 @@ export default function HemaliPayment({ filters, user }) {
 
   const handlePrint = async (id) => {
     const { downloadFile } = await import("@/utils/download");
-    downloadFile(`/api/hemali/payments/${id}/print`, `hemali_receipt_${id.slice(0,8)}.pdf`);
+    const { buildFilename } = await import('../utils/filename-format');
+    downloadFile(`/api/hemali/payments/${id}/print`, buildFilename({ base: 'hemali-receipt', extra: id.slice(0,8), ext: 'pdf' }));
     toast.success("Receipt download ho rahi hai!");
   };
 
@@ -476,7 +477,8 @@ export default function HemaliPayment({ filters, user }) {
     if (dateTo) params.append("to_date", dateTo);
     if (filterSardar) params.append("sardar_name", filterSardar);
     const { downloadFile } = await import("@/utils/download");
-    downloadFile(`/api/hemali/export/pdf?${params}`, "hemali_payments.pdf");
+    const { buildFilename } = await import('../utils/filename-format');
+    downloadFile(`/api/hemali/export/pdf?${params}`, buildFilename({ base: 'hemali-payments', kmsYear: filters.kms_year, ext: 'pdf' }));
     toast.success("PDF download ho raha hai!");
   };
 
@@ -488,7 +490,8 @@ export default function HemaliPayment({ filters, user }) {
     if (dateTo) params.append("to_date", dateTo);
     if (filterSardar) params.append("sardar_name", filterSardar);
     const { downloadFile } = await import("@/utils/download");
-    downloadFile(`/api/hemali/export/excel?${params}`, "hemali_payments.xlsx");
+    const { buildFilename } = await import("@/utils/filename-format");
+    downloadFile(`/api/hemali/export/excel?${params}`, buildFilename({ base: 'hemali-payments', party: filterSardar, dateFrom, dateTo, kmsYear: filters.kms_year, ext: 'xlsx' }));
     toast.success("Excel download ho raha hai!");
   };
 

@@ -221,9 +221,9 @@ export default function LeasedTruck({ filters }) {
           <div className="flex items-center gap-2">
             <Input placeholder="Search truck no. / owner..." value={searchText} onChange={e => setSearchText(e.target.value)}
               className="bg-slate-700 border-slate-600 text-white w-52 h-8 text-xs" data-testid="lease-search" />
-            <Button onClick={() => downloadFile(`${API}/truck-leases/export/pdf?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`, `truck_leases_${filters.kms_year || 'all'}.pdf`)}
+            <Button onClick={async () => { const { buildFilename } = await import('../utils/filename-format'); downloadFile(`${API}/truck-leases/export/pdf?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`, buildFilename({ base: 'truck-leases', kmsYear: filters.kms_year, ext: 'pdf' })); }}
               variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:text-white h-8 text-xs" data-testid="lease-export-pdf">PDF</Button>
-            <Button onClick={() => downloadFile(`${API}/truck-leases/export/excel?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`, `truck_leases_${filters.kms_year || 'all'}.xlsx`)}
+            <Button onClick={async () => { const { buildFilename } = await import('../utils/filename-format'); downloadFile(`${API}/truck-leases/export/excel?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`, buildFilename({ base: 'truck-leases', kmsYear: filters.kms_year, ext: 'xlsx' })); }}
               variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:text-white h-8 text-xs" data-testid="lease-export-excel">Excel</Button>
             <Button onClick={() => { setEditLease(null); setForm({ truck_no: "", owner_name: "", monthly_rent: "", start_date: "", end_date: "", advance_deposit: "" }); setShowAddLease(true); }}
               size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900 h-8" data-testid="add-lease-btn">

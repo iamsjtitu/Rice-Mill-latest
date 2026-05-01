@@ -75,11 +75,12 @@ export default function FYSummaryDashboard({ filters }) {
 
   useEffect(() => { fetchData(); }, [filters.kms_year]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const downloadPdf = () => {
+  const downloadPdf = async () => {
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
     
-    downloadFile(`${API}/fy-summary/pdf?${p}`, `fy_summary_${filters.kms_year || 'all'}.pdf`);
+    const { buildFilename } = await import('../utils/filename-format');
+    downloadFile(`${API}/fy-summary/pdf?${p}`, buildFilename({ base: 'fy-summary', kmsYear: filters.kms_year, ext: 'pdf' }));
   };
 
   const handleCarryForward = async () => {

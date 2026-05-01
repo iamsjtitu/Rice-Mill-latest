@@ -973,7 +973,7 @@ export const GunnyBags = ({ filters, user }) => {
           />
           <Button onClick={async () => {
             const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
-            try { const { downloadFile } = await import('../utils/download'); downloadFile(`/api/gunny-bags/purchase-report/excel?${p}`, 'gunny_purchase_report.xlsx'); } catch(e) { toast.error("Report export failed"); }
+            try { const { downloadFile } = await import('../utils/download'); const { buildFilename } = await import('../utils/filename-format'); downloadFile(`/api/gunny-bags/purchase-report/excel?${p}`, buildFilename({ base: 'gunny-purchase', kmsYear: filters.kms_year, ext: 'xlsx' })); } catch(e) { toast.error("Report export failed"); }
           }} variant="outline" size="sm" className="border-amber-600 text-amber-400 hover:bg-amber-900/30" data-testid="gunny-purchase-report">
             <FileText className="w-4 h-4 mr-1" /> Purchase Report
           </Button>

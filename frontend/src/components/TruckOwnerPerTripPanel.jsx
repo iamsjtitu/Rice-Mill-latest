@@ -181,11 +181,17 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
     return params;
   };
 
-  const handleHeaderExport = (kind) => {
+  const handleHeaderExport = async (kind) => {
     if (!data || (data?.summary?.total_trips || 0) === 0) { toast.error("Koi trips nahi"); return; }
     const params = _exportParams();
     const ep = kind === "pdf" ? "per-trip-all/pdf" : "per-trip-all/excel";
-    window.open(`${API}/truck-owner/${ep}?${params}`, "_blank");
+    const ext = kind === "pdf" ? "pdf" : "xlsx";
+    const { downloadFile } = await import('../utils/download');
+    const { buildFilename } = await import('../utils/filename-format');
+    // Filter-aware label (e.g. "pending", "settled")
+    const extra = statusFilter !== 'all' ? statusFilter : '';
+    const fname = buildFilename({ base: 'per-trip-bhada', extra, kmsYear: filters?.kms_year, ext });
+    downloadFile(`${API}/truck-owner/${ep}?${params}`, fname);
     toast.success(`${kind === 'pdf' ? 'PDF' : 'Excel'} download started — ${trips.length} trips`, { duration: 3000 });
   };
 

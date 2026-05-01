@@ -281,7 +281,9 @@ export default function SaleBook({ filters, user, category }) {
 
   const handlePrintInvoice = async (v) => {
     const { downloadFile } = await import('../utils/download');
-    downloadFile(`${API}/sale-book/${v.id}/pdf`, `sale_invoice_${formatSaleVoucher(v) || v.id}.pdf`);
+    const { buildFilename } = await import('../utils/filename-format');
+    const fname = buildFilename({ base: 'sale-invoice', party: formatSaleVoucher(v) || v.id, ext: 'pdf' });
+    downloadFile(`${API}/sale-book/${v.id}/pdf`, fname);
   };
 
   const getStockForItem = (itemName) => {

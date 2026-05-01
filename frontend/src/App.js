@@ -840,7 +840,8 @@ function MainApp({ user, setUser, onLogout }) {
     if (filters.season) params.append('season', filters.season);
     
     const { downloadFile } = await import('./utils/download');
-    downloadFile(`/api/export/excel?${params.toString()}`, 'entries.xlsx');
+    const { buildFilename } = await import('./utils/filename-format');
+    downloadFile(`/api/export/excel?${params.toString()}`, buildFilename({ base: 'mill-entries', kmsYear: filters.kms_year, ext: 'xlsx' }));
     toast.success("Excel download ho raha hai!");
   };
 
@@ -853,7 +854,8 @@ function MainApp({ user, setUser, onLogout }) {
     if (filters.season) params.append('season', filters.season);
     
     const { downloadFile } = await import('./utils/download');
-    downloadFile(`/api/export/pdf?${params.toString()}`, 'mill_entries.pdf');
+    const { buildFilename } = await import('./utils/filename-format');
+    downloadFile(`/api/export/pdf?${params.toString()}`, buildFilename({ base: 'mill-entries', kmsYear: filters.kms_year, ext: 'pdf' }));
     toast.success("PDF generate ho raha hai!");
   };
 

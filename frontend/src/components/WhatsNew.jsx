@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.14",
+    date: "Feb 16, 2026",
+    title: "v104.44.14 — 📁 GLOBAL Smart Filename: Hyphen-style across All Excel/PDF/WhatsApp downloads",
+    items: [
+      { type: "feature", text: "📁 **One filename style across the entire software** — `{name}-report.{ext}` (no filter) ya `{name}-report-{from}-to-{to}.{ext}` (with date filter). E.g. `debujain-report.xlsx`, `debujain-report-Apr-2026.xlsx`, `local-party-report-2026-04-01-to-2026-06-30.pdf`." },
+      { type: "improvement", text: "🔤 **Hyphen-style** — Spaces aur underscores ab `-` me convert hote hain. Case lowercase. Special chars stripped (Windows + Linux + WhatsApp safe filenames)." },
+      { type: "improvement", text: "📅 **Smart date format** — Single full month range (e.g. 1 Apr to 30 Apr) → `Apr-2026` (compact). Multi-month → full ISO range. Only-from / only-to → `{date}-to-end` / `start-to-{date}`." },
+      { type: "feature", text: "🔄 **Updated central helper** `/app/frontend/src/utils/filename-format.js::buildFilename()` — 44 existing callers now auto-inherit hyphen format. Plus 18+ new conversions across: Cash Book, Sale Book, Purchase Vouchers, Truck Owner, Truck Payment, Per-Trip Bhada, Local Party, Hemali Payments, Mill Parts, Diesel, Leased Truck, Staff, Dashboard, Vehicle Weight, Auto Weight, FY Summary, Balance Sheet, Govt Registers, FRK Purchases, Byproduct Sales, DC Tracker." },
+      { type: "improvement", text: "🌐 **Group + WhatsApp** flows respect filename: GroupDialog ka `pdfUrl` automatically updated filenames generate karta hai. WhatsApp text shares ke liye copyable summary remains as-is (no filename needed)." },
+    ],
+  },
+  {
     version: "104.44.13",
     date: "Feb 16, 2026",
     title: "v104.44.13 — 📁 Local Party Filename: Date Range Suffix",

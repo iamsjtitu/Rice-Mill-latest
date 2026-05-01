@@ -175,18 +175,20 @@ export default function BalanceSheet({ filters }) {
     return {};
   }, [kbActive, focusCol, focusIdx, liabList, assetList]);
 
-  const downloadPdf = () => {
+  const downloadPdf = async () => {
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
     if (filters.season) p.append('season', filters.season);
-    downloadFile(`${API}/fy-summary/balance-sheet/pdf?${p}`, `balance_sheet_${filters.kms_year || 'all'}.pdf`);
+    const { buildFilename } = await import('../utils/filename-format');
+    downloadFile(`${API}/fy-summary/balance-sheet/pdf?${p}`, buildFilename({ base: 'balance-sheet', kmsYear: filters.kms_year, ext: 'pdf' }));
   };
 
-  const downloadExcel = () => {
+  const downloadExcel = async () => {
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
     if (filters.season) p.append('season', filters.season);
-    downloadFile(`${API}/fy-summary/balance-sheet/excel?${p}`, `balance_sheet_${filters.kms_year || 'all'}.xlsx`);
+    const { buildFilename } = await import('../utils/filename-format');
+    downloadFile(`${API}/fy-summary/balance-sheet/excel?${p}`, buildFilename({ base: 'balance-sheet', kmsYear: filters.kms_year, ext: 'xlsx' }));
   };
 
   const handlePrint = async () => {

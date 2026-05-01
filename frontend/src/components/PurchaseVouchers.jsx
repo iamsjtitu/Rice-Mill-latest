@@ -274,8 +274,10 @@ export default function PurchaseVouchers({ filters, user }) {
     downloadFile(`/api/purchase-book/export/${type}${qs}`, fname);
   };
 
-  const handlePrintInvoice = (v) => {
-    downloadFile(`${API}/purchase-book/${v.id}/pdf`, `purchase_invoice_${formatPurchaseVoucher(v) || v.id}.pdf`);
+  const handlePrintInvoice = async (v) => {
+    const { buildFilename } = await import('../utils/filename-format');
+    const fname = buildFilename({ base: 'purchase-invoice', party: formatPurchaseVoucher(v) || v.id, ext: 'pdf' });
+    downloadFile(`${API}/purchase-book/${v.id}/pdf`, fname);
   };
 
   const handlePayment = async () => {

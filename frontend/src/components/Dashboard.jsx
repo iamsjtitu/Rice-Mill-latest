@@ -245,7 +245,8 @@ export const Dashboard = ({ filters, user }) => {
             if (filters.season) params.append('season', filters.season);
             if (dashFilter && dashFilter !== 'all') params.append('filter', dashFilter);
             const { downloadFile } = await import('../utils/download');
-            downloadFile(`/api/export/dashboard-pdf?${params.toString()}`, 'dashboard_report.pdf');
+            const { buildFilename } = await import('../utils/filename-format');
+            downloadFile(`/api/export/dashboard-pdf?${params.toString()}`, buildFilename({ base: 'dashboard', kmsYear: filters.kms_year, ext: 'pdf' }));
           }} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30" data-testid="dash-export-pdf">
             <FileText className="w-4 h-4 mr-1" /> PDF Export
           </Button>
@@ -254,7 +255,8 @@ export const Dashboard = ({ filters, user }) => {
             if (filters.kms_year) params.append('kms_year', filters.kms_year);
             if (filters.season) params.append('season', filters.season);
             const { downloadFile } = await import('../utils/download');
-            downloadFile(`/api/export/summary-report-pdf?${params.toString()}`, 'summary_report.pdf');
+            const { buildFilename } = await import('../utils/filename-format');
+            downloadFile(`/api/export/summary-report-pdf?${params.toString()}`, buildFilename({ base: 'summary', kmsYear: filters.kms_year, ext: 'pdf' }));
           }} className="bg-purple-600 hover:bg-purple-700 text-white" size="sm" data-testid="dash-summary-pdf">
             <FileText className="w-4 h-4 mr-1" /> Summary Report
           </Button>

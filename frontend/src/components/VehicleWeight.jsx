@@ -846,7 +846,15 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
     return t;
   };
 
-  const handlePdf = (e) => { const u = `${API}/vehicle-weight/${e.id}/weight-report-pdf`; _isElectron ? downloadFile(u, `WeightReport_RST${e.rst_no}.pdf`) : window.open(u, "_blank"); };
+  const handlePdf = async (e) => {
+    const u = `${API}/vehicle-weight/${e.id}/weight-report-pdf`;
+    if (_isElectron) {
+      const { buildFilename } = await import('../utils/filename-format');
+      downloadFile(u, buildFilename({ base: 'weight-slip', party: e.vehicle_no, extra: `rst-${e.rst_no}`, ext: 'pdf' }));
+    } else {
+      window.open(u, "_blank");
+    }
+  };
 
   const handleWA = async (e) => {
     try {
