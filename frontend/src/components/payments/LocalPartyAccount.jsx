@@ -20,6 +20,7 @@ import {
   IndianRupee, RefreshCw, Download, FileText, Plus, Trash2, Handshake, Printer, Search, Loader2, Send, Users,
 } from "lucide-react";
 import { SendToGroupDialog } from "../SendToGroupDialog";
+import { useActionShortcuts, withShortcut } from "../../hooks/useActionShortcuts";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -222,6 +223,14 @@ const LocalPartyAccount = ({ filters, user }) => {
     setGroupDialogOpen(true);
   };
 
+  // ── 🎯 Keyboard shortcuts (Alt+Shift+E/P/W/G) ──
+  useActionShortcuts({
+    excel: () => handleExport('excel'),
+    pdf: () => handleExport('pdf'),
+    whatsapp: handleHeaderWhatsApp,
+    group: handleHeaderGroup,
+  }, [selectedParty, dateFrom, dateTo, summary, partyInfo, filters?.kms_year]);
+
   const handlePrint = async () => {
     if (!reportData) return;
     let html = `<html><head><title>${reportData.party_name} - Hisaab</title>
@@ -337,19 +346,19 @@ const LocalPartyAccount = ({ filters, user }) => {
         </Button>
         <div className="ml-auto flex items-center gap-1">
           <Button onClick={() => handleExport('pdf')} variant="ghost" size="sm"
-            className="h-9 w-9 p-0 text-red-400 hover:bg-red-900/30 border border-red-600" title="PDF Export" data-testid="local-party-export-pdf">
+            className="h-9 w-9 p-0 text-red-400 hover:bg-red-900/30 border border-red-600" title={withShortcut("PDF Export", "P")} data-testid="local-party-export-pdf">
             <FileText className="w-4 h-4" />
           </Button>
           <Button onClick={() => handleExport('excel')} variant="ghost" size="sm"
-            className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600" title="Excel Export" data-testid="local-party-export-excel">
+            className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600" title={withShortcut("Excel Export", "E")} data-testid="local-party-export-excel">
             <Download className="w-4 h-4" />
           </Button>
           <Button onClick={handleHeaderWhatsApp} variant="ghost" size="sm"
-            className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600" title="WhatsApp text (copy summary)" data-testid="local-party-whatsapp">
+            className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600" title={withShortcut("WhatsApp text (copy summary)", "W")} data-testid="local-party-whatsapp">
             <Send className="w-4 h-4" />
           </Button>
           <Button onClick={handleHeaderGroup} variant="ghost" size="sm"
-            className="h-9 w-9 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600" title="Send to Group (text + PDF)" data-testid="local-party-group">
+            className="h-9 w-9 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600" title={withShortcut("Send to Group (text + PDF)", "G")} data-testid="local-party-group">
             <Users className="w-4 h-4" />
           </Button>
         </div>

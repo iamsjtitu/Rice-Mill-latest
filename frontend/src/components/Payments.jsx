@@ -24,6 +24,7 @@ import LocalPartyAccount from "./payments/LocalPartyAccount";
 import DieselAccount from "./payments/DieselAccount";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
+import { useActionShortcuts, withShortcut } from "../hooks/useActionShortcuts";
 
 import LeasedTruck from "./LeasedTruck";
 import { MSPPayments } from "./DCTracker";
@@ -739,6 +740,30 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
     setGroupDialogOpen(true);
   };
 
+  // ── 🎯 Keyboard shortcuts (tab-aware: routes to active panel's handlers) ──
+  useActionShortcuts({
+    excel: () => {
+      if (activePaymentTab === "truck") handleExportTruckExcel();
+      else if (activePaymentTab === "consolidated") handleExportTruckOwnerExcel();
+      else if (activePaymentTab === "agent") handleExportAgentExcel();
+    },
+    pdf: () => {
+      if (activePaymentTab === "truck") handleExportTruckPDF();
+      else if (activePaymentTab === "consolidated") handleExportTruckOwnerPDF();
+      else if (activePaymentTab === "agent") handleExportAgentPDF();
+    },
+    whatsapp: () => {
+      if (activePaymentTab === "truck") handleHeaderTruckPaymentWhatsApp();
+      else if (activePaymentTab === "consolidated") handleHeaderTruckOwnerWhatsApp();
+      else if (activePaymentTab === "agent") handleHeaderAgentWhatsApp();
+    },
+    group: () => {
+      if (activePaymentTab === "truck") handleHeaderTruckPaymentGroup();
+      else if (activePaymentTab === "consolidated") handleHeaderTruckOwnerGroup();
+      else if (activePaymentTab === "agent") handleHeaderAgentGroup();
+    },
+  }, [activePaymentTab, filteredTruckPayments, filteredConsolidatedTruckList, filteredAgentPayments, truckTotals, consolidatedTotals, agentTotals, truckSearchFilter, truckOwnerSearchFilter, agentSearchFilter, filters?.kms_year]);
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-8">
@@ -885,11 +910,11 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                     <FileText className="w-4 h-4" />
                   </Button>
                   <Button size="sm" variant="ghost" onClick={handleExportTruckExcel}
-                    className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600" title="Excel Export" data-testid="truck-payment-excel">
+                    className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600" title={withShortcut("Excel Export", "E")} data-testid="truck-payment-excel">
                     <Download className="w-4 h-4" />
                   </Button>
                   <Button size="sm" variant="ghost" onClick={handleHeaderTruckPaymentWhatsApp}
-                    className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600" title="WhatsApp text (copy summary)" data-testid="truck-payment-whatsapp">
+                    className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600" title={withShortcut("WhatsApp text (copy summary)", "W")} data-testid="truck-payment-whatsapp">
                     <Send className="w-4 h-4" />
                   </Button>
                   <Button size="sm" variant="ghost" onClick={handleHeaderTruckPaymentGroup}
@@ -1071,19 +1096,19 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                 {/* Icon-only export group */}
                 <div className="flex items-center gap-1 ml-1 pl-2 border-l border-slate-600" data-testid="truck-owner-export-group">
                   <Button size="sm" variant="ghost" onClick={handleExportTruckOwnerPDF}
-                    className="h-9 w-9 p-0 text-red-400 hover:bg-red-900/30 border border-red-600" title="PDF Export" data-testid="truck-owner-pdf">
+                    className="h-9 w-9 p-0 text-red-400 hover:bg-red-900/30 border border-red-600" title={withShortcut("PDF Export", "P")} data-testid="truck-owner-pdf">
                     <FileText className="w-4 h-4" />
                   </Button>
                   <Button size="sm" variant="ghost" onClick={handleExportTruckOwnerExcel}
-                    className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600" title="Excel Export" data-testid="truck-owner-excel">
+                    className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600" title={withShortcut("Excel Export", "E")} data-testid="truck-owner-excel">
                     <Download className="w-4 h-4" />
                   </Button>
                   <Button size="sm" variant="ghost" onClick={handleHeaderTruckOwnerWhatsApp}
-                    className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600" title="WhatsApp text (copy summary)" data-testid="truck-owner-whatsapp">
+                    className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600" title={withShortcut("WhatsApp text (copy summary)", "W")} data-testid="truck-owner-whatsapp">
                     <Send className="w-4 h-4" />
                   </Button>
                   <Button size="sm" variant="ghost" onClick={handleHeaderTruckOwnerGroup}
-                    className="h-9 w-9 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600" title="Send to Group (text + PDF)" data-testid="truck-owner-group">
+                    className="h-9 w-9 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600" title={withShortcut("Send to Group (text + PDF)", "G")} data-testid="truck-owner-group">
                     <Users className="w-4 h-4" />
                   </Button>
                 </div>
@@ -1270,19 +1295,19 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                 {/* Icon-only export group */}
                 <div className="flex items-center gap-1 ml-1 pl-2 border-l border-slate-600" data-testid="agent-payment-export-group">
                   <Button size="sm" variant="ghost" onClick={handleExportAgentPDF}
-                    className="h-9 w-9 p-0 text-red-400 hover:bg-red-900/30 border border-red-600" title="PDF Export" data-testid="agent-payment-pdf">
+                    className="h-9 w-9 p-0 text-red-400 hover:bg-red-900/30 border border-red-600" title={withShortcut("PDF Export", "P")} data-testid="agent-payment-pdf">
                     <FileText className="w-4 h-4" />
                   </Button>
                   <Button size="sm" variant="ghost" onClick={handleExportAgentExcel}
-                    className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600" title="Excel Export" data-testid="agent-payment-excel">
+                    className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600" title={withShortcut("Excel Export", "E")} data-testid="agent-payment-excel">
                     <Download className="w-4 h-4" />
                   </Button>
                   <Button size="sm" variant="ghost" onClick={handleHeaderAgentWhatsApp}
-                    className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600" title="WhatsApp text (copy summary)" data-testid="agent-payment-whatsapp">
+                    className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600" title={withShortcut("WhatsApp text (copy summary)", "W")} data-testid="agent-payment-whatsapp">
                     <Send className="w-4 h-4" />
                   </Button>
                   <Button size="sm" variant="ghost" onClick={handleHeaderAgentGroup}
-                    className="h-9 w-9 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600" title="Send to Group (text + PDF)" data-testid="agent-payment-group">
+                    className="h-9 w-9 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600" title={withShortcut("Send to Group (text + PDF)", "G")} data-testid="agent-payment-group">
                     <Users className="w-4 h-4" />
                   </Button>
                 </div>

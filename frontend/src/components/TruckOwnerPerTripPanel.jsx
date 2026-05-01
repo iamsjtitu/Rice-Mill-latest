@@ -25,6 +25,7 @@ import { useConfirm } from "./ConfirmProvider";
 import { safePrintHTML } from "../utils/print";
 import { buildSlipReceipt, fmtRupee } from "../utils/slipReceipt";
 import { SendToGroupDialog } from "./SendToGroupDialog";
+import { useActionShortcuts, withShortcut } from "../hooks/useActionShortcuts";
 
 const _isElectron = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
 const API = `${_isElectron ? "" : (process.env.REACT_APP_BACKEND_URL || "")}/api`;
@@ -269,6 +270,14 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
     setGroupDialogOpen(true);
   };
 
+  // ── 🎯 Keyboard shortcuts (Alt+Shift+E/P/W/G) ──
+  useActionShortcuts({
+    excel: () => handleHeaderExport("excel"),
+    pdf: () => handleHeaderExport("pdf"),
+    whatsapp: handleHeaderWhatsApp,
+    group: handleHeaderGroup,
+  }, [data, trips, statusFilter, filter, searchQ, filters?.kms_year, filters?.season]);
+
   // ── Print Compact E-Receipt for a single trip (uses shared slip builder) ──
   const handlePrintTripReceipt = (t) => {
     if (!t || !t.vehicle_no) return;
@@ -343,19 +352,19 @@ export default function TruckOwnerPerTripPanel({ filters, user, branding, onPaym
             {/* Icon-only export group */}
             <div className="flex items-center gap-1 ml-1 pl-2 border-l border-slate-600" data-testid="truck-pertrip-export-group">
               <Button size="sm" variant="ghost" onClick={() => handleHeaderExport("pdf")} disabled={loading}
-                className="h-9 w-9 p-0 text-red-400 hover:bg-red-900/30 border border-red-600 disabled:opacity-50" title="PDF Export (current filters apply)" data-testid="truck-pertrip-pdf">
+                className="h-9 w-9 p-0 text-red-400 hover:bg-red-900/30 border border-red-600 disabled:opacity-50" title={withShortcut("PDF Export (current filters apply)", "P")} data-testid="truck-pertrip-pdf">
                 <FileText className="w-4 h-4" />
               </Button>
               <Button size="sm" variant="ghost" onClick={() => handleHeaderExport("excel")} disabled={loading}
-                className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600 disabled:opacity-50" title="Excel Export (current filters apply)" data-testid="truck-pertrip-excel">
+                className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600 disabled:opacity-50" title={withShortcut("Excel Export (current filters apply)", "E")} data-testid="truck-pertrip-excel">
                 <Download className="w-4 h-4" />
               </Button>
               <Button size="sm" variant="ghost" onClick={handleHeaderWhatsApp} disabled={loading}
-                className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600 disabled:opacity-50" title="WhatsApp text (single truck — search to filter)" data-testid="truck-pertrip-whatsapp">
+                className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600 disabled:opacity-50" title={withShortcut("WhatsApp text (single truck — search to filter)", "W")} data-testid="truck-pertrip-whatsapp">
                 <Send className="w-4 h-4" />
               </Button>
               <Button size="sm" variant="ghost" onClick={handleHeaderGroup} disabled={loading}
-                className="h-9 w-9 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600 disabled:opacity-50" title="Send to Group (consolidated summary + PDF)" data-testid="truck-pertrip-group">
+                className="h-9 w-9 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600 disabled:opacity-50" title={withShortcut("Send to Group (consolidated summary + PDF)", "G")} data-testid="truck-pertrip-group">
                 <Users className="w-4 h-4" />
               </Button>
             </div>
