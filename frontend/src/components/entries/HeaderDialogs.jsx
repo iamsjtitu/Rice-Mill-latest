@@ -61,6 +61,23 @@ export function ShortcutsDialog({ open, onOpenChange }) {
               </div>
             ))}
           </div>
+          <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider pt-2 border-t border-slate-700">Action Shortcuts (Alt+Shift)</p>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            {[
+              ["Alt+Shift+P", "PDF Export"],
+              ["Alt+Shift+E", "Excel Export"],
+              ["Alt+Shift+W", "WhatsApp (copy text)"],
+              ["Alt+Shift+G", "Send to Group"],
+            ].map(([key, desc]) => (
+              <div key={key} className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-slate-700 rounded text-cyan-400 font-mono text-xs">{key}</kbd>
+                <span className="text-slate-300">{desc}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-500 italic pt-1">
+            📌 Action shortcuts Payments (Truck / Owner / Per-Trip Bhada / Agent) aur Local Party panels me active hain. Search box pe focus hone par auto-disable ho jate hain.
+          </p>
         </div>
       </DialogContent>
     </Dialog>
