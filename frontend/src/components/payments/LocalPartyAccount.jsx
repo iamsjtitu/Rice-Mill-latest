@@ -147,9 +147,18 @@ const LocalPartyAccount = ({ filters, user }) => {
     try {
       const p = new URLSearchParams();
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
-      
+      // 🎯 v104.44.12 — pass selected party so backend filters + filename includes party name
+      if (selectedParty && selectedParty !== "__all__") p.append('party_name', selectedParty);
+
+      // Build party-aware filename
+      const safeName = (selectedParty && selectedParty !== "__all__")
+        ? selectedParty.replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/\s+/g, '_').toLowerCase()
+        : 'local_party_account';
+      const ext = format === 'pdf' ? 'pdf' : 'xlsx';
+      const fname = `${safeName}.${ext}`;
+
       const { downloadFile } = await import('../../utils/download');
-      downloadFile(`/api/local-party/${format}?${p}`, `local_party_account.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
+      downloadFile(`/api/local-party/${format}?${p}`, fname);
     } catch (e) { toast.error(`${format.toUpperCase()} export failed`); }
   };
 
@@ -204,6 +213,7 @@ const LocalPartyAccount = ({ filters, user }) => {
     setGroupText(text);
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
+    if (selectedParty && selectedParty !== "__all__") params.append('party_name', selectedParty);
     setGroupPdfUrl(`${API}/local-party/pdf?${params.toString()}`);
     setGroupDialogOpen(true);
   };

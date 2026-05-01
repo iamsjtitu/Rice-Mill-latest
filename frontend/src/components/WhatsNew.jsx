@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.12",
+    date: "Feb 16, 2026",
+    title: "v104.44.12 — 📁 Local Party Filename: Party Name Restored (Bug Fix)",
+    items: [
+      { type: "fix", text: "🐛 **Bug**: Local Party me ek specific party (e.g. Debujain) select karke Excel/PDF download karne pe filename `local_party_account.xlsx` aata tha — pehle party name aata tha. User ne report kiya." },
+      { type: "fix", text: "✅ **Backend** (`/api/local-party/excel` + `/api/local-party/pdf`): Naya optional query param `party_name` add kiya. Jab pass ho — txns + summary us party par filter ho jate hain, aur filename me bhi party name reflect hota hai (e.g. `debujain.xlsx` / `debujain.pdf`). Triple-backend parity (Python + Node Desktop + Node LAN)." },
+      { type: "fix", text: "✅ **Frontend** (`LocalPartyAccount.jsx`): `handleExport` ab `selectedParty` ko query param ke saath bhejta hai aur explicit filename `${safeName}.${ext}` pass karta hai `downloadFile()` me — Browser anchor download + Electron native save dialog dono respect karte hain ye filename." },
+      { type: "improvement", text: "📦 **Group dialog** ka PDF URL bhi same `party_name` param respect karta hai — group me bheja gaya PDF bhi sirf selected party ka data leke aata hai." },
+    ],
+  },
+  {
     version: "104.44.11",
     date: "Feb 16, 2026",
     title: "v104.44.11 — 🎯 Excel Filter Row Fix — Real Header Row Detection (Triple-Backend)",

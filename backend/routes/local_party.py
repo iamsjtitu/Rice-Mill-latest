@@ -407,7 +407,7 @@ async def delete_local_party_txn(txn_id: str):
 # ============ EXPORT ============
 
 @router.get("/local-party/excel")
-async def export_local_party_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
+async def export_local_party_excel(kms_year: Optional[str] = None, season: Optional[str] = None, party_name: Optional[str] = None):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
     from io import BytesIO
@@ -416,7 +416,18 @@ async def export_local_party_excel(kms_year: Optional[str] = None, season: Optio
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
+    if party_name: query["party_name"] = party_name
     txns = await db.local_party_accounts.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
+
+    # If single-party filter applied, narrow summary too for accurate banner numbers
+    if party_name:
+        summary = {
+            "parties": [p for p in summary.get("parties", []) if p.get("party_name") == party_name],
+            "grand_total_debit": sum(p["total_debit"] for p in summary.get("parties", []) if p.get("party_name") == party_name),
+            "grand_total_paid": sum(p["total_paid"] for p in summary.get("parties", []) if p.get("party_name") == party_name),
+            "grand_balance": sum(p["balance"] for p in summary.get("parties", []) if p.get("party_name") == party_name),
+            "grand_opening_balance": sum(p.get("opening_balance", 0) for p in summary.get("parties", []) if p.get("party_name") == party_name),
+        }
 
     wb = Workbook()
     ws = wb.active
@@ -483,13 +494,16 @@ async def export_local_party_excel(kms_year: Optional[str] = None, season: Optio
     buffer = BytesIO()
     wb.save(buffer)
     buffer.seek(0)
+    # 🎯 v104.44.12 — filename reflects selected party (if filtered)
+    safe_name = "".join(ch for ch in (party_name or '') if ch.isalnum() or ch in (' ', '_', '-')).strip().replace(' ', '_').lower()
+    fname = f"{safe_name}_{datetime.now().strftime('%Y%m%d')}.xlsx" if safe_name else f"local_party_account_{datetime.now().strftime('%Y%m%d')}.xlsx"
     return Response(content=buffer.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename=local_party_account_{datetime.now().strftime('%Y%m%d')}.xlsx"})
+        headers={"Content-Disposition": f"attachment; filename={fname}"})
 
 
 @router.get("/local-party/pdf")
-async def export_local_party_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
+async def export_local_party_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, party_name: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
     from utils.export_helpers import get_pdf_styles
@@ -500,7 +514,17 @@ async def export_local_party_pdf(kms_year: Optional[str] = None, season: Optiona
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
+    if party_name: query["party_name"] = party_name
     txns = await db.local_party_accounts.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
+
+    if party_name:
+        summary = {
+            "parties": [p for p in summary.get("parties", []) if p.get("party_name") == party_name],
+            "grand_total_debit": sum(p["total_debit"] for p in summary.get("parties", []) if p.get("party_name") == party_name),
+            "grand_total_paid": sum(p["total_paid"] for p in summary.get("parties", []) if p.get("party_name") == party_name),
+            "grand_balance": sum(p["balance"] for p in summary.get("parties", []) if p.get("party_name") == party_name),
+            "grand_opening_balance": sum(p.get("opening_balance", 0) for p in summary.get("parties", []) if p.get("party_name") == party_name),
+        }
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
@@ -553,5 +577,8 @@ async def export_local_party_pdf(kms_year: Optional[str] = None, season: Optiona
 
     doc.build(elements)
     buffer.seek(0)
+    # 🎯 v104.44.12 — filename reflects selected party (if filtered)
+    safe_name = "".join(ch for ch in (party_name or '') if ch.isalnum() or ch in (' ', '_', '-')).strip().replace(' ', '_').lower()
+    fname = f"{safe_name}_{datetime.now().strftime('%Y%m%d')}.pdf" if safe_name else f"local_party_account_{datetime.now().strftime('%Y%m%d')}.pdf"
     return Response(content=buffer.getvalue(), media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=local_party_account_{datetime.now().strftime('%Y%m%d')}.pdf"})
+        headers={"Content-Disposition": f"attachment; filename={fname}"})
