@@ -1,6 +1,13 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.20
+## Current Version: v104.44.21
+
+## 🎯 v104.44.21 — Daily Report Full Coverage Documentation Refresh
+**Build date:** 2026-02-17
+
+Documentation-only version bump. Daily Report ab 21 sections cover karta hai (Normal + Detail mode) across Frontend + PDF + Excel. What's New me user-facing summary published.
+
+---
 
 ## 🎯 v104.44.20 — Jump-to-Section Nav + Excel/PDF Export Updated
 **Build date:** 2026-02-17

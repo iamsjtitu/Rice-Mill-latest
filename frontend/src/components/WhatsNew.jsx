@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.21",
+    date: "Feb 17, 2026",
+    title: "v104.44.21 — 📋 Daily Report Full Coverage Documented (21 Sections Live)",
+    items: [
+      { type: "improvement", text: "📋 **Daily Report ab 21 sections cover karta hai** — Paddy Entries, Milling, Private Trading, Cash Flow, Cash Txns, Payments Summary, Pump, DC Deliveries, Mill Parts, Staff, Hemali, Paddy Chalna, Vehicle Weight (Auto), Per-Trip Bhada, Party Payments Breakdown, Leased Truck, Oil Premium / Lab Test, Sale Vouchers, Purchase Vouchers, By-Product Sales, FRK Purchases." },
+      { type: "improvement", text: "🟢 **Normal Mode** me sab sections ka summary (KPI tiles). 🔴 **Detail Mode** me full row-by-row tables (party/vehicle/amount/description har field ke saath)." },
+      { type: "improvement", text: "📥 **Frontend + PDF + Excel** teeno formats me same 21 sections dikhte hain — zero-count sections auto-skip ho jate hain. **Triple-backend parity** (Python + Node Desktop + Node LAN) maintained." },
+      { type: "improvement", text: "🧭 **Jump-to-Section** dropdown top pe available — sirf non-empty sections dikhata hai, smooth scroll. Power users ke liye Alt+Shift+P/E/W/G keyboard shortcuts bhi kaam karte hain." },
+      { type: "improvement", text: "📌 **P2 Backlog (optional)**: Govt Registers (8 sub), Weight Discrepancy flags, Letter Pad, Stock Register daily delta — mostly already indirectly covered. Agar specifically chahiye toh bata dena." },
+    ],
+  },
+  {
     version: "104.44.20",
     date: "Feb 17, 2026",
     title: "v104.44.20 — 🧭 Jump-to-Section Nav + Excel/PDF Export Updated",
