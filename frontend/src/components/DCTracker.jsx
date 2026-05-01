@@ -252,10 +252,10 @@ export const DCEntries = ({ filters, user }) => {
         </div>
       )}
       <div className="flex gap-2 flex-wrap items-center">
-        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
+        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4" /></Button>
         <Button onClick={() => setShowForm(true)} className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm" data-testid="dc-add-btn"><Plus className="w-4 h-4 mr-1" /> New DC</Button>
-        <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="dc-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
-        <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="dc-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+        <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="dc-export-excel"><Download className="w-4 h-4" /></Button>
+        <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="dc-export-pdf"><FileText className="w-4 h-4" /></Button>
         <div className="relative ml-auto">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
           <Input
@@ -627,10 +627,10 @@ export const MSPPayments = ({ filters, user, dcList: externalDcList }) => {
         </div>
       )}
       <div className="flex gap-2 flex-wrap">
-        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
+        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4" /></Button>
         <Button onClick={() => setShowForm(true)} className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm" data-testid="msp-add-btn"><Plus className="w-4 h-4 mr-1" /> New Payment</Button>
-        <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="msp-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
-        <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="msp-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+        <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="msp-export-excel"><Download className="w-4 h-4" /></Button>
+        <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="msp-export-pdf"><FileText className="w-4 h-4" /></Button>
       </div>
       <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
         <Table><TableHeader><TableRow className="border-slate-700 hover:bg-transparent">
@@ -954,7 +954,7 @@ export const GunnyBags = ({ filters, user }) => {
           ))}
         </div>
         <div className="flex gap-2 ml-auto">
-          <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
+          <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4" /></Button>
           <Button onClick={openNewForm} className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm" data-testid="gunny-add-btn"><Plus className="w-4 h-4 mr-1" /> New Entry</Button>
           <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700 h-9 w-9 p-0" title="Excel" data-testid="gunny-export-excel"><Download className="w-4 h-4" /></Button>
           <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700 h-9 w-9 p-0" title="PDF" data-testid="gunny-export-pdf"><FileText className="w-4 h-4" /></Button>

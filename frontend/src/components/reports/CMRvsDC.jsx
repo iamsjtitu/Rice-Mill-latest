@@ -31,9 +31,9 @@ const CMRvsDC = ({ filters }) => {
   return (
     <div className="space-y-4" data-testid="cmr-vs-dc-report">
       <div className="flex gap-2">
-        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
-        <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400" data-testid="cmr-dc-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
-        <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="cmr-dc-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300"><RefreshCw className="w-4 h-4" /></Button>
+        <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400" data-testid="cmr-dc-export-excel"><Download className="w-4 h-4" /></Button>
+        <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="cmr-dc-export-pdf"><FileText className="w-4 h-4" /></Button>
       </div>
       <Card className="bg-slate-800 border-slate-700"><CardHeader className="pb-2 pt-3 px-4"><CardTitle className="text-sm text-blue-400">Milling Output / उत्पादन</CardTitle></CardHeader>
         <CardContent className="pt-0"><div className="grid grid-cols-3 md:grid-cols-6 gap-3">

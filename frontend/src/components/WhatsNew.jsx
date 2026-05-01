@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.15",
+    date: "Feb 16, 2026",
+    title: "v104.44.15 — 🎯 GLOBAL Icon-only Buttons (Excel/PDF/WhatsApp/Group/Telegram/Refresh/Filter)",
+    items: [
+      { type: "improvement", text: "🎯 **Pure software me icon-only buttons** — har jagah Excel/PDF/WhatsApp/Group/Telegram/Refresh/Filter buttons ab sirf icon dikhate hain (no text). Hover karne pe tooltip me poora label aata hai (e.g. 'Excel Export', 'PDF Export', 'Send to WhatsApp', 'Send to Group')." },
+      { type: "improvement", text: "✅ **109 buttons converted across 31 files**: Mill Entries (AppHeader), Paddy Purchase Register, Sale Book, Cash Book / Ledgers, Payments tabs, Govt Registers (8 sub-tabs), Milling Tracker, Mill Parts Stock, Staff Management, DC Tracker, Daily/Season/CMR Reports, Hemali Payments, FY Summary, Balance Sheet, Vehicle Weight, Auto Weight Entries, Letter Pad, GST Ledger, Stock Summary, Oil Premium, Mandi Custody, Weight Discrepancy, Byproduct Sale Register — sab me consistent icon-only style." },
+      { type: "improvement", text: "📐 **Consistent sizing**: 9×9 (h-9 w-9 p-0) icon-only buttons with colored borders (red/emerald/green/cyan/sky/slate per action). Matches Per-Trip Bhada / Truck Owner / Local Party header pattern from previous versions." },
+      { type: "fix", text: "✅ **Accessibility preserved** — `title` aur `aria-label` attributes har button pe added hain, screen readers + tooltips dono kaam karte hain." },
+    ],
+  },
+  {
     version: "104.44.14",
     date: "Feb 16, 2026",
     title: "v104.44.14 — 📁 GLOBAL Smart Filename: Hyphen-style across All Excel/PDF/WhatsApp downloads",

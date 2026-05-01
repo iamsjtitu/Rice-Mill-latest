@@ -178,7 +178,7 @@ export default function FeatureDemo() {
               <Eye className="w-4 h-4 mr-1" /> Preview Invoice
             </Button>
             <Button size="sm" variant="outline" className="border-slate-600 text-slate-300">
-              <Download className="w-4 h-4 mr-1" /> PDF Download
+              <Download className="w-4 h-4" /> Download
             </Button>
           </div>
         </CardContent>

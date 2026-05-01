@@ -102,9 +102,9 @@ export function PaddyCustodyRegister({ filters }) {
               <button onClick={() => setViewMode("daily")} className={`px-3 py-1 rounded text-xs font-medium transition ${viewMode === "daily" ? "bg-amber-600 text-white" : "text-slate-400 hover:text-white"}`} data-testid="custody-daily-btn">Daily</button>
               <button onClick={() => setViewMode("weekly")} className={`px-3 py-1 rounded text-xs font-medium transition ${viewMode === "weekly" ? "bg-amber-600 text-white" : "text-slate-400 hover:text-white"}`} data-testid="custody-weekly-btn">Weekly</button>
             </div>
-            <Button onClick={fetchRegister} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
-            <Button onClick={exportExcel} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="custody-export-excel"><FileSpreadsheet className="w-4 h-4 mr-1" /> Excel</Button>
-            <Button onClick={exportPdf} size="sm" className="bg-red-700 hover:bg-red-600" data-testid="custody-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+            <Button onClick={fetchRegister} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4" /></Button>
+            <Button onClick={exportExcel} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="custody-export-excel"><FileSpreadsheet className="w-4 h-4" /></Button>
+            <Button onClick={exportPdf} size="sm" className="bg-red-700 hover:bg-red-600" data-testid="custody-export-pdf"><FileText className="w-4 h-4" /></Button>
           </div>
         )}
       </div>
@@ -200,7 +200,7 @@ function FormARegister({ filters }) {
             <button onClick={() => setViewMode("weekly")} className={`px-3 py-1 rounded text-xs font-medium transition ${viewMode === "weekly" ? "bg-amber-600 text-white" : "text-slate-400 hover:text-white"}`} data-testid="form-a-weekly-btn">Weekly</button>
           </div>
           <Button onClick={handleExcel} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="form-a-excel-btn">
-            <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+            <FileSpreadsheet className="w-4 h-4" />
           </Button>
           <Button onClick={() => {
             const params = new URLSearchParams();
@@ -211,7 +211,7 @@ function FormARegister({ filters }) {
             params.append("group_by", viewMode);
             window.open(`${API}/govt-registers/form-a/pdf?${params}`, "_blank");
           }} size="sm" className="bg-red-700 hover:bg-red-600" data-testid="form-a-pdf-btn">
-            <FileText className="w-4 h-4 mr-1" /> PDF
+            <FileText className="w-4 h-4" />
           </Button>
         </div>
       </div>
@@ -310,7 +310,7 @@ function FormBRegister({ filters }) {
           <p className="text-xs text-slate-400">Custom Milled Rice (CMR) produced & delivered (Milling + Sale Book se linked)</p>
         </div>
         <Button onClick={handleExcel} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="form-b-excel-btn">
-          <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel Export
+          <FileSpreadsheet className="w-4 h-4" /> Export
         </Button>
       </div>
       {loading ? <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-amber-400" /></div> : (
@@ -390,7 +390,7 @@ function FormERegister({ filters }) {
           <p className="text-xs text-slate-400">Private paddy purchases & stock (Private Trading se linked)</p>
         </div>
         <Button onClick={handleExcel} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="form-e-excel-btn">
-          <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel Export
+          <FileSpreadsheet className="w-4 h-4" /> Export
         </Button>
       </div>
       {loading ? <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-amber-400" /></div> : (
@@ -471,7 +471,7 @@ function FormFRegister({ filters }) {
           <p className="text-xs text-slate-400">Rice produced & sold from own account (Sale Book se linked)</p>
         </div>
         <Button onClick={handleExcel} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="form-f-excel-btn">
-          <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel Export
+          <FileSpreadsheet className="w-4 h-4" /> Export
         </Button>
       </div>
       {loading ? <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-amber-400" /></div> : (
@@ -610,7 +610,7 @@ function FrkRegister({ filters, user }) {
             <Plus className="w-4 h-4 mr-1" /> Add Entry
           </Button>
           <Button onClick={handleExcel} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="frk-excel-btn">
-            <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+            <FileSpreadsheet className="w-4 h-4" />
           </Button>
         </div>
       </div>
@@ -797,7 +797,7 @@ export function GunnyBagRegister({ filters, user }) {
             <Plus className="w-4 h-4 mr-1" /> Add Entry
           </Button>
           <Button onClick={handleExcel} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="gunny-excel-btn">
-            <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+            <FileSpreadsheet className="w-4 h-4" />
           </Button>
         </div>
       </div>
@@ -977,10 +977,10 @@ export function TransitPassRegister({ filters }) {
         </div>
         <div className="flex gap-2">
           <Button onClick={() => window.open(`${API}/govt-registers/transit-pass/excel?${buildExportParams()}`, "_blank")} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="tp-excel-btn">
-            <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+            <FileSpreadsheet className="w-4 h-4" />
           </Button>
           <Button onClick={() => window.open(`${API}/govt-registers/transit-pass/pdf?${buildExportParams()}`, "_blank")} size="sm" className="bg-red-700 hover:bg-red-600" data-testid="tp-pdf-btn">
-            <FileText className="w-4 h-4 mr-1" /> PDF
+            <FileText className="w-4 h-4" />
           </Button>
         </div>
       </div>
@@ -1357,11 +1357,11 @@ export function MillingRegister({ filters, user }) {
             <>
               <Button onClick={async () => { try { const params = new URLSearchParams(); if(filters.kms_year) params.append('kms_year',filters.kms_year); if(filters.season) params.append('season',filters.season); const { downloadFile } = await import('../utils/download'); const { buildFilename } = await import('../utils/filename-format'); downloadFile(`/api/govt-registers/milling-register/excel?${params}`, buildFilename({ base: 'milling-register', kmsYear: filters.kms_year, ext: 'xlsx' })); toast.success("Excel!"); } catch(e) { toast.error("Export failed"); }}}
                 variant="outline" size="sm" className="border-slate-600 text-green-600 dark:text-green-400 hover:bg-slate-100 dark:hover:bg-slate-700 h-7 text-[10px]" data-testid="mr-export-excel">
-                <Download className="w-3 h-3 mr-1" /> Excel
+                <Download className="w-3 h-3" />
               </Button>
               <Button onClick={async () => { try { const params = new URLSearchParams(); if(filters.kms_year) params.append('kms_year',filters.kms_year); if(filters.season) params.append('season',filters.season); const { downloadFile } = await import('../utils/download'); const { buildFilename } = await import('../utils/filename-format'); downloadFile(`/api/govt-registers/milling-register/pdf?${params}`, buildFilename({ base: 'milling-register', kmsYear: filters.kms_year, ext: 'pdf' })); toast.success("PDF!"); } catch(e) { toast.error("Export failed"); }}}
                 variant="outline" size="sm" className="border-slate-600 text-red-600 dark:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-700 h-7 text-[10px]" data-testid="mr-export-pdf">
-                <Download className="w-3 h-3 mr-1" /> PDF
+                <Download className="w-3 h-3" />
               </Button>
             </>
           )}
@@ -1548,10 +1548,10 @@ export function MillingRegister({ filters, user }) {
                     {vr && (
                       <>
                         <Button onClick={downloadVerificationExcel} size="sm" className="bg-green-600 hover:bg-green-700 text-white h-7 text-[10px]" data-testid="vr-excel-btn">
-                          <Download className="w-3 h-3 mr-1" /> Excel
+                          <Download className="w-3 h-3" />
                         </Button>
                         <Button onClick={downloadVerificationPdf} size="sm" className="bg-red-600 hover:bg-red-700 text-white h-7 text-[10px]" data-testid="vr-pdf-btn">
-                          <Download className="w-3 h-3 mr-1" /> PDF (Annexure-1)
+                          <Download className="w-3 h-3" /> (Annexure-1)
                         </Button>
                       </>
                     )}
@@ -1746,7 +1746,7 @@ function CmrDeliveryTracker({ filters, user }) {
             <Plus className="w-4 h-4 mr-1" /> Add Delivery
           </Button>
           <Button onClick={handleExcel} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="cmr-excel-btn">
-            <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+            <FileSpreadsheet className="w-4 h-4" />
           </Button>
         </div>
       </div>
@@ -1915,7 +1915,7 @@ function SecurityDepositManager({ filters, user }) {
             <Plus className="w-4 h-4 mr-1" /> Add Deposit
           </Button>
           <Button onClick={handleExcel} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="sd-excel-btn">
-            <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+            <FileSpreadsheet className="w-4 h-4" />
           </Button>
         </div>
       </div>

@@ -225,13 +225,13 @@ export default function BalanceSheet({ filters }) {
             <Printer className="w-3 h-3 mr-1" /> Print
           </Button>
           <Button size="sm" variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700" onClick={downloadPdf} data-testid="bs-pdf-btn">
-            <FileDown className="w-3 h-3 mr-1" /> PDF
+            <FileDown className="w-3 h-3" />
           </Button>
           <Button size="sm" variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700" onClick={downloadExcel} data-testid="bs-excel-btn">
-            <FileSpreadsheet className="w-3 h-3 mr-1" /> Excel
+            <FileSpreadsheet className="w-3 h-3" />
           </Button>
           <Button size="sm" variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700" onClick={fetchData} data-testid="bs-refresh-btn">
-            <RefreshCw className="w-3 h-3 mr-1" /> Refresh
+            <RefreshCw className="w-3 h-3" />
           </Button>
         </div>
       </div>

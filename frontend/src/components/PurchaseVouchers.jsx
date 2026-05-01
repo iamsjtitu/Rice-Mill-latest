@@ -355,7 +355,7 @@ export default function PurchaseVouchers({ filters, user }) {
           <Plus className="w-4 h-4 mr-1" /> Nayi Entry
         </Button>
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="pv-refresh-btn">
-          <RefreshCw className="w-4 h-4 mr-1" /> Refresh
+          <RefreshCw className="w-4 h-4" />
         </Button>
         <Button onClick={() => handleExport('pdf')} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30 h-9 w-9 p-0" title="PDF" data-testid="pv-export-pdf">
           <FileText className="w-4 h-4" />

@@ -1576,7 +1576,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                   });
                   downloadFile(`${API}/vehicle-weight/export/excel?${fp.toString()}`, fname);
                 }}>
-                <FileSpreadsheet className="w-3 h-3 mr-1" />Excel
+                <FileSpreadsheet className="w-3 h-3" />
               </Button>
               <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-red-700 border-red-300 hover:bg-red-50" data-testid="vw-export-pdf"
                 onClick={async () => {
@@ -1591,7 +1591,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                   });
                   downloadFile(`${API}/vehicle-weight/export/pdf?${fp.toString()}`, fname);
                 }}>
-                <FileText className="w-3 h-3 mr-1" />PDF
+                <FileText className="w-3 h-3" />
               </Button>
               <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-slate-400 hover:text-slate-200" data-testid="vw-toggle-completed" onClick={() => setShowCompleted(!showCompleted)}>
                 {showCompleted ? <><EyeOff className="w-3 h-3 mr-1" />Hide</> : <><Eye className="w-3 h-3 mr-1" />Show</>}

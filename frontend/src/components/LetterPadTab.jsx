@@ -522,7 +522,7 @@ const LetterPadTab = () => {
               <Button onClick={() => openWhatsApp("group")} disabled={!body.trim()}
                 title="WhatsApp Group"
                 className="bg-emerald-700 hover:bg-emerald-800 text-white" data-testid="wa-group-btn">
-                <Users className="w-4 h-4 mr-1" /> Group
+                <Users className="w-4 h-4" />
               </Button>
             </div>
           </div>

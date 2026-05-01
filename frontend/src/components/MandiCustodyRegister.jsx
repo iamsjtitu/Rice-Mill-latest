@@ -77,10 +77,10 @@ export default function MandiCustodyRegister({ filters }) {
         </Button>
         <div className="ml-auto flex gap-2">
           <Button size="sm" variant="outline" onClick={exportPdf} className="border-red-300 text-red-600 hover:bg-red-50 text-xs" data-testid="custody-pdf-btn">
-            <FileText className="w-3.5 h-3.5 mr-1" /> PDF
+            <FileText className="w-3.5 h-3.5" />
           </Button>
           <Button size="sm" variant="outline" onClick={exportExcel} className="border-green-300 text-green-600 hover:bg-green-50 text-xs" data-testid="custody-excel-btn">
-            <FileSpreadsheet className="w-3.5 h-3.5 mr-1" /> Excel
+            <FileSpreadsheet className="w-3.5 h-3.5" />
           </Button>
         </div>
       </div>

@@ -168,7 +168,7 @@ const MonthlySummary = ({ filters }) => {
     <div className="space-y-4" data-testid="hemali-monthly-summary">
       <div className="flex flex-wrap gap-2 items-center">
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700">
-          <RefreshCw className="w-4 h-4 mr-1" /> Refresh
+          <RefreshCw className="w-4 h-4" />
         </Button>
         <Button onClick={() => handleExport("pdf")} variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-900/30 h-9 w-9 p-0" title="PDF" data-testid="monthly-export-pdf">
           <FileText className="w-4 h-4" />
@@ -558,7 +558,7 @@ export default function HemaliPayment({ filters, user }) {
               <Plus className="w-4 h-4 mr-1" /> Nayi Hemali Payment
             </Button>
             <Button onClick={fetchPayments} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700" data-testid="refresh-hemali-btn">
-              <RefreshCw className="w-4 h-4 mr-1" /> Refresh
+              <RefreshCw className="w-4 h-4" />
             </Button>
             <Button onClick={handleExportPDF} variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-900/30 h-9 w-9 p-0" title="PDF" data-testid="hemali-export-pdf">
               <FileText className="w-4 h-4" />

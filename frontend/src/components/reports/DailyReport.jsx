@@ -119,9 +119,9 @@ const DailyReport = ({ filters }) => {
             className={`px-3 text-xs font-medium transition-colors ${mode === "detail" ? "bg-amber-500 text-slate-900" : "text-slate-400 hover:text-white"}`}
             data-testid="daily-mode-detail">Detail</button>
         </div>
-        <Button onClick={fetchReport} variant="outline" size="sm" className="border-slate-600 text-slate-300 h-9"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
-        <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 h-9" data-testid="daily-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
-        <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-9" data-testid="daily-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+        <Button onClick={fetchReport} variant="outline" size="sm" className="border-slate-600 text-slate-300 h-9"><RefreshCw className="w-4 h-4" /></Button>
+        <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 h-9" data-testid="daily-export-excel"><Download className="w-4 h-4" /></Button>
+        <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-9" data-testid="daily-export-pdf"><FileText className="w-4 h-4" /></Button>
         {tg && isDetail && (
           <Button onClick={openTelegramConfirm} disabled={sendingTelegram} variant="outline" size="sm"
             title="Telegram pe bhejein" aria-label="Telegram pe bhejein"

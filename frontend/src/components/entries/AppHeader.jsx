@@ -290,22 +290,25 @@ const EntriesActionBar = ({
 }) => (
   <div className="flex gap-1.5 sm:gap-2 flex-wrap mt-3">
     <Button onClick={() => { fetchEntries(); fetchTotals(); }} variant="outline" size="sm"
-      className="border-slate-600 text-slate-300 hover:bg-slate-700" data-testid="refresh-btn">
-      <RefreshCw className="w-4 h-4 sm:mr-1" /><span className="hidden sm:inline">Refresh</span>
+      title="Refresh" aria-label="Refresh"
+      className="border-slate-600 text-slate-300 hover:bg-slate-700 h-9 w-9 p-0" data-testid="refresh-btn">
+      <RefreshCw className="w-4 h-4" />
     </Button>
     <Button onClick={() => setShowFilters(!showFilters)} variant="outline" size="sm"
-      className={`border-slate-600 text-slate-300 hover:bg-slate-700 ${hasActiveFilters ? 'bg-amber-900/30 border-amber-600' : ''}`}
+      title={hasActiveFilters ? "Filter (active)" : "Filter"} aria-label="Filter"
+      className={`border-slate-600 text-slate-300 hover:bg-slate-700 h-9 w-9 p-0 ${hasActiveFilters ? 'bg-amber-900/30 border-amber-600' : ''}`}
       data-testid="filter-btn">
-      <Filter className="w-4 h-4 sm:mr-1" /><span className="hidden sm:inline">Filter</span>
-      {hasActiveFilters && <span className="ml-1 bg-amber-500 text-xs px-1 rounded">ON</span>}
+      <Filter className="w-4 h-4" />
     </Button>
     <Button onClick={handleExportExcel} variant="outline" size="sm"
-      className="border-green-600 text-green-400 hover:bg-green-900/30" data-testid="export-excel-btn">
-      <FileSpreadsheet className="w-4 h-4 sm:mr-1" /><span className="hidden sm:inline">Excel</span>
+      title="Excel Export" aria-label="Excel"
+      className="border-green-600 text-green-400 hover:bg-green-900/30 h-9 w-9 p-0" data-testid="export-excel-btn">
+      <FileSpreadsheet className="w-4 h-4" />
     </Button>
     <Button onClick={handleExportPDF} variant="outline" size="sm"
-      className="border-red-600 text-red-400 hover:bg-red-900/30" data-testid="export-pdf-btn">
-      <FileText className="w-4 h-4 sm:mr-1" /><span className="hidden sm:inline">PDF</span>
+      title="PDF Export" aria-label="PDF"
+      className="border-red-600 text-red-400 hover:bg-red-900/30 h-9 w-9 p-0" data-testid="export-pdf-btn">
+      <FileText className="w-4 h-4" />
     </Button>
     {wa && <Button onClick={handleEntriesWhatsApp} variant="outline" size="sm"
       title="WhatsApp pe bhejein" aria-label="WhatsApp"

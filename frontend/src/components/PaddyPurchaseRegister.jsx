@@ -149,42 +149,40 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
 
   return (
     <div className="space-y-4" data-testid="paddy-purchase-register">
-      {/* Header Bar */}
+      {/* Header Bar — icon-only export buttons (consistent with Per-Trip Bhada / Truck Owner) */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-lg font-semibold text-amber-400">
           Paddy Purchase Register ({totalCount.toLocaleString()} entries)
         </h2>
-        <div className="flex gap-2 flex-wrap">
-          <Button size="sm" variant="outline" onClick={() => setShowFilters(!showFilters)}
-            className="border-slate-600 text-slate-300" data-testid="ppr-toggle-filters">
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="ghost" onClick={() => setShowFilters(!showFilters)}
+            className="h-9 px-2 text-slate-300 hover:bg-slate-700 border border-slate-600" title="Filters" data-testid="ppr-toggle-filters">
             <Filter className="w-4 h-4 mr-1" /> Filters
           </Button>
-          <Button size="sm" onClick={() => window.open(`${API}/export/excel?${buildExportParams()}`, "_blank")}
-            className="bg-green-700 hover:bg-green-600 text-white" data-testid="ppr-download-excel">
-            <Download className="w-4 h-4 mr-1" /> Excel
+          <Button size="sm" variant="ghost" onClick={() => window.open(`${API}/export/excel?${buildExportParams()}`, "_blank")}
+            className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600" title="Excel Export" data-testid="ppr-download-excel">
+            <Download className="w-4 h-4" />
           </Button>
-          <Button size="sm" onClick={() => window.open(`${API}/export/pdf?${buildExportParams()}`, "_blank")}
-            className="bg-red-700 hover:bg-red-600 text-white" data-testid="ppr-download-pdf">
-            <FileText className="w-4 h-4 mr-1" /> PDF
+          <Button size="sm" variant="ghost" onClick={() => window.open(`${API}/export/pdf?${buildExportParams()}`, "_blank")}
+            className="h-9 w-9 p-0 text-red-400 hover:bg-red-900/30 border border-red-600" title="PDF Export" data-testid="ppr-download-pdf">
+            <FileText className="w-4 h-4" />
           </Button>
           {wa && (
-            <Button size="sm" onClick={sendWhatsApp} disabled={!!sending}
-              className="bg-[#25D366] hover:bg-[#1da851] text-white" data-testid="ppr-send-wa">
-              {sending === "wa" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <WhatsAppIcon />}
-              <span className="ml-1">WhatsApp</span>
+            <Button size="sm" variant="ghost" onClick={sendWhatsApp} disabled={!!sending}
+              className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600 disabled:opacity-50" title="Send to WhatsApp" data-testid="ppr-send-wa">
+              {sending === "wa" ? <Loader2 className="w-4 h-4 animate-spin" /> : <WhatsAppIcon />}
             </Button>
           )}
           {wa && (
-            <Button size="sm" onClick={openGroupDialog} variant="outline"
-              className="border-teal-600 text-teal-400 hover:bg-teal-900/30" data-testid="ppr-send-wa-group">
-              <Users className="w-4 h-4 mr-1" /> Group
+            <Button size="sm" variant="ghost" onClick={openGroupDialog}
+              className="h-9 w-9 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600" title="Send to Group" data-testid="ppr-send-wa-group">
+              <Users className="w-4 h-4" />
             </Button>
           )}
           {tg && (
-            <Button size="sm" onClick={sendTelegram} disabled={!!sending}
-              className="bg-[#0088cc] hover:bg-[#006da3] text-white" data-testid="ppr-send-tg">
-              {sending === "tg" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <TelegramIcon />}
-              <span className="ml-1">Telegram</span>
+            <Button size="sm" variant="ghost" onClick={sendTelegram} disabled={!!sending}
+              className="h-9 w-9 p-0 text-sky-400 hover:bg-sky-900/30 border border-sky-600 disabled:opacity-50" title="Send to Telegram" data-testid="ppr-send-tg">
+              {sending === "tg" ? <Loader2 className="w-4 h-4 animate-spin" /> : <TelegramIcon />}
             </Button>
           )}
         </div>

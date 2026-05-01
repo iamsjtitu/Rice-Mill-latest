@@ -91,7 +91,7 @@ const GSTLedger = ({ filters }) => {
 
       <div className="flex gap-2 flex-wrap">
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700">
-          <RefreshCw className="w-4 h-4 mr-1" /> Refresh
+          <RefreshCw className="w-4 h-4" />
         </Button>
         <Button onClick={openObDialog} variant="outline" size="sm" className="border-purple-600 text-purple-400 hover:bg-purple-900/30" data-testid="gst-ob-btn">
           <Wallet className="w-4 h-4 mr-1" /> GST Opening Balance

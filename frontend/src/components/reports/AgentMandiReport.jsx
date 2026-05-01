@@ -135,7 +135,7 @@ const AgentMandiReport = ({ filters }) => {
           )}
         </div>
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="agent-mandi-refresh">
-          <RefreshCw className="w-4 h-4 mr-1" /> Refresh
+          <RefreshCw className="w-4 h-4" />
         </Button>
         <Button onClick={expandAll} variant="outline" size="sm" className="border-slate-600 text-slate-300">Expand All</Button>
         <Button onClick={collapseAll} variant="outline" size="sm" className="border-slate-600 text-slate-300">Collapse All</Button>

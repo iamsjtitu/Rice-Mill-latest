@@ -276,7 +276,7 @@ export default function MillPartsStock({ filters, user }) {
             <Button onClick={() => { setStockForm(prev => ({ ...prev, txn_type: "used" })); setStockDialog(true); }} className="bg-red-500 hover:bg-red-600 text-white" size="sm" data-testid="stock-used-btn">
               <ArrowUp className="w-4 h-4 mr-1" /> Stock Used
             </Button>
-            <Button onClick={fetchAll} variant="outline" size="sm" className="border-slate-600 text-slate-300"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
+            <Button onClick={fetchAll} variant="outline" size="sm" className="border-slate-600 text-slate-300"><RefreshCw className="w-4 h-4" /></Button>
             <div className="ml-auto flex gap-2">
               <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 h-9 w-9 p-0" title="Excel" data-testid="parts-export-excel"><Download className="w-4 h-4" /></Button>
               <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-9 w-9 p-0" title="PDF" data-testid="parts-export-pdf"><FileText className="w-4 h-4" /></Button>
@@ -396,8 +396,8 @@ export default function MillPartsStock({ filters, user }) {
             <Button onClick={() => { setStockForm(prev => ({ ...prev, txn_type: "in" })); setStockDialog(true); }} className="bg-emerald-500 hover:bg-emerald-600 text-white" size="sm"><ArrowDown className="w-4 h-4 mr-1" /> Stock In</Button>
             <Button onClick={() => { setStockForm(prev => ({ ...prev, txn_type: "used" })); setStockDialog(true); }} className="bg-red-500 hover:bg-red-600 text-white" size="sm"><ArrowUp className="w-4 h-4 mr-1" /> Stock Used</Button>
             <div className="ml-auto flex gap-2">
-              <Button onClick={() => exportTxns('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400" data-testid="txn-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
-              <Button onClick={() => exportTxns('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="txn-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+              <Button onClick={() => exportTxns('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400" data-testid="txn-export-excel"><Download className="w-4 h-4" /></Button>
+              <Button onClick={() => exportTxns('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="txn-export-pdf"><FileText className="w-4 h-4" /></Button>
             </div>
           </div>
           <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
@@ -445,11 +445,11 @@ export default function MillPartsStock({ filters, user }) {
               <div className="flex gap-2">
                 <Button onClick={async () => { const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season); p.append('part_name', searchPart); const { buildFilename } = await import('../utils/filename-format'); downloadFile(`/api/mill-parts/part-summary/excel?${p}`, buildFilename({ base: 'summary', party: searchPart, kmsYear: filters.kms_year, ext: 'xlsx' })); }}
                   variant="outline" size="sm" className="border-emerald-600/50 text-emerald-400 hover:bg-emerald-900/30" data-testid="partwise-export-excel">
-                  <Download className="w-4 h-4 mr-1" /> Excel
+                  <Download className="w-4 h-4" />
                 </Button>
                 <Button onClick={async () => { const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season); p.append('part_name', searchPart); const { buildFilename } = await import('../utils/filename-format'); downloadFile(`/api/mill-parts/part-summary/pdf?${p}`, buildFilename({ base: 'summary', party: searchPart, kmsYear: filters.kms_year, ext: 'pdf' })); }}
                   variant="outline" size="sm" className="border-red-600/50 text-red-400 hover:bg-red-900/30" data-testid="partwise-export-pdf">
-                  <FileText className="w-4 h-4 mr-1" /> PDF
+                  <FileText className="w-4 h-4" />
                 </Button>
               </div>
             )}
@@ -655,10 +655,10 @@ export default function MillPartsStock({ filters, user }) {
         <div className="space-y-4">
           <div className="flex gap-2 items-center flex-wrap">
             <h3 className="text-white font-semibold text-base">Store Room-wise Inventory Report</h3>
-            <Button onClick={fetchStoreRoomReport} variant="outline" size="sm" className="border-slate-600 text-slate-300"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
+            <Button onClick={fetchStoreRoomReport} variant="outline" size="sm" className="border-slate-600 text-slate-300"><RefreshCw className="w-4 h-4" /></Button>
             <div className="ml-auto flex gap-2">
-              <Button onClick={() => exportRoomReport('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400" data-testid="room-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
-              <Button onClick={() => exportRoomReport('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="room-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+              <Button onClick={() => exportRoomReport('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400" data-testid="room-export-excel"><Download className="w-4 h-4" /></Button>
+              <Button onClick={() => exportRoomReport('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="room-export-pdf"><FileText className="w-4 h-4" /></Button>
             </div>
           </div>
           {storeRoomReport.length === 0 ? (

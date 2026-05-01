@@ -34,7 +34,7 @@ function ErrorLogTab() {
           <div className="flex gap-2">
             <Button onClick={fetchErrorLog} variant="outline" size="sm"
               className="border-red-600 text-red-400 hover:bg-red-900/30" data-testid="refresh-error-log-btn">
-              <RefreshCw className="w-4 h-4 mr-1" /> Refresh Log
+              <RefreshCw className="w-4 h-4" /> Log
             </Button>
             <Button
               onClick={async () => {

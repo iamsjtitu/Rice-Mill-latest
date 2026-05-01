@@ -63,13 +63,13 @@ export const OutstandingReport = ({ filters }) => {
     <div className="space-y-4" data-testid="outstanding-report">
       <div className="flex gap-2">
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="outstanding-refresh">
-          <RefreshCw className="w-4 h-4 mr-1" /> Refresh
+          <RefreshCw className="w-4 h-4" />
         </Button>
         <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400" data-testid="outstanding-export-excel">
-          <Download className="w-4 h-4 mr-1" /> Excel
+          <Download className="w-4 h-4" />
         </Button>
         <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="outstanding-export-pdf">
-          <FileText className="w-4 h-4 mr-1" /> PDF
+          <FileText className="w-4 h-4" />
         </Button>
       </div>
 
@@ -412,20 +412,20 @@ const PartyLedger = ({ filters }) => {
         )}
 
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="party-ledger-refresh">
-          <RefreshCw className="w-4 h-4 mr-1" /> Refresh
+          <RefreshCw className="w-4 h-4" />
         </Button>
         <div className="ml-auto flex gap-2">
           <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400" data-testid="party-ledger-export-excel">
-            <Download className="w-4 h-4 mr-1" /> Excel
+            <Download className="w-4 h-4" />
           </Button>
           <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="party-ledger-export-pdf">
-            <FileText className="w-4 h-4 mr-1" /> PDF
+            <FileText className="w-4 h-4" />
           </Button>
           {wa && <Button onClick={sendLedgerWhatsApp} variant="outline" size="sm" className="border-green-500 text-green-400 hover:bg-green-500/10" data-testid="party-ledger-whatsapp">
-            <Send className="w-4 h-4 mr-1" /> WhatsApp
+            <Send className="w-4 h-4" />
           </Button>}
           {wa && <Button onClick={openGroupSendLedger} variant="outline" size="sm" className="border-teal-500 text-teal-400 hover:bg-teal-500/10" data-testid="party-ledger-send-to-group">
-            <Users className="w-4 h-4 mr-1" /> Group
+            <Users className="w-4 h-4" />
           </Button>}
         </div>
       </div>
@@ -620,7 +620,7 @@ const GSTLedger = ({ filters }) => {
       </div>
 
       <div className="flex gap-2 flex-wrap">
-        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
+        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4" /></Button>
         <Button onClick={openObDialog} variant="outline" size="sm" className="border-purple-600 text-purple-400 hover:bg-purple-900/30" data-testid="gst-ob-btn">
           <Wallet className="w-4 h-4 mr-1" /> Set Opening Balance
         </Button>

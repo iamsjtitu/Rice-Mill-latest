@@ -30,9 +30,9 @@ const SeasonPnL = ({ filters }) => {
   return (
     <div className="space-y-4" data-testid="season-pnl-report">
       <div className="flex gap-2">
-        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
-        <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400" data-testid="pnl-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
-        <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="pnl-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300"><RefreshCw className="w-4 h-4" /></Button>
+        <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400" data-testid="pnl-export-excel"><Download className="w-4 h-4" /></Button>
+        <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="pnl-export-pdf"><FileText className="w-4 h-4" /></Button>
       </div>
       <Card className={`border-2 ${data.profit ? 'border-green-600 bg-gradient-to-r from-green-900/40 to-slate-800' : 'border-red-600 bg-gradient-to-r from-red-900/40 to-slate-800'}`}>
         <CardContent className="p-5 text-center">

@@ -215,17 +215,17 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
           <Plus className="w-4 h-4 mr-1" /> New Milling Entry
         </Button>
         <Button onClick={() => { fetchEntries(); onRefresh(); }} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700">
-          <RefreshCw className="w-4 h-4 mr-1" /> Refresh
+          <RefreshCw className="w-4 h-4" />
         </Button>
         <Button onClick={() => setShowFilters(!showFilters)} variant="outline" size="sm"
           className={showFilters ? "border-amber-500 text-amber-400" : "border-slate-600 text-slate-300 hover:bg-slate-700"}>
-          <Filter className="w-4 h-4 mr-1" /> Filter
+          <Filter className="w-4 h-4" />
         </Button>
         <Button onClick={() => exportReport('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="milling-export-excel">
-          <Download className="w-4 h-4 mr-1" /> Excel
+          <Download className="w-4 h-4" />
         </Button>
         <Button onClick={() => exportReport('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="milling-export-pdf">
-          <FileText className="w-4 h-4 mr-1" /> PDF
+          <FileText className="w-4 h-4" />
         </Button>
       </div>
 
@@ -428,11 +428,11 @@ const FrkPurchaseTab = ({ filters, user, frkStock, onRefresh }) => {
       <div className="flex gap-2">
         <Button onClick={() => { setForm({ date: new Date().toISOString().split('T')[0], party_name: "", quantity_qntl: "", rate_per_qntl: "", note: "", kms_year: filters.kms_year || CURRENT_KMS_YEAR, season: filters.season || "Kharif" }); setIsDialogOpen(true); }}
           className="bg-cyan-600 hover:bg-cyan-700 text-white" size="sm" data-testid="frk-add-btn"><Plus className="w-4 h-4 mr-1" /> New FRK Purchase</Button>
-        <Button onClick={() => { fetch(); onRefresh(); }} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
+        <Button onClick={() => { fetch(); onRefresh(); }} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4" /></Button>
         <Button onClick={async () => { try { const params = new URLSearchParams(); if (filters.kms_year) params.append('kms_year', filters.kms_year); if (filters.season) params.append('season', filters.season); const { downloadFile } = await import('../utils/download'); const { buildFilename } = await import('../utils/filename-format'); downloadFile(`/api/frk-purchases/excel?${params}`, buildFilename({ base: 'frk-purchases', kmsYear: filters.kms_year, ext: 'xlsx' })); toast.success("Excel export!"); } catch(e) { toast.error("Export failed"); }}}
-          variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="frk-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
+          variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="frk-export-excel"><Download className="w-4 h-4" /></Button>
         <Button onClick={async () => { try { const params = new URLSearchParams(); if (filters.kms_year) params.append('kms_year', filters.kms_year); if (filters.season) params.append('season', filters.season); const { downloadFile } = await import('../utils/download'); const { buildFilename } = await import('../utils/filename-format'); downloadFile(`/api/frk-purchases/pdf?${params}`, buildFilename({ base: 'frk-purchases', kmsYear: filters.kms_year, ext: 'pdf' })); toast.success("PDF export!"); } catch(e) { toast.error("Export failed"); }}}
-          variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="frk-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+          variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="frk-export-pdf"><FileText className="w-4 h-4" /></Button>
       </div>
       <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
         <Table><TableHeader><TableRow className="border-slate-700 hover:bg-transparent">
@@ -537,9 +537,9 @@ const ByProductTab = ({ filters, user, onRefresh }) => {
       </div>}
       <div className="flex gap-2">
         <Button onClick={async () => { try { const params = new URLSearchParams(); if (filters.kms_year) params.append('kms_year', filters.kms_year); if (filters.season) params.append('season', filters.season); const { downloadFile } = await import('../utils/download'); const { buildFilename } = await import('../utils/filename-format'); downloadFile(`/api/byproduct-sales/excel?${params}`, buildFilename({ base: 'byproduct-sales', kmsYear: filters.kms_year, ext: 'xlsx' })); toast.success("Excel export!"); } catch(e) { toast.error("Export failed"); }}}
-          variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="byproduct-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
+          variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="byproduct-export-excel"><Download className="w-4 h-4" /></Button>
         <Button onClick={async () => { try { const params = new URLSearchParams(); if (filters.kms_year) params.append('kms_year', filters.kms_year); if (filters.season) params.append('season', filters.season); const { downloadFile } = await import('../utils/download'); const { buildFilename } = await import('../utils/filename-format'); downloadFile(`/api/byproduct-sales/pdf?${params}`, buildFilename({ base: 'byproduct-sales', kmsYear: filters.kms_year, ext: 'pdf' })); toast.success("PDF export!"); } catch(e) { toast.error("Export failed"); }}}
-          variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="byproduct-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+          variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="byproduct-export-pdf"><FileText className="w-4 h-4" /></Button>
       </div>
       <Card className="bg-slate-800 border-slate-700"><CardHeader className="pb-2 pt-3 px-4"><div className="flex justify-between items-center">
         <CardTitle className="text-sm text-amber-400">Recent Sales</CardTitle>
@@ -712,10 +712,10 @@ const PaddyChalnaTab = ({ filters }) => {
         )}
         <div className="ml-auto flex gap-2">
           <Button variant="outline" size="sm" onClick={() => handleExport('excel')} className="border-green-700 text-green-400 hover:bg-green-900/30" data-testid="cutting-export-excel">
-            <Download className="w-4 h-4 mr-1" /> Excel
+            <Download className="w-4 h-4" />
           </Button>
           <Button variant="outline" size="sm" onClick={() => handleExport('pdf')} className="border-red-700 text-red-400 hover:bg-red-900/30" data-testid="cutting-export-pdf">
-            <FileText className="w-4 h-4 mr-1" /> PDF
+            <FileText className="w-4 h-4" />
           </Button>
         </div>
       </div>

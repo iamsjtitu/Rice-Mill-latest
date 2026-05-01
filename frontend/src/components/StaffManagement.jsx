@@ -328,13 +328,13 @@ const QuickMonthlyReport = ({ staff, filters }) => {
           </Select>
         </div>
         <Button onClick={() => fetchData()} variant="outline" size="sm" className="border-slate-600 text-blue-400 h-9" data-testid="report-refresh">
-          <RefreshCw className="w-4 h-4 mr-1" /> Refresh
+          <RefreshCw className="w-4 h-4" />
         </Button>
         <Button onClick={() => exportReport('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 h-9" data-testid="report-export-excel">
-          <Download className="w-4 h-4 mr-1" /> Excel
+          <Download className="w-4 h-4" />
         </Button>
         <Button onClick={() => exportReport('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-9" data-testid="report-export-pdf">
-          <FileText className="w-4 h-4 mr-1" /> PDF
+          <FileText className="w-4 h-4" />
         </Button>
       </div>
 
@@ -535,10 +535,10 @@ const AdvanceSection = ({ staff, filters, fetchAdvances, advances, payments }) =
             {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
           <Button onClick={() => exportLedger('pdf')} variant="outline" size="sm" className="border-slate-600 text-slate-300 h-7 text-xs" data-testid="adv-export-pdf">
-            <FileText className="w-3 h-3 mr-1" /> PDF
+            <FileText className="w-3 h-3" />
           </Button>
           <Button onClick={() => exportLedger('excel')} variant="outline" size="sm" className="border-slate-600 text-slate-300 h-7 text-xs" data-testid="adv-export-excel">
-            <Download className="w-3 h-3 mr-1" /> Excel
+            <Download className="w-3 h-3" />
           </Button>
           <Button onClick={() => setShowAdd(true)} size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900 h-7 text-xs" data-testid="add-advance-btn">
             <Plus className="w-3 h-3 mr-1" /> Advance
@@ -910,10 +910,10 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
             <CardTitle className="text-sm text-slate-400">Payment History</CardTitle>
             <div className="flex gap-1">
               <Button onClick={() => exportPayments('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 h-7 text-xs" data-testid="pay-export-excel">
-                <Download className="w-3 h-3 mr-1" /> Excel
+                <Download className="w-3 h-3" />
               </Button>
               <Button onClick={() => exportPayments('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-7 text-xs" data-testid="pay-export-pdf">
-                <FileText className="w-3 h-3 mr-1" /> PDF
+                <FileText className="w-3 h-3" />
               </Button>
             </div>
           </div>

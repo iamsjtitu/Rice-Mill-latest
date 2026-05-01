@@ -248,7 +248,7 @@ export const Dashboard = ({ filters, user }) => {
             const { buildFilename } = await import('../utils/filename-format');
             downloadFile(`/api/export/dashboard-pdf?${params.toString()}`, buildFilename({ base: 'dashboard', kmsYear: filters.kms_year, ext: 'pdf' }));
           }} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30" data-testid="dash-export-pdf">
-            <FileText className="w-4 h-4 mr-1" /> PDF Export
+            <FileText className="w-4 h-4" /> Export
           </Button>
           <Button onClick={async () => {
             const params = new URLSearchParams();

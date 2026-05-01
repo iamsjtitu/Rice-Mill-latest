@@ -143,7 +143,7 @@ export function ForgotPasswordDialog({ open, onOpenChange }) {
         <Tabs value={mode} onValueChange={(v) => { setMode(v); setOtpSent(false); }} className="w-full">
           <TabsList className="grid grid-cols-2 bg-slate-100 border border-slate-200">
             <TabsTrigger value="whatsapp" className="data-[state=active]:bg-white data-[state=active]:text-emerald-700 font-semibold" data-testid="fp-tab-whatsapp">
-              <MessageCircle className="w-4 h-4 mr-1.5" /> WhatsApp OTP
+              <MessageCircle className="w-4 h-4.5" /> OTP
             </TabsTrigger>
             <TabsTrigger value="code" className="data-[state=active]:bg-white data-[state=active]:text-blue-700 font-semibold" data-testid="fp-tab-code">
               <Key className="w-4 h-4 mr-1.5" /> Recovery Code

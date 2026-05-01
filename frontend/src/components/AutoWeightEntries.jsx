@@ -321,7 +321,7 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
                 });
                 downloadFile(`${API}/vehicle-weight/export/excel?${fp.toString()}`, fname);
               }}>
-              <FileSpreadsheet className="w-3 h-3 mr-1" />Excel
+              <FileSpreadsheet className="w-3 h-3" />
             </Button>
             <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-red-700 border-red-300 hover:bg-red-50" data-testid="awe-export-pdf"
               onClick={async () => {
@@ -336,7 +336,7 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
                 });
                 downloadFile(`${API}/vehicle-weight/export/pdf?${fp.toString()}`, fname);
               }}>
-              <FileText className="w-3 h-3 mr-1" />PDF
+              <FileText className="w-3 h-3" />
             </Button>
             <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => fetchData(1)} data-testid="awe-refresh">
               <RefreshCw className="w-3 h-3" />

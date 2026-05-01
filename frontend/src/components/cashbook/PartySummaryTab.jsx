@@ -54,11 +54,11 @@ const PartySummaryTab = ({
         </div>
         <Button onClick={() => { const u = `${API}/cash-book/party-summary/excel?kms_year=${filters.kms_year||''}${partySummaryFilter?'&party_type='+partySummaryFilter:''}${statusFilter?'&status='+statusFilter:''}`; window.open(u); }}
           variant="outline" size="sm" className="border-emerald-600/50 text-emerald-400 hover:bg-emerald-900/30 h-8 px-3 text-xs" data-testid="party-summary-export-excel">
-          <Download className="w-3 h-3 mr-1" /> Excel
+          <Download className="w-3 h-3" />
         </Button>
         <Button onClick={() => { const u = `${API}/cash-book/party-summary/pdf?kms_year=${filters.kms_year||''}${partySummaryFilter?'&party_type='+partySummaryFilter:''}${statusFilter?'&status='+statusFilter:''}`; window.open(u); }}
           variant="outline" size="sm" className="border-red-600/50 text-red-400 hover:bg-red-900/30 h-8 px-3 text-xs" data-testid="party-summary-export-pdf">
-          <FileText className="w-3 h-3 mr-1" /> PDF
+          <FileText className="w-3 h-3" />
         </Button>
       </div>
 

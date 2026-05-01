@@ -265,13 +265,13 @@ export const PaddyPurchase = ({ filters, user }) => {
           <Plus className="w-4 h-4 mr-1" /> Nayi Entry
         </Button>
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="paddy-refresh-btn">
-          <RefreshCw className="w-4 h-4 mr-1" /> Refresh
+          <RefreshCw className="w-4 h-4" />
         </Button>
         <Button onClick={() => handleExport('pdf')} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30" data-testid="paddy-export-pdf">
-          <FileText className="w-4 h-4 mr-1" /> PDF
+          <FileText className="w-4 h-4" />
         </Button>
         <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-green-700 text-green-400 hover:bg-green-900/30" data-testid="paddy-export-excel">
-          <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+          <FileSpreadsheet className="w-4 h-4" />
         </Button>
         <div className="relative ml-auto min-w-[200px]">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -736,13 +736,13 @@ export const PartySummary = ({ filters, onNavigate }) => {
 
       <div className="flex flex-wrap gap-2 items-center">
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="summary-refresh-btn">
-          <RefreshCw className="w-4 h-4 mr-1" /> Refresh
+          <RefreshCw className="w-4 h-4" />
         </Button>
         <Button onClick={() => handleExport('pdf')} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30" data-testid="summary-export-pdf">
-          <FileText className="w-4 h-4 mr-1" /> PDF
+          <FileText className="w-4 h-4" />
         </Button>
         <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-green-700 text-green-400 hover:bg-green-900/30" data-testid="summary-export-excel">
-          <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+          <FileSpreadsheet className="w-4 h-4" />
         </Button>
         <div className="flex items-center gap-1 ml-2">
           <Calendar className="w-4 h-4 text-slate-400" />

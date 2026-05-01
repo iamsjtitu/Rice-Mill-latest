@@ -144,10 +144,10 @@ export default function WeightDiscrepancy({ filters }) {
             </CardTitle>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={() => exportFile('excel')} className="h-7 text-xs border-green-600 text-green-600 hover:bg-green-50" data-testid="wd-export-excel">
-                <FileSpreadsheet className="w-3 h-3 mr-1" /> Excel
+                <FileSpreadsheet className="w-3 h-3" />
               </Button>
               <Button size="sm" variant="outline" onClick={() => exportFile('pdf')} className="h-7 text-xs border-red-500 text-red-500 hover:bg-red-50" data-testid="wd-export-pdf">
-                <FileText className="w-3 h-3 mr-1" /> PDF
+                <FileText className="w-3 h-3" />
               </Button>
             </div>
           </CardHeader>

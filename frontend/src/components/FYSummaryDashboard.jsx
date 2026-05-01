@@ -130,10 +130,10 @@ export default function FYSummaryDashboard({ filters }) {
             </Button>
           )}
           <Button size="sm" variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700" onClick={downloadPdf} data-testid="fy-summary-pdf">
-            <FileDown className="w-3 h-3 mr-1" /> PDF Export
+            <FileDown className="w-3 h-3" /> Export
           </Button>
           <Button size="sm" variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700" onClick={fetchData} data-testid="fy-summary-refresh">
-            <RefreshCw className="w-3 h-3 mr-1" /> Refresh
+            <RefreshCw className="w-3 h-3" />
           </Button>
         </div>
       </div>
