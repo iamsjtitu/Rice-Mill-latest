@@ -888,6 +888,83 @@ const DailyReport = ({ filters }) => {
             </Section>
           )}
 
+          {/* ══ v104.44.19 — P1 NEW SECTIONS ══ */}
+
+          {/* Leased Truck Payments */}
+          {data.leased_truck && data.leased_truck.count > 0 && (
+            <Section title="Leased Truck / लीज़ ट्रक" icon={Truck} color="text-indigo-400" count={data.leased_truck.count}>
+              <div className="grid grid-cols-2 md:grid-cols-2 gap-3 mb-2">
+                <div className="text-center p-2 bg-slate-900/50 rounded">
+                  <p className="text-[10px] text-slate-400">Total Payments</p>
+                  <p className="text-lg font-bold text-white">{data.leased_truck.count}</p>
+                </div>
+                <div className="text-center p-2 bg-slate-900/50 rounded">
+                  <p className="text-[10px] text-slate-400">Total Paid</p>
+                  <p className="text-lg font-bold text-emerald-400">₹{(data.leased_truck.total_paid || 0).toLocaleString('en-IN')}</p>
+                </div>
+              </div>
+              {data.leased_truck.details?.length > 0 && (
+                <DetailTable
+                  headers={[{key:'truck',label:'Truck No',align:'left'},{key:'owner',label:'Owner',align:'left'},
+                    {key:'type',label:'Payment Type',align:'left'},{key:'mode',label:'Mode',align:'left'},
+                    {key:'amt',label:'Amount',align:'right'},
+                    ...(isDetail ? [{key:'remark',label:'Remark',align:'left'}] : [])]}
+                  rows={data.leased_truck.details.map((d,i) => (<>
+                    <td className="py-1 px-2 text-white font-medium">{d.truck_no}</td>
+                    <td className="py-1 px-2 text-slate-300">{d.owner || '-'}</td>
+                    <td className="py-1 px-2 text-slate-300 capitalize">{d.payment_type || '-'}</td>
+                    <td className="py-1 px-2 text-slate-400">{d.mode || '-'}</td>
+                    <td className="py-1 px-2 text-right text-emerald-400 font-semibold">₹{(d.amount||0).toLocaleString('en-IN')}</td>
+                    {isDetail && <td className="py-1 px-2 text-slate-400 text-[10px]">{d.remark || '-'}</td>}
+                  </>))}
+                />
+              )}
+            </Section>
+          )}
+
+          {/* Oil Premium / Lab Test */}
+          {data.oil_premium && data.oil_premium.count > 0 && (
+            <Section title="Oil Premium / Lab Test / लैब टेस्ट" icon={Package} color="text-pink-400" count={data.oil_premium.count}>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-2">
+                {[
+                  ["Total Entries", data.oil_premium.count, "text-white"],
+                  ["Positive (+)", data.oil_premium.positive_count, "text-emerald-400"],
+                  ["Negative (-)", data.oil_premium.negative_count, "text-red-400"],
+                  ["Net Premium", `₹${(data.oil_premium.total_premium || 0).toLocaleString('en-IN')}`,
+                    data.oil_premium.total_premium >= 0 ? "text-emerald-400" : "text-red-400"],
+                ].map(([l,v,c]) => (
+                  <div key={l} className="text-center p-2 bg-slate-900/50 rounded" data-testid={`oil-premium-${l.toLowerCase().replace(/\s|\(|\)|\+|-/g,'')}`}>
+                    <p className="text-[10px] text-slate-400">{l}</p>
+                    <p className={`text-sm font-bold ${c}`}>{v}</p>
+                  </div>
+                ))}
+              </div>
+              {data.oil_premium.details?.length > 0 && (
+                <DetailTable
+                  headers={[{key:'voucher',label:'V.No',align:'left'},{key:'rst',label:'RST',align:'left'},
+                    {key:'party',label:'Party',align:'left'},{key:'qty',label:'Qty(Q)',align:'right'},
+                    {key:'rate',label:'Sauda Amt',align:'right'},{key:'diff',label:'Diff %',align:'right'},
+                    {key:'prem',label:'Premium',align:'right'},
+                    ...(isDetail ? [{key:'remark',label:'Remark',align:'left'}] : [])]}
+                  rows={data.oil_premium.details.map((d,i) => (<>
+                    <td className="py-1 px-2 text-cyan-400">{d.voucher_no || '-'}</td>
+                    <td className="py-1 px-2 text-slate-300">{d.rst_no || '-'}</td>
+                    <td className="py-1 px-2 text-white">{d.party || '-'}</td>
+                    <td className="py-1 px-2 text-right text-amber-400">{d.qty_qntl || 0}</td>
+                    <td className="py-1 px-2 text-right text-slate-300">₹{d.rate || 0}</td>
+                    <td className={`py-1 px-2 text-right font-medium ${(d.diff_pct||0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {d.diff_pct > 0 ? '+' : ''}{(d.diff_pct||0).toFixed(2)}%
+                    </td>
+                    <td className={`py-1 px-2 text-right font-bold ${(d.premium_amount||0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {(d.premium_amount||0) >= 0 ? '+' : ''}₹{Math.abs(d.premium_amount||0).toLocaleString('en-IN')}
+                    </td>
+                    {isDetail && <td className="py-1 px-2 text-slate-400 text-[10px]">{d.remark || '-'}</td>}
+                  </>))}
+                />
+              )}
+            </Section>
+          )}
+
           {/* Sale Vouchers */}
           {data.sale_vouchers && data.sale_vouchers.count > 0 && (
             <Section title="Sale Vouchers / बिक्री वाउचर" icon={IndianRupee} color="text-green-400">

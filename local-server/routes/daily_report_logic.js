@@ -147,6 +147,18 @@ function getDailyReportData(database, query) {
   const agentPaymentsSummary = partyTxnSummary('Agent');
   const localPartyPaymentsSummary = partyTxnSummary('LocalParty');
 
+  // ══ v104.44.19 — P1 NEW SECTIONS ══
+  const leasePaymentsToday = col('truck_lease_payments').filter(p => p.date === date);
+  const activeLeases = col('truck_leases') || [];
+  const leaseMap = {};
+  for (const l of activeLeases) leaseMap[l.id || ''] = l;
+  const leaseTotalPaid = leasePaymentsToday.reduce((s,p) => s + (parseFloat(p.amount||0)||0), 0);
+
+  const oilPremiumToday = col('oil_premium').filter(op => op.date === date);
+  const oilPremTotal = oilPremiumToday.reduce((s,op) => s + (parseFloat(op.premium_amount||0)||0), 0);
+  const oilPremPos = oilPremiumToday.filter(op => (parseFloat(op.premium_amount||0)||0) > 0).length;
+  const oilPremNeg = oilPremiumToday.filter(op => (parseFloat(op.premium_amount||0)||0) < 0).length;
+
   return {
     date, mode: mode || 'normal',
     paddy_entries: {
@@ -314,6 +326,35 @@ function getDailyReportData(database, query) {
     truck_payments: truckPaymentsSummary,
     agent_payments: agentPaymentsSummary,
     local_party_payments: localPartyPaymentsSummary,
+    // ══ v104.44.19 — P1 New Sections ══
+    leased_truck: {
+      count: leasePaymentsToday.length,
+      total_paid: Math.round(leaseTotalPaid * 100) / 100,
+      details: leasePaymentsToday.map(p => ({
+        truck_no: (leaseMap[p.lease_id||''] || {}).truck_no || p.truck_no || '',
+        owner: (leaseMap[p.lease_id||''] || {}).owner_name || p.owner_name || '',
+        amount: Math.round((parseFloat(p.amount||0)||0) * 100) / 100,
+        payment_type: p.payment_type || '',
+        mode: p.mode || p.payment_mode || '',
+        remark: p.remark || p.description || '',
+      })),
+    },
+    oil_premium: {
+      count: oilPremiumToday.length,
+      total_premium: Math.round(oilPremTotal * 100) / 100,
+      positive_count: oilPremPos,
+      negative_count: oilPremNeg,
+      details: oilPremiumToday.map(op => ({
+        voucher_no: op.voucher_no || '',
+        rst_no: op.rst_no || '',
+        party: op.party_name || op.buyer_name || '',
+        qty_qntl: op.qty_qtl || op.qty_qntl || op.quantity_qntl || 0,
+        rate: op.rate || op.sauda_amount || 0,
+        diff_pct: op.difference_pct || op.diff_pct || op.diff_percent || 0,
+        premium_amount: Math.round((parseFloat(op.premium_amount||0)||0) * 100) / 100,
+        remark: op.remark || '',
+      })),
+    },
   };
 }
 

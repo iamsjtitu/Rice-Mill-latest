@@ -193,6 +193,20 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
     agent_payments_summary = _party_txn_summary("Agent")
     localparty_payments_summary = _party_txn_summary("LocalParty")
 
+    # ══ v104.44.19 — P1 NEW SECTIONS ══
+    # Leased Truck Payments (today's `truck_lease_payments`)
+    lease_payments_today = await db.truck_lease_payments.find(q_date, {"_id": 0}).to_list(500)
+    # Enrich with truck_no from active leases
+    active_leases = await db.truck_leases.find({}, {"_id": 0}).to_list(500)
+    lease_map = {l.get("id", ""): l for l in active_leases}
+    lease_total_paid = sum(float(p.get("amount", 0) or 0) for p in lease_payments_today)
+
+    # Oil Premium (Lab Test Report) — today's entries
+    oil_premium_today = await db.oil_premium.find(q_date, {"_id": 0}).to_list(500)
+    oil_prem_total = sum(float(op.get("premium_amount", 0) or 0) for op in oil_premium_today)
+    oil_prem_pos = sum(1 for op in oil_premium_today if float(op.get("premium_amount", 0) or 0) > 0)
+    oil_prem_neg = sum(1 for op in oil_premium_today if float(op.get("premium_amount", 0) or 0) < 0)
+
     is_detail = mode == "detail"
 
     # Build entry_id -> mandi_name map for diesel mandi lookup
@@ -443,6 +457,35 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
         "truck_payments": truck_payments_summary,
         "agent_payments": agent_payments_summary,
         "local_party_payments": localparty_payments_summary,
+        # ══ v104.44.19 — P1 New Sections ══
+        "leased_truck": {
+            "count": len(lease_payments_today),
+            "total_paid": round(lease_total_paid, 2),
+            "details": [{
+                "truck_no": (lease_map.get(p.get("lease_id", ""), {}) or {}).get("truck_no", "") or p.get("truck_no", ""),
+                "owner": (lease_map.get(p.get("lease_id", ""), {}) or {}).get("owner_name", "") or p.get("owner_name", ""),
+                "amount": round(float(p.get("amount", 0) or 0), 2),
+                "payment_type": p.get("payment_type", ""),
+                "mode": p.get("mode", "") or p.get("payment_mode", ""),
+                "remark": p.get("remark", "") or p.get("description", ""),
+            } for p in lease_payments_today],
+        },
+        "oil_premium": {
+            "count": len(oil_premium_today),
+            "total_premium": round(oil_prem_total, 2),
+            "positive_count": oil_prem_pos,
+            "negative_count": oil_prem_neg,
+            "details": [{
+                "voucher_no": op.get("voucher_no", ""),
+                "rst_no": op.get("rst_no", ""),
+                "party": op.get("party_name", "") or op.get("buyer_name", ""),
+                "qty_qntl": op.get("qty_qtl", 0) or op.get("qty_qntl", 0) or op.get("quantity_qntl", 0),
+                "rate": op.get("rate", 0) or op.get("sauda_amount", 0),
+                "diff_pct": op.get("difference_pct", 0) or op.get("diff_pct", 0) or op.get("diff_percent", 0),
+                "premium_amount": round(float(op.get("premium_amount", 0) or 0), 2),
+                "remark": op.get("remark", ""),
+            } for op in oil_premium_today],
+        },
     }
     return result
 

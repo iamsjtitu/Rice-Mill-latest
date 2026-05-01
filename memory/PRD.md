@@ -1,6 +1,17 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.18
+## Current Version: v104.44.19
+
+## 🎯 v104.44.19 — Daily Report P1 Expansion (Leased Truck + Oil Premium)
+**Build date:** 2026-02-17
+
+Added 2 more sections to Daily Report (triple-backend parity):
+6. `leased_truck` — Today's truck_lease_payments with Truck/Owner/Type/Mode/Amount
+7. `oil_premium` — Today's Lab Test (Bran quality) entries with Sauda Amount/Diff%/Premium
+
+Verified via curl on 2026-04-29: oil_premium returns 2 entries (MBOPL ₹-77,195 + Cash Test Agent ₹-76,086 = ₹-1,53,282 total negative premium — savings for mill).
+
+---
 
 ## 🎯 v104.44.18 — Daily Report P0 Expansion (Vehicle Weight + Per-Trip Bhada + Party Payments)
 **Build date:** 2026-02-17

@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.19",
+    date: "Feb 17, 2026",
+    title: "v104.44.19 — 📊 Daily Report P1 Expansion: Leased Truck + Lab Test (Oil Premium)",
+    items: [
+      { type: "feature", text: "🚚 **Leased Truck section added** — Aaj ke `truck_lease_payments` collection me se sare records. 2 KPI tiles (Total Payments / Total Paid) + detail table with Truck No, Owner, Payment Type, Mode, Amount + Remark (detail mode me). Lease ke primary/secondary payments track karne ke liye perfect." },
+      { type: "feature", text: "🧪 **Lab Test / Oil Premium section added** — `oil_premium` (Bran quality tests) ki daily summary. 4 KPI tiles (Total / Positive + / Negative - / Net Premium). Detail table me V.No, RST, Party, Qty(Q), Sauda Amount, Diff %, Premium amount (color-coded emerald/red). 2026-04-29 test: 2 entries total ₹-1,53,282 premium ✓." },
+      { type: "improvement", text: "🔄 **Triple-Backend Parity** — Python + Node Desktop + Node LAN me identical. Field mapping `qty_qtl` / `difference_pct` se correct values fetch ho rahe hain (openpyxl-style verified via DB probe)." },
+      { type: "improvement", text: "📌 **Remaining (P2 - next iteration)**: Govt Registers (8 sub-registers — computed from mill_entries), Weight Discrepancy, Stock changes, Letter Pad, DC Govt Rice deliveries (already partly covered by existing DC Deliveries section), Mandi Custody (aggregate view — not a 'daily event' concept)." },
+    ],
+  },
+  {
     version: "104.44.18",
     date: "Feb 17, 2026",
     title: "v104.44.18 — 📊 Daily Report P0 Expansion: Vehicle Weight + Per-Trip Bhada + Party Payments",
