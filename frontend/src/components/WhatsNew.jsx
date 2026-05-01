@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.11",
+    date: "Feb 16, 2026",
+    title: "v104.44.11 — 🎯 Excel Filter Row Fix — Real Header Row Detection (Triple-Backend)",
+    items: [
+      { type: "fix", text: "🐛 **Bug**: Pure software me Excel download me filter arrow branding row (Row 1 — 'NAVKAR AGRO', 'GSTIN:...', 'PHONE:...') ke upar aa rahe the, asli column header (Row 5 — Date/Party/Jama/Nikasi) pe nahi. User ne actual cash_book.xlsx bhej ke confirm kiya." },
+      { type: "fix", text: "✅ **Fix — Python** (`/app/backend/utils/export_helpers.py`): 2-pass heuristic. Pass 1: find row with 4+ cells that are BOTH bold + have solid fill (matches `hdr_font + hdr_fill` pattern used across codebase). Pass 2: fallback using value-shape (reject colons, long strings, majority-numeric rows)." },
+      { type: "fix", text: "✅ **Fix — Node Desktop + LAN** (`pdf_helpers.js` both): Same 2-pass heuristic, PLUS special handling for ExcelJS merged cells (they return master's value to every cell in range, so uses **UNIQUE values count** instead of non-empty count — ensures merged branding banners with repeated values don't get picked)." },
+      { type: "improvement", text: "🧪 **Tests**: Node harness validates both styled-header case (row 5 with branded rows 1-4) and unstyled-fallback case (plain row 2 header) → both PASS. Python curl test validates 4 live endpoints — all correctly detect real header row (Cash Book row 5, Party Summary row 7, Outstanding row 5, Per-Trip Bhada row 5)." },
+      { type: "improvement", text: "📦 **Triple-Backend Parity**: All 3 backends (Python / Node Desktop / Node LAN) get identical detection logic. No code path can wrongly pick branding row." },
+    ],
+  },
+  {
     version: "104.44.10",
     date: "Feb 16, 2026",
     title: "v104.44.10 — 🎯 Sale Entries: Source/Mandi → Destination (sab jagah)",

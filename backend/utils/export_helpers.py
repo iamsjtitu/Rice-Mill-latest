@@ -826,21 +826,65 @@ def apply_consolidated_excel_polish(ws, header_row: int = None, n_cols: int = No
         pass
 
 
-def detect_excel_header_row(ws, max_scan: int = 8):
-    """Best-effort header row detection — finds the first row where every cell
-    in columns A..E (or first 5) is non-None and bold (or non-merged & has value).
+def detect_excel_header_row(ws, max_scan: int = 15):
+    """Best-effort header row detection for consolidated Excel exports.
+
+    Uses a 2-pass strategy that reliably distinguishes real column headers from:
+      - Branding rows (company name, GSTIN, phone — typically merged, with colons)
+      - Title/subtitle rows (typically merged single-cell)
+      - Data rows (typically not bold, no fill color, often numeric/date values)
+
+    Pass 1 (preferred): Find row where 4+ cells are BOTH bold AND have solid fill color.
+                         This matches `hdr_font + hdr_fill` pattern used throughout the codebase.
+    Pass 2 (fallback):  Find row where 4+ cells are non-empty, no colons, no long values,
+                         and <50% of cells look numeric/date-like (to reject data rows).
+
     Returns 1-indexed row number, or 1 as fallback.
     """
+    # Pass 1 — styled header detection (most reliable)
     for r in range(1, max_scan + 1):
         try:
-            row = list(ws[r])
-            if not row:
-                continue
-            cells = row[:min(5, len(row))]
-            non_empty = sum(1 for c in cells if c.value is not None and str(c.value).strip())
-            # If 4+ of first 5 cells are non-empty → likely header row
-            if non_empty >= 4:
+            styled = 0
+            for c in range(1, 9):
+                cell = ws.cell(r, c)
+                if cell.value is None or str(cell.value).strip() == '':
+                    continue
+                is_bold = bool(getattr(cell.font, 'bold', False))
+                fill = cell.fill
+                has_fill = False
+                if fill and fill.fgColor:
+                    fg = fill.fgColor
+                    # Check color is not default/transparent
+                    val = getattr(fg, 'rgb', None) or getattr(fg, 'value', None)
+                    if val and str(val).upper() not in ('00000000', 'FFFFFFFF', '00FFFFFF'):
+                        has_fill = True
+                if is_bold and has_fill:
+                    styled += 1
+            if styled >= 4:
                 return r
+        except Exception:
+            continue
+
+    # Pass 2 — value-shape fallback (for routes without styled headers)
+    import re
+    numeric_pattern = re.compile(r'^[\d\s\-\.,/:\(\)]+$')  # numbers/dates/punctuation only
+    for r in range(1, max_scan + 1):
+        try:
+            row_cells = [ws.cell(r, c) for c in range(1, 9)]
+            values = [str(c.value).strip() if c.value is not None else '' for c in row_cells]
+            non_empty = [v for v in values if v]
+            if len(non_empty) < 4:
+                continue
+            # Reject branding rows (colons) or title banners (long strings)
+            if any(':' in v for v in non_empty):
+                continue
+            if any(len(v) > 40 for v in non_empty):
+                continue
+            # Reject data rows (too many numeric-shaped values)
+            numeric_like = sum(1 for v in non_empty if numeric_pattern.match(v))
+            if numeric_like > len(non_empty) * 0.5:
+                continue
+            return r
         except Exception:
             continue
     return 1

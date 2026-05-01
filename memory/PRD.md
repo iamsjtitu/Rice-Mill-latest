@@ -1,6 +1,30 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.10
+## Current Version: v104.44.11
+
+## 🎯 v104.44.11 — Excel Filter Row Fix (Triple-Backend)
+**Build date:** 2026-04-30
+
+### User Report
+"Desktop pe saara Excel me filter upper aaraha hai header me. Global fix karo."
+
+### Root Cause
+`detect_excel_header_row()` ki simple heuristic (first row with 4+ non-empty cells) wrongly picked Row 1 (branding: NAVKAR AGRO / GSTIN / PHONE), since every cell in merged branding banners returns the master's value in ExcelJS (Node). In openpyxl (Python) only master had value, but row with colons still matched the old logic.
+
+### Fix
+**Python** (`/app/backend/utils/export_helpers.py::detect_excel_header_row`):
+- **Pass 1**: Find row with 4+ cells that are BOTH bold AND have solid fill (matches `hdr_font + hdr_fill` pattern across codebase)
+- **Pass 2**: Fallback using value-shape rejection (reject colons, long strings, majority-numeric rows)
+
+**Node Desktop + LAN** (`pdf_helpers.js::applyConsolidatedExcelPolish`):
+- Same 2-pass logic
+- PLUS: Uses **unique values count** (not non-empty count) — since ExcelJS merged cells return master's value to every cell, repeated-value rows (branding) get filtered out
+
+### Verification
+- Node harness: 2/2 tests PASSED (styled row 5 + unstyled fallback row 2)
+- Python curl: 4/4 endpoints correct (Cash Book→Row 5, Party Summary→Row 7, Outstanding→Row 5, Per-Trip Bhada→Row 5)
+
+---
 
 ## 🎯 v104.44.10 — Sale Entries: Source/Mandi → Destination (Semantic Fix)
 **Build date:** 2026-04-30

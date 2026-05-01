@@ -642,18 +642,63 @@ function applyConsolidatedExcelPolish(ws, opts = {}) {
     return;
   }
 
+  // Auto-detect header row (2-pass strategy, robust against branding + data rows):
+  // Pass 1: find row with 4+ cells that are BOTH bold AND have solid fill AND have unique values
+  //         (distinct-value check avoids picking merged branding banners where all cells share the master's value)
+  // Pass 2: fallback — 4+ unique non-empty cells, no colons, no long strings, not majority-numeric
   if (!headerRow) {
     headerRow = 1;
-    for (let r = 1; r <= 8; r++) {
-      try {
-        const row = ws.getRow(r);
-        let nonEmpty = 0;
-        for (let c = 1; c <= 5; c++) {
-          const v = row.getCell(c).value;
-          if (v !== null && v !== undefined && String(v).trim() !== '') nonEmpty++;
-        }
-        if (nonEmpty >= 4) { headerRow = r; break; }
-      } catch (_) { /* ignore */ }
+    const tryStyled = () => {
+      for (let r = 1; r <= 15; r++) {
+        try {
+          const row = ws.getRow(r);
+          const uniqueStyled = new Set();
+          for (let c = 1; c <= 12; c++) {
+            const cell = row.getCell(c);
+            const v = cell.value;
+            if (v === null || v === undefined) continue;
+            const s = String(typeof v === 'object' ? (v.text || v.result || v.richText?.map(r => r.text).join('') || '') : v).trim();
+            if (!s) continue;
+            const isBold = !!(cell.font && cell.font.bold);
+            let hasFill = false;
+            if (cell.fill && cell.fill.type === 'pattern' && cell.fill.fgColor) {
+              const argb = cell.fill.fgColor.argb || cell.fill.fgColor.theme;
+              if (argb && String(argb).toUpperCase() !== '00000000' && String(argb).toUpperCase() !== 'FFFFFFFF') hasFill = true;
+            }
+            if (isBold && hasFill) uniqueStyled.add(s);
+          }
+          if (uniqueStyled.size >= 4) return r;
+        } catch (_) { /* ignore */ }
+      }
+      return null;
+    };
+    const styled = tryStyled();
+    if (styled) {
+      headerRow = styled;
+    } else {
+      const NUMERIC_RE = /^[\d\s\-.,/:()]+$/;
+      for (let r = 1; r <= 15; r++) {
+        try {
+          const row = ws.getRow(r);
+          const uniqueVals = new Set();
+          for (let c = 1; c <= 12; c++) {
+            const v = row.getCell(c).value;
+            if (v !== null && v !== undefined) {
+              let s = typeof v === 'object' ? (v.text || v.result || v.richText?.map(r => r.text).join('') || '') : String(v);
+              s = String(s).trim();
+              if (s) uniqueVals.add(s);
+            }
+          }
+          const values = Array.from(uniqueVals);
+          if (values.length < 4) continue;
+          if (values.some(v => v.includes(':'))) continue;
+          if (values.some(v => v.length > 40)) continue;
+          const numericLike = values.filter(v => NUMERIC_RE.test(v)).length;
+          if (numericLike > values.length * 0.5) continue;
+          headerRow = r;
+          break;
+        } catch (_) { /* ignore */ }
+      }
     }
   }
   if (!nCols) nCols = ws.actualColumnCount || ws.columnCount || 1;
