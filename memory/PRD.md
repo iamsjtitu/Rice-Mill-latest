@@ -1,6 +1,13 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.16
+## Current Version: v104.44.17
+
+## 🎯 v104.44.17 — Shortcuts Cheat Sheet Updated (Alt+Shift Actions)
+**Build date:** 2026-02-17
+
+Added new "Action Shortcuts (Alt+Shift)" section to existing `ShortcutsDialog` in `HeaderDialogs.jsx` — documents the 4 new Alt+Shift+P/E/W/G shortcuts with scope hint. Playwright verified 5/5 content entries.
+
+---
 
 ## 🎯 v104.44.16 — Keyboard Shortcuts for Icon Buttons (Alt+Shift+P/E/W/G)
 **Build date:** 2026-02-17

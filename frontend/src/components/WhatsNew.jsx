@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.17",
+    date: "Feb 17, 2026",
+    title: "v104.44.17 — 📖 Shortcuts Cheat Sheet Updated with Alt+Shift Actions",
+    items: [
+      { type: "improvement", text: "📖 **Keyboard Shortcuts dialog** (header me Keyboard icon ya `?` press karke khulta hai) me naya section **'Action Shortcuts (Alt+Shift)'** add kiya — 4 entries: `Alt+Shift+P` (PDF), `Alt+Shift+E` (Excel), `Alt+Shift+W` (WhatsApp), `Alt+Shift+G` (Group). Cyan-colored kbd badges taaki Ctrl/Alt sections se visually distinct ho." },
+      { type: "improvement", text: "💡 **Helper tip** — Dialog ke niche italic hint: 'Payments (Truck / Owner / Per-Trip Bhada / Agent) aur Local Party panels me active hain. Search box pe focus hone par auto-disable ho jate hain.' Naye users ko scope aur guard behavior samajh me aata hai." },
+      { type: "fix", text: "✅ **Tested** — Playwright dialog content check: 5/5 entries verified (4 shortcuts + heading). Keyboard icon button (header) aur `?` key dono se dialog properly khul raha hai." },
+    ],
+  },
+  {
     version: "104.44.16",
     date: "Feb 17, 2026",
     title: "v104.44.16 — ⌨️ Keyboard Shortcuts for Icon Buttons (Alt+Shift+P/E/W/G)",
