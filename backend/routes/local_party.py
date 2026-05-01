@@ -407,7 +407,8 @@ async def delete_local_party_txn(txn_id: str):
 # ============ EXPORT ============
 
 @router.get("/local-party/excel")
-async def export_local_party_excel(kms_year: Optional[str] = None, season: Optional[str] = None, party_name: Optional[str] = None):
+async def export_local_party_excel(kms_year: Optional[str] = None, season: Optional[str] = None, party_name: Optional[str] = None,
+                                    date_from: Optional[str] = None, date_to: Optional[str] = None):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
     from io import BytesIO
@@ -417,6 +418,11 @@ async def export_local_party_excel(kms_year: Optional[str] = None, season: Optio
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     if party_name: query["party_name"] = party_name
+    if date_from or date_to:
+        date_q = {}
+        if date_from: date_q["$gte"] = date_from
+        if date_to: date_q["$lte"] = date_to
+        query["date"] = date_q
     txns = await db.local_party_accounts.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
 
     # If single-party filter applied, narrow summary too for accurate banner numbers
@@ -503,7 +509,8 @@ async def export_local_party_excel(kms_year: Optional[str] = None, season: Optio
 
 
 @router.get("/local-party/pdf")
-async def export_local_party_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, party_name: Optional[str] = None):
+async def export_local_party_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, party_name: Optional[str] = None,
+                                  date_from: Optional[str] = None, date_to: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
     from utils.export_helpers import get_pdf_styles
@@ -515,6 +522,11 @@ async def export_local_party_pdf(kms_year: Optional[str] = None, season: Optiona
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     if party_name: query["party_name"] = party_name
+    if date_from or date_to:
+        date_q = {}
+        if date_from: date_q["$gte"] = date_from
+        if date_to: date_q["$lte"] = date_to
+        query["date"] = date_q
     txns = await db.local_party_accounts.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
 
     if party_name:

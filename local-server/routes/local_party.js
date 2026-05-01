@@ -272,6 +272,8 @@ router.get('/api/local-party/excel', safeAsync(async (req, res) => {
   if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
   if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
   if (req.query.party_name) txns = txns.filter(t => t.party_name === req.query.party_name);
+  if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
+  if (req.query.date_to) txns = txns.filter(t => (t.date || '') <= req.query.date_to);
   txns.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
 
   const partyMap = {};

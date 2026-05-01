@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.13",
+    date: "Feb 16, 2026",
+    title: "v104.44.13 — 📁 Local Party Filename: Date Range Suffix",
+    items: [
+      { type: "feature", text: "📁 **Date-aware filename**: Local Party me ek party + date filter karke download karne pe ab filename me dates bhi reflect hote hain — e.g. `debujain-report.xlsx` (no dates) → `debujain-report-2026-04-01-to-2026-04-30.xlsx` (with dates)." },
+      { type: "improvement", text: "🔤 **Hyphen-style naming**: Spaces aur underscores ab `-` me convert hote hain — e.g. `Hemali Payment` → `hemali-payment-report.xlsx`. All-parties default → `local-party-report.xlsx`." },
+      { type: "improvement", text: "📊 **Backend filter**: Excel/PDF endpoints (Python + Node Desktop + Node LAN) ab `date_from` + `date_to` query params accept karte hain — Excel me sirf range ke transactions aate hain. Frontend `handleExport` + Group dialog dono auto-pass karte hain." },
+      { type: "improvement", text: "🧪 **5 filename test cases verified**: full filter / no filter / only-from / only-to / all-parties — sab correct output produce karte hain." },
+    ],
+  },
+  {
     version: "104.44.12",
     date: "Feb 16, 2026",
     title: "v104.44.12 — 📁 Local Party Filename: Party Name Restored (Bug Fix)",

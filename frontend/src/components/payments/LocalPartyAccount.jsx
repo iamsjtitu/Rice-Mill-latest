@@ -149,13 +149,22 @@ const LocalPartyAccount = ({ filters, user }) => {
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
       // 🎯 v104.44.12 — pass selected party so backend filters + filename includes party name
       if (selectedParty && selectedParty !== "__all__") p.append('party_name', selectedParty);
+      // 🎯 v104.44.13 — pass date range so backend filters + filename reflects range
+      if (dateFrom) p.append('date_from', dateFrom);
+      if (dateTo) p.append('date_to', dateTo);
 
-      // Build party-aware filename
+      // Build party-aware filename: "debujain-report.xlsx" or "debujain-report-2026-04-01-to-2026-04-30.xlsx"
       const safeName = (selectedParty && selectedParty !== "__all__")
-        ? selectedParty.replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/\s+/g, '_').toLowerCase()
-        : 'local_party_account';
+        ? selectedParty.replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/[\s_]+/g, '-').toLowerCase()
+        : 'local-party';
+      let fnameBase = `${safeName}-report`;
+      if (dateFrom || dateTo) {
+        const f = dateFrom || 'start';
+        const t = dateTo || 'end';
+        fnameBase = `${safeName}-report-${f}-to-${t}`;
+      }
       const ext = format === 'pdf' ? 'pdf' : 'xlsx';
-      const fname = `${safeName}.${ext}`;
+      const fname = `${fnameBase}.${ext}`;
 
       const { downloadFile } = await import('../../utils/download');
       downloadFile(`/api/local-party/${format}?${p}`, fname);
@@ -214,6 +223,8 @@ const LocalPartyAccount = ({ filters, user }) => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
     if (selectedParty && selectedParty !== "__all__") params.append('party_name', selectedParty);
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
     setGroupPdfUrl(`${API}/local-party/pdf?${params.toString()}`);
     setGroupDialogOpen(true);
   };
