@@ -557,8 +557,8 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
   // Context derived from trans_type (Dispatch/Sale → sale; Receive/Purchase → purchase).
   const vwContext = ((form.trans_type || "").toLowerCase().includes("sale") || (form.trans_type || "").toLowerCase().includes("dispatch")) ? "sale" : "purchase";
   const editVwContext = ((editForm?.trans_type || editDialog?.entry?.trans_type || "").toLowerCase().match(/sale|dispatch/)) ? "sale" : "purchase";
-  const { checkRst: checkVwRst, buildBlockerMessage: buildVwRstMsg } = useRstCheck({ context: vwContext, excludeId: "" });
-  const { checkRst: checkVwEditRst, buildBlockerMessage: buildVwEditRstMsg } = useRstCheck({ context: editVwContext, excludeId: editDialog?.entry?.id || "" });
+  const { checkRst: checkVwRst, clear: clearVwRstCheck, RstWarning: VwRstWarning, buildBlockerMessage: buildVwRstMsg } = useRstCheck({ context: vwContext, excludeId: "" });
+  const { checkRst: checkVwEditRst, clear: clearVwEditRstCheck, RstWarning: VwEditRstWarning, buildBlockerMessage: buildVwEditRstMsg } = useRstCheck({ context: editVwContext, excludeId: editDialog?.entry?.id || "" });
 
   // ESC key to close photo zoom
   useEffect(() => {
@@ -668,6 +668,27 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
     const timer = setTimeout(() => fetchData(), 300);
     return () => { clearTimeout(timer); if (abortRef.current) abortRef.current.abort(); };
   }, [fetchData]);
+
+  // v104.44.34 — Auto-refresh next RST when window regains focus OR any
+  // mutation happens (e.g. Sale/Purchase form saves with manual RST).
+  // Ensures VW's "Next RST" badge stays in sync with cross-collection RSTs.
+  useEffect(() => {
+    const refetchNext = async () => {
+      try {
+        const nR = await axios.get(`${API}/vehicle-weight/next-rst?kms_year=${kms}`);
+        if (nR.data?.rst_no) setNextRst(nR.data.rst_no);
+      } catch { /* silent */ }
+    };
+    const onFocus = () => { refetchNext(); };
+    window.addEventListener('focus', onFocus);
+    // Also listen for mill-entry/sale/purchase save events
+    const onCrossSave = () => { refetchNext(); };
+    window.addEventListener('rst-collection-changed', onCrossSave);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('rst-collection-changed', onCrossSave);
+    };
+  }, [kms]);
 
   // Fetch gunny bag stock per type for the Sale dropdown
   const fetchBagStock = useCallback(async () => {
@@ -1107,7 +1128,12 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                 ) : (
                   <span className="flex items-center gap-1">
                     {rstEditable ? (
-                      <Input type="number" value={form.rst_no || ""} onChange={e => setForm(p => ({ ...p, rst_no: e.target.value }))}
+                      <Input type="number" value={form.rst_no || ""}
+                        onChange={e => {
+                          const v = e.target.value;
+                          setForm(p => ({ ...p, rst_no: v }));
+                          if (v.trim()) checkVwRst(v); else clearVwRstCheck();
+                        }}
                         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setRstEditable(false); } }}
                         placeholder={String(nextRst)} className="w-16 h-6 text-[10px] bg-slate-700 border-amber-500 text-amber-700 text-center px-1 font-mono"
                         data-testid="vw-rst-input" autoFocus />
@@ -1126,6 +1152,8 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                   </span>
                 )}
               </CardTitle>
+              {/* v104.44.34 — Live inline duplicate RST warning below header */}
+              {rstEditable && <VwRstWarning />}
             </CardHeader>
             <CardContent className="p-3 pt-3">
               <form onSubmit={handleSubmit} className="space-y-2.5">

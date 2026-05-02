@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.34",
+    date: "Feb 17, 2026",
+    title: "v104.44.34 — 🐛 React Error Fix + Live RST Sync + Inline VW Warning",
+    items: [
+      { type: "fix", text: "🐛 **'Objects are not valid as React child' error fix** — Mill Entry / Sale / Purchase me save time crash hota tha jab backend Pydantic validation fail karta tha. Root cause: FastAPI 422 response me `detail = [{type, loc, msg, input, url}, ...]` (array of objects) aata hai, jo toast.error me pass hone par React crash karta tha. Fix: Global axios interceptor ab in arrays ko auto-flatten karta hai readable string me — 'body.date: Field required · body.kg: Input should be a valid number'." },
+      { type: "feature", text: "🔄 **VW me Next RST auto-refresh** — Agar aap Sale / Purchase / BP / Paddy / Mill Entry me manually RST 10 daalte hain, VW ka auto-next RST turant sync ho jaayega. Kaise: 1) Global axios interceptor saare RST-using collections ke mutations pe `rst-collection-changed` event fire karta hai, 2) VW form event sun ke `next-rst` endpoint refetch karta hai. Window focus pe bhi auto-refresh." },
+      { type: "feature", text: "⚠️ **VW RST Edit me LIVE inline warning** — Auto Vehicle Weight me 'Edit' button click karke RST manually change karte waqt, agar RST kisi aur collection me maujood hai to turant amber/red warning dikh jaayega card header ke niche (without save pe click kiye). 'Duplicate: By-Product Sale (MBOPL · V.No S-002 · 2026-05-02)' jaisi details show hongi." },
+    ],
+  },
+  {
     version: "104.44.33",
     date: "Feb 17, 2026",
     title: "v104.44.33 — 🛡️ GLOBAL Hard Block on Duplicate RST (VW Included)",

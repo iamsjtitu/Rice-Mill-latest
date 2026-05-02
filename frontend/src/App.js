@@ -79,6 +79,14 @@ axios.interceptors.response.use(
       const method = (response.config?.method || 'get').toLowerCase();
       if (method !== 'get') {
         try { queryClient.invalidateQueries(); } catch { /* ignore */ }
+        // v104.44.34 — Fire global event when any RST-using collection is mutated,
+        // so VW form can refresh its "Next RST" badge live.
+        try {
+          const url = String(response.config?.url || '');
+          if (/\/(sale-book|purchase-book|private-paddy|bp-sale-register|entries|vehicle-weight)(\/|\?|$)/.test(url)) {
+            window.dispatchEvent(new CustomEvent('rst-collection-changed'));
+          }
+        } catch { /* non-blocking */ }
       }
     } catch { /* non-blocking */ }
     return response;
@@ -89,6 +97,21 @@ axios.interceptors.response.use(
 axios.interceptors.response.use(
   (response) => response,
   (error) => {
+    // v104.44.34 — Flatten Pydantic 422 validation errors from array of objects
+    // into a single readable string so toast.error() doesn't crash React.
+    // FastAPI returns detail = [{type, loc, msg, input, url}, ...] on validation failure.
+    try {
+      const detail = error?.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        const parts = detail.map(d => {
+          if (typeof d === 'string') return d;
+          const field = Array.isArray(d?.loc) ? d.loc.filter(x => x !== 'body').join('.') : '';
+          const msg = d?.msg || 'validation error';
+          return field ? `${field}: ${msg}` : msg;
+        });
+        error.response.data.detail = parts.join(' · ');
+      }
+    } catch { /* non-blocking */ }
     if (error.response?.status === 409) {
       toast.error(error.response?.data?.detail || "Ye record kisi aur ne update kar diya hai. Data refresh ho raha hai.", { duration: 4000 });
       try { queryClient.invalidateQueries(); } catch {}
