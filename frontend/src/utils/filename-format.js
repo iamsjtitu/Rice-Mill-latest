@@ -86,4 +86,41 @@ export function buildFilename({
   return `${parts.filter(Boolean).join('-').replace(/-+/g, '-')}.${ext}`;
 }
 
+
+// Auto-generates smart filename from URL path (fallback for legacy window.open calls)
+// URL: /api/govt-registers/form-a/excel?kms_year=2026 → form-a-report-2026.xlsx
+// URL: /api/export/pdf?date_from=...&agent_name=debu → paddy-purchase-register-*-debu.pdf (caller should override)
+export function autoFilenameFromUrl(url, ext) {
+  try {
+    const u = url.split('?')[0];
+    const segs = u.replace(/^\/+|\/+$/g, '').split('/').filter(s => s && !['api', 'export', 'excel', 'pdf', 'reports'].includes(s.toLowerCase()));
+    const base = segs.join('-').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'export';
+    return buildFilename({ base, ext: ext || (url.includes('pdf') ? 'pdf' : 'xlsx') });
+  } catch { return `export.${ext || 'xlsx'}`; }
+}
+
+/**
+ * Drop-in replacement for `window.open(url, '_blank')` that ensures correct filename in downloads.
+ * - Appends `?filename=<name>` to URL so backend Content-Disposition uses it
+ * - Uses downloadFile helper which handles Electron IPC + browser blob paths
+ *
+ * Usage:
+ *   import { openDownload } from '../utils/filename-format';
+ *   openDownload(`/api/govt-registers/form-a/excel?${params}`, 'form-a-paddy-register-2026-2027.xlsx');
+ */
+export async function openDownload(url, filename) {
+  try {
+    const { downloadFile } = await import('./download');
+    const finalName = filename || autoFilenameFromUrl(url);
+    return downloadFile(url, finalName);
+  } catch (e) {
+    // Ultimate fallback - plain window.open (desktop app may override name)
+    // eslint-disable-next-line no-console
+    console.warn('[openDownload] fallback to window.open:', e?.message);
+    const sep = url.includes('?') ? '&' : '?';
+    const fn = filename || autoFilenameFromUrl(url);
+    window.open(`${url}${sep}filename=${encodeURIComponent(fn)}`, '_blank');
+  }
+}
+
 export { sanitize, formatDateRange };

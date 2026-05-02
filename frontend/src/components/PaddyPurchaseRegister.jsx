@@ -10,6 +10,8 @@ import { SendToGroupDialog } from "@/components/SendToGroupDialog";
 import ViewEntryDialog from "@/components/ViewEntryDialog";
 import { fmtDate } from "../utils/date";
 import { useCloseFiltersOnEsc } from "../utils/useCloseFiltersOnEsc";
+import { downloadFile } from "../utils/download";
+import { buildFilename } from "../utils/filename-format";
 
 const _isElectron = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? "" : (process.env.REACT_APP_BACKEND_URL || "");
@@ -102,6 +104,21 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
     return regFilters.date_from || regFilters.date_to || "All Dates";
   };
 
+  const exportFname = (ext) => buildFilename({
+    base: 'paddy-purchase-register',
+    party: regFilters.agent_name || regFilters.mandi_name || regFilters.truck_no || '',
+    dateFrom: regFilters.date_from,
+    dateTo: regFilters.date_to,
+    kmsYear: globalFilters.kms_year,
+    extra: globalFilters.season ? globalFilters.season.toLowerCase() : '',
+    ext,
+  });
+
+  const handleExport = (fmt) => {
+    const url = `/api/export/${fmt}?${buildExportParams()}`;
+    downloadFile(url, exportFname(fmt === 'pdf' ? 'pdf' : 'xlsx'));
+  };
+
   const sendWhatsApp = async () => {
     setSending("wa");
     try {
@@ -159,11 +176,11 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
             className="h-9 px-2 text-slate-300 hover:bg-slate-700 border border-slate-600" title="Filters" data-testid="ppr-toggle-filters">
             <Filter className="w-4 h-4 mr-1" /> Filters
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => window.open(`${API}/export/excel?${buildExportParams()}`, "_blank")}
+          <Button size="sm" variant="ghost" onClick={() => handleExport('excel')}
             className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600" title="Excel Export" data-testid="ppr-download-excel">
             <Download className="w-4 h-4" />
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => window.open(`${API}/export/pdf?${buildExportParams()}`, "_blank")}
+          <Button size="sm" variant="ghost" onClick={() => handleExport('pdf')}
             className="h-9 w-9 p-0 text-red-400 hover:bg-red-900/30 border border-red-600" title="PDF Export" data-testid="ppr-download-pdf">
             <FileText className="w-4 h-4" />
           </Button>

@@ -1,6 +1,21 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.26
+## Current Version: v104.44.27
+
+## 🎯 v104.44.27 — Filename Fix for window.open() Bypass
+**Build date:** 2026-02-17
+
+**Root cause**: 15+ components used `window.open(url, '_blank')` directly for downloads, bypassing `downloadFile()` helper — so `?filename=` query param never got appended, and desktop app Content-Disposition header used hardcoded backend filenames like `mill_entries_<timestamp>.xlsx`.
+
+**Fixes**:
+1. `PaddyPurchaseRegister.jsx` — replaced `window.open` with `downloadFile` + `buildFilename` for proper party/date-aware smart filename
+2. Created new `openDownload()` helper in `filename-format.js` — drop-in replacement for `window.open` that auto-appends filename query param
+3. `GovtRegisters.jsx` (13 window.open calls → openDownload) covering Form A/B/E/F, FRK, Gunny Bags, Transit Pass, CMR Delivery, Security Deposit, Paddy Custody
+4. `MandiCustodyRegister.jsx` (2 calls → openDownload)
+
+**Rebuild required**: User must run `yarn build:win` in `/app/desktop-app` for installed app to get these fixes.
+
+---
 
 ## 🎯 v104.44.26 — RST Duplicate Guard Extended (Purchase Vouchers + Paddy Purchase)
 **Build date:** 2026-02-17

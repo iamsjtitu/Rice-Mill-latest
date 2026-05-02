@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FileSpreadsheet, FileText, Search, Loader2 } from "lucide-react";
 import logger from "../utils/logger";
+import { openDownload } from "../utils/filename-format";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -42,7 +43,7 @@ export default function MandiCustodyRegister({ filters }) {
     if (filters?.season) params.set("season", filters.season);
     if (dateFrom) params.set("date_from", dateFrom);
     if (dateTo) params.set("date_to", dateTo);
-    window.open(`${API}/reports/mandi-custody-register/pdf?${params}`, "_blank");
+    openDownload(`/api/reports/mandi-custody-register/pdf?${params}`);
   };
 
   const exportExcel = () => {
@@ -51,7 +52,7 @@ export default function MandiCustodyRegister({ filters }) {
     if (filters?.season) params.set("season", filters.season);
     if (dateFrom) params.set("date_from", dateFrom);
     if (dateTo) params.set("date_to", dateTo);
-    window.open(`${API}/reports/mandi-custody-register/excel?${params}`, "_blank");
+    openDownload(`/api/reports/mandi-custody-register/excel?${params}`);
   };
 
   const fmtDate = (d) => {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { openDownload } from "../utils/filename-format";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -69,7 +70,7 @@ export function PaddyCustodyRegister({ filters }) {
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
     if (filters.season) params.append('season', filters.season);
     params.append('group_by', viewMode);
-    window.open(`${API}/paddy-custody-register/excel?${params}`, "_blank");
+    openDownload(`/api/paddy-custody-register/excel?${params}`);
   };
 
   const exportPdf = async () => {
@@ -77,7 +78,7 @@ export function PaddyCustodyRegister({ filters }) {
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
     if (filters.season) params.append('season', filters.season);
     params.append('group_by', viewMode);
-    window.open(`${API}/paddy-custody-register/pdf?${params}`, "_blank");
+    openDownload(`/api/paddy-custody-register/pdf?${params}`);
   };
 
   return (
@@ -184,7 +185,7 @@ function FormARegister({ filters }) {
     if (filters.date_from) params.append("date_from", filters.date_from);
     if (filters.date_to) params.append("date_to", filters.date_to);
     params.append("group_by", viewMode);
-    window.open(`${API}/govt-registers/form-a/excel?${params}`, "_blank");
+    openDownload(`/api/govt-registers/form-a/excel?${params}`);
   };
 
   return (
@@ -209,7 +210,7 @@ function FormARegister({ filters }) {
             if (filters.date_from) params.append("date_from", filters.date_from);
             if (filters.date_to) params.append("date_to", filters.date_to);
             params.append("group_by", viewMode);
-            window.open(`${API}/govt-registers/form-a/pdf?${params}`, "_blank");
+            openDownload(`/api/govt-registers/form-a/pdf?${params}`);
           }} size="sm" className="bg-red-700 hover:bg-red-600" data-testid="form-a-pdf-btn">
             <FileText className="w-4 h-4" />
           </Button>
@@ -299,7 +300,7 @@ function FormBRegister({ filters }) {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append("kms_year", filters.kms_year);
     if (filters.season) params.append("season", filters.season);
-    window.open(`${API}/govt-registers/form-b/excel?${params}`, "_blank");
+    openDownload(`/api/govt-registers/form-b/excel?${params}`);
   };
 
   return (
@@ -379,7 +380,7 @@ function FormERegister({ filters }) {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append("kms_year", filters.kms_year);
     if (filters.season) params.append("season", filters.season);
-    window.open(`${API}/govt-registers/form-e/excel?${params}`, "_blank");
+    openDownload(`/api/govt-registers/form-e/excel?${params}`);
   };
 
   return (
@@ -460,7 +461,7 @@ function FormFRegister({ filters }) {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append("kms_year", filters.kms_year);
     if (filters.season) params.append("season", filters.season);
-    window.open(`${API}/govt-registers/form-f/excel?${params}`, "_blank");
+    openDownload(`/api/govt-registers/form-f/excel?${params}`);
   };
 
   return (
@@ -595,7 +596,7 @@ function FrkRegister({ filters, user }) {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append("kms_year", filters.kms_year);
     if (filters.season) params.append("season", filters.season);
-    window.open(`${API}/govt-registers/frk/excel?${params}`, "_blank");
+    openDownload(`/api/govt-registers/frk/excel?${params}`);
   };
 
   return (
@@ -782,7 +783,7 @@ export function GunnyBagRegister({ filters, user }) {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append("kms_year", filters.kms_year);
     if (filters.season) params.append("season", filters.season);
-    window.open(`${API}/govt-registers/gunny-bags/excel?${params}`, "_blank");
+    openDownload(`/api/govt-registers/gunny-bags/excel?${params}`);
   };
 
   return (
@@ -976,10 +977,10 @@ export function TransitPassRegister({ filters }) {
           <p className="text-xs text-slate-400">Mill Entries se auto-generated (jahan TP No. hai)</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => window.open(`${API}/govt-registers/transit-pass/excel?${buildExportParams()}`, "_blank")} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="tp-excel-btn">
+          <Button onClick={() => openDownload(`/api/govt-registers/transit-pass/excel?${buildExportParams()}`)} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="tp-excel-btn">
             <FileSpreadsheet className="w-4 h-4" />
           </Button>
-          <Button onClick={() => window.open(`${API}/govt-registers/transit-pass/pdf?${buildExportParams()}`, "_blank")} size="sm" className="bg-red-700 hover:bg-red-600" data-testid="tp-pdf-btn">
+          <Button onClick={() => openDownload(`/api/govt-registers/transit-pass/pdf?${buildExportParams()}`)} size="sm" className="bg-red-700 hover:bg-red-600" data-testid="tp-pdf-btn">
             <FileText className="w-4 h-4" />
           </Button>
         </div>
@@ -1729,7 +1730,7 @@ function CmrDeliveryTracker({ filters, user }) {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append("kms_year", filters.kms_year);
     if (filters.season) params.append("season", filters.season);
-    window.open(`${API}/govt-registers/cmr-delivery/excel?${params}`, "_blank");
+    openDownload(`/api/govt-registers/cmr-delivery/excel?${params}`);
   };
 
   const s = data.summary || {};
@@ -1897,7 +1898,7 @@ function SecurityDepositManager({ filters, user }) {
   const handleExcel = () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append("kms_year", filters.kms_year);
-    window.open(`${API}/govt-registers/security-deposit/excel?${params}`, "_blank");
+    openDownload(`/api/govt-registers/security-deposit/excel?${params}`);
   };
 
   const s = data.summary || {};

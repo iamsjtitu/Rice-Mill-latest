@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.27",
+    date: "Feb 17, 2026",
+    title: "v104.44.27 — 🐛 Filename Fix: window.open() Bypass + GovtRegisters/MandiCustody",
+    items: [
+      { type: "fix", text: "🐛 **Critical bug fixed** — Paddy Purchase Register (mill entries register) me desktop app me filename `mill_entries_<timestamp>.xlsx` aata tha. Root cause: component `window.open()` directly use karta tha `downloadFile()` helper ke bajaye, isliye `?filename=` query param append nahi hota tha aur desktop app backend header ka hardcoded naam use karta tha." },
+      { type: "fix", text: "✅ **PaddyPurchaseRegister.jsx fix** — Ab `buildFilename` use karke proper smart name bhejta hai: agent/mandi/truck filter ho toh wo party name ban jata hai. Example: debu filter + April dates → `debu-paddy-purchase-register-apr-2026.xlsx`." },
+      { type: "fix", text: "🆕 **New helper `openDownload`** in `filename-format.js` — drop-in replacement for `window.open(url, '_blank')` that auto-appends `?filename=` with smart auto-derived name from URL path. Handles Electron IPC + browser blob paths transparently." },
+      { type: "fix", text: "🛠️ **15 more `window.open()` calls replaced** across **GovtRegisters.jsx** (13 forms: Form A/B/E/F, FRK, Gunny Bags, Transit Pass, CMR Delivery, Security Deposit, Paddy Custody) and **MandiCustodyRegister.jsx** (2 calls). Auto-generated filenames: `govt-registers-form-a-report.xlsx`, `govt-registers-transit-pass-report.pdf`, etc." },
+      { type: "improvement", text: "🔄 **Triple-backend Node patches** (v104.44.24) + **Frontend openDownload wrapper** (v104.44.27) = complete fix. **Rebuild desktop app required** (`yarn build:win` ya re-install) — old installed version me changes nahi aayenge." },
+    ],
+  },
+  {
     version: "104.44.26",
     date: "Feb 17, 2026",
     title: "v104.44.26 — 🛡️ RST Duplicate Guard Extended to Purchase Vouchers + Paddy Purchase",
