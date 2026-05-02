@@ -233,9 +233,10 @@ export const PaddyPurchase = ({ filters, user }) => {
     const { buildFilename } = await import('../utils/filename-format');
     const ext = type === 'pdf' ? 'pdf' : 'xlsx';
     const fname = buildFilename({
-      base: 'pvt_paddy',
+      base: 'paddy-purchase-register',
       party: searchText,
       kmsYear: filters.kms_year,
+      extra: filters.season ? filters.season.toLowerCase() : '',
       ext,
     });
     downloadFile(`/api/private-paddy/${type}?${p}`, fname);

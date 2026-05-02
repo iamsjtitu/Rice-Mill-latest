@@ -189,7 +189,16 @@ const LetterPadTab = () => {
       const a = document.createElement("a");
       a.href = url;
       const ext = format === "pdf" ? "pdf" : "docx";
-      a.download = `letter_${date.replace(/-/g, '')}.${ext}`;
+      const { buildFilename } = await import('../utils/filename-format');
+      // Use subject (or to_address) as "party" context for smart filename
+      const partyCtx = (subject || toAddress || '').trim();
+      a.download = buildFilename({
+        base: 'letter',
+        party: partyCtx,
+        dateFrom: date,
+        dateTo: date,
+        ext,
+      });
       a.click();
       window.URL.revokeObjectURL(url);
       toast.success(`${format.toUpperCase()} download ho gayi`);

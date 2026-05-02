@@ -22,7 +22,14 @@ const SeasonPnL = ({ filters }) => {
     try {
       const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
       const { downloadFile } = await import('../../utils/download');
-      downloadFile(`/api/reports/season-pnl/${format}?${p}`, `season_pnl.${format === 'excel' ? 'xlsx' : 'pdf'}`);
+      const { buildFilename } = await import('../../utils/filename-format');
+      const fname = buildFilename({
+        base: 'season-pnl',
+        kmsYear: filters.kms_year,
+        extra: filters.season ? filters.season.toLowerCase() : '',
+        ext: format === 'excel' ? 'xlsx' : 'pdf',
+      });
+      downloadFile(`/api/reports/season-pnl/${format}?${p}`, fname);
     } catch (e) { toast.error("Export failed"); }
   };
   if (loading) return <div className="text-slate-400 text-center py-8">Loading...</div>;

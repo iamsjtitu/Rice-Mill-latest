@@ -38,7 +38,15 @@ const DailyReport = ({ filters }) => {
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
     if (filters.season) p.append('season', filters.season);
     const { downloadFile } = await import('../../utils/download');
-    downloadFile(`/api/reports/daily/${format}?${p}`, `daily_report_${mode}_${date}.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
+    const { buildFilename } = await import('../../utils/filename-format');
+    const fname = buildFilename({
+      base: 'daily-report',
+      dateFrom: date,
+      dateTo: date,
+      extra: mode,
+      ext: format === 'pdf' ? 'pdf' : 'xlsx',
+    });
+    downloadFile(`/api/reports/daily/${format}?${p}`, fname);
   };
 
   const [sendingTelegram, setSendingTelegram] = useState(false);

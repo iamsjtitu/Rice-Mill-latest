@@ -1,6 +1,23 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.22
+## Current Version: v104.44.23
+
+## 🎯 v104.44.23 — Global Filename Party/Context Standardization
+**Build date:** 2026-02-17
+
+Fixed 8 components that were using hardcoded filenames (no party/date context):
+1. `Ledgers.jsx` - Party Ledger export
+2. `LetterPadTab.jsx` - Letter PDF/DOCX (uses subject as party)
+3. `StockSummary.jsx` - Stock export (category as extra)
+4. `PaddyPurchase.jsx` - Paddy Purchase Register (search as party)
+5. `AgentMandiReport.jsx` - (search as party)
+6. `CMRvsDC.jsx` - (KMS year)
+7. `DailyReport.jsx` - (date + mode)
+8. `SeasonPnL.jsx` - (KMS year + season)
+
+All now use `buildFilename` helper from `/app/frontend/src/utils/filename-format.js`.
+
+---
 
 ## 🎯 v104.44.22 — Single Instance Lock (Desktop App)
 **Build date:** 2026-02-17

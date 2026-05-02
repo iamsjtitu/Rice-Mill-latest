@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.23",
+    date: "Feb 17, 2026",
+    title: "v104.44.23 — 📝 Filename Party/Context Names Global Standardization",
+    items: [
+      { type: "fix", text: "📝 **8 components updated** — Party Ledger, Daily Report, Paddy Purchase Register, Agent Mandi Report, CMR vs DC, Season P&L, Stock Summary, Letter Pad — sab ab party/context name + date range wala smart filename generate karte hain." },
+      { type: "fix", text: "🎯 **Real examples after fix:**\n  • Party Ledger (MBOPL, April) → `mbopl-kca-ledger-apr-2026.pdf` (pehle `all_parties_party_ledger.pdf` aata tha)\n  • Paddy Purchase (ABC party, Kharif) → `abc-party-paddy-purchase-register-2026-2027-kharif.xlsx`\n  • Daily Report (April 29) → `daily-report-report-2026-04-29-normal.xlsx`\n  • Letter Pad (Notice to MBOPL, May 1) → `notice-to-mbopl-letter-2026-05-01.pdf`\n  • Agent Mandi (MAHESH, Apr) → `mahesh-agent-mandi-report-apr-2026.xlsx`\n  • CMR vs DC → `cmr-vs-dc-report-2026-2027.pdf`\n  • Season P&L (Rabi) → `season-pnl-report-2026-2027-rabi.pdf`\n  • Stock Summary (Paddy cat) → `stock-summary-report-2026-2027-paddy.xlsx`" },
+      { type: "improvement", text: "🔄 **Global helper `buildFilename`** consistent use ab pure software me. No more `report.xlsx` or `stock_summary.pdf` generic names — har download ka naam context se nikalta hai (party/subject/date/KMS year/category)." },
+      { type: "improvement", text: "💬 **WhatsApp PDF Backend** pehle se party-aware tha (v104.15+). Naya client filename ke saath perfect match. Note: agar user search box me party type kare tabhi party name filename me aata hai — warna generic 'report' prefix with date range." },
+    ],
+  },
+  {
     version: "104.44.22",
     date: "Feb 17, 2026",
     title: "v104.44.22 — 🔒 Single Instance Lock (Software Already Opened Alert)",

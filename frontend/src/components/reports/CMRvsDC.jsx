@@ -22,7 +22,13 @@ const CMRvsDC = ({ filters }) => {
     try {
       const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
       const { downloadFile } = await import('../../utils/download');
-      downloadFile(`/api/reports/cmr-vs-dc/${format}?${p}`, `cmr_vs_dc.${format === 'excel' ? 'xlsx' : 'pdf'}`);
+      const { buildFilename } = await import('../../utils/filename-format');
+      const fname = buildFilename({
+        base: 'cmr-vs-dc',
+        kmsYear: filters.kms_year,
+        ext: format === 'excel' ? 'xlsx' : 'pdf',
+      });
+      downloadFile(`/api/reports/cmr-vs-dc/${format}?${p}`, fname);
     } catch (e) { toast.error("Export failed"); }
   };
   if (loading) return <div className="text-slate-400 text-center py-8">Loading...</div>;

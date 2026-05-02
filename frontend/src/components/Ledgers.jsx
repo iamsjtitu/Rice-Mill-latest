@@ -301,8 +301,15 @@ const PartyLedger = ({ filters }) => {
     if (dateFrom) p.append('date_from', dateFrom);
     if (dateTo) p.append('date_to', dateTo);
     const { downloadFile } = await import('../utils/download');
-    const safe = (selectedParty || 'all_parties').replace(/[^\w\-.]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
-    const fname = `${safe}_party_ledger.${format === 'pdf' ? 'pdf' : 'xlsx'}`;
+    const { buildFilename } = await import('../utils/filename-format');
+    const fname = buildFilename({
+      base: selectedParty ? '' : 'party-ledger',
+      party: selectedParty || '',
+      subType: selectedParty ? 'ledger' : '',
+      dateFrom, dateTo,
+      kmsYear: filters.kms_year,
+      ext: format === 'pdf' ? 'pdf' : 'xlsx',
+    });
     downloadFile(`/api/reports/party-ledger/${format}?${p}`, fname);
   };
 

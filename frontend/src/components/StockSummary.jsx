@@ -42,11 +42,18 @@ export default function StockSummary({ filters }) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleExport = (type) => {
+  const handleExport = async (type) => {
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
     if (filters.season) p.append('season', filters.season);
-    downloadFile(`/api/stock-summary/export/${type}`, `stock_summary.${type === 'pdf' ? 'pdf' : 'xlsx'}`);
+    const { buildFilename } = await import('../utils/filename-format');
+    const fname = buildFilename({
+      base: 'stock-summary',
+      kmsYear: filters.kms_year,
+      extra: filterCategory && filterCategory !== 'all' ? filterCategory : '',
+      ext: type === 'pdf' ? 'pdf' : 'xlsx',
+    });
+    downloadFile(`/api/stock-summary/export/${type}`, fname);
   };
 
   const filteredItems = filterCategory === "all" ? items : items.filter(i => i.category === filterCategory);

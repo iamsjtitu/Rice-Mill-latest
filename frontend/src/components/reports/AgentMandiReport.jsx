@@ -73,7 +73,15 @@ const AgentMandiReport = ({ filters }) => {
   const exportData = async (format) => {
     try {
       const { downloadFile } = await import('../../utils/download');
-      downloadFile(buildExportUrl(format), `agent_mandi_report.${format === 'excel' ? 'xlsx' : 'pdf'}`);
+      const { buildFilename } = await import('../../utils/filename-format');
+      const fname = buildFilename({
+        base: 'agent-mandi-report',
+        party: (search || '').trim(),
+        dateFrom, dateTo,
+        kmsYear: filters.kms_year,
+        ext: format === 'excel' ? 'xlsx' : 'pdf',
+      });
+      downloadFile(buildExportUrl(format), fname);
     } catch (e) { toast.error("Export failed"); }
   };
 
