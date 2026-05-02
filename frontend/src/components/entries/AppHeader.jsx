@@ -168,10 +168,17 @@ export const AppHeader = ({
 
             <SyncButton fetchEntries={fetchEntries} fetchTotals={fetchTotals} />
 
+            {/* v104.44.38 — Whats New button with NEW pulse badge if unread version */}
             <Button onClick={() => setShowWhatsNew(true)} variant="outline" size="sm"
-              className="border-amber-600/50 text-amber-400 hover:bg-amber-900/30 hidden sm:flex" data-testid="whats-new-btn" title="What's New">
+              className="relative border-amber-600/50 text-amber-400 hover:bg-amber-900/30 hidden sm:flex" data-testid="whats-new-btn" title="See what's new in this update">
               <Info className="w-4 h-4 sm:mr-1" />
               <span className="hidden lg:inline">v{APP_VERSION}</span>
+              {(typeof window !== 'undefined' && localStorage.getItem('whats_new_version') !== APP_VERSION) && (
+                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                </span>
+              )}
             </Button>
 
             {/* Govt Useful Links */}

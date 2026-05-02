@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.38",
+    date: "Feb 17, 2026",
+    title: "v104.44.38 — ⌨️ ESC/Backspace UX + Optional What's New Popup",
+    items: [
+      { type: "feature", text: "⌨️ **VW RST edit me ESC key** — Auto Vehicle Weight me RST edit karte waqt agar change nahi karna, ab ESC dabane se input revert ho jaata hai aur edit mode close ho jaata hai (auto RST badge wapas dikhta hai). Pehle bahar click karna padta tha." },
+      { type: "feature", text: "🔕 **What's New popup ab AUTO nahi khulta** — Pehle har version update pe automatically dialog popup hota tha. Ab v-button (top-right me) pe ek **🔴 red pulse dot** dikhega jab koi nayi update aayegi. Aap chaho to click karke 'See what's new in this update' dekho, nahi to skip — apni marzi se." },
+      { type: "feature", text: "⌨️ **Login page Backspace navigation** — Username daal ke Enter dabaaya to password me jaata tha. Ab agar password field empty hai aur Backspace dabaate ho, to wapas username pe focus aa jaayega — keyboard-only navigation smooth." },
+    ],
+  },
+  {
     version: "104.44.37",
     date: "Feb 17, 2026",
     title: "v104.44.37 — 🚫 Mill Entry RST/TP Auto-Fill Hatay (Manual Entry Only)",
@@ -4276,10 +4286,8 @@ const WhatsNew = ({ forceOpen = false, onClose }) => {
       setOpen(true);
       return;
     }
-    const lastSeen = localStorage.getItem("whats_new_version");
-    if (lastSeen !== APP_VERSION) {
-      setOpen(true);
-    }
+    // v104.44.38 — Auto-popup HATA diya. User ne kaha optional ho.
+    // Sirf forceOpen=true ho to dialog khulta hai (header me "What's New" button click se).
   }, [forceOpen]);
 
   const handleClose = () => {

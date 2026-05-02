@@ -1147,6 +1147,12 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                               }
                             }
                             setRstEditable(false);
+                          } else if (e.key === 'Escape') {
+                            // v104.44.38 — ESC: revert to auto RST and close edit mode
+                            e.preventDefault();
+                            setForm(p => ({ ...p, rst_no: "" }));
+                            clearVwRstCheck();
+                            setRstEditable(false);
                           }
                         }}
                         placeholder={String(nextRst)} className="w-16 h-6 text-[10px] bg-slate-700 border-amber-500 text-amber-700 text-center px-1 font-mono"

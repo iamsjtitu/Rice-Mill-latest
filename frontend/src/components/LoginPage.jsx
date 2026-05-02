@@ -118,6 +118,13 @@ const LoginPage = ({ onLogin }) => {
                   placeholder="Enter password"
                   className="pl-10 bg-slate-700 border-slate-600 text-white"
                   data-testid="login-password"
+                  onKeyDown={(e) => {
+                    // v104.44.38 — Backspace on empty password field → focus username
+                    if (e.key === 'Backspace' && !password) {
+                      e.preventDefault();
+                      document.querySelector('[data-testid="login-username"]')?.focus();
+                    }
+                  }}
                 />
               </div>
             </div>
