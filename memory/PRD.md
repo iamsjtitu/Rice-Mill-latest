@@ -1,6 +1,17 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.25
+## Current Version: v104.44.26
+
+## 🎯 v104.44.26 — RST Duplicate Guard Extended (Purchase Vouchers + Paddy Purchase)
+**Build date:** 2026-02-17
+
+Added same 2-layer duplicate RST check (live inline warning + submit confirm dialog) to:
+- `PurchaseVouchers.jsx` — handleSubmit + RST input inline warning
+- `PaddyPurchase.jsx` — handleSubmit + RST input inline warning
+
+Full coverage now: Sale Book (v104.44.25), Purchase Vouchers (v104.44.26), Paddy Purchase (v104.44.26). Vehicle Weight has TP duplicate check (RST auto-gen, no manual dup check needed).
+
+---
 
 ## 🎯 v104.44.25 — Sale Book RST Duplicate Guard
 **Build date:** 2026-02-17

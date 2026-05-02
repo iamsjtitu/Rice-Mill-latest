@@ -175,6 +175,26 @@ export default function PurchaseVouchers({ filters, user }) {
     const validItems = form.items.filter(i => i.item_name.trim() && (parseFloat(i.quantity) || 0) > 0);
     if (validItems.length === 0) { toast.error("Kam se kam ek item daalein"); return; }
 
+    // 🛡️ Duplicate RST guard
+    const rstTrim = (form.rst_no || '').trim();
+    if (rstTrim) {
+      const duplicate = vouchers.find(v =>
+        (v.rst_no || '').trim().toLowerCase() === rstTrim.toLowerCase() &&
+        v.id !== editId
+      );
+      if (duplicate) {
+        const confirmed = await showConfirm(
+          `⚠️ RST ${rstTrim} pehle se maujood hai`,
+          `Is RST number ka purchase voucher pehle se save ho chuka hai:\n` +
+          `• Voucher No: ${duplicate.voucher_no_label || duplicate.voucher_no || '-'}\n` +
+          `• Party: ${duplicate.party_name || '-'}\n` +
+          `• Date: ${duplicate.date || '-'}\n\n` +
+          `Kya aap phir bhi naya duplicate voucher banana chahte hain?`
+        );
+        if (!confirmed) return;
+      }
+    }
+
     const payload = {
       ...form,
       items: validItems.map(i => ({
@@ -514,6 +534,20 @@ export default function PurchaseVouchers({ filters, user }) {
                     }
                   }}
                   placeholder="RST Number" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-rst" />
+                {(() => {
+                  const rstTrim = (form.rst_no || '').trim();
+                  if (!rstTrim) return null;
+                  const dup = vouchers.find(v =>
+                    (v.rst_no || '').trim().toLowerCase() === rstTrim.toLowerCase() &&
+                    v.id !== editId
+                  );
+                  if (!dup) return null;
+                  return (
+                    <div className="mt-1 text-[10px] text-amber-400 flex items-center gap-1" data-testid="pv-rst-duplicate-warn">
+                      ⚠️ RST {rstTrim} pehle se save: V.No {dup.voucher_no_label || dup.voucher_no || '-'} · {dup.party_name || '-'}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
             {/* Row 2: E-Way, Truck */}

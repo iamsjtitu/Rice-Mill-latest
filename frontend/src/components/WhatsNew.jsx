@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.26",
+    date: "Feb 17, 2026",
+    title: "v104.44.26 — 🛡️ RST Duplicate Guard Extended to Purchase Vouchers + Paddy Purchase",
+    items: [
+      { type: "fix", text: "🛒 **Purchase Vouchers (Kharid Voucher)** — Same 2-layer RST duplicate protection jaise Sale Book me hai. RST field ke niche live amber warning + submit time confirm dialog with Voucher No / Party / Date details." },
+      { type: "fix", text: "🌾 **Paddy Purchase Register (Niji Dhan)** — Same 2-layer protection. Amber warning shows `RST X pehle se save: Party Y · Date Z · KG A`. Submit confirm dialog me party + agent + mandi + kg sab dikhta hai." },
+      { type: "improvement", text: "✅ **Edit-safe** — Apna hi entry edit karte waqt apna hi RST duplicate nahi flag hota (self-exclusion via id comparison)." },
+      { type: "improvement", text: "📌 **3/3 Sale-like forms covered**: Sale Book ✓ (v104.44.25), Purchase Vouchers ✓ (v104.44.26), Paddy Purchase ✓ (v104.44.26). Vehicle Weight me RST duplicate check nahi hai kyunki wahan RST auto-generate hota hai (TP duplicate check pehle se hai)." },
+    ],
+  },
+  {
     version: "104.44.25",
     date: "Feb 17, 2026",
     title: "v104.44.25 — 🛡️ Sale Register RST Duplicate Guard",
