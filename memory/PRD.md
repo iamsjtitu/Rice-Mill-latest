@@ -1,6 +1,21 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.24
+## Current Version: v104.44.25
+
+## 🎯 v104.44.25 — Sale Book RST Duplicate Guard
+**Build date:** 2026-02-17
+
+**Bug**: Sale Book me RST 7 pehle se save tha, user ne wahi RST fetch kiya aur silently duplicate entry ban gayi.
+
+**Fix**: 2-layer protection in `SaleBook.jsx` `handleSubmit`:
+1. **Live inline warning** under RST input — amber alert "⚠️ RST X pehle se save: V.No Y · Party Z"
+2. **Submit confirm dialog** — if user attempts save with duplicate RST, detailed confirm dialog asks explicit confirmation
+
+Same-id exclusion ensures editing existing voucher doesn't flag itself.
+
+Note: Other forms (Vehicle Weight, Purchase Voucher, Paddy Purchase) not yet covered — pending user direction if duplicate guard needed there too.
+
+---
 
 ## 🎯 v104.44.24 — Desktop App Filename Override Fix
 **Build date:** 2026-02-17

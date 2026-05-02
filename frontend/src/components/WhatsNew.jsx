@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.25",
+    date: "Feb 17, 2026",
+    title: "v104.44.25 — 🛡️ Sale Register RST Duplicate Guard",
+    items: [
+      { type: "fix", text: "🐛 **Bug fixed** — Sale Register (Sale Book) me agar RST number pehle se save ho chuka hai aur user wahi RST fetch karta tha, toh silently duplicate entry ban jaati thi. Ab 2-layer protection hai." },
+      { type: "fix", text: "⚠️ **Layer 1 — Live Inline Warning**: RST field ke niche turant chhota amber alert dikhta hai: '⚠️ RST 7 pehle se save: V.No XYZ · Party Name'. Jaise hi user RST type/paste kare, duplicate detect ho jaata hai." },
+      { type: "fix", text: "🛑 **Layer 2 — Submit Confirm Dialog**: Agar user fir bhi Save button click kare, toh detailed confirm dialog: 'RST 7 pehle se maujood hai — Voucher No: X, Party: Y, Date: Z — kya aap phir bhi duplicate banana chahte hain?' User 'Cancel' = no save, 'OK' = force save (intentional duplicate allowed)." },
+      { type: "improvement", text: "✅ **Edit safe** — Existing voucher ko edit karte time apna hi RST duplicate nahi dikhta (same-id exclusion). Sirf dusre vouchers se compare hota hai." },
+      { type: "improvement", text: "🎯 **Coverage** — ye fix sirf Sale Book pe lagu hai. Agar Purchase Voucher / Vehicle Weight / Paddy Purchase me bhi same behavior chahiye toh batao, waha bhi add kar dunga." },
+    ],
+  },
+  {
     version: "104.44.24",
     date: "Feb 17, 2026",
     title: "v104.44.24 — 🖥️ DESKTOP APP Filename Fix (Content-Disposition Override)",
