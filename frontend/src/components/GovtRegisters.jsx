@@ -14,7 +14,8 @@ import {
 import {
   FileSpreadsheet, Plus, Pencil, Trash2, Loader2,
   BookOpen, Package, FlaskConical, ShoppingBag, ClipboardList,
-  RefreshCw, Download, FileText, Search, Truck, Shield, ArrowRightLeft, Send, History, Save
+  RefreshCw, Download, FileText, Search, Truck, Shield, ArrowRightLeft, Send, History, Save,
+  MessageCircle, Users
 } from "lucide-react";
 import MandiCustodyRegister from "./MandiCustodyRegister";
 import { useConfirm } from "./ConfirmProvider";

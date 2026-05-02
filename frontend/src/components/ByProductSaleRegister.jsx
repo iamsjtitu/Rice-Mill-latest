@@ -24,7 +24,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const [sales, setSales] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const { checkRst, clear: clearRstCheck, RstWarning, buildConfirmMessage: buildRstMsg } = useRstCheck({ context: "sale", excludeId: editingId });
+  const { checkRst, clear: clearRstCheck, RstWarning, buildBlockerMessage: buildRstMsg } = useRstCheck({ context: "sale", excludeId: editingId });
   const [searchQuery, setSearchQuery] = useState("");
   const [viewSale, setViewSale] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -225,13 +225,13 @@ export default function ByProductSaleRegister({ filters, user, product }) {
     } else {
       if (nwKg <= 0) { toast.error("Net weight daalen"); return; }
     }
-    // 🛡️ Backend-backed RST cross-check
+    // 🛡️ Backend-backed RST cross-check — HARD BLOCK
     const rstTrim = (form.rst_no || '').trim();
     if (rstTrim) {
-      const { hasIssue } = await checkRst(rstTrim, { immediate: true });
-      if (hasIssue) {
-        const confirmed = await showConfirm(`⚠️ RST ${rstTrim} — Data Conflict`, buildRstMsg());
-        if (!confirmed) return;
+      const { hasBlocker } = await checkRst(rstTrim, { immediate: true });
+      if (hasBlocker) {
+        toast.error(`❌ RST ${rstTrim} duplicate — save block hua\n${buildRstMsg()}`, { duration: 7000 });
+        return;
       }
     }
     try {

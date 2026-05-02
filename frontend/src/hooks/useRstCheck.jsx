@@ -38,7 +38,7 @@ export function useRstCheck({ context = "sale", excludeId = "" } = {}) {
   const checkRst = useCallback(async (rstNo, { immediate = false } = {}) => {
     const rst = String(rstNo || "").trim();
     lastRstRef.current = rst;
-    if (!rst) { setData(null); return { hasIssue: false, data: null }; }
+    if (!rst) { setData(null); return { hasIssue: false, hasBlocker: false, data: null }; }
 
     // Debounce — skip duplicate rapid checks unless immediate
     if (abortRef.current) abortRef.current.abort();
@@ -50,13 +50,18 @@ export function useRstCheck({ context = "sale", excludeId = "" } = {}) {
         params: { rst_no: rst, context, exclude_id: excludeId },
         signal: ctrl.signal,
       });
-      if (lastRstRef.current !== rst) return { hasIssue: false, data: null }; // stale
+      if (lastRstRef.current !== rst) return { hasIssue: false, hasBlocker: false, data: null }; // stale
       setData(res.data);
-      const hasIssue = (res.data.exists_same?.length || 0) + (res.data.exists_other?.length || 0) > 0;
-      return { hasIssue, data: res.data };
+      const same = res.data.exists_same || [];
+      const other = res.data.exists_other || [];
+      // VW entries are natural source (dispatch creates VW, then sale voucher) — INFO only
+      const blockingSame = same.filter(m => m.collection !== "vehicle_weights");
+      const hasBlocker = blockingSame.length + other.length > 0;
+      const hasIssue = same.length + other.length > 0;
+      return { hasIssue, hasBlocker, data: res.data, blockingSame, otherDocs: other };
     } catch (e) {
       if (!ctrl.signal.aborted) setData(null);
-      return { hasIssue: false, data: null };
+      return { hasIssue: false, hasBlocker: false, data: null };
     }
   }, [context, excludeId]);
 
@@ -109,5 +114,21 @@ export function useRstCheck({ context = "sale", excludeId = "" } = {}) {
     return lines.join("\n");
   };
 
-  return { checkRst, clear, data, RstWarning, buildConfirmMessage };
+  const buildBlockerMessage = () => {
+    if (!data) return "";
+    const same = (data.exists_same || []).filter(m => m.collection !== "vehicle_weights");
+    const other = data.exists_other || [];
+    const lines = [];
+    if (same.length) {
+      lines.push(`Ye RST already ${context === "sale" ? "sale" : "purchase"} me save ho chuka hai:`);
+      same.forEach(m => lines.push(`  • ${COLLECTION_LABELS[m.collection] || m.collection}${m.voucher_no ? " V.No " + m.voucher_no : ""} · ${m.party_name || "-"} · ${m.date || "-"}`));
+    }
+    if (other.length) {
+      lines.push(`Ye RST ${context === "sale" ? "PURCHASE" : "SALE"} side me save hai — sale aur purchase me same RST allowed nahi:`);
+      other.forEach(m => lines.push(`  • ${COLLECTION_LABELS[m.collection] || m.collection}${m.trans_type ? " (" + m.trans_type + ")" : ""} · ${m.party_name || "-"} · ${m.date || "-"}`));
+    }
+    return lines.join("\n");
+  };
+
+  return { checkRst, clear, data, RstWarning, buildConfirmMessage, buildBlockerMessage };
 }

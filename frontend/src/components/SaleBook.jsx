@@ -42,7 +42,7 @@ export default function SaleBook({ filters, user, category }) {
   const [stockItems, setStockItems] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const { checkRst, clear: clearRstCheck, RstWarning, buildConfirmMessage: buildRstMsg } = useRstCheck({ context: "sale", excludeId: editingId });
+  const { checkRst, clear: clearRstCheck, RstWarning, buildBlockerMessage: buildRstMsg } = useRstCheck({ context: "sale", excludeId: editingId });
   const [obList, setObList] = useState([]);
   const [isObOpen, setIsObOpen] = useState(false);
   const [obForm, setObForm] = useState({ party_name: "", party_type: "Cash Party", amount: "", balance_type: "jama", note: "" });
@@ -176,16 +176,13 @@ export default function SaleBook({ filters, user, category }) {
     if (!form.items.some(i => i.item_name && parseFloat(i.quantity) > 0)) {
       toast.error("Kam se kam ek item add karein"); return;
     }
-    // 🛡️ Backend-backed RST cross-check (duplicate + cross-type)
+    // 🛡️ Backend-backed RST cross-check — HARD BLOCK real duplicates (not VW info)
     const rstTrim = (form.rst_no || '').trim();
     if (rstTrim) {
-      const { hasIssue } = await checkRst(rstTrim, { immediate: true });
-      if (hasIssue) {
-        const confirmed = await showConfirm(
-          `⚠️ RST ${rstTrim} — Data Conflict`,
-          buildRstMsg()
-        );
-        if (!confirmed) return;
+      const { hasBlocker } = await checkRst(rstTrim, { immediate: true });
+      if (hasBlocker) {
+        toast.error(`❌ RST ${rstTrim} duplicate — save block hua\n${buildRstMsg()}`, { duration: 7000 });
+        return;
       }
     }
     try {

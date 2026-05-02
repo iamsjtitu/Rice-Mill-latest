@@ -711,18 +711,21 @@ module.exports = function(database) {
   }));
 
   router.get('/api/govt-registers/transit-pass/excel', safeAsync(async (req, res) => {
-    const { kms_year, season, date_from, date_to } = req.query;
+    const { kms_year, season, date_from, date_to, mandi_name, agent_name } = req.query;
     let entries = [...(database.data.entries || [])];
     if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
     if (season) entries = entries.filter(e => e.season === season);
     if (date_from) entries = entries.filter(e => (e.date || '') >= date_from);
     if (date_to) entries = entries.filter(e => (e.date || '') <= date_to);
+    if (mandi_name) entries = entries.filter(e => (e.mandi_name || '').toLowerCase() === mandi_name.toLowerCase());
+    if (agent_name) entries = entries.filter(e => (e.agent_name || '').toLowerCase() === agent_name.toLowerCase());
     entries = entries.filter(e => e.tp_no && String(e.tp_no).trim()).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Transit Pass');
     const branding = database.getBranding ? database.getBranding() : { company_name: 'NAVKAR AGRO' };
+    const filterSuffix = (mandi_name ? ` | Mandi: ${mandi_name}` : '') + (agent_name ? ` | Agent: ${agent_name}` : '');
     ws.mergeCells('A1:K1'); ws.getCell('A1').value = branding.company_name; ws.getCell('A1').font = { name: 'Inter', bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
-    ws.mergeCells('A2:K2'); ws.getCell('A2').value = `Transit Pass Register | ${kms_year || 'All'}`; ws.getCell('A2').font = { name: 'Inter', bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
+    ws.mergeCells('A2:K2'); ws.getCell('A2').value = `Transit Pass Register | ${kms_year || 'All'}${filterSuffix}`; ws.getCell('A2').font = { name: 'Inter', bold: true, size: 12 }; ws.getCell('A2').alignment = { horizontal: 'center' };
     const hdr = ws.addRow(['Date', 'TP No.', 'RST No.', 'Vehicle No.', 'Agent/Society', 'Mandi/PPC', 'Qty (Qtl)', 'TP Weight', 'Bags', 'Status', 'Remarks']);
     hdr.eachCell(c => { c.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; });
     let tq = 0, tb = 0;

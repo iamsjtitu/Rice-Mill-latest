@@ -38,7 +38,7 @@ export default function PurchaseVouchers({ filters, user }) {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState(null);
-  const { checkRst, clear: clearRstCheck, RstWarning, buildConfirmMessage: buildRstMsg } = useRstCheck({ context: "purchase", excludeId: editId });
+  const { checkRst, clear: clearRstCheck, RstWarning, buildBlockerMessage: buildRstMsg } = useRstCheck({ context: "purchase", excludeId: editId });
   const [searchText, setSearchText] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
@@ -177,23 +177,13 @@ export default function PurchaseVouchers({ filters, user }) {
     const validItems = form.items.filter(i => i.item_name.trim() && (parseFloat(i.quantity) || 0) > 0);
     if (validItems.length === 0) { toast.error("Kam se kam ek item daalein"); return; }
 
-    // 🛡️ Duplicate RST guard
+    // 🛡️ Backend-backed RST cross-check — HARD BLOCK
     const rstTrim = (form.rst_no || '').trim();
     if (rstTrim) {
-      const duplicate = vouchers.find(v =>
-        (v.rst_no || '').trim().toLowerCase() === rstTrim.toLowerCase() &&
-        v.id !== editId
-      );
-      if (duplicate) {
-        const confirmed = await showConfirm(
-          `⚠️ RST ${rstTrim} pehle se maujood hai`,
-          `Is RST number ka purchase voucher pehle se save ho chuka hai:\n` +
-          `• Voucher No: ${duplicate.voucher_no_label || duplicate.voucher_no || '-'}\n` +
-          `• Party: ${duplicate.party_name || '-'}\n` +
-          `• Date: ${duplicate.date || '-'}\n\n` +
-          `Kya aap phir bhi naya duplicate voucher banana chahte hain?`
-        );
-        if (!confirmed) return;
+      const { hasBlocker } = await checkRst(rstTrim, { immediate: true });
+      if (hasBlocker) {
+        toast.error(`❌ RST ${rstTrim} duplicate — save block hua\n${buildRstMsg()}`, { duration: 7000 });
+        return;
       }
     }
 

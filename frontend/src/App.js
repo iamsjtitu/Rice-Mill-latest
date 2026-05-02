@@ -142,7 +142,7 @@ function MainApp({ user, setUser, onLogout }) {
   const [formData, setFormData] = useState(initialFormState);
   const [editingId, setEditingId] = useState(null);
   // 🛡️ v104.44.28 — RST cross-check for Mill Entries (purchase context)
-  const { checkRst: checkMillRst, clear: clearMillRstCheck, RstWarning: MillRstWarning, buildConfirmMessage: buildMillRstMsg } = useRstCheck({ context: "purchase", excludeId: editingId });
+  const { checkRst: checkMillRst, clear: clearMillRstCheck, RstWarning: MillRstWarning, buildBlockerMessage: buildMillRstMsg } = useRstCheck({ context: "purchase", excludeId: editingId });
   const [rstFetched, setRstFetched] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -721,15 +721,13 @@ function MainApp({ user, setUser, onLogout }) {
       return;
     }
 
-    // 🛡️ Backend-backed RST cross-check (purchase context)
-    // NOTE: MillEntryForm also shows live inline CrossRstWarning on type —
-    // here we run a final check before DB write (catches edge cases like copy-paste)
+    // 🛡️ Backend-backed RST cross-check — HARD BLOCK
     const rstTrim = (formData.rst_no || '').trim();
     if (rstTrim) {
-      const { hasIssue } = await checkMillRst(rstTrim, { immediate: true });
-      if (hasIssue) {
-        const confirmed = await showConfirm(`⚠️ RST ${rstTrim} — Data Conflict`, buildMillRstMsg());
-        if (!confirmed) return;
+      const { hasBlocker } = await checkMillRst(rstTrim, { immediate: true });
+      if (hasBlocker) {
+        toast.error(`❌ RST ${rstTrim} duplicate — save block hua\n${buildMillRstMsg()}`, { duration: 7000 });
+        return;
       }
     }
 

@@ -365,3 +365,4 @@ credentials.json
 *.key
 .credentials
 frontend/node_modules/.cache/default-development/137.pack
+frontend/node_modules/.cache/default-development/142.pack

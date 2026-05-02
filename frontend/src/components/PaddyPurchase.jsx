@@ -68,7 +68,7 @@ export const PaddyPurchase = ({ filters, user }) => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState(null);
-  const { checkRst, clear: clearRstCheck, RstWarning, buildConfirmMessage: buildRstMsg } = useRstCheck({ context: "purchase", excludeId: editId });
+  const { checkRst, clear: clearRstCheck, RstWarning, buildBlockerMessage: buildRstMsg } = useRstCheck({ context: "purchase", excludeId: editId });
   const [payDialog, setPayDialog] = useState({ open: false, item: null });
   const [payForm, setPayForm] = useState({ date: new Date().toISOString().split('T')[0], amount: "", mode: "cash", reference: "", remark: "", round_off: "" });
   const [payLoading, setPayLoading] = useState(false);
@@ -126,16 +126,13 @@ export const PaddyPurchase = ({ filters, user }) => {
     e.preventDefault();
     if (!form.party_name) { toast.error("Party name bharna zaroori hai"); return; }
     if (!parseFloat(form.kg)) { toast.error("KG bharna zaroori hai"); return; }
-    // 🛡️ Backend-backed RST cross-check
+    // 🛡️ Backend-backed RST cross-check — HARD BLOCK
     const rstTrim = (form.rst_no || '').trim();
     if (rstTrim) {
-      const { hasIssue } = await checkRst(rstTrim, { immediate: true });
-      if (hasIssue) {
-        const confirmed = await showConfirm(
-          `⚠️ RST ${rstTrim} — Data Conflict`,
-          buildRstMsg()
-        );
-        if (!confirmed) return;
+      const { hasBlocker } = await checkRst(rstTrim, { immediate: true });
+      if (hasBlocker) {
+        toast.error(`❌ RST ${rstTrim} duplicate — save block hua\n${buildRstMsg()}`, { duration: 7000 });
+        return;
       }
     }
     try {
