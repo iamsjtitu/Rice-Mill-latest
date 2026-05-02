@@ -141,6 +141,7 @@ function MainApp({ user, setUser, onLogout }) {
   const [totals, setTotals] = useState({});
   const [formData, setFormData] = useState(initialFormState);
   const [editingId, setEditingId] = useState(null);
+  const [originalRst, setOriginalRst] = useState("");
   // 🛡️ v104.44.28 — RST cross-check for Mill Entries (purchase context)
   const { checkRst: checkMillRst, clear: clearMillRstCheck, RstWarning: MillRstWarning, buildBlockerMessage: buildMillRstMsg } = useRstCheck({ context: "purchase", excludeId: editingId });
   const [rstFetched, setRstFetched] = useState(false);
@@ -722,8 +723,9 @@ function MainApp({ user, setUser, onLogout }) {
     }
 
     // 🛡️ Backend-backed RST cross-check — HARD BLOCK
+    // Skip if editing and RST unchanged (preserves linked pairs)
     const rstTrim = (formData.rst_no || '').trim();
-    if (rstTrim) {
+    if (rstTrim && (!editingId || rstTrim !== originalRst)) {
       const { hasBlocker } = await checkMillRst(rstTrim, { immediate: true });
       if (hasBlocker) {
         toast.error(`❌ RST ${rstTrim} duplicate — save block hua\n${buildMillRstMsg()}`, { duration: 7000 });
@@ -808,6 +810,7 @@ function MainApp({ user, setUser, onLogout }) {
       _v: entry._v,
     });
     setEditingId(entry.id);
+    setOriginalRst(String(entry.rst_no || ""));
     setIsDialogOpen(true);
   };
 
@@ -841,6 +844,7 @@ function MainApp({ user, setUser, onLogout }) {
     const kmsY = filters.kms_year || CURRENT_FY;
     setFormData({...initialFormState, kms_year: kmsY, season: filters.season || "Kharif"});
     setEditingId(null);
+    setOriginalRst("");
     setRstFetched(false);
     setIsDialogOpen(true);
     // v104.44.29 — Auto-fill next RST + TP from cross-collection check

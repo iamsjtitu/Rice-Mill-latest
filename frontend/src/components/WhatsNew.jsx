@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.33",
+    date: "Feb 17, 2026",
+    title: "v104.44.33 — 🛡️ GLOBAL Hard Block on Duplicate RST (VW Included)",
+    items: [
+      { type: "fix", text: "🛡️ **User demand — 'RST kabhi pai b duplicate nahi hona chahiye entire software mai'** — ab GLOBAL HARD BLOCK pura software me. VW Dispatch/Receive entry ko bhi blocker treat kiya (pehle 'natural source' bol ke INFO-only tha)." },
+      { type: "feature", text: "🆕 **Auto Vehicle Weight me bhi check** — New VW entry me RST kisi bhi collection (sale, purchase, bp, paddy, mill entry, VW) me ho to toast error + save block. Edit VW dialog me bhi same protection, but edit karte waqt agar RST unchanged hai to skip (natural linked pairs preserve)." },
+      { type: "improvement", text: "🔀 **Trans_type aware** — VW me context Dispatch/Sale me 'sale' aur Receive/Purchase me 'purchase' switch hota hai. Cross-type collision bhi detect." },
+      { type: "improvement", text: "🔄 **Edit-safe logic** — 5 forms (Sale, Purchase, Paddy, BP Sale, Mill Entry) me edit karte waqt agar RST unchanged rahe to backend check skip — isse existing voucher-VW linked pairs fail nahi hote." },
+      { type: "improvement", text: "🎨 **Block message enhanced** — Blocker message me VW trans_type bhi dikhta hai: 'Vehicle Weight (Dispatch(Sale)) · MBOPL · 2026-04-29' — clarity ke liye." },
+    ],
+  },
+  {
     version: "104.44.32",
     date: "Feb 17, 2026",
     title: "v104.44.32 — 🔴 CRITICAL: RST Duplicate Check Collection Name Bug Fix",

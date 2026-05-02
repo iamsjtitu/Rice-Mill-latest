@@ -1,0 +1,94 @@
+{
+  "summary": "v104.44.33 Testing Complete - GLOBAL HARD BLOCK including VW VERIFIED. All features working correctly: (1) VW is now a HARD BLOCKER (not filtered out), (2) Edit-if-unchanged skip logic prevents false-positive blocks on legitimate edits, (3) RST duplicate check returns ALL entries including VW.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_rst_check_v104_44_33.py",
+    "/app/test_reports/pytest/pytest_results_iteration210.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Added data-testid='bp-edit-{voucher_no}' to ByProductSaleRegister.jsx edit button for better test automation"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_rst_check_v104_44_33.py",
+    "/app/frontend/src/components/ByProductSaleRegister.jsx"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 v104.44.33 tests + 20/20 regression tests passed)",
+    "frontend": "100% (All RST duplicate scenarios verified via Playwright)"
+  },
+  "test_credentials": "admin / admin123",
+  "seed_data_creation": "None - used existing data (RST 7 has 2 bp_sale_register + 1 vehicle_weights entries)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "v104.44.33 GLOBAL HARD BLOCK verified. Key changes: (1) useRstCheck.jsx hasBlocker = same.length + other.length > 0 (VW no longer exempt). (2) All forms (VehicleWeight, ByProductSaleRegister, SaleBook, PurchaseVouchers, PaddyPurchase, App.js Mill Entry) have 'originalRst' state tracking for edit-if-unchanged skip logic. (3) RST 7 check returns 3 entries: 2 bp_sale_register + 1 VW Dispatch(Sale). (4) Edit S-002 (RST 7) without changing RST succeeds. (5) Edit S-003 with RST change to 7 is BLOCKED.",
+  "features_tested": {
+    "backend_rst_check_api": {
+      "status": "PASS",
+      "details": "GET /api/rst-check?rst_no=7&context=sale returns ALL 3 entries (2 bp_sale_register + 1 vehicle_weights). VW is NOT filtered out."
+    },
+    "backend_exclude_id_for_vw": {
+      "status": "PASS",
+      "details": "exclude_id parameter correctly excludes VW entry when editing."
+    },
+    "backend_cross_type_check": {
+      "status": "PASS",
+      "details": "RST 7 (sale) checked in purchase context returns entries in exists_other."
+    },
+    "frontend_new_bp_sale_hard_block": {
+      "status": "PASS",
+      "details": "New Rice Bran Sale with RST 7 shows warning (3 duplicates including VW) and blocks save with error toast."
+    },
+    "frontend_edit_unchanged_rst_succeeds": {
+      "status": "PASS",
+      "details": "Edit S-002 (RST 7) without changing RST succeeds - no false-positive block. Toast shows 'Updated!'"
+    },
+    "frontend_edit_changed_rst_blocks": {
+      "status": "PASS",
+      "details": "Edit S-003 with RST change to 7 shows warning and blocks save with error toast."
+    },
+    "vw_included_in_blockers": {
+      "status": "PASS",
+      "details": "Vehicle Weight (Dispatch(Sale)) appears in RST warning message, confirming VW is now a HARD BLOCKER."
+    },
+    "regression_v104_44_31": {
+      "status": "PASS",
+      "details": "All 12 tests pass (RST check, Transit Pass Register, Next RST/TP endpoints)."
+    },
+    "regression_v104_44_32": {
+      "status": "PASS",
+      "details": "All 8 tests pass (bp_sale_register collection name fix, mill_entries collection)."
+    }
+  },
+  "backend_tests_summary": {
+    "v104_44_33_tests": {
+      "total": 14,
+      "passed": 14,
+      "failed": 0,
+      "test_classes": [
+        "TestRstCheckV104_44_33_Backend (4 tests) - API returns all entries including VW",
+        "TestRstCheckV104_44_33_EditUnchangedSkip (3 tests) - Edit-if-unchanged logic simulation",
+        "TestRstCheckV104_44_33_VWContext (2 tests) - VW context detection",
+        "TestRstCheckV104_44_33_HasBlockerLogic (2 tests) - VW no longer exempt from blockers",
+        "TestRstCheckV104_44_33_Regression (3 tests) - v104.44.32 fixes still work"
+      ]
+    },
+    "regression_tests": {
+      "v104_44_31": {"total": 12, "passed": 12, "failed": 0},
+      "v104_44_32": {"total": 8, "passed": 8, "failed": 0}
+    }
+  },
+  "user_demand_verification": {
+    "original_demand": "rst number kabhi pai b duplicate nahi hona chahiye entire software mai",
+    "implementation": "v104.44.33 makes VW a HARD BLOCKER. Previously VW was filtered out as 'natural source'. Now any RST that exists in VW will also block new entries.",
+    "edge_case_handled": "Edit-if-unchanged skip logic prevents false-positive blocks when editing existing entries without changing RST (e.g., editing S-002 remark while RST 7 stays same)."
+  }
+}

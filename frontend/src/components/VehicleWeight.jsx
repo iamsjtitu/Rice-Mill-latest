@@ -16,6 +16,7 @@ import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 import { useConfirm } from "./ConfirmProvider";
 import { downloadFile } from "../utils/download";
 import PaginationBar from "./PaginationBar";
+import { useRstCheck } from "../hooks/useRstCheck";
 const _isElectron = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
 const _isElectronEnv = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? "" : (process.env.REACT_APP_BACKEND_URL || "");
@@ -552,6 +553,13 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
   const canChangeDate = user?.permissions?.can_change_date === true || (user?.role === 'admin' && user?.permissions?.can_change_date !== false);
   const canEditVwLinked = user?.permissions?.can_edit_vw_linked === true || (user?.role === 'admin' && user?.permissions?.can_edit_vw_linked !== false);
 
+  // v104.44.33 — GLOBAL HARD BLOCK: VW ka RST bhi kahin aur exist kare to save mat karo.
+  // Context derived from trans_type (Dispatch/Sale → sale; Receive/Purchase → purchase).
+  const vwContext = ((form.trans_type || "").toLowerCase().includes("sale") || (form.trans_type || "").toLowerCase().includes("dispatch")) ? "sale" : "purchase";
+  const editVwContext = ((editForm?.trans_type || editDialog?.entry?.trans_type || "").toLowerCase().match(/sale|dispatch/)) ? "sale" : "purchase";
+  const { checkRst: checkVwRst, buildBlockerMessage: buildVwRstMsg } = useRstCheck({ context: vwContext, excludeId: "" });
+  const { checkRst: checkVwEditRst, buildBlockerMessage: buildVwEditRstMsg } = useRstCheck({ context: editVwContext, excludeId: editDialog?.entry?.id || "" });
+
   // ESC key to close photo zoom
   useEffect(() => {
     if (!zoomImg) return;
@@ -773,6 +781,15 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
     if (!form.farmer_name?.trim()) { toast.error("Source / Mandi daalen"); return; }
     if (!form.first_wt || Number(form.first_wt) <= 0) { toast.error("First Weight daalen"); return; }
     if (form.tp_no && checkTpDuplicate(form.tp_no)) { toast.error(tpWarning || "Duplicate TP No."); return; }
+    // v104.44.33 🛡️ GLOBAL RST cross-check — HARD BLOCK if RST exists anywhere
+    const rstToUse = String(form.rst_no || nextRst || "").trim();
+    if (rstToUse) {
+      const { hasBlocker } = await checkVwRst(rstToUse, { immediate: true });
+      if (hasBlocker) {
+        toast.error(`❌ RST ${rstToUse} duplicate — save block hua\n${buildVwRstMsg()}`, { duration: 8000 });
+        return;
+      }
+    }
     try {
       // Capture camera photos on first weight
       const frontImg = (await frontCamRef.current?.captureFrame?.()) || "";
@@ -910,6 +927,16 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
   };
   const saveEdit = async () => {
     try {
+      // v104.44.33 🛡️ RST cross-check on edit — only if RST number changed
+      const origRst = String(editDialog.entry?.rst_no || "").trim();
+      const newRst = String(editForm?.rst_no || "").trim();
+      if (newRst && newRst !== origRst) {
+        const { hasBlocker } = await checkVwEditRst(newRst, { immediate: true });
+        if (hasBlocker) {
+          toast.error(`❌ RST ${newRst} duplicate — update block hua\n${buildVwEditRstMsg()}`, { duration: 8000 });
+          return;
+        }
+      }
       const r = await axios.put(`${API}/vehicle-weight/${editDialog.entry.id}/edit`, editForm);
       if (r.data.success) { toast.success("Updated!"); setEditDialog({ open: false, entry: null }); fetchData(); }
     } catch (err) { toast.error(err?.response?.data?.detail || "Update error"); }

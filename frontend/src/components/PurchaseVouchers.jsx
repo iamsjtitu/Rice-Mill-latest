@@ -38,6 +38,7 @@ export default function PurchaseVouchers({ filters, user }) {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [originalRst, setOriginalRst] = useState("");
   const { checkRst, clear: clearRstCheck, RstWarning, buildBlockerMessage: buildRstMsg } = useRstCheck({ context: "purchase", excludeId: editId });
   const [searchText, setSearchText] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
@@ -145,6 +146,7 @@ export default function PurchaseVouchers({ filters, user }) {
       kms_year: filters.kms_year || "", season: filters.season || "",
     });
     setEditId(null);
+    setOriginalRst("");
   };
 
   const handleItemChange = (idx, field, value) => {
@@ -178,8 +180,9 @@ export default function PurchaseVouchers({ filters, user }) {
     if (validItems.length === 0) { toast.error("Kam se kam ek item daalein"); return; }
 
     // 🛡️ Backend-backed RST cross-check — HARD BLOCK
+    // Skip if editing and RST unchanged (preserves linked VW/voucher pairs)
     const rstTrim = (form.rst_no || '').trim();
-    if (rstTrim) {
+    if (rstTrim && (!editId || rstTrim !== originalRst)) {
       const { hasBlocker } = await checkRst(rstTrim, { immediate: true });
       if (hasBlocker) {
         toast.error(`❌ RST ${rstTrim} duplicate — save block hua\n${buildRstMsg()}`, { duration: 7000 });
@@ -245,6 +248,7 @@ export default function PurchaseVouchers({ filters, user }) {
       kms_year: v.kms_year || "", season: v.season || "",
     });
     setEditId(v.id);
+    setOriginalRst(String(v.rst_no || ""));
     setDialogOpen(true);
   };
 

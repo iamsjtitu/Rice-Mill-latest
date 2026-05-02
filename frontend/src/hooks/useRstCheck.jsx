@@ -56,11 +56,11 @@ export function useRstCheck({ context = "sale", excludeId = "" } = {}) {
       setData(res.data);
       const same = res.data.exists_same || [];
       const other = res.data.exists_other || [];
-      // VW entries are natural source (dispatch creates VW, then sale voucher) — INFO only
-      const blockingSame = same.filter(m => m.collection !== "vehicle_weights");
-      const hasBlocker = blockingSame.length + other.length > 0;
-      const hasIssue = same.length + other.length > 0;
-      return { hasIssue, hasBlocker, data: res.data, blockingSame, otherDocs: other };
+      // v104.44.33: GLOBAL HARD BLOCK — ALL matches are blockers (including VW)
+      // User explicit demand: "rst number kabhi pai b duplicate nahi hona chahiye entire software mai"
+      const hasBlocker = same.length + other.length > 0;
+      const hasIssue = hasBlocker;
+      return { hasIssue, hasBlocker, data: res.data, blockingSame: same, otherDocs: other };
     } catch (e) {
       if (!ctrl.signal.aborted) setData(null);
       return { hasIssue: false, hasBlocker: false, data: null };
@@ -118,12 +118,13 @@ export function useRstCheck({ context = "sale", excludeId = "" } = {}) {
 
   const buildBlockerMessage = () => {
     if (!data) return "";
-    const same = (data.exists_same || []).filter(m => m.collection !== "vehicle_weights");
+    // v104.44.33: include ALL matches (VW no longer exempt)
+    const same = data.exists_same || [];
     const other = data.exists_other || [];
     const lines = [];
     if (same.length) {
       lines.push(`Ye RST already ${context === "sale" ? "sale" : "purchase"} me save ho chuka hai:`);
-      same.forEach(m => lines.push(`  • ${COLLECTION_LABELS[m.collection] || m.collection}${m.voucher_no ? " V.No " + m.voucher_no : ""} · ${m.party_name || "-"} · ${m.date || "-"}`));
+      same.forEach(m => lines.push(`  • ${COLLECTION_LABELS[m.collection] || m.collection}${m.voucher_no ? " V.No " + m.voucher_no : ""}${m.trans_type ? " (" + m.trans_type + ")" : ""} · ${m.party_name || "-"} · ${m.date || "-"}`));
     }
     if (other.length) {
       lines.push(`Ye RST ${context === "sale" ? "PURCHASE" : "SALE"} side me save hai — sale aur purchase me same RST allowed nahi:`);

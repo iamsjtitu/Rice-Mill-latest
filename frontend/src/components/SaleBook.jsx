@@ -42,6 +42,7 @@ export default function SaleBook({ filters, user, category }) {
   const [stockItems, setStockItems] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [originalRst, setOriginalRst] = useState("");
   const { checkRst, clear: clearRstCheck, RstWarning, buildBlockerMessage: buildRstMsg } = useRstCheck({ context: "sale", excludeId: editingId });
   const [obList, setObList] = useState([]);
   const [isObOpen, setIsObOpen] = useState(false);
@@ -108,6 +109,7 @@ export default function SaleBook({ filters, user, category }) {
 
   const openNewForm = async () => {
     setEditingId(null);
+    setOriginalRst("");
     const defaultItem = category
       ? { ...emptyItem, item_name: category }
       : { ...emptyItem };
@@ -128,6 +130,7 @@ export default function SaleBook({ filters, user, category }) {
 
   const openEditForm = (v) => {
     setEditingId(v.id);
+    setOriginalRst(String(v.rst_no || ""));
     setForm({
       date: v.date || "", party_name: v.party_name || "", voucher_no_label: v.voucher_no_label || formatSaleVoucher(v),
       invoice_no: v.invoice_no || "",
@@ -176,9 +179,10 @@ export default function SaleBook({ filters, user, category }) {
     if (!form.items.some(i => i.item_name && parseFloat(i.quantity) > 0)) {
       toast.error("Kam se kam ek item add karein"); return;
     }
-    // 🛡️ Backend-backed RST cross-check — HARD BLOCK real duplicates (not VW info)
+    // 🛡️ Backend-backed RST cross-check — HARD BLOCK real duplicates
+    // Skip if editing and RST unchanged (preserves natural flow with linked VW/other records)
     const rstTrim = (form.rst_no || '').trim();
-    if (rstTrim) {
+    if (rstTrim && (!editingId || rstTrim !== originalRst)) {
       const { hasBlocker } = await checkRst(rstTrim, { immediate: true });
       if (hasBlocker) {
         toast.error(`❌ RST ${rstTrim} duplicate — save block hua\n${buildRstMsg()}`, { duration: 7000 });

@@ -24,6 +24,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const [sales, setSales] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [originalRst, setOriginalRst] = useState("");
   const { checkRst, clear: clearRstCheck, RstWarning, buildBlockerMessage: buildRstMsg } = useRstCheck({ context: "sale", excludeId: editingId });
   const [searchQuery, setSearchQuery] = useState("");
   const [viewSale, setViewSale] = useState(null);
@@ -181,6 +182,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
 
   const openNew = async () => {
     setEditingId(null);
+    setOriginalRst("");
     setForm({ ...blankForm, product, kms_year: filters.kms_year || "", season: filters.season || "" });
     setIsFormOpen(true);
     // Pre-fill next serial voucher_no (S-001, S-002 ...). User can edit.
@@ -194,6 +196,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
 
   const openEdit = (s) => {
     setEditingId(s.id);
+    setOriginalRst(String(s.rst_no || ""));
     setForm({
       voucher_no: s.voucher_no || "", bill_number: s.bill_number || "", billing_date: s.billing_date || "", date: s.date || "",
       rst_no: s.rst_no || "", vehicle_no: s.vehicle_no || "",
@@ -226,8 +229,9 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       if (nwKg <= 0) { toast.error("Net weight daalen"); return; }
     }
     // 🛡️ Backend-backed RST cross-check — HARD BLOCK
+    // Skip if editing and RST unchanged
     const rstTrim = (form.rst_no || '').trim();
-    if (rstTrim) {
+    if (rstTrim && (!editingId || rstTrim !== originalRst)) {
       const { hasBlocker } = await checkRst(rstTrim, { immediate: true });
       if (hasBlocker) {
         toast.error(`❌ RST ${rstTrim} duplicate — save block hua\n${buildRstMsg()}`, { duration: 7000 });
@@ -496,7 +500,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     <TableCell className="px-1">
                       <div className="flex gap-0.5">
                         <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-400 hover:text-white" onClick={() => setViewSale(s)} data-testid={`bp-view-${s.id}`}><Eye className="w-3 h-3" /></Button>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-400" onClick={() => openEdit(s)}><Edit className="w-3 h-3" /></Button>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-400" onClick={() => openEdit(s)} data-testid={`bp-edit-${s.voucher_no || s.id}`}><Edit className="w-3 h-3" /></Button>
                         {user.role === "admin" && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400" onClick={() => handleDelete(s.id)}><Trash2 className="w-3 h-3" /></Button>}
                       </div>
                     </TableCell>
