@@ -1,6 +1,23 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.23
+## Current Version: v104.44.24
+
+## 🎯 v104.44.24 — Desktop App Filename Override Fix
+**Build date:** 2026-02-17
+
+Root cause user flag: "Desktop app me Transit Pass / Paddy Purchase / Cash Book saare downloads me party name filename me nahi aa raha."
+
+Diagnosis: Node backend's `res.setHeader('Content-Disposition', 'attachment; filename=hardcoded.ext')` override kar raha tha frontend ka `a.download` attribute (via Electron's download handler / window.open fallback).
+
+Fix:
+1. Patched 70+ Node backend files (desktop-app + local-server) via Python AST-safe script
+2. Every `Content-Disposition` now reads `req.query.filename` first, falls back to original if not provided
+3. Frontend `downloadFile()` auto-appends `?filename=<name>` query param to every download URL
+4. Lint clean, zero breaking changes
+
+**Rebuild trigger**: User needs to run `yarn build:win` in /app/desktop-app to update `frontend-build/` bundle (auto-detects version mismatch).
+
+---
 
 ## 🎯 v104.44.23 — Global Filename Party/Context Standardization
 **Build date:** 2026-02-17

@@ -202,7 +202,7 @@ module.exports = function(database) {
     }
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=diesel_account.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `diesel_account.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
@@ -215,7 +215,7 @@ module.exports = function(database) {
     const pumps = database.data.diesel_pumps || [];
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=diesel_account.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `diesel_account.pdf`}`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'Diesel Account / Diesel Khata');
     const allCashTxns = database.data.cash_transactions || [];

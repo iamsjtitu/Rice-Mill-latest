@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.24",
+    date: "Feb 17, 2026",
+    title: "v104.44.24 — 🖥️ DESKTOP APP Filename Fix (Content-Disposition Override)",
+    items: [
+      { type: "fix", text: "🐛 **Desktop app me filename kyun nahi aa raha tha** — Root cause: Node backends (Express) har endpoint me hardcoded `Content-Disposition: attachment; filename=XYZ` header send karte the. Electron's `window.open` fallback / browser download handler us header ko frontend ke `a.download` attribute se prefer karta tha. Result: Transit Pass Register, Paddy Purchase Register, Cash Book, etc. saare downloads me generic filenames aate the." },
+      { type: "fix", text: "✅ **200+ backend endpoints patched** — Har Node route ab `?filename=...` query param check karta hai. Agar frontend filename bhejta hai, wahi use hota hai. Otherwise fallback to original hardcoded name. **Triple-backend parity**: Desktop (44 files) + LAN (44 files) dono update. Python backend ko change nahi chahiye (web uses blob+a.download)." },
+      { type: "fix", text: "🔗 **Frontend `downloadFile` updated** — Automatically appends `?filename=<finalName>` to every download URL so backend knows exact name. Zero breaking changes — existing flows work + desktop me sahi naam aata hai." },
+      { type: "improvement", text: "📌 **Rebuild needed** — Aap jab next time desktop app build karenge (`yarn build:win`), `setup-desktop.js` automatically version mismatch detect karke fresh `frontend-build/` banayega with all the new buildFilename logic. Old installed desktop app me changes nahi aayenge until you reinstall." },
+      { type: "improvement", text: "🎯 **Coverage**: Transit Pass Register, Paddy Purchase Register, Cash Book, Sale Book, Vehicle Weight, Mill Parts, Hemali, Staff, Purchase Vouchers, Truck Lease, DC Payments, BP Sale, Letter Pad, FY Summary, Oil Premium, Daily Report, Govt Registers — sab desktop me ab party/date-aware filenames output karte hain." },
+    ],
+  },
+  {
     version: "104.44.23",
     date: "Feb 17, 2026",
     title: "v104.44.23 — 📝 Filename Party/Context Names Global Standardization",

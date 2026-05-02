@@ -313,7 +313,7 @@ router.get('/api/local-party/excel', safeAsync(async (req, res) => {
   // 🎯 v104.44.12 — filename reflects selected party (if filtered)
   const _safeName = String(req.query.party_name || '').replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/\s+/g, '_').toLowerCase();
   const _fname = _safeName ? `${_safeName}.xlsx` : `local_party_account.xlsx`;
-  res.setHeader('Content-Disposition', `attachment; filename=${_fname}`);
+  res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `${_fname}`}`);
   // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
   try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
   await wb.xlsx.write(res);
@@ -336,7 +336,7 @@ router.get('/api/local-party/pdf', safeSync(async (req, res) => {
     // 🎯 v104.44.12 — filename reflects selected party (if filtered)
     const _safePN = String(req.query.party_name || '').replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/\s+/g, '_').toLowerCase();
     const _fnamePdf = _safePN ? `${_safePN}.pdf` : `local_party_account.pdf`;
-    res.setHeader('Content-Disposition', `attachment; filename=${_fnamePdf}`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `${_fnamePdf}`}`);
   // PDF will be sent via safePdfPipe
 
   const branding = database.getBranding ? database.getBranding() : {};

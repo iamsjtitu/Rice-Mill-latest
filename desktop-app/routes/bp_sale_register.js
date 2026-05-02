@@ -343,7 +343,7 @@ module.exports = function(database) {
       addExcelTitle(ws, `${product || 'By-Product'} Sale Register`, cols.length, database);
       styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition',`attachment; filename=${(product||'bp').toLowerCase().replace(/ /g,'_')}_sales_${Date.now()}.xlsx`);
+      res.setHeader('Content-Disposition',`attachment; filename=${req.query.filename || `${(product||'bp').toLowerCase().replace(/ /g,'_')}_sales_${Date.now()}.xlsx`}`);
       // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
       try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       await wb.xlsx.write(res); res.end();
@@ -414,7 +414,7 @@ module.exports = function(database) {
 
       const doc = new PDFDocument({size:'A4',layout:'landscape',margin:20});
       res.setHeader('Content-Type','application/pdf');
-      res.setHeader('Content-Disposition',`attachment; filename=${(product||'bp').toLowerCase().replace(/ /g,'_')}_sales_${Date.now()}.pdf`);
+      res.setHeader('Content-Disposition',`attachment; filename=${req.query.filename || `${(product||'bp').toLowerCase().replace(/ /g,'_')}_sales_${Date.now()}.pdf`}`);
       let title = `${product || 'By-Product'} Sale Register`;
       if (kms_year) title += ` - FY ${kms_year}`;
       addPdfHeader(doc, title);

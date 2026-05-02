@@ -206,7 +206,7 @@ module.exports = (database) => {
     const dateStr = (req.body || {}).date || new Date().toISOString().slice(0, 10);
     const fname = `letter_${dateStr.replace(/-/g, '')}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `"${fname}"`}`);
     const doc = renderLetterPdf(ctx, req.body || {});
     doc.pipe(res);
     doc.end();
@@ -378,7 +378,7 @@ module.exports = (database) => {
     const buffer = await Packer.toBuffer(document);
     const fname = `letter_${dateStr.replace(/-/g, '')}.docx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `"${fname}"`}`);
     res.send(buffer);
   }));
 

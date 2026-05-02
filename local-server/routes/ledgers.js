@@ -191,7 +191,7 @@ router.get('/api/reports/outstanding/excel', async (req, res) => {
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     const buf = await wb.xlsx.writeBuffer();
-    res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename=outstanding_${Date.now()}.xlsx` });
+    res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename=${req.query.filename || `outstanding_${Date.now()}.xlsx`}` });
     res.send(Buffer.from(buf));
   } catch (err) { res.status(500).json({ detail: 'Excel export failed: ' + err.message }); }
 });
@@ -200,7 +200,7 @@ router.get('/api/reports/outstanding/pdf', async (req, res) => {
   try {
     const doc = createPdfDoc({ size: 'A4', layout: 'landscape', margin: 30 }, database);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=outstanding_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `outstanding_${Date.now()}.pdf`}`);
     // PDF will be sent via safePdfPipe
     doc.fontSize(18).text('Outstanding Report', { align: 'center' }); doc.moveDown();
     doc.fontSize(12).text('DC Pending Deliveries', { underline: true }); doc.moveDown(0.5);
@@ -235,7 +235,7 @@ router.get('/api/reports/party-ledger/excel', async (req, res) => {
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     const buf = await wb.xlsx.writeBuffer();
-    res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename=party_ledger_${Date.now()}.xlsx` });
+    res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename=${req.query.filename || `party_ledger_${Date.now()}.xlsx`}` });
     res.send(Buffer.from(buf));
   } catch (err) { res.status(500).json({ detail: 'Excel export failed: ' + err.message }); }
 });
@@ -250,7 +250,7 @@ router.get('/api/reports/party-ledger/pdf', async (req, res) => {
     if (!party_type || party_type === 'truck') entries.forEach(e => { const t = e.truck_no||''; if (!t||(party_name && t.toLowerCase()!==party_name.toLowerCase())) return; ledger.push({ date: e.date, party_name: t, party_type: 'Truck', description: `Paddy: ${Math.round((e.mill_w||0)/100*100)/100}Q`, debit: 0, credit: Math.round(((e.cash_paid||0)+(e.diesel_paid||0))*100)/100 }); });
     const doc = createPdfDoc({ size: 'A4', layout: 'landscape', margin: 30 }, database);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=party_ledger_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `party_ledger_${Date.now()}.pdf`}`);
     // PDF will be sent via safePdfPipe
     doc.fontSize(18).text(`Party Ledger${party_name ? ' - ' + party_name : ''}`, { align: 'center' }); doc.moveDown();
     ledger.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)));

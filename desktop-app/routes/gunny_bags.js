@@ -188,7 +188,7 @@ module.exports = function(database) {
     ws.addRow({ date: 'TOTAL', txn_type: `In:${totalIn} Out:${totalOut}`, quantity: totalIn - totalOut });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=gunny_bags.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `gunny_bags.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
@@ -204,7 +204,7 @@ module.exports = function(database) {
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=gunny_bags.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `gunny_bags.pdf`}`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'Gunny Bags Report');
     const headers = ['Date', 'Bag Type', 'In/Out', 'Qty', 'Source/To', 'Rate', 'Amount(Rs.)', 'Notes'];
@@ -253,7 +253,7 @@ module.exports = function(database) {
       try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       const buf = await wb.xlsx.writeBuffer();
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=gunny_purchase_report.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `gunny_purchase_report.xlsx`}`);
       res.send(Buffer.from(buf));
     } catch (e) { res.status(500).json({ detail: e.message }); }
   }));

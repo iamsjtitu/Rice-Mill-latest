@@ -190,7 +190,7 @@ module.exports = function(database) {
     [groupBy === 'weekly' ? 28 : 14, 18, 20, 10, 18, 20, 18].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=Form_A_Paddy_Register_${kms_year || 'all'}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `Form_A_Paddy_Register_${kms_year || 'all'}.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
@@ -267,7 +267,7 @@ module.exports = function(database) {
     const branding = database.getBranding ? database.getBranding() : { company_name: 'NAVKAR AGRO' };
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=Form_A_Paddy_Register_${kms_year || 'all'}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `Form_A_Paddy_Register_${kms_year || 'all'}.pdf`}`);
     doc.pipe(res);
 
     addPdfHeader(doc, `Form A - Paddy Received from State Procuring Agency | ${kms_year || 'All'}${season ? ' | ' + season : ''}`, branding);
@@ -372,7 +372,7 @@ module.exports = function(database) {
     [14, 18, 20, 18, 20, 18, 30].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=Form_B_CMR_Register_${kms_year || 'all'}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `Form_B_CMR_Register_${kms_year || 'all'}.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
@@ -435,7 +435,7 @@ module.exports = function(database) {
     dataRows.forEach(r => ws.addRow(r));
     [14, 18, 22, 10, 15, 18, 28, 16].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=Form_E_Miller_Paddy_${kms_year || 'all'}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `Form_E_Miller_Paddy_${kms_year || 'all'}.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
@@ -495,7 +495,7 @@ module.exports = function(database) {
     dataRows.forEach(r => ws.addRow(r));
     [14, 20, 30, 18].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=Form_F_Miller_Rice_${kms_year || 'all'}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `Form_F_Miller_Rice_${kms_year || 'all'}.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
@@ -567,7 +567,7 @@ module.exports = function(database) {
     entries.forEach(e => ws.addRow([fmtDate(e.date), e.batch_no || '', e.supplier || '', e.opening_balance || 0, e.received_qty || 0, e.total || 0, e.issued_for_blending || 0, e.closing_balance || 0, e.rice_blended_qty || 0, e.blend_ratio || '', e.remark || '']));
     [14, 16, 22, 18, 15, 15, 22, 18, 18, 10, 20].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=FRK_Register_${req.query.kms_year || 'all'}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `FRK_Register_${req.query.kms_year || 'all'}.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
@@ -646,7 +646,7 @@ module.exports = function(database) {
     entries.forEach(e => ws.addRow([fmtDate(e.date), e.bag_type || '', e.source || '', e.opening_balance || 0, e.received || 0, e.used_for_rice || 0, e.used_for_paddy || 0, e.damaged || 0, e.returned || 0, e.closing_balance || 0, e.remark || '']));
     [14, 14, 18, 14, 12, 14, 14, 12, 12, 14, 20].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=Gunny_Bag_Register_${req.query.kms_year || 'all'}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `Gunny_Bag_Register_${req.query.kms_year || 'all'}.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
@@ -730,7 +730,7 @@ module.exports = function(database) {
     ws.addRow(['TOTAL', `${entries.length} entries`, '', '', '', '', Math.round(tq * 100) / 100, '', tb, '', '']);
     [14, 14, 12, 16, 22, 20, 14, 14, 10, 12, 20].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=Transit_Pass_Register_${kms_year || 'all'}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `Transit_Pass_Register_${kms_year || 'all'}.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
@@ -751,7 +751,7 @@ module.exports = function(database) {
     const branding = database.getBranding ? database.getBranding() : { company_name: 'NAVKAR AGRO' };
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=Transit_Pass_Register_${kms_year || 'all'}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `Transit_Pass_Register_${kms_year || 'all'}.pdf`}`);
     doc.pipe(res);
 
     addPdfHeader(doc, `Transit Pass Register | ${kms_year || 'All'}${season ? ' | ' + season : ''}`, branding);
@@ -838,7 +838,7 @@ module.exports = function(database) {
     entries.forEach(e => ws.addRow([fmtDate(e.date), e.delivery_no || '', e.rrc_depot || '', e.rice_type || '', e.cmr_qty || 0, e.bags || 0, e.vehicle_no || '', e.fortified ? 'Yes (+F)' : 'No', e.quality_grade || '', e.remark || '']));
     [14, 16, 22, 16, 18, 10, 16, 12, 10, 20].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=CMR_Delivery_${kms_year || 'all'}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `CMR_Delivery_${kms_year || 'all'}.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
@@ -896,7 +896,7 @@ module.exports = function(database) {
     entries.forEach(e => ws.addRow([e.bg_number || '', e.bank_name || '', e.amount || 0, e.sd_ratio || '', e.milling_capacity_mt || 0, fmtDate(e.issue_date), fmtDate(e.expiry_date), (e.status || '').toUpperCase(), e.miller_type || '', e.remark || '']));
     [18, 24, 18, 12, 16, 14, 14, 14, 16, 20].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=Security_Deposit_${kms_year || 'all'}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `Security_Deposit_${kms_year || 'all'}.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
@@ -1265,7 +1265,7 @@ module.exports = function(database) {
     const num = v => (Number(v || 0)).toFixed(2);
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=Verification_Report_${req.query.to_date || 'current'}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `Verification_Report_${req.query.to_date || 'current'}.pdf`}`);
     const doc = new PDFDocument({ size: 'A4', margins: { top: 28, left: 28, right: 28, bottom: 28 } });
     safePdfPipe(doc, res);
 
@@ -1408,7 +1408,7 @@ module.exports = function(database) {
     ws.pageSetup = { orientation: 'landscape', fitToWidth: 1, fitToHeight: 0 };
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=milling_register_${kms_year || 'all'}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `milling_register_${kms_year || 'all'}.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();

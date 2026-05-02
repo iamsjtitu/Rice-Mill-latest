@@ -647,7 +647,7 @@ module.exports = function(database) {
       // Summary banner removed (not useful — totals row at bottom of table is enough)
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `cash_book_${Date.now()}.xlsx`}`);
       // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
       try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       await wb.xlsx.write(res); res.end();
@@ -701,7 +701,7 @@ module.exports = function(database) {
       
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `cash_book_${Date.now()}.pdf`}`);
       // PDF will be sent via safePdfPipe
       
       const brandingData = database.getBranding ? database.getBranding() : {};
@@ -836,7 +836,7 @@ module.exports = function(database) {
       try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       const buf = await wb.xlsx.writeBuffer();
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=party_summary.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `party_summary.xlsx`}`);
       res.send(Buffer.from(buf));
     } catch (e) { res.status(500).json({ detail: e.message }); }
   }));
@@ -858,7 +858,7 @@ module.exports = function(database) {
     data.sort((a, b) => a.party_name.localeCompare(b.party_name));
     const doc = new PDFDocument({ size: 'A4', margin: 25 });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=party_summary.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `party_summary.pdf`}`);
     // PDF will be sent via safePdfPipe
     const brandingData = database.getBranding ? database.getBranding() : {};
     let subtitle = '';

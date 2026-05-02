@@ -141,7 +141,7 @@ module.exports = function(database) {
       addExcelTitle(ws, ttl, cols.length, database);
       styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition',`attachment; filename=oil_premium_${Date.now()}.xlsx`);
+      res.setHeader('Content-Disposition',`attachment; filename=${req.query.filename || `oil_premium_${Date.now()}.xlsx`}`);
       // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
       try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       await wb.xlsx.write(res); res.end();
@@ -178,7 +178,7 @@ module.exports = function(database) {
 
       const doc = new PDFDocument({size:'A4',layout:'landscape',margin:20});
       res.setHeader('Content-Type','application/pdf');
-      res.setHeader('Content-Disposition',`attachment; filename=oil_premium_${Date.now()}.pdf`);
+      res.setHeader('Content-Disposition',`attachment; filename=${req.query.filename || `oil_premium_${Date.now()}.pdf`}`);
       let title = 'Oil Premium Register';
       if (kms_year) title += ` - FY ${kms_year}`;
       if (bran_type) title += ` (${bran_type})`;

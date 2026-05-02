@@ -422,7 +422,7 @@ function safePdfPipe(doc, res, filename) {
     doc.on('end', () => {
       const buf = Buffer.concat(chunks);
       res.setHeader('Content-Type', 'application/pdf');
-      if (filename) res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+      if (filename) res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `${filename}`}`);
       res.setHeader('Content-Length', buf.length);
       res.end(buf);
       resolve();

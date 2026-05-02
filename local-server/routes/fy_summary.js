@@ -774,7 +774,7 @@ module.exports = function(database) {
       try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       wb.xlsx.writeBuffer().then(buf => {
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename=Balance_Sheet_${req.query.kms_year||'all'}.xlsx`);
+        res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `Balance_Sheet_${req.query.kms_year||'all'}.xlsx`}`);
         res.send(Buffer.from(buf));
       });
     } catch (err) {

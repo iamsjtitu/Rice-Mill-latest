@@ -429,7 +429,7 @@ module.exports = function(database) {
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=paddy_chalna.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || "paddy_chalna.xlsx"}`);
     res.send(Buffer.from(buf));
   }));
 
@@ -458,7 +458,7 @@ module.exports = function(database) {
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
     registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=paddy_chalna.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || "paddy_chalna.pdf"}`);
 
     const subtitleParts = [];
     if (kms_year) subtitleParts.push(`FY: ${kms_year}`);

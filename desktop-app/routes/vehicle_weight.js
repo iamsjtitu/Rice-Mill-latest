@@ -1289,7 +1289,7 @@ module.exports = function(database) {
     doc.on('end', () => {
       const pdfBuf = Buffer.concat(buffers);
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename=WeightSlip_RST${rst}.pdf`);
+      res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `WeightSlip_RST${rst}.pdf`}`);
       res.send(pdfBuf);
     });
 
@@ -1609,7 +1609,7 @@ module.exports = function(database) {
     }
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=${isSale ? 'vehicle_weight_sales' : 'vehicle_weight'}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `${isSale ? 'vehicle_weight_sales' : 'vehicle_weight'}.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res);
@@ -1642,7 +1642,7 @@ module.exports = function(database) {
     const efn = hasFS2 ? 'ExFont' : 'Helvetica';
     const efb = hasFS2 ? 'ExFontBold' : 'Helvetica-Bold';
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=${String(req.query.trans_type||'').toLowerCase()==='sale' ? 'vehicle_weight_sales' : 'vehicle_weight'}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `${String(req.query.trans_type||'').toLowerCase()==='sale' ? 'vehicle_weight_sales' : 'vehicle_weight'}.pdf`}`);
     doc.pipe(res);
 
     const isSale = String(req.query.trans_type || '').toLowerCase().trim() === 'sale';
@@ -2441,7 +2441,7 @@ module.exports = function(database) {
     const efb = hasFS ? 'ExFontBold' : 'Helvetica-Bold';
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=${opts.filenameBase}${opts.fnameSuffix || ''}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `${opts.filenameBase}${opts.fnameSuffix || ''}.pdf`}`);
     doc.pipe(res);
 
     const PW = 792, LM = 25, TW = PW - 2 * LM;
@@ -2811,7 +2811,7 @@ module.exports = function(database) {
     (opts.isAll ? widthsAll : widthsSingle).forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=${opts.filenameBase}${opts.fnameSuffix || ''}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `${opts.filenameBase}${opts.fnameSuffix || ''}.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res);

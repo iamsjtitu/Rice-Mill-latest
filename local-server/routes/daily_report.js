@@ -24,7 +24,7 @@ router.get('/api/reports/daily/pdf', safeSync(async (req, res) => {
   const data = getDailyReportData(database, req.query);
   const doc = createPdfDoc({ size: 'A4', layout: 'landscape', margin: 25 }, database);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=daily_report_${data.mode}_${data.date}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `daily_report_${data.mode}_${data.date}.pdf`}`);
   // PDF will be sent via safePdfPipe
 
   generateDailyReportPdf(doc, data, req.query);
@@ -282,7 +282,7 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   }
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=daily_report_${data.mode}_${data.date}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `daily_report_${data.mode}_${data.date}.xlsx`}`);
   // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
   try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
   await wb.xlsx.write(res); res.end();

@@ -184,7 +184,7 @@ module.exports = function(database) {
     const allPayments = database.data.truck_lease_payments || [];
     const doc = new PDFDocument({ size: 'A4', margin: 25, layout: 'landscape' });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=truck_lease_report.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `truck_lease_report.pdf`}`);
     // PDF will be sent via safePdfPipe
     let subtitle = '';
     if (req.query.kms_year) subtitle = `Year: ${req.query.kms_year} | Season: ${req.query.season || 'All'}`;
@@ -283,7 +283,7 @@ module.exports = function(database) {
     }
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=truck_lease_report.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `truck_lease_report.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     wb.xlsx.write(res).then(() => res.end());

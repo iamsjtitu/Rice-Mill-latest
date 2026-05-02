@@ -239,7 +239,7 @@ router.get('/api/staff/export/attendance', safeSync(async (req, res) => {
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 10 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=staff_attendance_${date_from}_to_${date_to}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `staff_attendance_${date_from}_to_${date_to}.pdf`}`);
     // PDF will be sent via safePdfPipe
 
     // Calculate table dimensions for centering
@@ -634,7 +634,7 @@ router.get('/api/staff/export/attendance', safeSync(async (req, res) => {
     }
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=staff_attendance_${date_from}_to_${date_to}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `staff_attendance_${date_from}_to_${date_to}.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     wb.xlsx.write(res).then(() => res.end());
@@ -654,7 +654,7 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=staff_payments.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `staff_payments.pdf`}`);
     // PDF will be sent via safePdfPipe
 
     const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill Entry System', tagline: '' };
@@ -703,7 +703,7 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
 
     for (let i = 1; i <= 7; i++) ws.getColumn(i).width = 18;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=staff_payments.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `staff_payments.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
@@ -746,7 +746,7 @@ router.post('/api/staff/advance-ledger/export', safeAsync(async (req, res) => {
   [5, 12, 16, 30, 14, 14, 14].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=advance_ledger_${staff_name || 'all'}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `advance_ledger_${staff_name || 'all'}.xlsx`}`);
   // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
   try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
   await wb.xlsx.write(res); res.end();

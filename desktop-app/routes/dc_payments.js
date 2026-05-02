@@ -107,7 +107,7 @@ module.exports = function(database) {
       ws2.addRow({ dc_no: dcMap[dl.dc_id]||'', date: fmtDate(dl.date), invoice_no: dl.invoice_no||'', rst_no: dl.rst_no||'', eway_bill_no: dl.eway_bill_no||'', quantity_qntl: dl.quantity_qntl, vehicle_no: dl.vehicle_no, driver_name: dl.driver_name, bags_used: dl.bags_used||0, cash_paid: dl.cash_paid||0, diesel_paid: dl.diesel_paid||0, cgst_amount: dl.cgst_amount||0, sgst_amount: dl.sgst_amount||0, godown_name: dl.godown_name||'', notes: dl.notes||'' });
     });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=dc_register.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `dc_register.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
@@ -120,7 +120,7 @@ module.exports = function(database) {
     entries.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)) || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=dc_entries.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `dc_entries.pdf`}`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'DC Entries Report');
     const headers = ['Date', 'DC No', 'Qty(Q)', 'Rice Type', 'Godown', 'Deadline', 'Notes'];
@@ -568,7 +568,7 @@ module.exports = function(database) {
     ws.columns = [{ header: 'Date', key: 'date', width: 12 }, { header: 'Qty(Q)', key: 'quantity_qntl', width: 10 }, { header: 'Rate/Q', key: 'rate_per_qntl', width: 10 }, { header: 'Amount', key: 'amount', width: 12 }, { header: 'Mode', key: 'payment_mode', width: 10 }, { header: 'Bank', key: 'bank_name', width: 15 }];
     payments.forEach(p => ws.addRow(p));
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=msp_payments.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `msp_payments.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
@@ -581,7 +581,7 @@ module.exports = function(database) {
     payments.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)) || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=msp_payments.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `msp_payments.pdf`}`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'MSP Payments Report');
     const headers = ['Date', 'Qty(Q)', 'Rate(Rs./Q)', 'Amount(Rs.)', 'Mode', 'Bank'];

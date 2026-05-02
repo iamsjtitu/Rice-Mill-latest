@@ -384,7 +384,7 @@ module.exports = function(database) {
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=sale_book.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `sale_book.xlsx`}`);
     res.send(Buffer.from(buf));
   }));
 
@@ -800,7 +800,7 @@ module.exports = function(database) {
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=stock_summary.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `stock_summary.xlsx`}`);
     res.send(Buffer.from(buf));
   }));
 
@@ -813,7 +813,7 @@ module.exports = function(database) {
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=stock_summary.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `stock_summary.pdf`}`);
     // PDF will be sent via safePdfPipe
 
     // Header

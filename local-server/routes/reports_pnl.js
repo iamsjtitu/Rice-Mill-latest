@@ -106,7 +106,7 @@ router.get('/api/reports/season-pnl/excel', safeAsync(async (req, res) => {
   ws.getCell(`B${row}`).value = data.net_pnl; ws.getCell(`B${row}`).font = { name: 'Inter', bold: true, size: 12 };
   ws.getColumn('A').width = 22; ws.getColumn('B').width = 22;
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=season_pnl.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `season_pnl.xlsx`}`);
   // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
   try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
   await wb.xlsx.write(res); res.end();
@@ -135,7 +135,7 @@ router.get('/api/reports/season-pnl/pdf', safeSync(async (req, res) => {
 
   const doc = new PDFDocument({ size: 'A4', margin: 40 });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=season_pnl.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `season_pnl.pdf`}`);
   // PDF will be sent via safePdfPipe
   const branding = database.getBranding ? database.getBranding() : {};
   addPdfHeader(doc, 'Season P&L Report', branding, `FY: ${q.kms_year||'All'} | Season: ${q.season||'All'}`);
@@ -173,7 +173,7 @@ router.get('/api/reports/cmr-vs-dc/excel', safeAsync(async (req, res) => {
   for (const [l,v] of [['DC Allotted (Q)',d.dc.total_allotted],['DC Delivered (Q)',d.dc.total_delivered],['DC Pending (Q)',+(d.dc.total_allotted-d.dc.total_delivered).toFixed(2)]]) { row++; ws.getCell(`A${row}`).value=l; ws.getCell(`B${row}`).value=v; }
   ws.getColumn('A').width=22; ws.getColumn('B').width=22;
   res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=cmr_vs_dc.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `cmr_vs_dc.xlsx`}`);
   // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
   try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
   await wb.xlsx.write(res); res.end();
@@ -187,7 +187,7 @@ router.get('/api/reports/cmr-vs-dc/pdf', safeSync(async (req, res) => {
   if (q.season) { milling=milling.filter(e=>e.season===q.season); dcs=dcs.filter(e=>e.season===q.season); deliveries=deliveries.filter(e=>e.season===q.season); }
   const doc = new PDFDocument({ size: 'A4', margin: 40 });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=cmr_vs_dc.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `cmr_vs_dc.pdf`}`);
   // PDF will be sent via safePdfPipe
   const branding = database.getBranding ? database.getBranding() : {};
   addPdfHeader(doc, 'CMR vs DC Report', branding);

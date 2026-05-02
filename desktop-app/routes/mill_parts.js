@@ -481,7 +481,7 @@ router.get('/api/mill-parts/store-room-report/excel', safeAsync(async (req, res)
   try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
   const buf = await wb.xlsx.writeBuffer();
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=store_room_report.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `store_room_report.xlsx`}`);
   res.send(Buffer.from(buf));
 }));
 
@@ -518,7 +518,7 @@ router.get('/api/mill-parts/store-room-report/pdf', safeAsync(async (req, res) =
 
   const doc = createPdfDoc({ size: 'A4', layout: 'landscape', margin: 30 }, database);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=store_room_report.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `store_room_report.pdf`}`);
   // PDF will be sent via safePdfPipe
 
   const title = `Store Room-wise Inventory Report${req.query.kms_year ? ' - ' + req.query.kms_year : ''}${req.query.season ? ' (' + req.query.season + ')' : ''}`;
@@ -588,7 +588,7 @@ router.get('/api/mill-parts/summary/excel', safeAsync(async (req, res) => {
 
   [20, 14, 14, 8, 12, 12, 14, 18, 25].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=mill_parts_stock.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `mill_parts_stock.xlsx`}`);
   // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
   try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
   await wb.xlsx.write(res); res.end();
@@ -599,7 +599,7 @@ router.get('/api/mill-parts/summary/pdf', safeSync(async (req, res) => {
   const summary = getStockSummary(req.query);
   const doc = createPdfDoc({ size: 'A4', layout: 'landscape', margin: 25 }, database);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=mill_parts_stock.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `mill_parts_stock.pdf`}`);
   // PDF will be sent via safePdfPipe
 
   const C = { hdr: '#1a365d', border: '#cbd5e1', alt: '#f8fafc', blue: '#e0f2fe' };
@@ -696,7 +696,7 @@ router.get('/api/mill-parts-stock/export/excel', safeAsync(async (req, res) => {
 
   [12, 18, 12, 8, 8, 10, 14, 18, 12, 18].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=mill_parts_transactions.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `mill_parts_transactions.xlsx`}`);
   // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
   try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
   await wb.xlsx.write(res); res.end();
@@ -716,7 +716,7 @@ router.get('/api/mill-parts-stock/export/pdf', safeSync(async (req, res) => {
 
   const doc = createPdfDoc({ size: 'A4', layout: 'landscape', margin: 25 }, database);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=mill_parts_transactions.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `mill_parts_transactions.pdf`}`);
   // PDF will be sent via safePdfPipe
 
   const C = { hdr: '#1a365d', border: '#cbd5e1', inBg: '#f0fdf4', usedBg: '#fef2f2', inBg2: '#dcfce7', usedBg2: '#fee2e2', blue: '#e0f2fe' };
@@ -859,7 +859,7 @@ router.get('/api/mill-parts/part-summary/excel', safeAsync(async (req, res) => {
   });
   [12, 8, 8, 10, 14, 18, 12, 18].forEach((w, i) => ws.getColumn(i + 1).width = w);
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=${part_name.replace(/ /g, '_')}_summary.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `${part_name.replace(/ /g, '_')}_summary.xlsx`}`);
   // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
   try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
   await wb.xlsx.write(res); res.end();
@@ -891,7 +891,7 @@ router.get('/api/mill-parts/part-summary/pdf', safeSync(async (req, res) => {
   branding._watermark = ((database.data || {}).app_settings || []).find(s => s.setting_id === 'watermark');
   const doc = createPdfDoc({ size: 'A4', layout: 'landscape', margin: 30 }, database);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=${part_name.replace(/ /g, '_')}_summary.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `${part_name.replace(/ /g, '_')}_summary.pdf`}`);
   // PDF will be sent via safePdfPipe
   _addPdfH(doc, `${part_name} - Part Summary`, branding);
   doc.fontSize(9).fillColor('#666666').text(`Category: ${category} | Unit: ${unit} | Store Room: ${partInfo.store_room_name || 'N/A'}`, { align: 'center' });

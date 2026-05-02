@@ -295,7 +295,7 @@ module.exports = function(database, { getBackupsList, createBackup, restoreBacku
     const timestamp = new Date().toISOString().replace(/[:.]/g, '').substring(0, 15);
     const filename = `mill_backup_${timestamp}.zip`;
     res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `${filename}`}`);
 
     const archive = archiver('zip', { zlib: { level: 9 } });
     archive.pipe(res);

@@ -307,7 +307,7 @@ module.exports = function(database) {
     }
     widths.forEach((w,i) => ws.getColumn(i+1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=party_summary.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `party_summary.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     wb.xlsx.write(res).then(() => res.end());
@@ -335,7 +335,7 @@ module.exports = function(database) {
     const headers = getPdfHeaders(cols);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=party_summary.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `party_summary.pdf`}`);
     // PDF will be sent via safePdfPipe
     let subtitle = ''; if (kms_year) subtitle = `FY: ${kms_year}`; if (season) subtitle += ` | ${season}`;
     _addPdfHeader(doc, 'Party-wise Summary', branding, subtitle);
@@ -391,7 +391,7 @@ module.exports = function(database) {
     }
     widths.forEach((w, i) => ws.getColumn(i+1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=pvt_paddy.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `pvt_paddy.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     wb.xlsx.write(res).then(() => res.end());
@@ -416,7 +416,7 @@ module.exports = function(database) {
     const headers = getPdfHeaders(cols);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=pvt_paddy.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `pvt_paddy.pdf`}`);
     // PDF will be sent via safePdfPipe
     let subtitle = ''; if (kms_year) subtitle = `FY: ${kms_year}`; if (season) subtitle += ` | ${season}`;
     _addPdfHeader(doc, 'Private Paddy Purchase', branding, subtitle);
@@ -470,7 +470,7 @@ module.exports = function(database) {
     }
     widths.forEach((w, i) => ws.getColumn(i+1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=rice_sales.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `rice_sales.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     wb.xlsx.write(res).then(() => res.end());
@@ -492,7 +492,7 @@ module.exports = function(database) {
     const headers = getPdfHeaders(cols);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=rice_sales.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `rice_sales.pdf`}`);
     // PDF will be sent via safePdfPipe
     let subtitle = ''; if (kms_year) subtitle = `FY: ${kms_year}`; if (season) subtitle += ` | ${season}`;
     _addPdfHeader(doc, 'Rice Sales Report', branding, subtitle);

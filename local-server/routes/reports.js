@@ -219,7 +219,7 @@ module.exports = function(database) {
       // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
       try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       const buf = await wb.xlsx.writeBuffer();
-      res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename=outstanding_${Date.now()}.xlsx` }); res.send(Buffer.from(buf));
+      res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename=${req.query.filename || `outstanding_${Date.now()}.xlsx`}` }); res.send(Buffer.from(buf));
     } catch (err) { res.status(500).json({ detail: 'Excel export failed: ' + err.message }); }
   }));
 
@@ -229,7 +229,7 @@ module.exports = function(database) {
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=outstanding_${Date.now()}.pdf`); // PDF will be sent via safePdfPipe
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `outstanding_${Date.now()}.pdf`}`); // PDF will be sent via safePdfPipe
 
       addPdfHeader(doc, 'Outstanding Report', kms_year ? `${kms_year} | ${season || ''}` : '');
 
@@ -297,7 +297,7 @@ module.exports = function(database) {
       // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
       try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       const buf = await wb.xlsx.writeBuffer();
-      res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename=party_ledger_${Date.now()}.xlsx` }); res.send(Buffer.from(buf));
+      res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename=${req.query.filename || `party_ledger_${Date.now()}.xlsx`}` }); res.send(Buffer.from(buf));
     } catch (err) { res.status(500).json({ detail: 'Excel export failed: ' + err.message }); }
   }));
 
@@ -310,7 +310,7 @@ module.exports = function(database) {
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=party_ledger_${Date.now()}.pdf`); // PDF will be sent via safePdfPipe
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `party_ledger_${Date.now()}.pdf`}`); // PDF will be sent via safePdfPipe
 
       addPdfHeader(doc, `Party Ledger${party_name ? ' - ' + party_name : ''}`, date_from && date_to ? `${date_from} to ${date_to}` : '');
 
@@ -522,7 +522,7 @@ module.exports = function(database) {
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=agent_mandi_report.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `agent_mandi_report.xlsx`}`);
     res.send(Buffer.from(buf));
   }));
 
@@ -556,7 +556,7 @@ module.exports = function(database) {
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=agent_mandi_report.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `agent_mandi_report.pdf`}`);
     // PDF will be sent via safePdfPipe
 
     let title = 'Agent & Mandi Wise Report';
@@ -690,7 +690,7 @@ module.exports = function(database) {
     addExcelTitle(ws, 'Weight Discrepancy Report', 10, database);
     styleExcelHeader(ws); styleExcelData(ws, 5);
 
-    res.setHeader('Content-Disposition', 'attachment; filename=weight_discrepancy.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || "weight_discrepancy.xlsx"}`);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
@@ -720,7 +720,7 @@ module.exports = function(database) {
 
     const PDFDocument = require('pdfkit');
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
-    res.setHeader('Content-Disposition', 'attachment; filename=weight_discrepancy.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || "weight_discrepancy.pdf"}`);
     addPdfHeader(doc, 'Weight Discrepancy Report', `Discrepancies: ${data.total_count} | Total Diff: ${data.total_diff_qntl} Q (${data.total_diff_kg} KG)`);
     const h = ['Date','Truck','RST','TP','Agent','Mandi','TP Wt(Q)','QNTL','Diff(Q)','Diff(KG)'];
     const w = [55,55,35,35,60,80,45,45,45,45];
@@ -816,7 +816,7 @@ module.exports = function(database) {
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
     registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=mandi_custody_register.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `mandi_custody_register.pdf`}`);
     _addPdfHeader(doc, 'Mandi Wise Custody Register', branding, `FY: ${kms_year || 'All'} | Season: ${season || 'All'}`);
 
     const headers = ['Date', ...mandis, 'TOTAL', 'PROG.TOTAL'];
@@ -986,7 +986,7 @@ module.exports = function(database) {
     ws.views = [{ state: 'frozen', ySplit: hdrRowNum }];
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=mandi_custody_register.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || "mandi_custody_register.xlsx"}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res);

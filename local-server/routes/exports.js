@@ -72,7 +72,7 @@ module.exports = function(database) {
       addExcelTitle(ws, req.query.report_title || 'Mill Entries Report', 20, database); styleExcelHeader(ws); styleExcelData(ws, 5);
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=mill_entries_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `mill_entries_${Date.now()}.xlsx`}`);
       // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
       try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       await wb.xlsx.write(res); res.end();
@@ -86,7 +86,7 @@ module.exports = function(database) {
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 20 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=mill_entries_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `mill_entries_${Date.now()}.pdf`}`);
       // PDF will be sent via safePdfPipe
       addPdfHeader(doc, req.query.report_title || 'Mill Entries Report');
       const h = ['Date','Truck','RST','TP','TP Wt','Agent','Mandi','QNTL','BAG','G.Dep','GBW','P.Pkt','P.Cut','Mill W','M%','M.Cut','C%','D/D/P','Final W','G.Iss'];
@@ -150,7 +150,7 @@ module.exports = function(database) {
         ]);
       }
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=truck_payments_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `truck_payments_${Date.now()}.xlsx`}`);
       // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
       try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       await wb.xlsx.write(res); res.end();
@@ -164,7 +164,7 @@ module.exports = function(database) {
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=truck_payments_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `truck_payments_${Date.now()}.pdf`}`);
       addPdfHeader(doc, 'Truck Payments Report');
       const h = ['Date','Truck','Mandi','Final QNTL','Rate','Gross','Ded','Net','Paid','Balance','Status'];
       let tg=0,tded=0,tn=0,tp=0,tb=0,paidCnt=0,partCnt=0,pendCnt=0;
@@ -211,7 +211,7 @@ module.exports = function(database) {
         ]);
       }
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=agent_payments_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `agent_payments_${Date.now()}.xlsx`}`);
       // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
       try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       await wb.xlsx.write(res); res.end();
@@ -224,7 +224,7 @@ module.exports = function(database) {
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=agent_payments_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `agent_payments_${Date.now()}.pdf`}`);
       addPdfHeader(doc, 'Agent Payments Report');
       const h = ['Mandi','Agent','Target','Cutting','B.Rate','C.Rate','Total','TP Wt','Achieved','Excess','Paid','Balance','Status'];
       let tt=0,tp=0,tb=0,paidCnt=0,partCnt=0,pendCnt=0;
@@ -261,7 +261,7 @@ module.exports = function(database) {
       const doc = new PDFDocument({ size: 'A4', margin: 25 });
       registerFonts(doc);
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename=dashboard_${filterLabel}_${Date.now()}.pdf`);
+      res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `dashboard_${filterLabel}_${Date.now()}.pdf`}`);
       addPdfHeader(doc, 'Dashboard Report');
 
       // Sub-header
@@ -533,7 +533,7 @@ module.exports = function(database) {
       const doc = new PDFDocument({ size: 'A4', margin: 25 });
       registerFonts(doc);
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename=summary_report_${Date.now()}.pdf`);
+      res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `summary_report_${Date.now()}.pdf`}`);
       addPdfHeader(doc, 'Complete Summary Report');
 
       // Sub-header
@@ -675,7 +675,7 @@ module.exports = function(database) {
       Object.values(td).forEach(t => ws.addRow({t:t.truck_no,tr:t.trips,q:+t.tq.toFixed(2),g:+t.tg.toFixed(2),d:+t.tded.toFixed(2),n:+t.tn2.toFixed(2),p:+t.tp.toFixed(2),b:+t.tb.toFixed(2),s:t.tb<0.10?'Paid':(t.tp>0?'Partial':'Pending')}));
       addExcelTitle(ws, 'Truck Owner Report', 9, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=truck_owner_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `truck_owner_${Date.now()}.xlsx`}`);
       // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
       try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       await wb.xlsx.write(res); res.end();
@@ -692,7 +692,7 @@ module.exports = function(database) {
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=truck_owner_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `truck_owner_${Date.now()}.pdf`}`);
       // PDF will be sent via safePdfPipe
       addPdfHeader(doc, 'Truck Owner Report');
       const h = ['Truck','Trips','QNTL','Gross','Ded','Net','Paid','Balance','Status'];
@@ -727,7 +727,7 @@ module.exports = function(database) {
       });
       addExcelTitle(ws, 'Milling Report', 16, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `milling_report_${Date.now()}.xlsx`}`);
       // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
       try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       await wb.xlsx.write(res); res.end();
@@ -740,7 +740,7 @@ module.exports = function(database) {
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `milling_report_${Date.now()}.pdf`}`);
       addPdfHeader(doc, 'Milling Report');
       const headers = ['Date','Type','Paddy(Q)','Rice%','Rice(Q)','FRK(Q)','CMR(Q)','Out%','RBran(Q)','MKunda(Q)','BrkR(Q)','RejR(Q)','PinBR(Q)','Poll(Q)','Bhusa%'];
       const rows = entries.map(e => [fmtDate(e.date), (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1),
@@ -771,7 +771,7 @@ module.exports = function(database) {
       totalRow.font = { name: 'Inter', bold: true };
       addExcelTitle(ws, 'FRK Purchase Register', 6, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=frk_purchases_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `frk_purchases_${Date.now()}.xlsx`}`);
       // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
       try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       await wb.xlsx.write(res); res.end();
@@ -788,7 +788,7 @@ module.exports = function(database) {
       const doc = new PDFDocument({ size: 'A4', margin: 30 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=frk_purchases_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `frk_purchases_${Date.now()}.pdf`}`);
       // PDF will be sent via safePdfPipe
       addPdfHeader(doc, 'FRK Purchase Register');
       const tq = +purchases.reduce((s,p)=>s+(p.quantity_qntl||0),0).toFixed(2);
@@ -832,7 +832,7 @@ module.exports = function(database) {
       totalRow.font = { name: 'Inter', bold: true };
       addExcelTitle(ws, 'By-Product Stock & Sales Report', 5, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=byproduct_sales_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `byproduct_sales_${Date.now()}.xlsx`}`);
       // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
       try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       await wb.xlsx.write(res); res.end();
@@ -851,7 +851,7 @@ module.exports = function(database) {
       const doc = new PDFDocument({ size: 'A4', margin: 30 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=byproduct_sales_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `byproduct_sales_${Date.now()}.pdf`}`);
       addPdfHeader(doc, 'By-Product Stock & Sales Report');
       const sHeaders = ['Product','Produced(Q)','Sold(Q)','Available(Q)','Revenue(Rs.)'];
       const sRows = products.map(p => {
@@ -928,7 +928,7 @@ module.exports = function(database) {
       totalRow.font = { name: 'Inter', bold: true };
       addExcelTitle(ws, `Paddy Custody Register${groupBy === 'weekly' ? ' (Weekly)' : ''}`, 5, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=paddy_custody_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `paddy_custody_${Date.now()}.xlsx`}`);
       // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
       try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
       await wb.xlsx.write(res); res.end();
@@ -978,7 +978,7 @@ module.exports = function(database) {
       const doc = new PDFDocument({ size: 'A4', margin: 30 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=paddy_custody_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `paddy_custody_${Date.now()}.pdf`}`);
       addPdfHeader(doc, `Paddy Custody Register${groupBy === 'weekly' ? ' (Weekly)' : ''}`);
       const headers = ['Date','Description','Received(Q)','Released(Q)','Balance(Q)'];
       const pdfRows = rows.map(r => [r.date, (r.description||'').substring(0,35), r.received_qntl > 0 ? r.received_qntl : '-', r.released_qntl > 0 ? r.released_qntl : '-', r.balance_qntl]);

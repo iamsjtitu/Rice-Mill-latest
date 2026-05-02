@@ -40,7 +40,7 @@ router.get('/api/milling-report/excel', async (req, res) => {
     styleExcelHeader(ws);
     styleExcelData(ws, 5);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `milling_report_${Date.now()}.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
@@ -54,7 +54,7 @@ router.get('/api/milling-report/pdf', async (req, res) => {
     entries.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)));
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `milling_report_${Date.now()}.pdf`}`);
     addPdfHeader(doc, 'Milling Report');
     const headers = ['Date','Type','Paddy(Q)','Rice%','Rice(Q)','FRK(Q)','CMR(Q)','Out%','RBran(Q)','MKunda(Q)','BrkR(Q)','RejR(Q)','PinBR(Q)','Poll(Q)','Bhusa%'];
     const rows = entries.map(e => [fmtDate(e.date), (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1),
@@ -88,7 +88,7 @@ router.get('/api/frk-purchases/excel', async (req, res) => {
     styleExcelHeader(ws);
     styleExcelData(ws, 5);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=frk_purchases_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `frk_purchases_${Date.now()}.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
@@ -105,7 +105,7 @@ router.get('/api/frk-purchases/pdf', async (req, res) => {
     purchases.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)));
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=frk_purchases_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `frk_purchases_${Date.now()}.pdf`}`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'FRK Purchase Register');
     const tq = +purchases.reduce((s,p)=>s+(p.quantity_qntl||0),0).toFixed(2);
@@ -152,7 +152,7 @@ router.get('/api/byproduct-sales/excel', async (req, res) => {
     styleExcelHeader(ws);
     styleExcelData(ws, 5);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=byproduct_sales_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `byproduct_sales_${Date.now()}.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
@@ -171,7 +171,7 @@ router.get('/api/byproduct-sales/pdf', async (req, res) => {
     const products = ['bran','kunda','broken','rejection_rice','pin_broken_rice','poll','husk'];
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=byproduct_sales_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `byproduct_sales_${Date.now()}.pdf`}`);
     addPdfHeader(doc, 'By-Product Stock & Sales Report');
     const sHeaders = ['Product','Produced(Q)','Sold(Q)','Available(Q)','Revenue(Rs.)'];
     const sRows = products.map(p => {
@@ -223,7 +223,7 @@ router.get('/api/paddy-custody-register/excel', async (req, res) => {
     styleExcelHeader(ws);
     styleExcelData(ws, 5);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=paddy_custody_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `paddy_custody_${Date.now()}.xlsx`}`);
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     await wb.xlsx.write(res); res.end();
@@ -246,7 +246,7 @@ router.get('/api/paddy-custody-register/pdf', async (req, res) => {
     rows.forEach(r => { balance += r.received_qntl - r.released_qntl; r.balance_qntl = +balance.toFixed(2); });
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=paddy_custody_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `paddy_custody_${Date.now()}.pdf`}`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'Paddy Custody Register');
     const headers = ['Date','Description','Received(Q)','Released(Q)','Balance(Q)'];

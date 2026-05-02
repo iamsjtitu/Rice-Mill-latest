@@ -11,10 +11,20 @@ const API = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
  * ELECTRON: Sends URL to main process via IPC → main process fetches from local server
  *           → shows native Save dialog → writes to disk → auto-opens file
  * BROWSER:  Fetches as blob → anchor tag download
+ *
+ * v104.44.24: Auto-appends `filename` as query param so Node backend Content-Disposition
+ *             respects the frontend-specified name (fixes desktop app filename override).
  */
 export const downloadFile = async (url, filename) => {
-  const fullUrl = url.startsWith('http') ? url : `${API}${url}`;
   const finalName = filename || guessFilename(url, '');
+
+  // Append filename as query param so backend Content-Disposition uses it
+  let urlWithFn = url;
+  if (finalName && !url.includes('filename=')) {
+    const sep = url.includes('?') ? '&' : '?';
+    urlWithFn = `${url}${sep}filename=${encodeURIComponent(finalName)}`;
+  }
+  const fullUrl = urlWithFn.startsWith('http') ? urlWithFn : `${API}${urlWithFn}`;
 
   if (_isElectron) {
     // Method 1: IPC - main process fetches and saves directly

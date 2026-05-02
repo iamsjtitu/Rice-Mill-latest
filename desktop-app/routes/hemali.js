@@ -261,7 +261,7 @@ module.exports = (database) => {
     const doc = new PDFDocument({ size: 'A5', margin: 25 });
     registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=hemali_receipt_${String(p.id).substring(0,8)}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `hemali_receipt_${String(p.id).substring(0,8)}.pdf`}`);
 
     // Branded header via addPdfHeader helper (consistent with rest of app)
     addPdfHeader(doc, '', {
@@ -438,7 +438,7 @@ module.exports = (database) => {
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
     registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=hemali_monthly_summary.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `hemali_monthly_summary.pdf`}`);
 
     // Branded header with subtitle
     const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill Entry System', tagline: '' };
@@ -652,7 +652,7 @@ module.exports = (database) => {
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=hemali_monthly_summary.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `hemali_monthly_summary.xlsx`}`);
     res.send(Buffer.from(buf));
   }));
 
@@ -668,7 +668,7 @@ module.exports = (database) => {
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=hemali_payments.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `hemali_payments.pdf`}`);
     // PDF will be sent via safePdfPipe
 
     addPdfHeader(doc, 'Hemali Payment Report', { ...(database.getBranding ? database.getBranding() : {}), _watermark: ((database.data || {}).app_settings || []).find(s => s.setting_id === 'watermark') });
@@ -900,7 +900,7 @@ module.exports = (database) => {
     try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=hemali_payments.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `hemali_payments.xlsx`}`);
     res.send(Buffer.from(buf));
   }));
 
