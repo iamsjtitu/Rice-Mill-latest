@@ -839,11 +839,24 @@ function MainApp({ user, setUser, onLogout }) {
     }
   };
 
-  const openNewEntryDialog = () => {
-    setFormData({...initialFormState, kms_year: filters.kms_year || CURRENT_FY, season: filters.season || "Kharif"});
+  const openNewEntryDialog = async () => {
+    const kmsY = filters.kms_year || CURRENT_FY;
+    setFormData({...initialFormState, kms_year: kmsY, season: filters.season || "Kharif"});
     setEditingId(null);
     setRstFetched(false);
     setIsDialogOpen(true);
+    // v104.44.29 — Auto-fill next RST + TP from cross-collection check
+    try {
+      const [rstR, tpR] = await Promise.all([
+        axios.get(`${API}/rst-check/next-rst?kms_year=${encodeURIComponent(kmsY)}`),
+        axios.get(`${API}/rst-check/next-tp?kms_year=${encodeURIComponent(kmsY)}`),
+      ]);
+      setFormData(prev => ({
+        ...prev,
+        rst_no: prev.rst_no || String(rstR.data.rst_no || ''),
+        tp_no: prev.tp_no || String(tpR.data.tp_no || ''),
+      }));
+    } catch (e) { logger.debug?.('auto-next-rst/tp failed', e); }
   };
 
   const handleExportExcel = async () => {

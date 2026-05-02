@@ -40,5 +40,35 @@ module.exports = (db) => {
     res.json({ rst_no, context, exists_same, exists_other });
   });
 
+  // v104.44.29 — Max number across collections (RST or TP)
+  function maxNumberAcross(collections, field, kms_year) {
+    const used = new Set();
+    for (const c of collections) {
+      const items = col(c) || [];
+      for (const d of items) {
+        if (kms_year && d.kms_year !== kms_year) continue;
+        const n = parseInt(String(d[field] || '').trim(), 10);
+        if (!isNaN(n) && n > 0) used.add(n);
+      }
+    }
+    return used.size ? Math.max(...used) : 0;
+  }
+
+  router.get('/api/rst-check/next-rst', (req, res) => {
+    const kms = (req.query.kms_year || '').toString();
+    const mx = maxNumberAcross(
+      ['vehicle_weights', 'sale_vouchers', 'purchase_vouchers',
+       'private_paddy', 'entries', 'by_product_sale_vouchers'],
+      'rst_no', kms
+    );
+    res.json({ rst_no: mx + 1, kms_year: kms });
+  });
+
+  router.get('/api/rst-check/next-tp', (req, res) => {
+    const kms = (req.query.kms_year || '').toString();
+    const mx = maxNumberAcross(['entries', 'vehicle_weights'], 'tp_no', kms);
+    res.json({ tp_no: mx + 1, kms_year: kms });
+  });
+
   return router;
 };

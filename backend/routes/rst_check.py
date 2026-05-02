@@ -72,3 +72,42 @@ async def rst_check(
         "exists_same": exists_same,
         "exists_other": exists_other,
     }
+
+
+# v104.44.29 — Cross-collection next RST + next TP helpers
+async def _max_number_across(collections: list, field: str, kms_year: str = ""):
+    used = set()
+    query = {"kms_year": kms_year} if kms_year else {}
+    for coll_name in collections:
+        try:
+            docs = await db[coll_name].find(query, {"_id": 0, field: 1}).to_list(length=50000)
+            for d in docs:
+                raw = d.get(field, "")
+                try:
+                    used.add(int(str(raw).strip() or 0))
+                except (ValueError, TypeError):
+                    pass
+        except Exception:
+            pass
+    return max(used) if used else 0
+
+
+@router.get("/rst-check/next-rst")
+async def next_rst_all(kms_year: str = Query("", description="KMS year filter")):
+    """Returns next available RST number — max+1 across ALL collections using RST.
+    Usage: forms call this on mount to auto-fill RST field."""
+    mx = await _max_number_across(
+        ["vehicle_weights", "sale_vouchers", "purchase_vouchers",
+         "private_paddy", "entries", "by_product_sale_vouchers"],
+        "rst_no", kms_year,
+    )
+    return {"rst_no": mx + 1, "kms_year": kms_year}
+
+
+@router.get("/rst-check/next-tp")
+async def next_tp_all(kms_year: str = Query("", description="KMS year filter")):
+    """Returns next available TP number — max+1 across mill entries and vehicle_weights."""
+    mx = await _max_number_across(
+        ["entries", "vehicle_weights"], "tp_no", kms_year,
+    )
+    return {"tp_no": mx + 1, "kms_year": kms_year}

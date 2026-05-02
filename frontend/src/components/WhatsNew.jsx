@@ -7,6 +7,19 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.29",
+    date: "Feb 17, 2026",
+    title: "v104.44.29 — 🔢 Cross-Collection Auto-Increment for RST & TP",
+    items: [
+      { type: "feature", text: "🔢 **RST auto-increment ab cross-collection** — Jaise user manually kahi (Sale Book / Purchase Voucher / Paddy Purchase) me RST 54 daale, agle Mill Entry ka auto RST 55 aayega (not 31 based on only vehicle_weights). Max scan: vehicle_weights + sale_vouchers + purchase_vouchers + private_paddy + entries + by_product_sale_vouchers." },
+      { type: "feature", text: "🔢 **TP auto-increment** — Mill Entry dialog open karte hi next TP number auto-fill ho jaayega (max TP + 1 across entries + vehicle_weights). User 53 kahi dale toh 54 auto-next." },
+      { type: "feature", text: "🆕 **New endpoints** (triple-backend parity):\n  • `GET /api/rst-check/next-rst?kms_year=...` → max+1 across 6 collections\n  • `GET /api/rst-check/next-tp?kms_year=...` → max+1 across entries + vehicle_weights" },
+      { type: "improvement", text: "🔄 **Existing `/api/vehicle-weight/next-rst` bhi updated** — wo bhi ab cross-collection scan karta hai, isliye Vehicle Weight form me bhi correct next RST aayega." },
+      { type: "improvement", text: "⚡ **Mill Entry `openNewEntryDialog()` updated** — Parallel fetch both next-rst + next-tp on dialog open. Edit mode pe no auto-fill (preserves existing values). KMS year-aware filter." },
+      { type: "fix", text: "✅ **Verified** (Preview DB): Max RST = 101 (Rajan sale) → next = 102. Max TP = 895 → next = 896. Per-KMS-year filter works: next-rst for 2026-2027 = 8." },
+    ],
+  },
+  {
     version: "104.44.28",
     date: "Feb 17, 2026",
     title: "v104.44.28 — 🛡️ Unified Backend RST Cross-Check (Sale ⇄ Purchase)",

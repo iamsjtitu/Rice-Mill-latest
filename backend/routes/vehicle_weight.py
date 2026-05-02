@@ -213,24 +213,28 @@ async def get_entry_photos(entry_id: str):
 
 
 async def _next_rst(kms_year: str = ""):
-    """Auto-increment RST number for current KMS year with duplicate prevention."""
+    """Auto-increment RST number — max+1 across ALL collections that use RST
+    (vehicle_weights, sale_vouchers, purchase_vouchers, private_paddy, entries,
+    by_product_sale_vouchers) to prevent duplicates from manual entry in any form.
+    v104.44.29: Cross-collection scan."""
     query = {}
     if kms_year:
         query["kms_year"] = kms_year
-    cursor = db["vehicle_weights"].find(query, {"_id": 0, "rst_no": 1})
-    docs = await cursor.to_list(length=50000)
-    if not docs:
-        return 1
-    # Collect all used RST numbers
     used_rsts = set()
-    for d in docs:
+    for coll_name in ["vehicle_weights", "sale_vouchers", "purchase_vouchers",
+                      "private_paddy", "entries", "by_product_sale_vouchers"]:
         try:
-            used_rsts.add(int(d.get("rst_no", 0) or 0))
-        except (ValueError, TypeError):
+            docs = await db[coll_name].find(query, {"_id": 0, "rst_no": 1}).to_list(length=50000)
+            for d in docs:
+                raw = d.get("rst_no", "")
+                try:
+                    used_rsts.add(int(str(raw).strip() or 0))
+                except (ValueError, TypeError):
+                    pass
+        except Exception:
             pass
     max_rst = max(used_rsts) if used_rsts else 0
-    next_rst = max_rst + 1
-    return next_rst
+    return max_rst + 1
 
 
 @router.get("/vehicle-weight")

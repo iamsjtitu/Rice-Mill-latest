@@ -1,6 +1,19 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.28
+## Current Version: v104.44.29
+
+## 🎯 v104.44.29 — Cross-Collection Auto-Increment for RST & TP
+**Build date:** 2026-02-17
+
+User asks: "jaise humne kahi b manually rst number dala ya tp number dala toh rst number toh auto update ho jana chahiye"
+
+Fix:
+1. Updated `_next_rst()` in `vehicle_weight.py` to scan all 6 RST-using collections (instead of only vehicle_weights)
+2. New endpoints `/api/rst-check/next-rst` + `/api/rst-check/next-tp` in rst_check (all 3 backends)
+3. Mill Entry Form auto-fills next RST + TP on dialog open via parallel API calls
+4. Verified on preview DB: next RST = 102 (max=101 from Rajan sale), next TP = 896 (max=895 from entries)
+
+---
 
 ## 🎯 v104.44.28 — Unified Backend RST Cross-Check
 **Build date:** 2026-02-17
