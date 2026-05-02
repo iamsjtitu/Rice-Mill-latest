@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.37",
+    date: "Feb 17, 2026",
+    title: "v104.44.37 — 🚫 Mill Entry RST/TP Auto-Fill Hatay (Manual Entry Only)",
+    items: [
+      { type: "fix", text: "🚫 **Mill Entry me RST + TP fields ab BLANK rehte hain** form khulte hi. User ne kaha 'nayi entry form kholte hi automatic rst and tp no kyu aaraha hai bina type kiye?'. Ab aap manually type karenge, aur jab RST type karenge to existing VW se data autofill ho jaayega (wahi pehle wala flow). Auto-prefill v104.44.29 me add hua tha — confusing tha because user form khulte hi 18 dekha, lekin wo manually 32 dalna chahta tha." },
+      { type: "improvement", text: "🎯 **Logic confirmation** — Auto Vehicle Weight ka next-RST badge max+1 logic use karta hai. Aap manually 32 save karenge → next 33, fir 34 aata jaayega. Junk RSTs (>9999 cap) ignored. Same Sale Voucher, Purchase, BP Sale, Paddy — sab me cross-collection scan." },
+    ],
+  },
+  {
     version: "104.44.36",
     date: "Feb 17, 2026",
     title: "v104.44.36 — 🎯 Sahi Next-RST Logic + Tick Mark Block + 'Not Found' Spam Killed",
