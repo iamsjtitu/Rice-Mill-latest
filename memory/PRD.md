@@ -1,6 +1,36 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.32
+## Current Version: v104.44.33
+
+## 🎯 v104.44.33 — 🛡️ GLOBAL Hard Block on Duplicate RST (VW Included)
+**Build date:** 2026-02-17
+
+### User demand (video)
+"rst number kabhi pai b duplicate nahi hona chahiye entire software mai aisa karo global"
+"auto vieche wight mai jaise 7 number ka rst entry ho chuka hai toh edit karte waqt wo b nai lena chahiye"
+"manually agar hum 10 number rst kahi entry kiya toh jo entry ho chuka wo nahi lena chahiye entire software mai"
+
+### Changes
+1. **`useRstCheck` hook** — Removed `vehicle_weights` filter from `blockingSame`. ALL collection matches now trigger HARD BLOCK (VW no longer exempt).
+2. **VW form** — Integrated `useRstCheck` in handleSubmit (new entry) + saveEdit (with skip-if-unchanged). Context switches via trans_type.
+3. **Edit-safe logic across 5 forms** — Added `originalRst` state tracking in SaleBook, PurchaseVouchers, PaddyPurchase, ByProductSaleRegister (frontend), + App.js (Mill Entry). Check skipped when editing AND rst_no unchanged — preserves legitimate VW+voucher linked pairs.
+4. **Enhanced blocker message** — Now includes trans_type for VW entries.
+
+### Files Modified
+- `/app/frontend/src/hooks/useRstCheck.jsx`
+- `/app/frontend/src/components/VehicleWeight.jsx`
+- `/app/frontend/src/components/SaleBook.jsx`
+- `/app/frontend/src/components/PurchaseVouchers.jsx`
+- `/app/frontend/src/components/PaddyPurchase.jsx`
+- `/app/frontend/src/components/ByProductSaleRegister.jsx`
+- `/app/frontend/src/App.js` (Mill Entry)
+- `/app/frontend/src/components/WhatsNew.jsx` + constants-version.js + 2 package.json
+
+### Verification (testing_agent_v3_fork — iteration_210)
+- Backend: 14/14 v104.44.33 + 20/20 regression = 100%
+- Frontend: All 9 scenarios PASS (VW hard block, edit-unchanged preserves, edit-changed blocks, cross-type still works)
+
+---
 
 ## 🎯 v104.44.32 — 🔴 CRITICAL: RST Duplicate Check Collection Name Bug Fix
 **Build date:** 2026-02-17
