@@ -74,8 +74,8 @@ export default function OilPremiumRegister({ filters, user }) {
         toast.success("Sale details fetch ho gaye!");
       }
     } catch (e) {
-      if (e.response?.status === 404) toast.error("Sale nahi mili - check voucher/RST");
-      else logger.error(e);
+      // v104.44.36 — Silent on 404 (manual entry, no existing sale to lookup)
+      if (e.response?.status !== 404) logger.error(e);
     } finally { setLookupLoading(false); }
   };
 

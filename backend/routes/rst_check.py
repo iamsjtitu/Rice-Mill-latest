@@ -133,10 +133,14 @@ async def rst_check(
 
 
 # v104.44.29 — Cross-collection next RST + next TP helpers
-# v104.44.35 — Switched from max+1 to smallest-unused logic
-async def _smallest_unused_across(collections: list, field: str, kms_year: str = ""):
-    """Find smallest positive integer not in use across given collections.
-    Stale high values (e.g., test RST 99999) won't poison the next-X suggestion."""
+# v104.44.36 — max+1 logic with outlier cap (RST > 9999 = junk/test typo, TP > 99999 same)
+SANE_RST_CAP = 9999
+SANE_TP_CAP = 99999
+
+
+async def _next_max_across(collections: list, field: str, kms_year: str = "", cap: int = 9999):
+    """Returns max RST/TP across given collections, capped at outlier limit.
+    Ignores stale junk values (e.g., test RST 77777). Returns 0 if no sane values."""
     used = set()
     query = {"kms_year": kms_year} if kms_year else {}
     for coll_name in collections:
@@ -145,40 +149,42 @@ async def _smallest_unused_across(collections: list, field: str, kms_year: str =
             for d in docs:
                 raw = d.get(field, "")
                 try:
-                    used.add(int(str(raw).strip() or 0))
+                    n = int(str(raw).strip() or 0)
+                    if 0 < n <= cap:
+                        used.add(n)
                 except (ValueError, TypeError):
                     pass
         except Exception:
             pass
-    n = 1
-    while n in used:
-        n += 1
-    return n
+    return max(used) if used else 0
 
 
-# Backward-compat alias (max-based) — keep for any callers expecting max+1
+# Backward-compat aliases
+async def _smallest_unused_across(collections: list, field: str, kms_year: str = ""):
+    return await _next_max_across(collections, field, kms_year) + 1
+
+
 async def _max_number_across(collections: list, field: str, kms_year: str = ""):
-    """Returns smallest unused (delegates to _smallest_unused_across) - n s.t. caller +1 = n+1."""
-    n = await _smallest_unused_across(collections, field, kms_year)
-    return n - 1
+    return await _next_max_across(collections, field, kms_year)
 
 
 @router.get("/rst-check/next-rst")
 async def next_rst_all(kms_year: str = Query("", description="KMS year filter")):
-    """Returns next available RST number — smallest unused across ALL RST-using collections.
-    Usage: forms call this on mount to auto-fill RST field."""
-    n = await _smallest_unused_across(
+    """Returns next available RST number — max+1 across ALL RST-using collections.
+    Outlier RSTs > 9999 are ignored (treated as junk/test data)."""
+    mx = await _next_max_across(
         ["vehicle_weights", "sale_vouchers", "purchase_vouchers",
          "private_paddy", "mill_entries", "bp_sale_register"],
-        "rst_no", kms_year,
+        "rst_no", kms_year, cap=SANE_RST_CAP,
     )
-    return {"rst_no": n, "kms_year": kms_year}
+    return {"rst_no": mx + 1, "kms_year": kms_year}
 
 
 @router.get("/rst-check/next-tp")
 async def next_tp_all(kms_year: str = Query("", description="KMS year filter")):
-    """Returns next available TP number — smallest unused across mill entries and vehicle_weights."""
-    n = await _smallest_unused_across(
-        ["mill_entries", "vehicle_weights"], "tp_no", kms_year,
+    """Returns next available TP number — max+1 across mill entries and vehicle_weights.
+    Outliers > 99999 ignored."""
+    mx = await _next_max_across(
+        ["mill_entries", "vehicle_weights"], "tp_no", kms_year, cap=SANE_TP_CAP,
     )
-    return {"tp_no": n, "kms_year": kms_year}
+    return {"tp_no": mx + 1, "kms_year": kms_year}

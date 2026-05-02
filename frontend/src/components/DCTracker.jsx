@@ -162,9 +162,9 @@ export const DCEntries = ({ filters, user }) => {
       });
       toast.success(`RST #${rst} auto-filled`);
     } catch (e) {
-      if (e.response?.status === 404) toast.error(`RST #${rst} not found in Vehicle Weight`);
-      else if (e.response?.status === 409) toast.error(e.response.data?.detail || `RST #${rst} Purchase ka hai — Sale me use nahi hoga`, { duration: 5000 });
-      else toast.error('RST lookup failed');
+      // v104.44.36 — Silent on 404 (fresh RST being entered manually)
+      if (e.response?.status === 409) toast.error(e.response.data?.detail || `RST #${rst} Purchase ka hai — Sale me use nahi hoga`, { duration: 5000 });
+      else if (e.response?.status !== 404) toast.error('RST lookup failed');
     }
   };
 

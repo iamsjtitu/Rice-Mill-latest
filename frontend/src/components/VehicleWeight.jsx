@@ -1134,7 +1134,21 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                           setForm(p => ({ ...p, rst_no: v }));
                           if (v.trim()) checkVwRst(v); else clearVwRstCheck();
                         }}
-                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setRstEditable(false); } }}
+                        onKeyDown={async e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            // v104.44.36 — Validate before confirming RST
+                            const v = String(form.rst_no || '').trim();
+                            if (v) {
+                              const { hasBlocker } = await checkVwRst(v, { immediate: true });
+                              if (hasBlocker) {
+                                toast.error(`❌ RST ${v} duplicate — confirm nahi ho sakta\n${buildVwRstMsg()}`, { duration: 7000 });
+                                return;
+                              }
+                            }
+                            setRstEditable(false);
+                          }
+                        }}
                         placeholder={String(nextRst)} className="w-16 h-6 text-[10px] bg-slate-700 border-amber-500 text-amber-700 text-center px-1 font-mono"
                         data-testid="vw-rst-input" autoFocus />
                     ) : (
@@ -1143,9 +1157,26 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       </span>
                     )}
                     {rstEditAllowed && (
-                      <button onClick={() => { setRstEditable(!rstEditable); if (rstEditable && !form.rst_no) setForm(p => ({ ...p, rst_no: "" })); }}
+                      <button onClick={async () => {
+                          // v104.44.36 — Block confirm (green tick) if RST is duplicate.
+                          // User reported clicking tick was being treated as accepting duplicate.
+                          if (rstEditable) {
+                            const v = String(form.rst_no || '').trim();
+                            if (v) {
+                              const { hasBlocker } = await checkVwRst(v, { immediate: true });
+                              if (hasBlocker) {
+                                toast.error(`❌ RST ${v} duplicate — confirm nahi ho sakta\n${buildVwRstMsg()}`, { duration: 7000 });
+                                return;
+                              }
+                            }
+                            setRstEditable(false);
+                            if (!form.rst_no) setForm(p => ({ ...p, rst_no: "" }));
+                          } else {
+                            setRstEditable(true);
+                          }
+                        }}
                         className="text-slate-500 hover:text-amber-600 transition-colors" data-testid="vw-rst-edit-btn"
-                        title={rstEditable ? "Auto RST" : "Edit RST"}>
+                        title={rstEditable ? "Confirm RST (validate cross-collection)" : "Edit RST"}>
                         {rstEditable ? <CheckCircle className="w-3 h-3 text-green-600" /> : <span className="text-[9px] text-slate-400 hover:text-amber-600">Edit</span>}
                       </button>
                     )}

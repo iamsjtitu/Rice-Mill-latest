@@ -213,10 +213,11 @@ async def get_entry_photos(entry_id: str):
 
 
 async def _next_rst(kms_year: str = ""):
-    """Auto-increment RST number — smallest unused integer across ALL RST-using collections.
-    v104.44.35: Fixed collection names (mill_entries, bp_sale_register) + switched from
-    max+1 to smallest-unused logic so stale high RSTs (e.g., test RST 99999) don't poison
-    the next-RST suggestion. User now sees the next sensible consecutive number."""
+    """Auto-increment RST number — max+1 across ALL RST-using collections.
+    v104.44.36: Outlier cap = 9999 (RSTs > 9999 treated as junk/test data).
+    Most rice mills don't issue >9999 slips per year; values like 77777 are
+    typically typo/test entries."""
+    SANE_CAP = 9999
     query = {}
     if kms_year:
         query["kms_year"] = kms_year
@@ -228,16 +229,14 @@ async def _next_rst(kms_year: str = ""):
             for d in docs:
                 raw = d.get("rst_no", "")
                 try:
-                    used_rsts.add(int(str(raw).strip() or 0))
+                    n = int(str(raw).strip() or 0)
+                    if 0 < n <= SANE_CAP:
+                        used_rsts.add(n)
                 except (ValueError, TypeError):
                     pass
         except Exception:
             pass
-    # Smallest positive integer not in used set
-    n = 1
-    while n in used_rsts:
-        n += 1
-    return n
+    return (max(used_rsts) + 1) if used_rsts else 1
 
 
 @router.get("/vehicle-weight")

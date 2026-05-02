@@ -76,37 +76,34 @@ module.exports = (db) => {
     res.json({ rst_no, context, exists_same, exists_other });
   });
 
-  // v104.44.35 — Smallest unused number across collections (RST or TP)
-  // Avoids stale-high-RST poisoning the next-X suggestion
-  function smallestUnusedAcross(collections, field, kms_year) {
+  // v104.44.36 — max+1 with outlier cap (ignore RSTs > 9999 as junk)
+  function maxAcross(collections, field, kms_year, cap = 9999) {
     const used = new Set();
     for (const c of collections) {
       const items = col(c) || [];
       for (const d of items) {
         if (kms_year && d.kms_year !== kms_year) continue;
         const n = parseInt(String(d[field] || '').trim(), 10);
-        if (!isNaN(n) && n > 0) used.add(n);
+        if (!isNaN(n) && n > 0 && n <= cap) used.add(n);
       }
     }
-    let n = 1;
-    while (used.has(n)) n++;
-    return n;
+    return used.size ? Math.max(...used) : 0;
   }
 
   router.get('/api/rst-check/next-rst', (req, res) => {
     const kms = (req.query.kms_year || '').toString();
-    const n = smallestUnusedAcross(
+    const mx = maxAcross(
       ['vehicle_weights', 'sale_vouchers', 'purchase_vouchers',
        'private_paddy', 'entries', 'bp_sale_register'],
-      'rst_no', kms
+      'rst_no', kms, 9999
     );
-    res.json({ rst_no: n, kms_year: kms });
+    res.json({ rst_no: mx + 1, kms_year: kms });
   });
 
   router.get('/api/rst-check/next-tp', (req, res) => {
     const kms = (req.query.kms_year || '').toString();
-    const n = smallestUnusedAcross(['entries', 'vehicle_weights'], 'tp_no', kms);
-    res.json({ tp_no: n, kms_year: kms });
+    const mx = maxAcross(['entries', 'vehicle_weights'], 'tp_no', kms, 99999);
+    res.json({ tp_no: mx + 1, kms_year: kms });
   });
 
   return router;

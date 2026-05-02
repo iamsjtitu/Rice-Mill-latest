@@ -131,8 +131,9 @@ module.exports = function(database) {
     return database.data[name];
   }
 
-  // ── Helper: Next RST number — v104.44.35: cross-collection smallest unused ──
+  // ── Helper: Next RST number — v104.44.36: max+1 with outlier cap (RST > 9999 = junk) ──
   function getNextRst(kmsYear) {
+    const SANE_CAP = 9999;
     const used = new Set();
     const cols = ['vehicle_weights', 'sale_vouchers', 'purchase_vouchers',
                   'private_paddy', 'entries', 'bp_sale_register'];
@@ -141,12 +142,10 @@ module.exports = function(database) {
       for (const d of items) {
         if (kmsYear && d.kms_year !== kmsYear) continue;
         const n = parseInt(String(d.rst_no || '').trim(), 10);
-        if (!isNaN(n) && n > 0) used.add(n);
+        if (!isNaN(n) && n > 0 && n <= SANE_CAP) used.add(n);
       }
     }
-    let n = 1;
-    while (used.has(n)) n++;
-    return n;
+    return used.size ? Math.max(...used) + 1 : 1;
   }
 
   // ── Helper: Get WhatsApp settings ──

@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.36",
+    date: "Feb 17, 2026",
+    title: "v104.44.36 — 🎯 Sahi Next-RST Logic + Tick Mark Block + 'Not Found' Spam Killed",
+    items: [
+      { type: "fix", text: "🎯 **Next-RST ab max+1 (sahi expectation)** — Aapne kaha 'sale me 15 dala toh VW me next 16 aana chahiye'. Pehle smallest-unused logic se 8 aata tha (gap fill). Ab logic max+1 hai with **outlier cap RST > 9999 ignore** — junk test data (jaise RST 77777) skip ho jaata hai. Aapke DB me sane RSTs: 1-7, 8, 10, 15, 16, 17 → next = 18 ✅" },
+      { type: "fix", text: "🛡️ **Green tick mark (RST confirm) bhi block hota hai duplicate pe** — Auto Vehicle Weight me RST input ke saath green ✓ icon click karne par ya Enter key dabane par, agar RST duplicate hai to confirm nahi hota. Toast: '❌ RST 7 duplicate — confirm nahi ho sakta'. Pehle ye sirf 'Save First Weight' click pe block karta tha — ab RST confirm step pe HI block hota hai." },
+      { type: "fix", text: "🔇 **'RST not found' spam silenced (3 components)** — DC Tracker (`RST not found in Vehicle Weight`), Oil Premium Register (`Sale nahi mili`) — dono me bhi fresh RST manually type karne par error toast aata tha. Ab 404 silently ignore (only 409 Purchase/Sale conflict + real errors show). v104.44.35 me sirf BP Sale me fix tha — ab teeno me." },
+      { type: "feature", text: "🔄 **Triple-backend parity** — Same outlier cap (RST 9999, TP 99999) Python + Node Desktop + Node LAN sab me applied. `getNextRst()` helper consistent across all 3 stacks." },
+    ],
+  },
+  {
     version: "104.44.35",
     date: "Feb 17, 2026",
     title: "v104.44.35 — 🧹 Smart Next-RST Logic + 'RST Not Found' Spam Fix",
