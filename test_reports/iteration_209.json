@@ -1,0 +1,80 @@
+{
+  "summary": "v104.44.32 Testing Complete - RST Duplicate Check Collection Name Fix VERIFIED. Critical bug fixed: rst_check.py was checking wrong collection names (by_product_sale_vouchers, entries) instead of actual (bp_sale_register, mill_entries). Backend now correctly returns bp_sale_register entries for RST 7. Frontend HARD BLOCK working - duplicate RST save is blocked with error toast.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_rst_check_v104_44_32.py",
+    "/app/backend/tests/test_rst_check_v104_44_31.py",
+    "/app/test_reports/pytest/pytest_results_iteration209.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_rst_check_v104_44_32.py"
+  ],
+  "success_rate": {
+    "backend": "100% (8/8 v104.44.32 tests + 12/12 v104.44.31 regression tests passed)",
+    "frontend": "100% (HARD BLOCK verified via Playwright)"
+  },
+  "test_credentials": "admin / admin123",
+  "seed_data_creation": "None - used existing data (RST 7 has 2 bp_sale_register + 1 vehicle_weights entries)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "v104.44.32 collection name fix verified. Key changes: (1) SALE_COLLECTIONS now ['sale_vouchers', 'bp_sale_register'] (was 'by_product_sale_vouchers' which doesn't exist). (2) PURCHASE_COLLECTIONS now includes 'mill_entries' (was 'entries' which is Node naming). (3) Frontend useRstCheck.jsx has COLLECTION_LABELS for both bp_sale_register and mill_entries. (4) RST 7 check returns 2 bp_sale_register + 1 VW entry. (5) HARD BLOCK works - entering RST 7 in BP Sale form shows warning and blocks save with toast '❌ RST 7 duplicate — save block hua'.",
+  "features_tested": {
+    "rst_check_api_bp_sale_register": {
+      "status": "PASS",
+      "details": "GET /api/rst-check?rst_no=7&context=sale returns 2 bp_sale_register entries (MBOPL) + 1 vehicle_weights entry. Previously only returned VW because wrong collection name was used."
+    },
+    "rst_check_exclude_id": {
+      "status": "PASS",
+      "details": "exclude_id parameter correctly excludes bp_sale_register entry. When excluding one bp_sale entry, only the other bp_sale + VW is returned."
+    },
+    "next_rst_includes_bp_sale_register": {
+      "status": "PASS",
+      "details": "GET /api/rst-check/next-rst?kms_year=2026-2027 returns 77778, indicating bp_sale_register is included in max scan."
+    },
+    "frontend_rst_warning_display": {
+      "status": "PASS",
+      "details": "Entering RST 7 in BP Sale form shows 3 warnings: 2 for By-Product Sale (MBOPL) and 1 for Vehicle Weight (Dispatch(Sale))."
+    },
+    "frontend_hard_block_on_save": {
+      "status": "PASS",
+      "details": "Clicking Save Sale with duplicate RST 7 shows error toast '❌ RST 7 duplicate — save block hua' and form stays open. No new entry created in DB (count remained 5)."
+    },
+    "regression_v104_44_31": {
+      "status": "PASS",
+      "details": "All 12 tests from v104.44.31 pass (RST check, Transit Pass Register, Next RST/TP endpoints)."
+    }
+  },
+  "backend_tests_summary": {
+    "v104_44_32_tests": {
+      "total": 8,
+      "passed": 8,
+      "failed": 0,
+      "test_classes": [
+        "TestRstCheckV104_44_32 (6 tests) - Collection name fix verification",
+        "TestBpSaleRegisterDuplicateBlock (1 test) - Entry count verification",
+        "TestMillEntriesCollection (1 test) - mill_entries collection search"
+      ]
+    },
+    "v104_44_31_regression": {
+      "total": 12,
+      "passed": 12,
+      "failed": 0
+    }
+  },
+  "bug_fix_verification": {
+    "original_bug": "BP Sale (Rice Bran) me RST 7 enter kiya bina warning save ho gaya jabki DB me already 2 BP sales aur 1 VW Dispatch entry hai RST 7 ke liye",
+    "root_cause": "rst_check.py was checking wrong collection names: 'by_product_sale_vouchers' (doesn't exist) instead of 'bp_sale_register', and 'entries' (Node naming) instead of 'mill_entries' (Python naming)",
+    "fix_applied": "SALE_COLLECTIONS = ['sale_vouchers', 'bp_sale_register'], PURCHASE_COLLECTIONS = ['purchase_vouchers', 'private_paddy', 'mill_entries']",
+    "verification": "RST 7 check now returns 2 bp_sale_register + 1 VW entry. Frontend HARD BLOCK prevents save with error toast."
+  }
+}

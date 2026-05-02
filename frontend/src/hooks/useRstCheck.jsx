@@ -23,10 +23,12 @@ const API = `${BACKEND_URL}/api`;
 
 const COLLECTION_LABELS = {
   sale_vouchers: "Sale Voucher",
-  by_product_sale_vouchers: "By-Product Sale",
+  bp_sale_register: "By-Product Sale",
+  by_product_sale_vouchers: "By-Product Sale", // legacy key (Node may still return this)
   purchase_vouchers: "Purchase Voucher",
   private_paddy: "Paddy Purchase",
-  entries: "Mill Entry",
+  mill_entries: "Mill Entry",
+  entries: "Mill Entry", // legacy/Node key
   vehicle_weights: "Vehicle Weight",
 };
 

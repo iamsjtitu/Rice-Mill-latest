@@ -1,10 +1,13 @@
-// v104.44.28 — Unified RST cross-check endpoint
+// v104.44.32 — Fixed collection names (bp_sale_register, not by_product_sale_vouchers)
+// Unified RST cross-check endpoint
 // Detects duplicate in same category + overlap with opposite category (sale vs purchase)
 module.exports = (db) => {
   const router = require('express').Router();
-  const { col } = require('./_helpers')(db);
+  // Inline col() helper — lowdb data access
+  const col = (name) => (db && db.data && db.data[name]) || [];
 
-  const SALE_COLLECTIONS = ['sale_vouchers', 'by_product_sale_vouchers'];
+  // Node uses 'entries' (not 'mill_entries') for mill entries collection
+  const SALE_COLLECTIONS = ['sale_vouchers', 'bp_sale_register'];
   const PURCHASE_COLLECTIONS = ['purchase_vouchers', 'private_paddy', 'entries'];
 
   function rstMatches(docRst, target) {
@@ -91,7 +94,7 @@ module.exports = (db) => {
     const kms = (req.query.kms_year || '').toString();
     const mx = maxNumberAcross(
       ['vehicle_weights', 'sale_vouchers', 'purchase_vouchers',
-       'private_paddy', 'entries', 'by_product_sale_vouchers'],
+       'private_paddy', 'entries', 'bp_sale_register'],
       'rst_no', kms
     );
     res.json({ rst_no: mx + 1, kms_year: kms });

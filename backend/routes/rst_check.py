@@ -18,8 +18,11 @@ router = APIRouter(tags=["rst-check"])
 # Categorise collections.
 # vehicle_weights is special — has trans_type: 'Dispatch(Sale)' or 'Receive(Purchase)'
 # We handle it separately in _search_vw.
-SALE_COLLECTIONS = ["sale_vouchers", "by_product_sale_vouchers"]
-PURCHASE_COLLECTIONS = ["purchase_vouchers", "private_paddy", "entries"]
+# FIX v104.44.32: use actual MongoDB collection names:
+#   bp_sale_register (not by_product_sale_vouchers)
+#   mill_entries (not entries)
+SALE_COLLECTIONS = ["sale_vouchers", "bp_sale_register"]
+PURCHASE_COLLECTIONS = ["purchase_vouchers", "private_paddy", "mill_entries"]
 
 
 def _rst_match_query(rst_no: str):
@@ -153,7 +156,7 @@ async def next_rst_all(kms_year: str = Query("", description="KMS year filter"))
     Usage: forms call this on mount to auto-fill RST field."""
     mx = await _max_number_across(
         ["vehicle_weights", "sale_vouchers", "purchase_vouchers",
-         "private_paddy", "entries", "by_product_sale_vouchers"],
+         "private_paddy", "mill_entries", "bp_sale_register"],
         "rst_no", kms_year,
     )
     return {"rst_no": mx + 1, "kms_year": kms_year}
@@ -163,6 +166,6 @@ async def next_rst_all(kms_year: str = Query("", description="KMS year filter"))
 async def next_tp_all(kms_year: str = Query("", description="KMS year filter")):
     """Returns next available TP number — max+1 across mill entries and vehicle_weights."""
     mx = await _max_number_across(
-        ["entries", "vehicle_weights"], "tp_no", kms_year,
+        ["mill_entries", "vehicle_weights"], "tp_no", kms_year,
     )
     return {"tp_no": mx + 1, "kms_year": kms_year}

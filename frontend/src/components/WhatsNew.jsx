@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.32",
+    date: "Feb 17, 2026",
+    title: "v104.44.32 — 🔴 CRITICAL: RST Duplicate Check Collection Name Bug Fix",
+    items: [
+      { type: "fix", text: "🐛 **Root cause found** (user video): BP Sale me RST 7 save ho gaya bina warning, jabki 2 entries already existing thi (plus VW Dispatch)! Problem: `rst_check.py` galat collection names check kar raha tha — `by_product_sale_vouchers` aur `entries` (ye DB me exist hi nahi karte). Actual names hain `bp_sale_register` aur `mill_entries`. Isliye BP Sale aur Mill Entry duplicates **kabhi bhi** catch nahi hote the — sirf `sale_vouchers`, `purchase_vouchers`, `private_paddy`, `vehicle_weights` check ho rahe the." },
+      { type: "fix", text: "✅ **Python backend fix** — `/app/backend/routes/rst_check.py` me `SALE_COLLECTIONS = ['sale_vouchers', 'bp_sale_register']` aur `PURCHASE_COLLECTIONS = ['purchase_vouchers', 'private_paddy', 'mill_entries']`. next-rst bhi same correct list use karta hai." },
+      { type: "fix", text: "✅ **Node backend fix** — Desktop + LAN me `bp_sale_register` aur `entries` (Node uses 'entries' naming locally). Additionally fixed broken `require('./_helpers')` import (file doesn't exist) — ab inline `col()` helper use karta hai." },
+      { type: "fix", text: "✅ **Frontend label fix** — `useRstCheck.jsx` me collection label map updated: `bp_sale_register: 'By-Product Sale'` aur `mill_entries: 'Mill Entry'` add kiye (legacy keys bhi preserve kiye backward-compat ke liye)." },
+      { type: "fix", text: "🧪 **Verified via curl** — `GET /api/rst-check?rst_no=7&context=sale` ab 3 entries return karta hai: 2 bp_sale_register + 1 vehicle_weights. `hasBlocker=true` → save HARD BLOCK. Pehle sirf VW aata tha → hasBlocker=false → save proceed." },
+    ],
+  },
+  {
     version: "104.44.31",
     date: "Feb 17, 2026",
     title: "v104.44.31 — 🛡️ Hard Block Duplicate RST + 📤 Transit Pass WhatsApp/Group Share",
