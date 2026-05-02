@@ -138,7 +138,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
         // RST belongs to Purchase (or wrong context) — show clear warning, do NOT fill form
         toast.error(e.response.data?.detail || "Ye RST Number Purchase ka hai", { duration: 5000 });
       } else if (e.response?.status === 404) {
-        toast.error("RST not found");
+        // v104.44.35 — Fresh RST (not in VW) — silent ignore (user is creating new entry manually)
       } else {
         logger.error(e);
       }

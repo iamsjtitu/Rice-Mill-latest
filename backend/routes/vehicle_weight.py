@@ -213,16 +213,16 @@ async def get_entry_photos(entry_id: str):
 
 
 async def _next_rst(kms_year: str = ""):
-    """Auto-increment RST number — max+1 across ALL collections that use RST
-    (vehicle_weights, sale_vouchers, purchase_vouchers, private_paddy, entries,
-    by_product_sale_vouchers) to prevent duplicates from manual entry in any form.
-    v104.44.29: Cross-collection scan."""
+    """Auto-increment RST number — smallest unused integer across ALL RST-using collections.
+    v104.44.35: Fixed collection names (mill_entries, bp_sale_register) + switched from
+    max+1 to smallest-unused logic so stale high RSTs (e.g., test RST 99999) don't poison
+    the next-RST suggestion. User now sees the next sensible consecutive number."""
     query = {}
     if kms_year:
         query["kms_year"] = kms_year
     used_rsts = set()
     for coll_name in ["vehicle_weights", "sale_vouchers", "purchase_vouchers",
-                      "private_paddy", "entries", "by_product_sale_vouchers"]:
+                      "private_paddy", "mill_entries", "bp_sale_register"]:
         try:
             docs = await db[coll_name].find(query, {"_id": 0, "rst_no": 1}).to_list(length=50000)
             for d in docs:
@@ -233,8 +233,11 @@ async def _next_rst(kms_year: str = ""):
                     pass
         except Exception:
             pass
-    max_rst = max(used_rsts) if used_rsts else 0
-    return max_rst + 1
+    # Smallest positive integer not in used set
+    n = 1
+    while n in used_rsts:
+        n += 1
+    return n
 
 
 @router.get("/vehicle-weight")

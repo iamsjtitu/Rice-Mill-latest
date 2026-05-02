@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.35",
+    date: "Feb 17, 2026",
+    title: "v104.44.35 — 🧹 Smart Next-RST Logic + 'RST Not Found' Spam Fix",
+    items: [
+      { type: "fix", text: "🐛 **Stale High RST poisoning fix** — Aapne pichle test me kahin pe RST 77777 enter kiya tha (probably Mill Entry test data). Iske wajah se Auto Vehicle Weight + Mill Entries ka 'Next RST' badge **77778** dikhane laga tha! Fix: Logic ab `max+1` ke jagah **'smallest unused'** use karta hai — agar RSTs 1-7, 16, 77777 used hain, to next = 8 (pehla unused hole). Stale high values ab next-RST ko poison nahi karte." },
+      { type: "fix", text: "🔧 **Collection name fix #2** — `vehicle_weight.py:_next_rst()` me `entries` (galat, exist nahi karta) aur `by_product_sale_vouchers` (galat) check ho rahe the. Fixed: ab `mill_entries` aur `bp_sale_register` correctly check hote hain." },
+      { type: "fix", text: "🔇 **'RST not found' toast spam silenced** — By-Product Sale me fresh RST manually type karne pe har baar 'RST not found' error toast aata tha. Logic galat thi: agar RST fresh hai (VW me nahi), wo OK hai — user manually create kar raha hai. Ab 404 silently ignore hota hai (jaise Mill Entry me pehle se hai)." },
+      { type: "feature", text: "🔄 **Triple-backend parity** — Same `smallest-unused` logic Python + Node Desktop + Node LAN, sab me applied. `getNextRst()` (vehicle_weight.js) ab cross-collection scan karta hai." },
+      { type: "feature", text: "✅ **Verified hard block (v104.44.33+)** — Live test confirmed: VW me RST 7 type karke save karne pe save BLOCK ho jaata hai. Toast me complete details: 'By-Product Sale · MBOPL · 2026-04-29 · ...'. Aage se installed desktop app me bhi same dikhega — bas `yarn build:win` push karein." },
+    ],
+  },
+  {
     version: "104.44.34",
     date: "Feb 17, 2026",
     title: "v104.44.34 — 🐛 React Error Fix + Live RST Sync + Inline VW Warning",

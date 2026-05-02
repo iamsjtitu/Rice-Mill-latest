@@ -131,13 +131,22 @@ module.exports = function(database) {
     return database.data[name];
   }
 
-  // ── Helper: Next RST number ──
+  // ── Helper: Next RST number — v104.44.35: cross-collection smallest unused ──
   function getNextRst(kmsYear) {
-    const weights = col('vehicle_weights');
-    const filtered = kmsYear ? weights.filter(w => w.kms_year === kmsYear) : weights;
-    if (filtered.length === 0) return 1;
-    const maxRst = Math.max(...filtered.map(w => parseInt(w.rst_no, 10) || 0));
-    return maxRst + 1;
+    const used = new Set();
+    const cols = ['vehicle_weights', 'sale_vouchers', 'purchase_vouchers',
+                  'private_paddy', 'entries', 'bp_sale_register'];
+    for (const c of cols) {
+      const items = col(c) || [];
+      for (const d of items) {
+        if (kmsYear && d.kms_year !== kmsYear) continue;
+        const n = parseInt(String(d.rst_no || '').trim(), 10);
+        if (!isNaN(n) && n > 0) used.add(n);
+      }
+    }
+    let n = 1;
+    while (used.has(n)) n++;
+    return n;
   }
 
   // ── Helper: Get WhatsApp settings ──

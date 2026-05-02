@@ -133,7 +133,10 @@ async def rst_check(
 
 
 # v104.44.29 — Cross-collection next RST + next TP helpers
-async def _max_number_across(collections: list, field: str, kms_year: str = ""):
+# v104.44.35 — Switched from max+1 to smallest-unused logic
+async def _smallest_unused_across(collections: list, field: str, kms_year: str = ""):
+    """Find smallest positive integer not in use across given collections.
+    Stale high values (e.g., test RST 99999) won't poison the next-X suggestion."""
     used = set()
     query = {"kms_year": kms_year} if kms_year else {}
     for coll_name in collections:
@@ -147,25 +150,35 @@ async def _max_number_across(collections: list, field: str, kms_year: str = ""):
                     pass
         except Exception:
             pass
-    return max(used) if used else 0
+    n = 1
+    while n in used:
+        n += 1
+    return n
+
+
+# Backward-compat alias (max-based) — keep for any callers expecting max+1
+async def _max_number_across(collections: list, field: str, kms_year: str = ""):
+    """Returns smallest unused (delegates to _smallest_unused_across) - n s.t. caller +1 = n+1."""
+    n = await _smallest_unused_across(collections, field, kms_year)
+    return n - 1
 
 
 @router.get("/rst-check/next-rst")
 async def next_rst_all(kms_year: str = Query("", description="KMS year filter")):
-    """Returns next available RST number — max+1 across ALL collections using RST.
+    """Returns next available RST number — smallest unused across ALL RST-using collections.
     Usage: forms call this on mount to auto-fill RST field."""
-    mx = await _max_number_across(
+    n = await _smallest_unused_across(
         ["vehicle_weights", "sale_vouchers", "purchase_vouchers",
          "private_paddy", "mill_entries", "bp_sale_register"],
         "rst_no", kms_year,
     )
-    return {"rst_no": mx + 1, "kms_year": kms_year}
+    return {"rst_no": n, "kms_year": kms_year}
 
 
 @router.get("/rst-check/next-tp")
 async def next_tp_all(kms_year: str = Query("", description="KMS year filter")):
-    """Returns next available TP number — max+1 across mill entries and vehicle_weights."""
-    mx = await _max_number_across(
+    """Returns next available TP number — smallest unused across mill entries and vehicle_weights."""
+    n = await _smallest_unused_across(
         ["mill_entries", "vehicle_weights"], "tp_no", kms_year,
     )
-    return {"tp_no": mx + 1, "kms_year": kms_year}
+    return {"tp_no": n, "kms_year": kms_year}
