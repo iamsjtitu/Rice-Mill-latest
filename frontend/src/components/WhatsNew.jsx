@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.31",
+    date: "Feb 17, 2026",
+    title: "v104.44.31 — 🛡️ Hard Block Duplicate RST + 📤 Transit Pass WhatsApp/Group Share",
+    items: [
+      { type: "fix", text: "🛡️ **Duplicate RST ab HARD BLOCK** — pehle confirm dialog tha (user 'Haan' click karke save kar sakta tha), ab save hone hi nahi dega. 5 forms me: Sale Book, Purchase Vouchers, Paddy Purchase, By-Product Sale, Mill Entry. VW (vehicle_weights) ki entries sirf INFO warning rahegi (natural source) — baki sab collision HARD BLOCK." },
+      { type: "improvement", text: "📤 **Transit Pass Register me 4-icon export pattern** — Excel + PDF + WhatsApp + Group icons. WhatsApp: summary text clipboard pe copy ho jaayega (Total Entries, Bags, Qty, TP Weight + ≤10 entries list). Group: `SendToGroupDialog` with PDF attach — filter-aware broadcast to WhatsApp group." },
+      { type: "fix", text: "🐛 **Transit Pass Excel/PDF filter fix** — Node backend (desktop + LAN) me mandi_name/agent_name query params properly forward ho rahe hain ab. Pehle sirf Python backend me fix tha." },
+      { type: "improvement", text: "🎨 **Icon-only consistency** — Transit Pass ke Excel/PDF buttons bhi ab icon-only style me (h-9 w-9, color border) — Payments tab ke layout ke saath consistent." },
+    ],
+  },
+  {
     version: "104.44.30",
     date: "Feb 17, 2026",
     title: "v104.44.30 — 🐛 CRITICAL FIX: Vehicle Weight RST Type Mismatch",

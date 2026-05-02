@@ -18,6 +18,7 @@ import {
   MessageCircle, Users
 } from "lucide-react";
 import MandiCustodyRegister from "./MandiCustodyRegister";
+import { SendToGroupDialog } from "./SendToGroupDialog";
 import { useConfirm } from "./ConfirmProvider";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -892,6 +893,10 @@ export function TransitPassRegister({ filters }) {
   const [data, setData] = useState({ rows: [], summary: {}, filter_options: { mandis: [], agents: [] } });
   const [loading, setLoading] = useState(false);
   const [tpFilters, setTpFilters] = useState({ mandi_name: "", agent_name: "" });
+  // Send to Group dialog state
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [groupText, setGroupText] = useState("");
+  const [groupPdfUrl, setGroupPdfUrl] = useState("");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -970,6 +975,53 @@ export function TransitPassRegister({ filters }) {
     }
   }, [tpFilters.mandi_name, relMap.mandiToAgents]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Build WhatsApp-friendly summary text
+  const _tpSummaryText = () => {
+    const s = data.summary || {};
+    const rows = data.rows || [];
+    const flt = [];
+    if (filters?.kms_year) flt.push(`KMS: ${filters.kms_year}`);
+    if (filters?.season) flt.push(`Season: ${filters.season}`);
+    if (tpFilters.mandi_name) flt.push(`Mandi: ${tpFilters.mandi_name}`);
+    if (tpFilters.agent_name) flt.push(`Agent: ${tpFilters.agent_name}`);
+    const fltLine = flt.length ? `_${flt.join(' · ')}_\n\n` : '';
+    const lines = [];
+    lines.push(`*📋 Transit Pass Register*`);
+    lines.push('');
+    if (flt.length) lines.push(fltLine.trimEnd());
+    lines.push(`📊 Total Entries: *${s.total_entries || 0}*`);
+    lines.push(`📦 Total Bags: *${s.total_bags || 0}*`);
+    lines.push(`⚖️ Total Qty: *${s.total_qty || 0}* qntl`);
+    lines.push(`🧾 Total TP Weight: *${s.total_tp_weight || 0}* qntl`);
+    // Mandi/Agent wise mini-list (≤10 entries)
+    if (rows.length > 0 && rows.length <= 10) {
+      lines.push('');
+      lines.push('*Entries:*');
+      rows.slice(0, 10).forEach(r => {
+        lines.push(`• TP ${r.tp_no} · RST ${r.rst_no || '-'} · ${r.truck_no || '-'} · ${r.mandi_name || '-'} · ${r.bags || 0} bags`);
+      });
+    }
+    return lines.join('\n');
+  };
+
+  const handleHeaderWhatsApp = async () => {
+    if (!data.rows || data.rows.length === 0) { toast.error("Koi Transit Pass entries nahi"); return; }
+    const text = _tpSummaryText();
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Summary copy ho gayi — kisi bhi WhatsApp chat me paste karein", { duration: 4000 });
+    } catch {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    }
+  };
+
+  const handleHeaderGroup = () => {
+    if (!data.rows || data.rows.length === 0) { toast.error("Koi Transit Pass entries nahi"); return; }
+    setGroupText(_tpSummaryText());
+    setGroupPdfUrl(`${API}/govt-registers/transit-pass/pdf?${buildExportParams()}`);
+    setGroupDialogOpen(true);
+  };
+
   return (
     <div className="space-y-4" data-testid="transit-pass-register">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -978,11 +1030,21 @@ export function TransitPassRegister({ filters }) {
           <p className="text-xs text-slate-400">Mill Entries se auto-generated (jahan TP No. hai)</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => openDownload(`/api/govt-registers/transit-pass/excel?${buildExportParams()}`)} size="sm" className="bg-green-700 hover:bg-green-600" data-testid="tp-excel-btn">
+          <Button onClick={() => openDownload(`/api/govt-registers/transit-pass/excel?${buildExportParams()}`)} size="sm" variant="ghost"
+            className="h-9 w-9 p-0 text-green-400 hover:bg-green-900/30 border border-green-600" title="Excel Export (current filters apply)" data-testid="tp-excel-btn">
             <FileSpreadsheet className="w-4 h-4" />
           </Button>
-          <Button onClick={() => openDownload(`/api/govt-registers/transit-pass/pdf?${buildExportParams()}`)} size="sm" className="bg-red-700 hover:bg-red-600" data-testid="tp-pdf-btn">
+          <Button onClick={() => openDownload(`/api/govt-registers/transit-pass/pdf?${buildExportParams()}`)} size="sm" variant="ghost"
+            className="h-9 w-9 p-0 text-red-400 hover:bg-red-900/30 border border-red-600" title="PDF Export (current filters apply)" data-testid="tp-pdf-btn">
             <FileText className="w-4 h-4" />
+          </Button>
+          <Button onClick={handleHeaderWhatsApp} size="sm" variant="ghost"
+            className="h-9 w-9 p-0 text-[#25D366] hover:bg-green-900/30 border border-green-600" title="WhatsApp — copy summary text" data-testid="tp-whatsapp-btn">
+            <WhatsAppIcon className="w-4 h-4" />
+          </Button>
+          <Button onClick={handleHeaderGroup} size="sm" variant="ghost"
+            className="h-9 w-9 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600" title="Send to Group (summary + PDF)" data-testid="tp-group-btn">
+            <Users className="w-4 h-4" />
           </Button>
         </div>
       </div>
@@ -1074,6 +1136,9 @@ export function TransitPassRegister({ filters }) {
           </div>
         </>
       )}
+
+      {/* Send to WhatsApp Group Dialog */}
+      <SendToGroupDialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen} text={groupText} pdfUrl={groupPdfUrl} />
     </div>
   );
 }

@@ -1,0 +1,66 @@
+{
+  "summary": "v104.44.31 Testing Complete - Transit Pass Register WhatsApp/Group icons + RST Duplicate HARD BLOCK verified",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_rst_check_v104_44_31.py",
+    "/app/test_reports/pytest/pytest_results_v104_44_31.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_rst_check_v104_44_31.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 tests passed)",
+    "frontend": "100% (all features verified)"
+  },
+  "test_credentials": "admin / admin123",
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "v104.44.31 features verified: (1) Transit Pass Register has 4 icon buttons (Excel, PDF, WhatsApp green, Group cyan) with h-9 w-9 icon-only style. (2) WhatsApp button copies summary to clipboard with toast confirmation. (3) Group button opens SendToGroupDialog with group-select dropdown. (4) RST duplicate HARD BLOCK working - shows warning inline and blocks save with error toast when duplicate RST entered in Sale Book.",
+  "features_tested": {
+    "transit_pass_register_buttons": {
+      "status": "PASS",
+      "details": "All 4 buttons found: tp-excel-btn, tp-pdf-btn, tp-whatsapp-btn (green #25D366), tp-group-btn (cyan). All have h-9 w-9 icon-only style."
+    },
+    "whatsapp_button_click": {
+      "status": "PASS",
+      "details": "Copies summary text to clipboard. Toast confirms success."
+    },
+    "group_button_click": {
+      "status": "PASS",
+      "details": "Opens SendToGroupDialog with group-select dropdown. Dialog shows text + PDF URL."
+    },
+    "rst_duplicate_hard_block": {
+      "status": "PASS",
+      "details": "Entering duplicate RST (e.g., '1') in Sale Book shows inline warning (amber for same-context, red for cross-type). On submit, save is blocked with error toast: 'RST 1 duplicate — save block hua'. Form stays open."
+    },
+    "rst_check_api": {
+      "status": "PASS",
+      "details": "GET /api/rst-check returns exists_same and exists_other arrays correctly. Tested with existing RST 1 (sale context) and RST 10 (purchase context)."
+    },
+    "transit_pass_excel_mandi_filter": {
+      "status": "PASS",
+      "details": "GET /api/govt-registers/transit-pass/excel?kms_year=2026-2027&mandi_name=Kesinga returns filtered Excel file."
+    }
+  },
+  "backend_tests_summary": {
+    "total": 12,
+    "passed": 12,
+    "failed": 0,
+    "test_classes": [
+      "TestRstCheck (5 tests) - RST duplicate detection",
+      "TestTransitPassRegister (5 tests) - Transit Pass list, filter, Excel, PDF exports",
+      "TestNextRstTp (2 tests) - Next RST/TP number endpoints"
+    ]
+  }
+}
