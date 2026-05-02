@@ -1,6 +1,18 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.21
+## Current Version: v104.44.22
+
+## 🎯 v104.44.22 — Single Instance Lock (Desktop App)
+**Build date:** 2026-02-17
+
+Electron desktop app ab ek baar me sirf ek instance hi run kar sakta hai:
+- `app.requestSingleInstanceLock()` at the top of main.js
+- Dusri instance launch → error dialog "Software already opened!" + immediate quit
+- Existing window auto-focus + taskbar flash (Windows) on second-instance event
+
+File: `/app/desktop-app/main.js` (~25 lines added before `app.whenReady()`)
+
+---
 
 ## 🎯 v104.44.21 — Daily Report Full Coverage Documentation Refresh
 **Build date:** 2026-02-17

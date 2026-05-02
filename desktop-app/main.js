@@ -3330,6 +3330,34 @@ ipcMain.handle('cloud-access:disable', async () => {
   catch (e) { return { success: false, error: e.message }; }
 });
 
+// ══ v104.44.22 — Single Instance Lock (prevent multiple windows) ══
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  // Another instance is already running — show message and quit this one
+  const { dialog: dlg } = require('electron');
+  dlg.showErrorBox(
+    'Rice Mill Software — पहले से खुला है',
+    'Software already opened!\n\nयह software पहले से चल रहा है। कृपया existing window का उपयोग करें।\n\nAgar window dikh nahi raha hai toh taskbar check karein ya system tray me dekhein.'
+  );
+  app.quit();
+  process.exit(0);
+} else {
+  // If a 2nd instance tries to open, bring the existing window to front
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    console.log('[SingleInstance] Second instance detected — focusing main window');
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      if (!mainWindow.isVisible()) mainWindow.show();
+      mainWindow.focus();
+      // Blink taskbar icon on Windows to draw attention
+      if (process.platform === 'win32') {
+        mainWindow.flashFrame(true);
+        setTimeout(() => { try { mainWindow.flashFrame(false); } catch {} }, 3000);
+      }
+    }
+  });
+}
+
 app.whenReady().then(async () => {
   // 1. Check license first
   try {

@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.22",
+    date: "Feb 17, 2026",
+    title: "v104.44.22 — 🔒 Single Instance Lock (Software Already Opened Alert)",
+    items: [
+      { type: "fix", text: "🔒 **Single Instance Lock added** — Ab desktop app (Electron) ek hi baar open ho sakta hai. Agar user dobara icon pe double-click kare toh naya window nahi khulega — existing window taskbar se focus ho jayega (Windows pe 3 sec flash bhi karega for attention)." },
+      { type: "fix", text: "💬 **User-friendly alert** — Dusri instance launch hone par clear message dikhta hai: 'Software already opened! यह software पहले से चल रहा है। कृपया existing window का उपयोग करें। Agar window dikh nahi raha hai toh taskbar check karein ya system tray me dekhein.' Fir 2nd instance automatically quit ho jaata hai." },
+      { type: "improvement", text: "🚀 **Behaviour** — Minimized window restore, hidden window visible, focus + flash — 3-step auto recovery. Saare license checks, server startup, dependencies — sab fresh load nahi hote (DB corruption / port conflict risks eliminated). Bigger deployment reliability." },
+      { type: "improvement", text: "📌 **Implementation detail** — `app.requestSingleInstanceLock()` + `second-instance` event handler in main.js. Clean quit via `app.quit() + process.exit(0)` to ensure no zombie processes. Web version (browser-based access) par koi asar nahi — wo unchanged hai." },
+    ],
+  },
+  {
     version: "104.44.21",
     date: "Feb 17, 2026",
     title: "v104.44.21 — 📋 Daily Report Full Coverage Documented (21 Sections Live)",
