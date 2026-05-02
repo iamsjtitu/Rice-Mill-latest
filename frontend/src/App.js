@@ -35,6 +35,7 @@ import { SendToGroupDialog } from "@/components/SendToGroupDialog";
 import { useMessagingEnabled } from "./hooks/useMessagingEnabled";
 import { useFilters } from "./hooks/useFilters";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
+import { useRstCheck } from "./hooks/useRstCheck";
 import { EntryTable } from "@/components/entries/EntryTable";
 import { AppHeader } from "@/components/entries/AppHeader";
 
@@ -140,6 +141,8 @@ function MainApp({ user, setUser, onLogout }) {
   const [totals, setTotals] = useState({});
   const [formData, setFormData] = useState(initialFormState);
   const [editingId, setEditingId] = useState(null);
+  // 🛡️ v104.44.28 — RST cross-check for Mill Entries (purchase context)
+  const { checkRst: checkMillRst, clear: clearMillRstCheck, RstWarning: MillRstWarning, buildConfirmMessage: buildMillRstMsg } = useRstCheck({ context: "purchase", excludeId: editingId });
   const [rstFetched, setRstFetched] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -716,6 +719,18 @@ function MainApp({ user, setUser, onLogout }) {
     if (totalBags <= 0) {
       toast.error("Bags khali nahi ho sakta! Gunny Bags ya Plastic Bags daalna zaroori hai");
       return;
+    }
+
+    // 🛡️ Backend-backed RST cross-check (purchase context)
+    // NOTE: MillEntryForm also shows live inline CrossRstWarning on type —
+    // here we run a final check before DB write (catches edge cases like copy-paste)
+    const rstTrim = (formData.rst_no || '').trim();
+    if (rstTrim) {
+      const { hasIssue } = await checkMillRst(rstTrim, { immediate: true });
+      if (hasIssue) {
+        const confirmed = await showConfirm(`⚠️ RST ${rstTrim} — Data Conflict`, buildMillRstMsg());
+        if (!confirmed) return;
+      }
     }
 
     try {

@@ -23,6 +23,7 @@ import { downloadFile, fetchAsBlob } from "../utils/download";
 import { ShareFileViaWhatsApp } from "./common/ShareFileViaWhatsApp";
 import RoundOffInput from "./common/RoundOffInput";
 import { useConfirm } from "./ConfirmProvider";
+import { useRstCheck } from "../hooks/useRstCheck";
 import { fetchVwByRst, updateVwBhada } from "../utils/vw-bhada";
 import logger from "../utils/logger";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -37,6 +38,7 @@ export default function PurchaseVouchers({ filters, user }) {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState(null);
+  const { checkRst, clear: clearRstCheck, RstWarning, buildConfirmMessage: buildRstMsg } = useRstCheck({ context: "purchase", excludeId: editId });
   const [searchText, setSearchText] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
@@ -520,7 +522,11 @@ export default function PurchaseVouchers({ filters, user }) {
               </div>
               <div>
                 <Label className="text-xs text-slate-400">RST No.</Label>
-                <Input value={form.rst_no} onChange={e => setForm(p => ({ ...p, rst_no: e.target.value }))}
+                <Input value={form.rst_no} onChange={e => {
+                    const v = e.target.value;
+                    setForm(p => ({ ...p, rst_no: v }));
+                    if (v.trim()) checkRst(v); else clearRstCheck();
+                  }}
                   onBlur={async () => {
                     if (!form.rst_no) return;
                     const vw = await fetchVwByRst(form.rst_no, filters.kms_year || "");
@@ -534,20 +540,7 @@ export default function PurchaseVouchers({ filters, user }) {
                     }
                   }}
                   placeholder="RST Number" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-rst" />
-                {(() => {
-                  const rstTrim = (form.rst_no || '').trim();
-                  if (!rstTrim) return null;
-                  const dup = vouchers.find(v =>
-                    (v.rst_no || '').trim().toLowerCase() === rstTrim.toLowerCase() &&
-                    v.id !== editId
-                  );
-                  if (!dup) return null;
-                  return (
-                    <div className="mt-1 text-[10px] text-amber-400 flex items-center gap-1" data-testid="pv-rst-duplicate-warn">
-                      ⚠️ RST {rstTrim} pehle se save: V.No {dup.voucher_no_label || dup.voucher_no || '-'} · {dup.party_name || '-'}
-                    </div>
-                  );
-                })()}
+                <RstWarning />
               </div>
             </div>
             {/* Row 2: E-Way, Truck */}

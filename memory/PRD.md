@@ -1,6 +1,21 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.27
+## Current Version: v104.44.28
+
+## 🎯 v104.44.28 — Unified Backend RST Cross-Check
+**Build date:** 2026-02-17
+
+**Root cause of user complaint "abhi bhi duplicate le raha hai"**:
+Previous frontend-only duplicate checks (v104.44.25/26) only checked the current page's loaded vouchers. With pagination, duplicates on other pages were silently accepted.
+
+**Fix**:
+1. New backend endpoint `/api/rst-check` — queries across all 5 collections (sale_vouchers, by_product_sale_vouchers, purchase_vouchers, private_paddy, entries)
+2. Returns `exists_same` (same category) + `exists_other` (cross-type collision)
+3. Triple-backend parity (Python + Node Desktop + Node LAN)
+4. New React hook `useRstCheck()` with `<RstWarning />` component — debounced live check + confirm dialog message builder
+5. Integrated into 5 forms: SaleBook, PurchaseVouchers, PaddyPurchase, ByProductSaleRegister, MillEntryForm
+
+---
 
 ## 🎯 v104.44.27 — Filename Fix for window.open() Bypass
 **Build date:** 2026-02-17

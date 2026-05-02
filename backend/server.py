@@ -84,6 +84,7 @@ from routes.govt_registers import router as govt_registers_router
 from routes.bp_sale_register import router as bp_sale_register_router
 from routes.oil_premium import router as oil_premium_router
 from routes.paddy_release import router as paddy_release_router
+from routes.rst_check import router as rst_check_router
 from routes.license_stub import router as license_stub_router
 
 api_router.include_router(auth_router)
@@ -119,6 +120,7 @@ api_router.include_router(govt_registers_router)
 api_router.include_router(bp_sale_register_router)
 api_router.include_router(oil_premium_router)
 api_router.include_router(paddy_release_router)
+api_router.include_router(rst_check_router)
 api_router.include_router(license_stub_router)
 
 @api_router.post("/delete-all-data")

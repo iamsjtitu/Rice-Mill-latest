@@ -7,6 +7,19 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.28",
+    date: "Feb 17, 2026",
+    title: "v104.44.28 — 🛡️ Unified Backend RST Cross-Check (Sale ⇄ Purchase)",
+    items: [
+      { type: "fix", text: "🐛 **Root cause found** — Pichli duplicate guard (v104.44.25/26) SIRF current page ke loaded vouchers me check karta tha (frontend only). Pagination se dusre page wala RST miss ho jata tha — dupe ban jata tha bina warning ke." },
+      { type: "feature", text: "🆕 **Backend endpoint `/api/rst-check`** — Real-time RST lookup across ALL collections (sale_vouchers, by_product_sale_vouchers, purchase_vouchers, private_paddy, mill entries). **Triple-backend parity**: Python + Node Desktop + Node LAN, sab me identical logic." },
+      { type: "feature", text: "🚫 **Cross-Type Alert** — Sale voucher me purchase ka RST type kiya toh RED alert: '🚫 Cross-type: Ye RST PURCHASE me hai — Private Paddy · Party X · Date Y'. Purchase me sale ka RST type kiya toh same reverse alert." },
+      { type: "feature", text: "🔄 **5 forms updated** with unified RST check via new `useRstCheck()` hook + `<RstWarning />` component:\n  • Sale Book (sale context)\n  • Purchase Vouchers (purchase context)\n  • Paddy Purchase Register (purchase context)\n  • By-Product Sale Register (sale context)\n  • Mill Entry Form (purchase context)" },
+      { type: "improvement", text: "⚡ **Live inline check on type** — RST field me type karte hi warning dikh jaati hai (no blur needed). Amber warning for same-context duplicate, red warning for cross-type collision. Submit time par full confirm dialog with detailed message." },
+      { type: "improvement", text: "🛡️ **Debounced + AbortController** — Rapid typing me sirf latest request process hoti hai. Stale responses discard. Editing existing entry me apna self-exclusion via `exclude_id` param." },
+    ],
+  },
+  {
     version: "104.44.27",
     date: "Feb 17, 2026",
     title: "v104.44.27 — 🐛 Filename Fix: window.open() Bypass + GovtRegisters/MandiCustody",

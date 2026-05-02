@@ -13,6 +13,7 @@ import { ShareFileViaWhatsApp } from "./common/ShareFileViaWhatsApp";
 import { fetchAsBlob } from "../utils/download";
 import { formatSaleVoucher } from "../utils/voucher-format";
 import { fetchVwByRst, updateVwBhada } from "../utils/vw-bhada";
+import { useRstCheck } from "../hooks/useRstCheck";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = `${_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')}/api`;
@@ -41,6 +42,7 @@ export default function SaleBook({ filters, user, category }) {
   const [stockItems, setStockItems] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const { checkRst, clear: clearRstCheck, RstWarning, buildConfirmMessage: buildRstMsg } = useRstCheck({ context: "sale", excludeId: editingId });
   const [obList, setObList] = useState([]);
   const [isObOpen, setIsObOpen] = useState(false);
   const [obForm, setObForm] = useState({ party_name: "", party_type: "Cash Party", amount: "", balance_type: "jama", note: "" });
@@ -174,21 +176,14 @@ export default function SaleBook({ filters, user, category }) {
     if (!form.items.some(i => i.item_name && parseFloat(i.quantity) > 0)) {
       toast.error("Kam se kam ek item add karein"); return;
     }
-    // 🛡️ Duplicate RST guard — prevent accidental duplicate sale vouchers for same RST
+    // 🛡️ Backend-backed RST cross-check (duplicate + cross-type)
     const rstTrim = (form.rst_no || '').trim();
     if (rstTrim) {
-      const duplicate = vouchers.find(v =>
-        (v.rst_no || '').trim().toLowerCase() === rstTrim.toLowerCase() &&
-        v.id !== editingId
-      );
-      if (duplicate) {
+      const { hasIssue } = await checkRst(rstTrim, { immediate: true });
+      if (hasIssue) {
         const confirmed = await showConfirm(
-          `⚠️ RST ${rstTrim} pehle se maujood hai`,
-          `Is RST number ka voucher pehle se save ho chuka hai:\n` +
-          `• Voucher No: ${duplicate.voucher_no || '-'}\n` +
-          `• Party: ${duplicate.party_name || '-'}\n` +
-          `• Date: ${duplicate.date || '-'}\n\n` +
-          `Kya aap phir bhi naya duplicate voucher banana chahte hain?`
+          `⚠️ RST ${rstTrim} — Data Conflict`,
+          buildRstMsg()
         );
         if (!confirmed) return;
       }
@@ -573,7 +568,11 @@ export default function SaleBook({ filters, user, category }) {
               </div>
               <div>
                 <Label className="text-xs text-slate-400">RST No</Label>
-                <Input value={form.rst_no} onChange={e => setForm(p => ({ ...p, rst_no: e.target.value }))}
+                <Input value={form.rst_no} onChange={e => {
+                    const v = e.target.value;
+                    setForm(p => ({ ...p, rst_no: v }));
+                    if (v.trim()) checkRst(v); else clearRstCheck();
+                  }}
                   onBlur={async () => {
                     if (!form.rst_no) return;
                     const vw = await fetchVwByRst(form.rst_no, filters.kms_year || "");
@@ -588,20 +587,7 @@ export default function SaleBook({ filters, user, category }) {
                     }
                   }}
                   placeholder="RST Number" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-form-rst" />
-                {(() => {
-                  const rstTrim = (form.rst_no || '').trim();
-                  if (!rstTrim) return null;
-                  const dup = vouchers.find(v =>
-                    (v.rst_no || '').trim().toLowerCase() === rstTrim.toLowerCase() &&
-                    v.id !== editingId
-                  );
-                  if (!dup) return null;
-                  return (
-                    <div className="mt-1 text-[10px] text-amber-400 flex items-center gap-1" data-testid="sv-rst-duplicate-warn">
-                      ⚠️ RST {rstTrim} pehle se save: V.No {dup.voucher_no || '-'} · {dup.party_name || '-'}
-                    </div>
-                  );
-                })()}
+                <RstWarning />
               </div>
               <div>
                 <Label className="text-xs text-slate-400">Bill Book</Label>

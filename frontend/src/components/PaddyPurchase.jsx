@@ -21,6 +21,7 @@ import {
 import { downloadFile } from "../utils/download";
 import RoundOffInput from "./common/RoundOffInput";
 import { useConfirm } from "./ConfirmProvider";
+import { useRstCheck } from "../hooks/useRstCheck";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import RecordHistory from "./RecordHistory";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
@@ -67,6 +68,7 @@ export const PaddyPurchase = ({ filters, user }) => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState(null);
+  const { checkRst, clear: clearRstCheck, RstWarning, buildConfirmMessage: buildRstMsg } = useRstCheck({ context: "purchase", excludeId: editId });
   const [payDialog, setPayDialog] = useState({ open: false, item: null });
   const [payForm, setPayForm] = useState({ date: new Date().toISOString().split('T')[0], amount: "", mode: "cash", reference: "", remark: "", round_off: "" });
   const [payLoading, setPayLoading] = useState(false);
@@ -124,23 +126,14 @@ export const PaddyPurchase = ({ filters, user }) => {
     e.preventDefault();
     if (!form.party_name) { toast.error("Party name bharna zaroori hai"); return; }
     if (!parseFloat(form.kg)) { toast.error("KG bharna zaroori hai"); return; }
-    // 🛡️ Duplicate RST guard
+    // 🛡️ Backend-backed RST cross-check
     const rstTrim = (form.rst_no || '').trim();
     if (rstTrim) {
-      const duplicate = items.find(v =>
-        (v.rst_no || '').trim().toLowerCase() === rstTrim.toLowerCase() &&
-        v.id !== editId
-      );
-      if (duplicate) {
+      const { hasIssue } = await checkRst(rstTrim, { immediate: true });
+      if (hasIssue) {
         const confirmed = await showConfirm(
-          `⚠️ RST ${rstTrim} pehle se maujood hai`,
-          `Is RST ka paddy purchase entry pehle se save ho chuki hai:\n` +
-          `• Party: ${duplicate.party_name || '-'}\n` +
-          `• Agent: ${duplicate.agent_name || '-'}\n` +
-          `• Mandi: ${duplicate.mandi_name || '-'}\n` +
-          `• Date: ${duplicate.date || '-'}\n` +
-          `• KG: ${duplicate.kg || '-'}\n\n` +
-          `Kya aap phir bhi naya duplicate entry banana chahte hain?`
+          `⚠️ RST ${rstTrim} — Data Conflict`,
+          buildRstMsg()
         );
         if (!confirmed) return;
       }
@@ -447,21 +440,12 @@ export const PaddyPurchase = ({ filters, user }) => {
               </div>
               <div>
                 <Label className="text-slate-300 text-xs">RST No.</Label>
-                <Input value={form.rst_no} onChange={e => setForm(p => ({ ...p, rst_no: e.target.value }))} placeholder="RST Number" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pvt-paddy-rst" />
-                {(() => {
-                  const rstTrim = (form.rst_no || '').trim();
-                  if (!rstTrim) return null;
-                  const dup = items.find(v =>
-                    (v.rst_no || '').trim().toLowerCase() === rstTrim.toLowerCase() &&
-                    v.id !== editId
-                  );
-                  if (!dup) return null;
-                  return (
-                    <div className="mt-1 text-[10px] text-amber-400 flex items-center gap-1" data-testid="pvt-paddy-rst-duplicate-warn">
-                      ⚠️ RST {rstTrim} pehle se save: {dup.party_name || '-'} · {dup.date || '-'} · {dup.kg || '-'}kg
-                    </div>
-                  );
-                })()}
+                <Input value={form.rst_no} onChange={e => {
+                    const v = e.target.value;
+                    setForm(p => ({ ...p, rst_no: v }));
+                    if (v.trim()) checkRst(v); else clearRstCheck();
+                  }} placeholder="RST Number" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pvt-paddy-rst" />
+                <RstWarning />
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">

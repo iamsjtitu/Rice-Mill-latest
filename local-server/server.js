@@ -1178,6 +1178,9 @@ async function startServer() {
     const letterPadRoutes = require('./routes/letter_pad')(database);
     app.use(letterPadRoutes);
 
+    const rstCheckRoutes = require('./routes/rst_check')(database);
+    app.use(rstCheckRoutes);
+
     console.log('  [Routes] All modular routes loaded successfully');
 
     // ===== DATE FORMAT VALIDATOR - Startup Health Check =====

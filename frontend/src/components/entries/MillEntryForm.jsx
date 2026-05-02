@@ -22,6 +22,7 @@ import AutoSuggest from "@/components/common/AutoSuggest";
 import { FY_YEARS, SEASONS } from "@/utils/constants";
 import { useState, useEffect, useRef } from "react";
 import logger from "../../utils/logger";
+import { useRstCheck } from "../../hooks/useRstCheck";
 import axios from "axios";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -49,6 +50,8 @@ export function MillEntryForm({
 }) {
   const [dupWarning, setDupWarning] = useState({ rst: null, tp: null });
   const dupTimer = useRef(null);
+  // v104.44.28 — Cross-type RST check (purchase context — flags if this RST also in sale_vouchers etc.)
+  const { checkRst: checkCrossRst, clear: clearCrossRst, RstWarning: CrossRstWarning } = useRstCheck({ context: "purchase", excludeId: editingId });
 
   // Real-time duplicate check for RST & TP
   useEffect(() => {
@@ -115,6 +118,9 @@ export function MillEntryForm({
                   setFormData(prev => ({ ...prev, rst_no: val }));
                   if (val && !isNaN(val) && Number(val) > 0) {
                     debouncedRstLookup(val);
+                    checkCrossRst(val);
+                  } else {
+                    clearCrossRst();
                   }
                 }}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
@@ -128,6 +134,7 @@ export function MillEntryForm({
                   <AlertTriangle className="w-3 h-3" /> Ye RST pehle se hai: {dupWarning.rst}
                 </p>
               )}
+              <CrossRstWarning />
             </div>
             <div>
               <Label className="text-slate-300">TP No.{rstFetched ? ' (Locked)' : ''}</Label>

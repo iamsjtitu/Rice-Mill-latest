@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Edit, Search, Download, Eye, Filter } from "lucide-react";
 import { fmtDate } from "@/utils/date";
 import { useConfirm } from "./ConfirmProvider";
+import { useRstCheck } from "../hooks/useRstCheck";
 import { useCloseFiltersOnEsc } from "../utils/useCloseFiltersOnEsc";
 import { updateVwBhada } from "../utils/vw-bhada";
 import logger from "../utils/logger";
@@ -23,6 +24,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const [sales, setSales] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const { checkRst, clear: clearRstCheck, RstWarning, buildConfirmMessage: buildRstMsg } = useRstCheck({ context: "sale", excludeId: editingId });
   const [searchQuery, setSearchQuery] = useState("");
   const [viewSale, setViewSale] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -222,6 +224,15 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       if (billedKg <= 0 && kacchaKg <= 0) { toast.error("Pakka ya Kaccha weight daalen"); return; }
     } else {
       if (nwKg <= 0) { toast.error("Net weight daalen"); return; }
+    }
+    // 🛡️ Backend-backed RST cross-check
+    const rstTrim = (form.rst_no || '').trim();
+    if (rstTrim) {
+      const { hasIssue } = await checkRst(rstTrim, { immediate: true });
+      if (hasIssue) {
+        const confirmed = await showConfirm(`⚠️ RST ${rstTrim} — Data Conflict`, buildRstMsg());
+        if (!confirmed) return;
+      }
     }
     try {
       const payload = {
@@ -643,9 +654,14 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label className="text-[10px] text-slate-400">RST Number {rstLoading && <span className="text-amber-400">(loading...)</span>}</Label>
-                <Input value={form.rst_no} onChange={e => setForm(p => ({ ...p, rst_no: e.target.value }))}
+                <Input value={form.rst_no} onChange={e => {
+                    const v = e.target.value;
+                    setForm(p => ({ ...p, rst_no: v }));
+                    if (v.trim()) checkRst(v); else clearRstCheck();
+                  }}
                   onBlur={() => { if (form.rst_no) fetchRst(form.rst_no); }}
                   placeholder="RST se auto-fetch" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-rst" />
+                <RstWarning />
               </div>
               <div>
                 <Label className="text-[10px] text-slate-400">Vehicle Number</Label>
