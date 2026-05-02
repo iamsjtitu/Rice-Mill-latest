@@ -1,6 +1,37 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.30
+## Current Version: v104.44.31
+
+## 🎯 v104.44.31 — Duplicate RST HARD BLOCK + Transit Pass WhatsApp/Group Share
+**Build date:** 2026-02-17
+
+### Features Delivered
+1. **Duplicate RST HARD BLOCK** — `useRstCheck()` hook's return value `hasBlocker` now enforces save prevention (not just a confirm dialog) across 5 forms:
+   - Sale Book (sale context)
+   - Purchase Vouchers (purchase context)
+   - Paddy Purchase (purchase context)
+   - By-Product Sale Register (sale context)
+   - Mill Entry Form (purchase context)
+   - VW (vehicle_weights) entries remain INFO-only (natural source; dispatch creates VW → sale voucher)
+2. **Transit Pass Register — 4-icon export pattern** — Excel + PDF + WhatsApp + Group (icon-only h-9 w-9 style matching Payments tab)
+   - WhatsApp: copies summary text (Total Entries, Bags, Qty, TP Weight + top-10 entries list) to clipboard
+   - Group: opens `SendToGroupDialog` with summary text + filter-aware PDF URL
+   - All icons respect current kms_year / season / mandi_name / agent_name filters
+3. **Transit Pass Excel/PDF filter bug fix** — Node backend (desktop + LAN) now properly forwards mandi_name/agent_name query params to `/api/govt-registers/transit-pass/excel` and `/pdf`.
+
+### Files Changed
+- `/app/frontend/src/components/GovtRegisters.jsx` (TransitPassRegister: +SendToGroupDialog import, +state, +handleHeaderWhatsApp/Group, +_tpSummaryText, +2 icon buttons, +dialog mount)
+- `/app/frontend/src/components/WhatsNew.jsx` (top entry v104.44.31)
+- `/app/frontend/src/utils/constants-version.js` → `104.44.31`
+- `/app/desktop-app/package.json` → `104.44.31`
+- `/app/local-server/package.json` → `104.44.31`
+
+### Verification (testing_agent_v3_fork — iteration_208)
+- **Backend**: 12/12 PASSED (TestRstCheck 5 + TestTransitPassRegister 5 + TestNextRstTp 2)
+- **Frontend**: 4 buttons rendered (tp-excel/pdf/whatsapp/group), WhatsApp clipboard copy toast works, Group opens SendToGroupDialog, RST HARD BLOCK shows inline warning + blocks save on duplicate RST in SaleBook
+- `test_rst_check_v104_44_31.py` added to `/app/backend/tests/`
+
+---
 
 ## 🎯 v104.44.30 — Critical Fix: Vehicle Weight RST Type Mismatch
 **Build date:** 2026-02-17
