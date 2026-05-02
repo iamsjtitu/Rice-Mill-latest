@@ -7,6 +7,19 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.30",
+    date: "Feb 17, 2026",
+    title: "v104.44.30 — 🐛 CRITICAL FIX: Vehicle Weight RST Type Mismatch",
+    items: [
+      { type: "fix", text: "🐛 **Real root cause mila** — User ne video bheja: RST 7 sale me already tha (Vehicle Weight Dispatch entry MBOPL), fir bhi duplicate alert nahi aaya. 2 bugs the:" },
+      { type: "fix", text: "🔴 **Bug 1: RST type mismatch** — `vehicle_weights` collection me `rst_no` INT (7) ke roop me store hota hai, aur mera `rst-check` regex string match (`^7$`) use karta tha. MongoDB regex sirf strings pe kaam karta hai → match fail → warning nahi dikhi. Fix: `$in: ['7', 7]` — dono variants match." },
+      { type: "fix", text: "🔴 **Bug 2: vehicle_weights missing** — `vehicle_weights` collection rst-check scope me nahi tha. Core dispatch/receive RST data yahi se aata hai. Fix: Added separate `_search_vw()` with `trans_type` awareness (Dispatch(Sale) → sale bucket, Receive(Purchase) → purchase bucket)." },
+      { type: "fix", text: "✅ **Verified** — RST 7 in sale context now correctly returns: `{collection: 'vehicle_weights', party: 'MBOPL', trans_type: 'Dispatch(Sale)', date: '2026-04-29'}`. Warning dikhega + Submit pe confirm dialog block karega." },
+      { type: "improvement", text: "🎨 **Warning display enhanced** — Ab trans_type bhi show hota hai: '⚠️ Duplicate: Vehicle Weight (Dispatch(Sale)) — MBOPL · 2026-04-29'. Zyaada clarity kaunsi jagah match hua." },
+      { type: "improvement", text: "🔄 **Triple-backend parity** — Python + Node Desktop + Node LAN sab updated. Node bhi dono INT aur string rst_no match karta hai. Same trans_type logic." },
+    ],
+  },
+  {
     version: "104.44.29",
     date: "Feb 17, 2026",
     title: "v104.44.29 — 🔢 Cross-Collection Auto-Increment for RST & TP",

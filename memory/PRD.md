@@ -1,6 +1,24 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.29
+## Current Version: v104.44.30
+
+## 🎯 v104.44.30 — Critical Fix: Vehicle Weight RST Type Mismatch
+**Build date:** 2026-02-17
+
+User video showed: RST 7 visible in sale side (Vehicle Weight Dispatch), but creating new By-Product Sale with RST 7 did NOT trigger warning.
+
+**Root Causes**:
+1. `vehicle_weights.rst_no` stored as **INT** (7), while query used regex (string-only) — no match
+2. `vehicle_weights` collection was entirely excluded from rst-check scope
+
+**Fixes (triple-backend)**:
+- `$in: ['7', 7]` to match both string and int RST
+- Added `_search_vw()` with `trans_type` awareness — Dispatch(Sale) → sale bucket; Receive(Purchase) → purchase bucket
+- Warning now shows trans_type for VW matches
+
+Verified via curl: RST 7 in sale context correctly returns MBOPL Dispatch(Sale) from 2026-04-29.
+
+---
 
 ## 🎯 v104.44.29 — Cross-Collection Auto-Increment for RST & TP
 **Build date:** 2026-02-17

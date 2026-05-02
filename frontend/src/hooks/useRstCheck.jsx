@@ -27,6 +27,7 @@ const COLLECTION_LABELS = {
   purchase_vouchers: "Purchase Voucher",
   private_paddy: "Paddy Purchase",
   entries: "Mill Entry",
+  vehicle_weights: "Vehicle Weight",
 };
 
 export function useRstCheck({ context = "sale", excludeId = "" } = {}) {
@@ -69,16 +70,24 @@ export function useRstCheck({ context = "sale", excludeId = "" } = {}) {
 
     return (
       <div className="mt-1 space-y-1" data-testid="rst-check-warning">
-        {same.map((m, i) => (
-          <div key={`s-${i}`} className="text-[10px] text-amber-400 flex items-center gap-1">
-            ⚠️ Duplicate: {COLLECTION_LABELS[m.collection] || m.collection} — V.No {m.voucher_no || "-"} · {m.party_name || "-"} · {m.date || "-"}
-          </div>
-        ))}
-        {other.map((m, i) => (
-          <div key={`o-${i}`} className="text-[10px] text-red-400 flex items-center gap-1 font-medium" data-testid={`rst-cross-warn-${i}`}>
-            🚫 Cross-type: Ye RST {context === "sale" ? "PURCHASE" : "SALE"} me hai — {COLLECTION_LABELS[m.collection] || m.collection} · {m.party_name || "-"} · {m.date || "-"}
-          </div>
-        ))}
+        {same.map((m, i) => {
+          const label = COLLECTION_LABELS[m.collection] || m.collection;
+          const extraLabel = m.trans_type ? ` (${m.trans_type})` : "";
+          return (
+            <div key={`s-${i}`} className="text-[10px] text-amber-400 flex items-center gap-1">
+              ⚠️ Duplicate: {label}{extraLabel} — {m.voucher_no ? `V.No ${m.voucher_no} · ` : ""}{m.party_name || "-"} · {m.date || "-"}
+            </div>
+          );
+        })}
+        {other.map((m, i) => {
+          const label = COLLECTION_LABELS[m.collection] || m.collection;
+          const extraLabel = m.trans_type ? ` (${m.trans_type})` : "";
+          return (
+            <div key={`o-${i}`} className="text-[10px] text-red-400 flex items-center gap-1 font-medium" data-testid={`rst-cross-warn-${i}`}>
+              🚫 Cross-type: Ye RST {context === "sale" ? "PURCHASE" : "SALE"} side me hai — {label}{extraLabel} · {m.party_name || "-"} · {m.date || "-"}
+            </div>
+          );
+        })}
       </div>
     );
   };

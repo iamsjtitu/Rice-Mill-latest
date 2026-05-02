@@ -15,18 +15,33 @@ from database import db
 
 router = APIRouter(tags=["rst-check"])
 
-# Categorise collections
+# Categorise collections.
+# vehicle_weights is special — has trans_type: 'Dispatch(Sale)' or 'Receive(Purchase)'
+# We handle it separately in _search_vw.
 SALE_COLLECTIONS = ["sale_vouchers", "by_product_sale_vouchers"]
 PURCHASE_COLLECTIONS = ["purchase_vouchers", "private_paddy", "entries"]
 
 
+def _rst_match_query(rst_no: str):
+    """Match RST number stored as string OR int.
+    MongoDB regex only matches strings, so use $in with both variants.
+    """
+    variants = [rst_no, rst_no.strip()]
+    try:
+        # Include numeric variant (stored as int)
+        variants.append(int(rst_no.strip()))
+    except (ValueError, TypeError):
+        pass
+    # Case-insensitive string match + int match via $in
+    return {"rst_no": {"$in": list(set(variants))}}
+
+
 async def _search(collection: str, rst_no: str, exclude_id: str = ""):
-    """Case-insensitive RST match, returns compact info."""
-    coll = db[collection]
-    # Match by rst_no exactly (trimmed, string compare)
-    query = {"rst_no": {"$regex": f"^{rst_no}$", "$options": "i"}}
+    """Match RST exactly (string OR int), return compact info."""
+    query = _rst_match_query(rst_no)
     if exclude_id:
         query["id"] = {"$ne": exclude_id}
+    coll = db[collection]
     docs = await coll.find(query, {"_id": 0}).limit(5).to_list(5)
     results = []
     for d in docs:
@@ -36,10 +51,44 @@ async def _search(collection: str, rst_no: str, exclude_id: str = ""):
             "voucher_no": d.get("voucher_no", "") or d.get("voucher_no_label", ""),
             "party_name": d.get("party_name", "") or d.get("seller_name", "") or d.get("buyer_name", ""),
             "date": d.get("date", ""),
-            "rst_no": d.get("rst_no", ""),
+            "rst_no": str(d.get("rst_no", "")),
             "amount": d.get("total", 0) or d.get("subtotal", 0) or d.get("final_amount", 0),
             "kg": d.get("kg", 0) or d.get("quantity", 0),
             "agent_name": d.get("agent_name", ""),
+            "mandi_name": d.get("mandi_name", ""),
+        })
+    return results
+
+
+async def _search_vw(rst_no: str, exclude_id: str, is_sale: bool):
+    """Search vehicle_weights with trans_type filter.
+    is_sale=True → Dispatch/Sale entries; False → Receive/Purchase entries.
+    """
+    query = _rst_match_query(rst_no)
+    if exclude_id:
+        query["id"] = {"$ne": exclude_id}
+    docs = await db["vehicle_weights"].find(query, {"_id": 0}).limit(5).to_list(5)
+    results = []
+    for d in docs:
+        tt = (d.get("trans_type") or "").lower()
+        is_dispatch = any(k in tt for k in ["dispatch", "sale"])
+        is_receive = any(k in tt for k in ["receive", "purchase"])
+        # Filter by category
+        if is_sale and not is_dispatch:
+            continue
+        if not is_sale and not is_receive:
+            continue
+        results.append({
+            "collection": "vehicle_weights",
+            "id": d.get("id", ""),
+            "voucher_no": "",
+            "party_name": d.get("party_name", ""),
+            "date": d.get("date", ""),
+            "rst_no": str(d.get("rst_no", "")),
+            "amount": 0,
+            "kg": d.get("net_weight", 0),
+            "trans_type": d.get("trans_type", ""),
+            "vehicle_no": d.get("vehicle_no", ""),
             "mandi_name": d.get("mandi_name", ""),
         })
     return results
@@ -65,6 +114,12 @@ async def rst_check(
         exists_same.extend(await _search(c, rst_no, exclude_id))
     for c in other_cols:
         exists_other.extend(await _search(c, rst_no, exclude_id))
+
+    # Vehicle Weight trans_type-aware inclusion
+    # Same category: VW with matching trans_type (dispatch if context=sale, receive if context=purchase)
+    exists_same.extend(await _search_vw(rst_no, exclude_id, is_sale=(ctx == "sale")))
+    # Other category: VW with opposite trans_type
+    exists_other.extend(await _search_vw(rst_no, exclude_id, is_sale=(ctx != "sale")))
 
     return {
         "rst_no": rst_no,
