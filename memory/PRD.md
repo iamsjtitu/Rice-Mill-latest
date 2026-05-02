@@ -1,6 +1,40 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.31
+## Current Version: v104.44.32
+
+## 🎯 v104.44.32 — 🔴 CRITICAL: RST Duplicate Check Collection Name Bug Fix
+**Build date:** 2026-02-17
+
+### User complaint (video)
+"mai 50 baar bol chuka rst number duplicate save nahi hona chahiye" — BP Sale (Rice Bran → New Sale) me RST 7 enter kiya, save ho gaya bina warning, jabki DB me already 2 BP sales + 1 VW Dispatch entry thi RST 7 ke liye.
+
+### Root Cause
+`rst_check.py` (+ Node equivalents) **galat** MongoDB collection names check kar raha tha:
+- `by_product_sale_vouchers` ❌ (doesn't exist) → actual: `bp_sale_register`
+- `entries` ❌ (Python backend) → actual: `mill_entries`
+
+Note: Node backend uses `entries` (not `mill_entries`) — this asymmetry is correct per actual lowdb naming.
+
+Additional Node bug: `require('./_helpers')` was broken — file never existed. Desktop + LAN rst_check endpoints were completely dead.
+
+### Fix
+1. **Python** — `/app/backend/routes/rst_check.py`:
+   - `SALE_COLLECTIONS = ['sale_vouchers', 'bp_sale_register']`
+   - `PURCHASE_COLLECTIONS = ['purchase_vouchers', 'private_paddy', 'mill_entries']`
+   - `next-rst` endpoint scans all 6 correct collections
+2. **Node Desktop + LAN** — `/app/{desktop-app,local-server}/routes/rst_check.js`:
+   - Inlined `col()` helper (removed broken `_helpers` import)
+   - `SALE_COLLECTIONS = ['sale_vouchers', 'bp_sale_register']`
+   - `PURCHASE_COLLECTIONS = ['purchase_vouchers', 'private_paddy', 'entries']` (Node uses 'entries' locally)
+3. **Frontend** — `/app/frontend/src/hooks/useRstCheck.jsx`:
+   - Added labels: `bp_sale_register: "By-Product Sale"`, `mill_entries: "Mill Entry"` (plus legacy keys for backward-compat)
+
+### Verification (testing_agent_v3_fork — iteration_209)
+- Backend: 8/8 v104.44.32 tests + 12/12 v104.44.31 regression tests → 100%
+- Frontend: HARD BLOCK verified via Playwright — entering duplicate RST in BP Sale form triggers `❌ RST X duplicate — save block hua` toast + form stays open.
+- Curl proof: `GET /api/rst-check?rst_no=7&context=sale` returns 2 bp_sale_register entries + 1 vehicle_weights entry → `hasBlocker=true` → save BLOCKED.
+
+---
 
 ## 🎯 v104.44.31 — Duplicate RST HARD BLOCK + Transit Pass WhatsApp/Group Share
 **Build date:** 2026-02-17
