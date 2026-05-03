@@ -1,6 +1,40 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.33
+## Current Version: v104.44.51
+
+## 🎯 v104.44.51 — 📊 BP Sale Register: Professional Excel/PDF Exports with PKA/KCA Breakdown
+**Build date:** 2026-02-17
+
+### User demand (chat)
+"Excel , pdf update karo changes ke hisab se sabke , also professional banao both excel and pdf" → "BP Sale Register sirf"
+"PKA , KCA karna kabhi b kahi bhi full mat likhna pakka ya kaccha"
+
+### Changes
+1. **Mode-aware title banner** — Excel + PDF dono me title me `[ALL]` (blue), `[PKA]` (emerald green), `[KCA]` (rose red) badge — directly konsa view export hua dikhata hai.
+2. **Row-level Pakka/Kaccha breakdown columns** — Split entries ke liye ALL view me `PKA Amt` (green-tinted) + `KCA Amt` (rose-tinted) + `Tax` (amber-tinted) + `Total` alag-alag columns. PKA/KCA single-mode views me consolidated `Amount` column.
+3. **Color-coded cells** (data + headers) — PKA cells light green bg + dark green bold text; KCA cells light rose bg + dark red bold text; Tax cells amber bg + orange bold text; Total cells dark blue bold text.
+4. **Filter summary subtitle** — Title ke neeche light gray strip me active filters (Period, Party, Vehicle, Bill From, Destination, RST) italic format me dikhayenge.
+5. **PKA / KCA only abbreviation** — Excel headers (`PKA Amt`, `KCA Amt`), PDF headers (`PKA`, `KCA`), aur cash/local-party ledger descriptions (`...PKA (GST Bill)`, `...KCA (Slip)`) me kabhi bhi "Pakka" / "Kaccha" full word nahi.
+6. **Triple-Backend Parity** — Same professional layout teeno backends me identical: Python FastAPI (`/app/backend/routes/bp_sale_register.py`), Node Desktop Electron (`/app/desktop-app/routes/bp_sale_register.js`), Node LAN Express (`/app/local-server/routes/bp_sale_register.js`).
+
+### Verification
+- **Python curl** — Excel + PDF, all 3 modes (ALL/PKA/KCA) → 200 OK, valid xlsx/PDF magic bytes
+- **Node Desktop in-process harness** — All 6 endpoints (3 Excel + 3 PDF) → 200 OK with correct sizes
+- **Node LAN in-process harness** — Same as Desktop (6/6 PASS)
+- **AI vision PDF analysis** — 100% confidence: title blue, PKA green, KCA rose, Tax amber (headers + data cells), no "Pakka"/"Kaccha" full text anywhere
+- **openpyxl direct read** — ALL view shows separate `PKA Amt` (150,000) + `KCA Amt` (370,000) + `Tax` (7,500) + `Total` (527,500); PKA view shows consolidated `Amount` (150,000) + Tax (7,500) + Total (157,500); KCA shows `Amount` (370,000) + Total (370,000)
+
+### Files Modified
+- `/app/backend/routes/bp_sale_register.py` (Excel + PDF endpoints; ledger description strings)
+- `/app/desktop-app/routes/bp_sale_register.js` (full Excel + PDF rewrite)
+- `/app/local-server/routes/bp_sale_register.js` (synced from desktop)
+- `/app/frontend/src/utils/constants-version.js` → `104.44.51`
+- `/app/desktop-app/package.json` + `/app/local-server/package.json` → `104.44.51`
+- `/app/frontend/src/components/WhatsNew.jsx` (top entry)
+
+---
+
+## 🎯 v104.44.50 — 🎨 Light Theme Color Contrast Fix
 
 ## 🎯 v104.44.33 — 🛡️ GLOBAL Hard Block on Duplicate RST (VW Included)
 **Build date:** 2026-02-17

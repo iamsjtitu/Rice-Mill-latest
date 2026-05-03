@@ -49,14 +49,14 @@ async def _create_bp_ledger_entries(d, doc_id, username):
                 entries.append({
                     "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
                     "amount": pakka_total, "category": f"{party} (PKA)", "party_type": "BP Sale",
-                    "description": f"{product} Sale #{vno} - Pakka (GST Bill)",
+                    "description": f"{product} Sale #{vno} - PKA (GST Bill)",
                     "reference": f"bp_sale_pka:{doc_id}", **base
                 })
             if kaccha_amt > 0:
                 entries.append({
                     "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
                     "amount": round(kaccha_amt, 2), "category": f"{party} (KCA)", "party_type": "BP Sale",
-                    "description": f"{product} Sale #{vno} - Kaccha (Slip)",
+                    "description": f"{product} Sale #{vno} - KCA (Slip)",
                     "reference": f"bp_sale_ka:{doc_id}", **base
                 })
         else:
@@ -161,7 +161,7 @@ async def _create_bp_ledger_entries(d, doc_id, username):
                     "id": str(uuid.uuid4()), "date": d.get('date', ''),
                     "party_name": f"{party} (PKA)", "txn_type": "debit",
                     "amount": pakka_total,
-                    "description": f"{product} Sale #{vno} - Pakka (GST Bill)",
+                    "description": f"{product} Sale #{vno} - PKA (GST Bill)",
                     "source_type": "bp_sale_pka", "reference": f"bp_sale_pka:{doc_id}",
                     "kms_year": d.get('kms_year', ''), "season": d.get('season', ''),
                     "created_by": username, "created_at": now_iso
@@ -171,7 +171,7 @@ async def _create_bp_ledger_entries(d, doc_id, username):
                     "id": str(uuid.uuid4()), "date": d.get('date', ''),
                     "party_name": f"{party} (KCA)", "txn_type": "debit",
                     "amount": round(kaccha_amt, 2),
-                    "description": f"{product} Sale #{vno} - Kaccha (Slip)",
+                    "description": f"{product} Sale #{vno} - KCA (Slip)",
                     "source_type": "bp_sale_ka", "reference": f"bp_sale_ka:{doc_id}",
                     "kms_year": d.get('kms_year', ''), "season": d.get('season', ''),
                     "created_by": username, "created_at": now_iso
@@ -565,8 +565,8 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
     cols.append(('N/W (Qtl)', 9, 'net_weight_qtl'))
     if has_bags: cols.append(('Bags', 7, 'bags'))
     cols.append(('Rate/Qtl', 9, 'rate_per_qtl'))
-    if show_pakka_col: cols.append(('Pakka Amt', 12, 'billed_amount'))
-    if show_kaccha_col: cols.append(('Kaccha Amt', 12, 'kaccha_amount'))
+    if show_pakka_col: cols.append(('PKA Amt', 12, 'billed_amount'))
+    if show_kaccha_col: cols.append(('KCA Amt', 12, 'kaccha_amount'))
     if not show_pakka_col and not show_kaccha_col:
         cols.append(('Amount', 12, 'amount'))
     if has_tax: cols.append(('Tax', 9, 'tax_amount'))
@@ -778,14 +778,37 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
     from utils.export_helpers import get_pdf_company_header
     elements.extend(get_pdf_company_header(branding))
 
-    # Title
-    title = f"{product or 'By-Product'} Sale Register"
+    # v104.44.51 — Title with mode badge (PKA emerald / KCA rose / ALL blue)
+    mode_label = f" [{gst_filter}]" if gst_filter in ("PKA", "KCA") else " [ALL]"
+    title = f"{product or 'By-Product'} Sale Register{mode_label}"
     if kms_year: title += f" - FY {kms_year}"
     if season: title += f" ({season})"
-    title_style = ParagraphStyle('RegTitle', parent=styles['Heading2'], fontSize=9,
-        textColor=colors.white, backColor=colors.HexColor('#2E75B6'), spaceAfter=4, alignment=1,
-        borderPadding=(2, 2, 2, 2))
+    if gst_filter == "PKA":
+        title_bg = colors.HexColor('#2E7D32')
+    elif gst_filter == "KCA":
+        title_bg = colors.HexColor('#C62828')
+    else:
+        title_bg = colors.HexColor('#2E75B6')
+    title_style = ParagraphStyle('RegTitle', parent=styles['Heading2'], fontSize=10,
+        textColor=colors.white, backColor=title_bg, spaceAfter=4, alignment=1,
+        borderPadding=(3, 3, 3, 3))
     elements.append(Paragraph(title, title_style))
+
+    # v104.44.51 — Filter summary subtitle
+    flt_parts = []
+    if date_from or date_to:
+        flt_parts.append(f"Period: {date_from or '...'} to {date_to or '...'}")
+    if party_name: flt_parts.append(f"Party: {party_name}")
+    if vehicle_no: flt_parts.append(f"Vehicle: {vehicle_no}")
+    if bill_from: flt_parts.append(f"Bill From: {bill_from}")
+    if destination: flt_parts.append(f"Destination: {destination}")
+    if rst_no: flt_parts.append(f"RST: {rst_no}")
+    filter_summary = "  •  ".join(flt_parts)
+    if filter_summary:
+        sub_style = ParagraphStyle('SubTitle', parent=styles['Normal'], fontSize=7,
+            textColor=colors.HexColor('#555555'), backColor=colors.HexColor('#F5F5F5'),
+            alignment=1, borderPadding=(2, 2, 2, 2), spaceAfter=3)
+        elements.append(Paragraph(f"<i>{filter_summary}</i>", sub_style))
     elements.append(Spacer(1, 3))
 
     # Detect which optional columns have data
@@ -800,6 +823,11 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
     has_diesel = any(s.get('diesel_paid', 0) for s in sales)
     has_adv = any(s.get('advance', 0) for s in sales)
 
+    # v104.44.51 — Detect split entries (Pakka+Kaccha breakdown columns in ALL view)
+    has_split = any(_safe_num(s.get('billed_amount')) > 0 and _safe_num(s.get('kaccha_amount')) > 0 for s in sales)
+    show_pakka_col = has_split and gst_filter not in ("PKA", "KCA")
+    show_kaccha_col = has_split and gst_filter not in ("PKA", "KCA")
+
     # Build dynamic columns: (header, width, key)
     pdf_cols = [('V.No', 28, 'voucher_no'), ('Date', 42, 'date')]
     if has_bill_no: pdf_cols.append(('Bill No', 40, 'bill_number'))
@@ -811,7 +839,10 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
     pdf_cols.append(('N/W(Kg)', 40, 'net_weight_kg'))
     if has_bags: pdf_cols.append(('Bags', 28, 'bags'))
     pdf_cols.append(('Rate/Q', 38, 'rate_per_qtl'))
-    pdf_cols.append(('Amount', 50, 'amount'))
+    if show_pakka_col: pdf_cols.append(('PKA', 50, 'billed_amount'))
+    if show_kaccha_col: pdf_cols.append(('KCA', 50, 'kaccha_amount'))
+    if not show_pakka_col and not show_kaccha_col:
+        pdf_cols.append(('Amount', 50, 'amount'))
     if has_tax: pdf_cols.append(('Tax', 35, 'tax_amount'))
     pdf_cols.append(('Total', 50, 'total'))
     if has_cash: pdf_cols.append(('Cash', 38, 'cash_paid'))
@@ -835,10 +866,11 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
         col_widths = [round(w * scale) for w in col_widths]
 
     data = [headers]
-    t_nw = t_bags = t_amt = t_tax = t_total = t_cash = t_diesel = t_adv = t_bal = t_oil_prem_pdf = 0
+    t_nw = t_bags = t_amt = t_billed = t_kaccha = t_tax = t_total = t_cash = t_diesel = t_adv = t_bal = t_oil_prem_pdf = 0
     for idx, s in enumerate(sales):
         t_nw += s.get('net_weight_kg', 0); t_bags += s.get('bags', 0)
-        t_amt += s.get('amount', 0); t_tax += s.get('tax_amount', 0); t_total += s.get('total', 0)
+        t_amt += s.get('amount', 0); t_billed += s.get('billed_amount', 0); t_kaccha += s.get('kaccha_amount', 0)
+        t_tax += s.get('tax_amount', 0); t_total += s.get('total', 0)
         t_cash += s.get('cash_paid', 0); t_diesel += s.get('diesel_paid', 0)
         t_adv += s.get('advance', 0); t_bal += s.get('balance', 0)
         op = oil_map_pdf.get(s.get('voucher_no') or '') or oil_map_pdf.get(s.get('rst_no') or '')
@@ -850,7 +882,9 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
             elif key == 'party_name': row_data.append((s.get('party_name', '') or '')[:16])
             elif key == 'bill_from': row_data.append((s.get('bill_from', '') or '')[:14])
             elif key == 'destination': row_data.append((s.get('destination', '') or '')[:12])
-            elif key in ('amount', 'tax_amount', 'total', 'balance'): row_data.append(f"{s.get(key, 0):,.0f}")
+            elif key in ('amount', 'billed_amount', 'kaccha_amount', 'tax_amount', 'total', 'balance'):
+                v = s.get(key, 0) or 0
+                row_data.append(f"{v:,.0f}" if v else '')
             elif key == 'oil_pct': row_data.append(f"{op.get('actual_oil_pct', '')}%" if op else '')
             elif key == 'oil_diff':
                 if op:
@@ -868,6 +902,8 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
         elif key == 'net_weight_kg': total_row.append(round(t_nw, 0))
         elif key == 'bags': total_row.append(t_bags)
         elif key == 'amount': total_row.append(f"{t_amt:,.0f}")
+        elif key == 'billed_amount': total_row.append(f"{t_billed:,.0f}" if t_billed else '')
+        elif key == 'kaccha_amount': total_row.append(f"{t_kaccha:,.0f}" if t_kaccha else '')
         elif key == 'tax_amount': total_row.append(f"{t_tax:,.0f}")
         elif key == 'total': total_row.append(f"{t_total:,.0f}")
         elif key == 'cash_paid': total_row.append(round(t_cash, 0))
@@ -881,7 +917,7 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
     table = RLTable(data, colWidths=col_widths, repeatRows=1)
 
     # Find first numeric column index for right-align
-    first_num = next((i for i, k in enumerate(col_keys) if k in ('net_weight_kg','bags','rate_per_qtl','amount','tax_amount','total','cash_paid','diesel_paid','advance','balance')), len(col_keys))
+    first_num = next((i for i, k in enumerate(col_keys) if k in ('net_weight_kg','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance')), len(col_keys))
 
     nrows = len(data)
     style_cmds = [
@@ -901,6 +937,30 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
         ('TOPPADDING', (0, 0), (-1, -1), 1),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
     ]
+    # v104.44.51 — Color-coded PKA/KCA/Tax/Total cells (data rows only)
+    try:
+        pakka_idx = col_keys.index('billed_amount')
+        style_cmds.append(('BACKGROUND', (pakka_idx, 1), (pakka_idx, -2), colors.HexColor('#D0EBD2')))
+        style_cmds.append(('TEXTCOLOR', (pakka_idx, 1), (pakka_idx, -2), colors.HexColor('#1B5E20')))
+        style_cmds.append(('FONTNAME', (pakka_idx, 1), (pakka_idx, -2), 'Helvetica-Bold'))
+    except ValueError: pass
+    try:
+        kac_idx = col_keys.index('kaccha_amount')
+        style_cmds.append(('BACKGROUND', (kac_idx, 1), (kac_idx, -2), colors.HexColor('#FFD6D6')))
+        style_cmds.append(('TEXTCOLOR', (kac_idx, 1), (kac_idx, -2), colors.HexColor('#B71C1C')))
+        style_cmds.append(('FONTNAME', (kac_idx, 1), (kac_idx, -2), 'Helvetica-Bold'))
+    except ValueError: pass
+    try:
+        tax_idx = col_keys.index('tax_amount')
+        style_cmds.append(('BACKGROUND', (tax_idx, 1), (tax_idx, -2), colors.HexColor('#FFE8B0')))
+        style_cmds.append(('TEXTCOLOR', (tax_idx, 1), (tax_idx, -2), colors.HexColor('#E65100')))
+        style_cmds.append(('FONTNAME', (tax_idx, 1), (tax_idx, -2), 'Helvetica-Bold'))
+    except ValueError: pass
+    try:
+        tot_idx = col_keys.index('total')
+        style_cmds.append(('TEXTCOLOR', (tot_idx, 1), (tot_idx, -2), colors.HexColor('#0D47A1')))
+        style_cmds.append(('FONTNAME', (tot_idx, 1), (tot_idx, -2), 'Helvetica-Bold'))
+    except ValueError: pass
     table.setStyle(TableStyle(style_cmds))
     elements.append(table)
 

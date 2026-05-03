@@ -288,13 +288,12 @@ module.exports = function(database) {
     res.json([...set].sort());
   });
 
-  // ---- EXCEL EXPORT ----
+  // ---- EXCEL EXPORT (v104.44.51 — Professional with PKA/KCA breakdown) ----
   router.get('/api/bp-sale-register/export/excel', async (req, res) => {
     try {
       ensure();
       const ExcelJS = require('exceljs');
-      const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
-      const { fmtDate, applyConsolidatedExcelPolish} = require('./pdf_helpers');
+      const { fmtDate, applyConsolidatedExcelPolish } = require('./pdf_helpers');
       let sales = [...database.data.bp_sale_register];
       const { product, kms_year, season, date_from, date_to, billing_date_from, billing_date_to, rst_no, vehicle_no, bill_from, party_name, destination, gst_filter } = req.query;
       if (product) sales = sales.filter(s => s.product === product);
@@ -309,10 +308,15 @@ module.exports = function(database) {
       if (bill_from) sales = sales.filter(s => (s.bill_from||'').toLowerCase().includes(bill_from.toLowerCase()));
       if (party_name) sales = sales.filter(s => (s.party_name||'').toLowerCase().includes(party_name.toLowerCase()));
       if (destination) sales = sales.filter(s => (s.destination||'').toLowerCase().includes(destination.toLowerCase()));
-      // v104.44.44 — Row-level PKA/KCA projection
+      // Row-level PKA/KCA projection
       if (gst_filter === 'PKA') sales = sales.filter(s => _safeNum(s.billed_amount) > 0 || _safeNum(s.gst_percent) > 0).map(_projectPakkaView);
       else if (gst_filter === 'KCA') sales = sales.filter(s => _safeNum(s.kaccha_amount) > 0 || (_safeNum(s.billed_amount) === 0 && _safeNum(s.gst_percent) === 0)).map(_projectKacchaView);
       sales.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+
+      // Detect split entries → show PKA/KCA breakdown columns in ALL view
+      const hasSplit = sales.some(s => _safeNum(s.billed_amount) > 0 && _safeNum(s.kaccha_amount) > 0);
+      const showPkaCol = hasSplit && gst_filter !== 'PKA' && gst_filter !== 'KCA';
+      const showKcaCol = hasSplit && gst_filter !== 'PKA' && gst_filter !== 'KCA';
 
       // Oil premium map for Rice Bran
       if (!database.data.oil_premium) database.data.oil_premium = [];
@@ -325,7 +329,7 @@ module.exports = function(database) {
       }
       const hasOil = Object.keys(oilMap).length > 0 && sales.some(s => oilMap[s.voucher_no||''] || oilMap[s.rst_no||'']);
 
-      // Detect which optional columns have data
+      // Detect optional columns
       const has = {
         bill: sales.some(s => s.bill_number), billing_date: sales.some(s => s.billing_date),
         rst: sales.some(s => s.rst_no), vehicle: sales.some(s => s.vehicle_no),
@@ -336,64 +340,199 @@ module.exports = function(database) {
       };
 
       // Build dynamic columns
-      const cols = [{h:'V.No',k:'vno',w:8},{h:'Date',k:'date',w:10}];
-      if (has.bill) cols.push({h:'Bill No',k:'bill',w:10});
-      if (has.billing_date) cols.push({h:'Bill Date',k:'bdate',w:10});
-      if (has.rst) cols.push({h:'RST',k:'rst',w:8});
-      if (has.vehicle) cols.push({h:'Vehicle',k:'vehicle',w:12});
-      if (has.billfrom) cols.push({h:'Bill From',k:'billfrom',w:14});
-      cols.push({h:'Party',k:'party',w:16});
-      if (has.dest) cols.push({h:'Destination',k:'dest',w:14});
-      cols.push({h:'N/W(Kg)',k:'nwkg',w:10},{h:'N/W(Qtl)',k:'nwqtl',w:9});
+      const cols = [{h:'V.No',k:'voucher_no',w:8},{h:'Date',k:'date',w:10}];
+      if (has.bill) cols.push({h:'Bill No',k:'bill_number',w:10});
+      if (has.billing_date) cols.push({h:'Bill Date',k:'billing_date',w:10});
+      if (has.rst) cols.push({h:'RST',k:'rst_no',w:8});
+      if (has.vehicle) cols.push({h:'Vehicle',k:'vehicle_no',w:12});
+      if (has.billfrom) cols.push({h:'Bill From',k:'bill_from',w:14});
+      cols.push({h:'Party Name',k:'party_name',w:16});
+      if (has.dest) cols.push({h:'Destination',k:'destination',w:14});
+      cols.push({h:'N/W (Kg)',k:'net_weight_kg',w:10},{h:'N/W (Qtl)',k:'net_weight_qtl',w:9});
       if (has.bags) cols.push({h:'Bags',k:'bags',w:7});
-      cols.push({h:'Rate/Q',k:'rate',w:9},{h:'Amount',k:'amount',w:12});
-      if (has.tax) cols.push({h:'Tax',k:'tax',w:9});
+      cols.push({h:'Rate/Qtl',k:'rate_per_qtl',w:9});
+      if (showPkaCol) cols.push({h:'PKA Amt',k:'billed_amount',w:12});
+      if (showKcaCol) cols.push({h:'KCA Amt',k:'kaccha_amount',w:12});
+      if (!showPkaCol && !showKcaCol) cols.push({h:'Amount',k:'amount',w:12});
+      if (has.tax) cols.push({h:'Tax',k:'tax_amount',w:9});
       cols.push({h:'Total',k:'total',w:12});
-      if (has.cash) cols.push({h:'Cash',k:'cash',w:9});
-      if (has.diesel) cols.push({h:'Diesel',k:'diesel',w:9});
-      if (has.adv) cols.push({h:'Advance',k:'adv',w:8});
+      if (has.cash) cols.push({h:'Cash',k:'cash_paid',w:10});
+      if (has.diesel) cols.push({h:'Diesel',k:'diesel_paid',w:10});
+      if (has.adv) cols.push({h:'Advance',k:'advance',w:10});
       cols.push({h:'Balance',k:'balance',w:12});
-      if (hasOil) { cols.push({h:'Oil%',k:'oilpct',w:8},{h:'Diff%',k:'oildiff',w:8},{h:'Premium',k:'oilprem',w:12}); }
-      if (has.remark) cols.push({h:'Remark',k:'remark',w:14});
+      if (hasOil) { cols.push({h:'Oil%',k:'oil_pct',w:8},{h:'Diff%',k:'oil_diff',w:8},{h:'Premium',k:'oil_premium',w:12}); }
+      if (has.remark) cols.push({h:'Remark',k:'remark',w:16});
 
+      const ncols = cols.length;
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet(`${product || 'BP'} Sales`);
-      ws.columns = cols.map(c => ({header:c.h, key:c.k, width:c.w}));
-      sales.forEach((s, i) => {
-        const op = oilMap[s.voucher_no||''] || oilMap[s.rst_no||''];
-        const row = {vno:s.voucher_no||'', date:fmtDate(s.date), party:s.party_name||'', nwkg:s.net_weight_kg||0, nwqtl:+(((s.net_weight_kg||0)/100).toFixed(2)), rate:s.rate_per_qtl||0, amount:s.amount||0, total:s.total||0, balance:s.balance||0};
-        if (has.bill) row.bill = s.bill_number||'';
-        if (has.billing_date) row.bdate = fmtDate(s.billing_date);
-        if (has.rst) row.rst = s.rst_no||'';
-        if (has.vehicle) row.vehicle = s.vehicle_no||'';
-        if (has.billfrom) row.billfrom = s.bill_from||'';
-        if (has.dest) row.dest = s.destination||'';
-        if (has.bags) row.bags = s.bags||0;
-        if (has.tax) row.tax = s.tax_amount||0;
-        if (has.cash) row.cash = s.cash_paid||0;
-        if (has.diesel) row.diesel = s.diesel_paid||0;
-        if (has.adv) row.adv = s.advance||0;
-        if (hasOil) { row.oilpct = op ? op.actual_oil_pct : ''; row.oildiff = op ? +(op.difference_pct||0).toFixed(2) : ''; row.oilprem = op ? +(op.premium_amount||0).toFixed(2) : ''; }
-        if (has.remark) row.remark = s.remark||'';
-        ws.addRow(row);
+
+      // Branding
+      const branding = (database.getBranding ? database.getBranding() : {}) || {};
+      const company = (branding.company_name || 'Rice Mill').toUpperCase();
+      const address = branding.address || '';
+      const phone = branding.phone || '';
+
+      // Title with mode badge
+      const modeLabel = (gst_filter === 'PKA' || gst_filter === 'KCA') ? ` [${gst_filter}]` : ' [ALL]';
+      let title = `${product || 'By-Product'} Sale Register${modeLabel}`;
+      if (kms_year) title += ` - FY ${kms_year}`;
+      if (season) title += ` (${season})`;
+      const titleBg = gst_filter === 'PKA' ? 'FF2E7D32' : (gst_filter === 'KCA' ? 'FFC62828' : 'FF2E75B6');
+
+      // Filter summary
+      const fltParts = [];
+      if (date_from || date_to) fltParts.push(`Period: ${date_from || '...'} to ${date_to || '...'}`);
+      if (party_name) fltParts.push(`Party: ${party_name}`);
+      if (vehicle_no) fltParts.push(`Vehicle: ${vehicle_no}`);
+      if (bill_from) fltParts.push(`Bill From: ${bill_from}`);
+      if (destination) fltParts.push(`Destination: ${destination}`);
+      if (rst_no) fltParts.push(`RST: ${rst_no}`);
+      const filterSummary = fltParts.join('  •  ');
+
+      // Row 1: Company name
+      ws.mergeCells(1, 1, 1, ncols);
+      const c1 = ws.getCell(1, 1); c1.value = company;
+      c1.font = { name:'Calibri', bold:true, size:14, color:{argb:'FF1F4E79'} };
+      c1.alignment = { horizontal:'center' };
+
+      // Row 2: address + phone
+      if (address || phone) {
+        ws.mergeCells(2, 1, 2, ncols);
+        const c2 = ws.getCell(2, 1); c2.value = `${address}  |  ${phone}`;
+        c2.font = { name:'Calibri', size:9, color:{argb:'FF666666'} };
+        c2.alignment = { horizontal:'center' };
+      }
+
+      // Row 3: Title with mode-color background
+      ws.mergeCells(3, 1, 3, ncols);
+      const c3 = ws.getCell(3, 1); c3.value = title;
+      c3.font = { name:'Calibri', bold:true, size:12, color:{argb:'FFFFFFFF'} };
+      c3.fill = { type:'pattern', pattern:'solid', fgColor:{argb:titleBg} };
+      c3.alignment = { horizontal:'center' };
+
+      // Row 4: Filter summary (if any)
+      let headerRow = 5;
+      if (filterSummary) {
+        ws.mergeCells(4, 1, 4, ncols);
+        const c4 = ws.getCell(4, 1); c4.value = filterSummary;
+        c4.font = { name:'Calibri', italic:true, size:9, color:{argb:'FF555555'} };
+        c4.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF5F5F5'} };
+        c4.alignment = { horizontal:'center' };
+        headerRow = 6;
+      }
+
+      // Header row
+      cols.forEach((c, i) => {
+        const cell = ws.getCell(headerRow, i + 1);
+        cell.value = c.h;
+        cell.font = { name:'Calibri', bold:true, size:9, color:{argb:'FFFFFFFF'} };
+        cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FF1F4E79'} };
+        cell.alignment = { horizontal:'center', wrapText:true };
+        cell.border = { top:{style:'thin', color:{argb:'FFB0C4DE'}}, bottom:{style:'thin', color:{argb:'FFB0C4DE'}}, left:{style:'thin', color:{argb:'FFB0C4DE'}}, right:{style:'thin', color:{argb:'FFB0C4DE'}} };
+        ws.getColumn(i + 1).width = c.w;
       });
-      addExcelTitle(ws, `${product || 'By-Product'} Sale Register`, cols.length, database);
-      styleExcelHeader(ws); styleExcelData(ws, 5);
+
+      // Data rows + totals
+      const tot = { nw:0, bags:0, amt:0, billed:0, kaccha:0, tax:0, total:0, cash:0, diesel:0, adv:0, bal:0, oilP:0 };
+      sales.forEach((s, idx) => {
+        const r = headerRow + 1 + idx;
+        const op = oilMap[s.voucher_no||''] || oilMap[s.rst_no||''];
+        tot.nw += _safeNum(s.net_weight_kg); tot.bags += _safeNum(s.bags);
+        tot.amt += _safeNum(s.amount); tot.billed += _safeNum(s.billed_amount); tot.kaccha += _safeNum(s.kaccha_amount);
+        tot.tax += _safeNum(s.tax_amount); tot.total += _safeNum(s.total);
+        tot.cash += _safeNum(s.cash_paid); tot.diesel += _safeNum(s.diesel_paid);
+        tot.adv += _safeNum(s.advance); tot.bal += _safeNum(s.balance);
+        if (op) tot.oilP += _safeNum(op.premium_amount);
+
+        cols.forEach((c, i) => {
+          const cell = ws.getCell(r, i + 1);
+          let val;
+          if (c.k === 'voucher_no') val = s.voucher_no || '';
+          else if (c.k === 'date') val = fmtDate(s.date);
+          else if (c.k === 'billing_date') val = fmtDate(s.billing_date);
+          else if (c.k === 'net_weight_qtl') val = +(((s.net_weight_kg||0)/100).toFixed(2));
+          else if (c.k === 'oil_pct') val = op ? op.actual_oil_pct : '';
+          else if (c.k === 'oil_diff') val = op ? +((op.difference_pct||0).toFixed(2)) : '';
+          else if (c.k === 'oil_premium') val = op ? +((op.premium_amount||0).toFixed(2)) : '';
+          else if (['net_weight_kg','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance'].includes(c.k)) val = _safeNum(s[c.k]);
+          else val = s[c.k] || '';
+          cell.value = val;
+          cell.font = { name:'Calibri', size:9 };
+          cell.border = { top:{style:'thin', color:{argb:'FFB0C4DE'}}, bottom:{style:'thin', color:{argb:'FFB0C4DE'}}, left:{style:'thin', color:{argb:'FFB0C4DE'}}, right:{style:'thin', color:{argb:'FFB0C4DE'}} };
+          // Alt-row fill
+          if (idx % 2 === 0) cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF0F6FC'} };
+          // Color-coded PKA/KCA/Tax/Total cells
+          if (c.k === 'billed_amount') {
+            cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFE8F5E9'} };
+            cell.font = { name:'Calibri', size:9, bold:true, color:{argb:'FF2E7D32'} };
+          } else if (c.k === 'kaccha_amount') {
+            cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFFFEBEE'} };
+            cell.font = { name:'Calibri', size:9, bold:true, color:{argb:'FFC62828'} };
+          } else if (c.k === 'tax_amount' && val) {
+            cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFFFF8E1'} };
+            cell.font = { name:'Calibri', size:9, bold:true, color:{argb:'FFEF6C00'} };
+          } else if (c.k === 'total') {
+            cell.font = { name:'Calibri', size:9, bold:true, color:{argb:'FF1B5E20'} };
+          }
+          if (['net_weight_kg','net_weight_qtl','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','oil_pct','oil_diff','oil_premium'].includes(c.k)) {
+            cell.alignment = { horizontal:'right' };
+          }
+          if (['amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','oil_premium'].includes(c.k)) {
+            cell.numFmt = '#,##0.00';
+          }
+          if (c.k === 'oil_premium' && op && _safeNum(op.premium_amount) < 0) {
+            cell.font = { name:'Calibri', size:9, color:{argb:'FFFF0000'} };
+          }
+        });
+      });
+
+      // Totals row
+      const tr = headerRow + 1 + sales.length;
+      cols.forEach((c, i) => {
+        const cell = ws.getCell(tr, i + 1);
+        cell.font = { name:'Calibri', bold:true, size:9, color:{argb:'FFFFFFFF'} };
+        cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FF2E75B6'} };
+        cell.border = { top:{style:'thin', color:{argb:'FFB0C4DE'}}, bottom:{style:'thin', color:{argb:'FFB0C4DE'}}, left:{style:'thin', color:{argb:'FFB0C4DE'}}, right:{style:'thin', color:{argb:'FFB0C4DE'}} };
+        let v = '';
+        if (c.k === 'date') v = 'TOTAL';
+        else if (c.k === 'net_weight_kg') v = +(tot.nw.toFixed(2));
+        else if (c.k === 'net_weight_qtl') v = +((tot.nw/100).toFixed(2));
+        else if (c.k === 'bags') v = tot.bags;
+        else if (c.k === 'amount') v = +(tot.amt.toFixed(2));
+        else if (c.k === 'billed_amount') v = +(tot.billed.toFixed(2));
+        else if (c.k === 'kaccha_amount') v = +(tot.kaccha.toFixed(2));
+        else if (c.k === 'tax_amount') v = +(tot.tax.toFixed(2));
+        else if (c.k === 'total') v = +(tot.total.toFixed(2));
+        else if (c.k === 'cash_paid') v = +(tot.cash.toFixed(2));
+        else if (c.k === 'diesel_paid') v = +(tot.diesel.toFixed(2));
+        else if (c.k === 'advance') v = +(tot.adv.toFixed(2));
+        else if (c.k === 'balance') v = +(tot.bal.toFixed(2));
+        else if (c.k === 'oil_premium') v = +(tot.oilP.toFixed(2));
+        cell.value = v;
+        if (['net_weight_kg','net_weight_qtl','bags','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','oil_premium'].includes(c.k)) {
+          cell.alignment = { horizontal:'right' };
+        }
+      });
+
+      ws.pageSetup = { orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0 };
+
+      // Apply consolidated polish (auto-filter + freeze + no gridlines)
+      try { applyConsolidatedExcelPolish(ws, { headerRow }); } catch (_) {}
+
+      const fn = req.query.filename || `${(product||'byproduct').toLowerCase().replace(/ /g,'_')}_sale_register_${Date.now()}.xlsx`;
       res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition',`attachment; filename=${req.query.filename || `${(product||'bp').toLowerCase().replace(/ /g,'_')}_sales_${Date.now()}.xlsx`}`);
-      // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)
-      try { applyConsolidatedExcelPolish(wb.worksheets[0]); } catch (_) {}
+      res.setHeader('Content-Disposition',`attachment; filename=${fn}`);
       await wb.xlsx.write(res); res.end();
     } catch(e) { res.status(500).json({detail:'Export failed: '+e.message}); }
   });
 
-  // ---- PDF EXPORT ----
+  // ---- PDF EXPORT (v104.44.51 — Professional with PKA/KCA breakdown + color coding) ----
   router.get('/api/bp-sale-register/export/pdf', async (req, res) => {
     try {
       ensure();
       const PDFDocument = require('pdfkit');
-      const { addPdfHeader: _addPdfHeader, addPdfTable, safePdfPipe, fmtDate } = require('./pdf_helpers');
-      const addPdfHeader = (doc, title) => _addPdfHeader(doc, title, database.getBranding ? database.getBranding() : {company_name:'Mill'});
+      const { addPdfHeader: _addPdfHeader, safePdfPipe, fmtDate, F, autoF } = require('./pdf_helpers');
       let sales = [...database.data.bp_sale_register];
       const { product, kms_year, season, date_from, date_to, billing_date_from, billing_date_to, rst_no, vehicle_no, bill_from, party_name, destination, gst_filter } = req.query;
       if (product) sales = sales.filter(s => s.product === product);
@@ -408,23 +547,26 @@ module.exports = function(database) {
       if (bill_from) sales = sales.filter(s => (s.bill_from||'').toLowerCase().includes(bill_from.toLowerCase()));
       if (party_name) sales = sales.filter(s => (s.party_name||'').toLowerCase().includes(party_name.toLowerCase()));
       if (destination) sales = sales.filter(s => (s.destination||'').toLowerCase().includes(destination.toLowerCase()));
-      // v104.44.44 — Row-level PKA/KCA projection
       if (gst_filter === 'PKA') sales = sales.filter(s => _safeNum(s.billed_amount) > 0 || _safeNum(s.gst_percent) > 0).map(_projectPakkaView);
       else if (gst_filter === 'KCA') sales = sales.filter(s => _safeNum(s.kaccha_amount) > 0 || (_safeNum(s.billed_amount) === 0 && _safeNum(s.gst_percent) === 0)).map(_projectKacchaView);
       sales.sort((a,b) => (a.date||'').localeCompare(b.date||''));
 
-      // Oil premium map for Rice Bran
+      // Detect split → show PKA/KCA breakdown columns
+      const hasSplit = sales.some(s => _safeNum(s.billed_amount) > 0 && _safeNum(s.kaccha_amount) > 0);
+      const showPkaCol = hasSplit && gst_filter !== 'PKA' && gst_filter !== 'KCA';
+      const showKcaCol = hasSplit && gst_filter !== 'PKA' && gst_filter !== 'KCA';
+
+      // Oil premium for Rice Bran
       if (!database.data.oil_premium) database.data.oil_premium = [];
-      const oilMapPdf = {};
+      const oilMap = {};
       if (product === 'Rice Bran') {
         let opList = [...database.data.oil_premium];
         if (kms_year) opList = opList.filter(i => i.kms_year === kms_year);
         if (season) opList = opList.filter(i => i.season === season);
-        opList.forEach(op => { const k = op.voucher_no || op.rst_no || ''; if (k) oilMapPdf[k] = op; });
+        opList.forEach(op => { const k = op.voucher_no || op.rst_no || ''; if (k) oilMap[k] = op; });
       }
-      const hasOilPdf = Object.keys(oilMapPdf).length > 0 && sales.some(s => oilMapPdf[s.voucher_no||''] || oilMapPdf[s.rst_no||'']);
+      const hasOil = Object.keys(oilMap).length > 0 && sales.some(s => oilMap[s.voucher_no||''] || oilMap[s.rst_no||'']);
 
-      // Detect which optional columns have data
       const has = {
         bill: sales.some(s => s.bill_number), rst: sales.some(s => s.rst_no),
         vehicle: sales.some(s => s.vehicle_no), billfrom: sales.some(s => s.bill_from),
@@ -443,41 +585,174 @@ module.exports = function(database) {
       if (has.dest) pc.push(['Destination',50,'destination']);
       pc.push(['NW(Kg)',40,'net_weight_kg']);
       if (has.bags) pc.push(['Bags',28,'bags']);
-      pc.push(['Rate/Q',38,'rate_per_qtl'],['Amount',50,'amount']);
+      pc.push(['Rate/Q',38,'rate_per_qtl']);
+      if (showPkaCol) pc.push(['PKA',50,'billed_amount']);
+      if (showKcaCol) pc.push(['KCA',50,'kaccha_amount']);
+      if (!showPkaCol && !showKcaCol) pc.push(['Amount',50,'amount']);
       if (has.tax) pc.push(['Tax',35,'tax_amount']);
       pc.push(['Total',50,'total']);
       if (has.cash) pc.push(['Cash',38,'cash_paid']);
       if (has.diesel) pc.push(['Diesel',38,'diesel_paid']);
       if (has.adv) pc.push(['Adv',32,'advance']);
       pc.push(['Balance',48,'balance']);
-      if (hasOilPdf) { pc.push(['Oil%',30,'oil_pct'],['Diff%',30,'oil_diff'],['Premium',45,'oil_premium']); }
+      if (hasOil) { pc.push(['Oil%',30,'oil_pct'],['Diff%',30,'oil_diff'],['Premium',45,'oil_premium']); }
+
+      const headers = pc.map(c => c[0]);
+      let widths = pc.map(c => c[1]);
+      const keys = pc.map(c => c[2]);
 
       const doc = new PDFDocument({size:'A4',layout:'landscape',margin:20});
       res.setHeader('Content-Type','application/pdf');
       res.setHeader('Content-Disposition',`attachment; filename=${req.query.filename || `${(product||'bp').toLowerCase().replace(/ /g,'_')}_sales_${Date.now()}.pdf`}`);
-      let title = `${product || 'By-Product'} Sale Register`;
-      if (kms_year) title += ` - FY ${kms_year}`;
-      addPdfHeader(doc, title);
 
-      const headers = pc.map(c => c[0]);
-      const colWidths = pc.map(c => c[1]);
-      const keys = pc.map(c => c[2]);
-      const rows = sales.map((s,i) => {
-        const op = oilMapPdf[s.voucher_no||''] || oilMapPdf[s.rst_no||''];
-        return keys.map(k => {
-          if (k === 'voucher_no') return s.voucher_no||'';
-          if (k === 'date') return fmtDate(s.date);
-          if (k === 'party_name') return (s.party_name||'').substring(0,14);
-          if (k === 'bill_from') return (s.bill_from||'').substring(0,12);
-          if (k === 'destination') return (s.destination||'').substring(0,10);
-          if (['amount','tax_amount','total','balance'].includes(k)) return Math.round(s[k]||0);
-          if (k === 'oil_pct') return op ? `${op.actual_oil_pct}%` : '';
-          if (k === 'oil_diff') { if (!op) return ''; const d=op.difference_pct||0; return `${d>0?'+':''}${d.toFixed(2)}%`; }
-          if (k === 'oil_premium') return op ? Math.round(op.premium_amount||0) : '';
-          return s[k]||0;
-        });
+      // Branding header (company + custom fields)
+      const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill' };
+      const modeLabel = (gst_filter === 'PKA' || gst_filter === 'KCA') ? ` [${gst_filter}]` : ' [ALL]';
+      let title = `${product || 'By-Product'} Sale Register${modeLabel}`;
+      if (kms_year) title += ` - FY ${kms_year}`;
+      if (season) title += ` (${season})`;
+      _addPdfHeader(doc, title, branding);
+
+      // Mode-colored title strip (override the default teal title bar with mode color)
+      // Actually addPdfHeader already drew the title; let's draw a colored mode strip below
+      const modeBg = gst_filter === 'PKA' ? '#2E7D32' : (gst_filter === 'KCA' ? '#C62828' : '#2E75B6');
+      // Filter summary
+      const fltParts = [];
+      if (date_from || date_to) fltParts.push(`Period: ${date_from || '...'} to ${date_to || '...'}`);
+      if (party_name) fltParts.push(`Party: ${party_name}`);
+      if (vehicle_no) fltParts.push(`Vehicle: ${vehicle_no}`);
+      if (bill_from) fltParts.push(`Bill From: ${bill_from}`);
+      if (destination) fltParts.push(`Destination: ${destination}`);
+      if (rst_no) fltParts.push(`RST: ${rst_no}`);
+      const filterSummary = fltParts.join('  •  ');
+      if (filterSummary) {
+        const subY = doc.y;
+        doc.rect(20, subY, doc.page.width - 40, 14).fill('#F5F5F5');
+        doc.fontSize(7).font(autoF(filterSummary, 'normal')).fillColor('#555555')
+          .text(filterSummary, 22, subY + 3, { width: doc.page.width - 44, align: 'center', lineBreak: false });
+        doc.y = subY + 16;
+      }
+
+      // Auto-fit widths to page
+      const margin = 20;
+      const pageW = doc.page.width - margin * 2;
+      const totalW = widths.reduce((a,b) => a+b, 0);
+      const scale = totalW > pageW ? pageW / totalW : 1;
+      widths = widths.map(w => Math.floor(w * scale));
+      const actualTotalW = widths.reduce((a,b) => a+b, 0);
+      const startX = Math.max(margin, (doc.page.width - actualTotalW) / 2);
+
+      const fs = 6;
+      const rowH = fs + 8;
+      let y = doc.y;
+
+      // Header row (dark blue #1F4E79)
+      doc.rect(startX, y, actualTotalW, rowH + 2).fill('#1F4E79');
+      let x = startX;
+      headers.forEach((h, i) => {
+        doc.fillColor('#FFFFFF').font(autoF(h, 'bold')).fontSize(fs + 0.5)
+          .text(h, x + 2, y + 3, { width: widths[i] - 4, align: 'center', lineBreak: false });
+        x += widths[i];
       });
-      addPdfTable(doc, headers, rows, colWidths);
+      y += rowH + 2;
+
+      // Number column flags
+      const isNumCol = keys.map(k => ['net_weight_kg','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','oil_premium'].includes(k));
+
+      // Data rows
+      const tot = { nw:0, bags:0, amt:0, billed:0, kaccha:0, tax:0, total:0, cash:0, diesel:0, adv:0, bal:0, oilP:0 };
+      sales.forEach((s, ri) => {
+        if (y + rowH > doc.page.height - margin - 30) { doc.addPage(); y = margin; }
+        const op = oilMap[s.voucher_no||''] || oilMap[s.rst_no||''];
+        tot.nw += _safeNum(s.net_weight_kg); tot.bags += _safeNum(s.bags);
+        tot.amt += _safeNum(s.amount); tot.billed += _safeNum(s.billed_amount); tot.kaccha += _safeNum(s.kaccha_amount);
+        tot.tax += _safeNum(s.tax_amount); tot.total += _safeNum(s.total);
+        tot.cash += _safeNum(s.cash_paid); tot.diesel += _safeNum(s.diesel_paid);
+        tot.adv += _safeNum(s.advance); tot.bal += _safeNum(s.balance);
+        if (op) tot.oilP += _safeNum(op.premium_amount);
+
+        const baseBg = ri % 2 === 0 ? '#ffffff' : '#EBF1F8';
+        x = startX;
+        keys.forEach((k, ci) => {
+          // Cell value
+          let cellVal = '';
+          if (k === 'voucher_no') cellVal = s.voucher_no || '';
+          else if (k === 'date') cellVal = fmtDate(s.date);
+          else if (k === 'party_name') cellVal = (s.party_name || '').substring(0, 16);
+          else if (k === 'bill_from') cellVal = (s.bill_from || '').substring(0, 14);
+          else if (k === 'destination') cellVal = (s.destination || '').substring(0, 12);
+          else if (['amount','billed_amount','kaccha_amount','tax_amount','total','balance'].includes(k)) {
+            const v = _safeNum(s[k]);
+            cellVal = v ? Math.round(v).toLocaleString('en-IN') : '';
+          }
+          else if (k === 'oil_pct') cellVal = op ? `${op.actual_oil_pct}%` : '';
+          else if (k === 'oil_diff') {
+            if (op) { const d = op.difference_pct || 0; cellVal = `${d>0?'+':''}${d.toFixed(2)}%`; }
+          }
+          else if (k === 'oil_premium') cellVal = op ? Math.round(op.premium_amount || 0).toLocaleString('en-IN') : '';
+          else if (['net_weight_kg','bags','rate_per_qtl','cash_paid','diesel_paid','advance'].includes(k)) cellVal = String(_safeNum(s[k]) || '');
+          else cellVal = String(s[k] || '');
+
+          // Color overrides for PKA/KCA/Tax/Total
+          let cellBg = baseBg;
+          let textColor = '#1F2937';
+          let fontWeight = 'normal';
+          if (k === 'billed_amount') { cellBg = '#D0EBD2'; textColor = '#1B5E20'; fontWeight = 'bold'; }
+          else if (k === 'kaccha_amount') { cellBg = '#FFD6D6'; textColor = '#B71C1C'; fontWeight = 'bold'; }
+          else if (k === 'tax_amount' && cellVal) { cellBg = '#FFE8B0'; textColor = '#E65100'; fontWeight = 'bold'; }
+          else if (k === 'total') { textColor = '#0D47A1'; fontWeight = 'bold'; }
+
+          doc.rect(x, y, widths[ci], rowH).fill(cellBg);
+          doc.rect(x, y, widths[ci], rowH).stroke('#CCCCCC');
+          doc.fillColor(textColor).font(autoF(cellVal, fontWeight)).fontSize(fs)
+            .text(cellVal, x + 2, y + 2, { width: widths[ci] - 4, height: rowH - 2, lineBreak: false, align: isNumCol[ci] ? 'right' : 'left' });
+          x += widths[ci];
+        });
+        y += rowH;
+      });
+
+      // Total row (mode-colored)
+      if (y + rowH > doc.page.height - margin - 30) { doc.addPage(); y = margin; }
+      doc.rect(startX, y, actualTotalW, rowH).fill('#2E75B6');
+      x = startX;
+      keys.forEach((k, ci) => {
+        let v = '';
+        if (k === 'date') v = 'TOTAL';
+        else if (k === 'net_weight_kg') v = String(Math.round(tot.nw));
+        else if (k === 'bags') v = String(tot.bags);
+        else if (k === 'amount') v = Math.round(tot.amt).toLocaleString('en-IN');
+        else if (k === 'billed_amount') v = tot.billed ? Math.round(tot.billed).toLocaleString('en-IN') : '';
+        else if (k === 'kaccha_amount') v = tot.kaccha ? Math.round(tot.kaccha).toLocaleString('en-IN') : '';
+        else if (k === 'tax_amount') v = Math.round(tot.tax).toLocaleString('en-IN');
+        else if (k === 'total') v = Math.round(tot.total).toLocaleString('en-IN');
+        else if (k === 'cash_paid') v = String(Math.round(tot.cash));
+        else if (k === 'diesel_paid') v = String(Math.round(tot.diesel));
+        else if (k === 'advance') v = String(Math.round(tot.adv));
+        else if (k === 'balance') v = Math.round(tot.bal).toLocaleString('en-IN');
+        else if (k === 'oil_premium') v = Math.round(tot.oilP).toLocaleString('en-IN');
+        doc.rect(x, y, widths[ci], rowH).stroke('#1F4E79');
+        doc.fillColor('#FFFFFF').font(autoF(v, 'bold')).fontSize(fs)
+          .text(v, x + 2, y + 2, { width: widths[ci] - 4, height: rowH - 2, lineBreak: false, align: isNumCol[ci] ? 'right' : 'left' });
+        x += widths[ci];
+      });
+      y += rowH;
+      doc.y = y + 8;
+
+      // Payment summary
+      const payParts = [];
+      if (tot.cash > 0) payParts.push(`Cash: ${Math.round(tot.cash).toLocaleString('en-IN')}`);
+      if (tot.diesel > 0) payParts.push(`Diesel: ${Math.round(tot.diesel).toLocaleString('en-IN')}`);
+      if (tot.adv > 0) payParts.push(`Advance: ${Math.round(tot.adv).toLocaleString('en-IN')}`);
+      payParts.push(`Balance: ${Math.round(tot.bal).toLocaleString('en-IN')}`);
+      const payText = `Payment Summary:  ${payParts.join('  |  ')}`;
+      doc.fontSize(8).font(autoF(payText, 'bold')).fillColor('#1F4E79')
+        .text(payText, margin, doc.y, { width: doc.page.width - margin * 2 });
+
+      // Generated date footer
+      doc.moveDown(0.4);
+      doc.fontSize(7).font(F('normal')).fillColor('#999999')
+        .text(`Generated: ${new Date().toLocaleDateString('en-IN')} ${new Date().toLocaleTimeString('en-IN')}`, { align: 'left' });
+
       await safePdfPipe(doc, res);
     } catch(e) { res.status(500).json({detail:'PDF failed: '+e.message}); }
   });

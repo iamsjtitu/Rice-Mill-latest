@@ -7,6 +7,19 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.51",
+    date: "Feb 17, 2026",
+    title: "v104.44.51 — 📊 BP Sale Register: Professional Excel/PDF with PKA/KCA Breakdown",
+    items: [
+      { type: "feature", text: "📊 **By-Product Sale Register Excel/PDF** ab fully professional layout me. Mode-aware title banner: **[ALL]** (blue), **[PKA]** (emerald), **[KCA]** (rose) — direct dikhata hai konsa view export hua." },
+      { type: "feature", text: "🟢🔴 **PKA/KCA Split Breakdown columns** — ALL view me split entries ke liye 'PKA Amt' (green-tinted) + 'KCA Amt' (rose-tinted) + 'Tax' (amber-tinted) alag-alag columns me dikhayenge. PKA/KCA single-mode views me single 'Amount' column." },
+      { type: "improvement", text: "🎨 **Color-coded data cells** — Pakka cells green, Kaccha cells rose, Tax cells amber, Total cells dark blue/green bold. Headers white-on-blue with auto-filter + frozen pane (Excel)." },
+      { type: "improvement", text: "🔍 **Filter summary subtitle** — Date range, Party, Vehicle, Bill From, Destination, RST jo filter active hain wo title ke neeche subtitle me dikhayenge." },
+      { type: "fix", text: "🔤 **PKA / KCA hi likhna** — Excel/PDF me kahin bhi 'Pakka' ya 'Kaccha' full word nahi, sirf abbreviations (PKA / KCA). Ledger descriptions bhi update — Cash Book exports me bhi consistent." },
+      { type: "improvement", text: "⚙️ **Triple-Backend Parity** — Same professional layout Python (FastAPI), Node Desktop (Electron), Node LAN (Express) — teeno backends me identical." },
+    ],
+  },
+  {
     version: "104.44.50",
     date: "Feb 17, 2026",
     title: "v104.44.50 — 🎨 Light Theme Color Contrast Fix",
