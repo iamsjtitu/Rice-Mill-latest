@@ -566,7 +566,7 @@ module.exports = function(database) {
         // ── Weight Bars + Compact Photos ──
         function drawWeightBar(label, wt, timeStr, frontKey, sideKey, bgColor) {
           doc.rect(LM, y, PW, 18).fill(bgColor);
-          doc.font(F('bold')).fontSize(9).fillColor('#fff').text(label, LM + 4, y + 4, { width: PW * 0.35, lineBreak: false });
+          doc.font(autoF(label, 'bold')).fontSize(9).fillColor('#fff').text(label, LM + 4, y + 4, { width: PW * 0.35, lineBreak: false });
           doc.font(F('bold')).fontSize(10).fillColor('#fff').text(`${Number(wt).toLocaleString()} KG`, LM + PW * 0.35, y + 3, { width: PW * 0.3, align: 'center', lineBreak: false });
           doc.font(F('normal')).fontSize(7.5).fillColor('#ddd').text(`Time: ${fmtIST(timeStr)}`, LM + PW * 0.65, y + 5, { width: PW * 0.33, align: 'right', lineBreak: false });
           y += 18;
@@ -614,7 +614,7 @@ module.exports = function(database) {
           const bx = LM + i * boxW;
           doc.rect(bx, y, boxW, boxH).fill(b.bg);
           doc.strokeColor('#ccc').lineWidth(0.3).rect(bx, y, boxW, boxH).stroke();
-          doc.font(F('normal')).fontSize(5.5).fillColor(b.fg).text(b.label, bx + 2, y + 3, { width: boxW - 4, align: 'center' });
+          doc.font(autoF(b.label, 'normal')).fontSize(5.5).fillColor(b.fg).text(b.label, bx + 2, y + 3, { width: boxW - 4, align: 'center' });
           doc.font(F('bold')).fontSize(10).fillColor(b.fg).text(b.value, bx + 2, y + 20, { width: boxW - 4, align: 'center', lineBreak: false });
         });
 
@@ -918,6 +918,7 @@ module.exports = function(database) {
     const gb = col('gunny_bags');
 
     if (!(isSale && bagType && qty > 0)) {
+      // Remove existing linked entry
       for (let i = gb.length - 1; i >= 0; i--) {
         if (gb[i].reference === ref) gb.splice(i, 1);
       }
@@ -951,6 +952,10 @@ module.exports = function(database) {
     }
   }
 
+  // ============ Sale Bhada Ledger Sync (VW Sale → cash_transactions Truck JAMA) ============
+  // For Sale dispatches, mill ne truck owner ko bhada (lump-sum freight) dena hota hai.
+  // Auto-creates `cash_transactions` ledger entry: account=ledger, party_type=Truck, txn_type=jama
+  // Reference: `vw_sale_bhada:{rst_no}` — idempotent (update on edit, delete on cancel/zero).
   function syncSaleBhadaLedger(vwEntry, username) {
     const rstNo = vwEntry.rst_no;
     if (rstNo == null) return;
@@ -961,11 +966,13 @@ module.exports = function(database) {
     const bhada = parseFloat(vwEntry.bhada || 0) || 0;
     const ct = col('cash_transactions');
 
+    // Distinct refs for sale vs purchase to avoid collision on same RST
     const saleRef = `vw_sale_bhada:${rstNo}`;
     const purchaseRef = `vw_purchase_bhada:${rstNo}`;
     const activeRef = isSale ? saleRef : (isPurchase ? purchaseRef : null);
     const inactiveRef = isSale ? purchaseRef : (isPurchase ? saleRef : null);
 
+    // Always clear inactive (other-direction) ledger if present
     if (inactiveRef) {
       for (let i = ct.length - 1; i >= 0; i--) {
         if (ct[i].reference === inactiveRef) ct.splice(i, 1);
@@ -1043,6 +1050,7 @@ module.exports = function(database) {
       rst_no: rstNo,
       date: data.date || new Date().toISOString().split('T')[0],
       kms_year: kmsYear,
+      season: data.season || 'Kharif',
       vehicle_no: (data.vehicle_no || '').trim().toUpperCase(),
       party_name: (data.party_name || '').trim(),
       tp_no: tpNoRaw,
@@ -1548,6 +1556,7 @@ module.exports = function(database) {
         const cell = row.getCell(i + 1);
         cell.value = v;
         cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+        // Sale: right-align Bags + Net Wt + Bhada (cols 7,9,10). Purchase: cols >= 9.
         if (isSale ? (i === 6 || i === 8 || i === 9) : (i >= 8)) cell.alignment = { horizontal: 'right' };
       });
     });
@@ -1685,6 +1694,8 @@ module.exports = function(database) {
     let y = subY + 24;
 
     // ── Table ──
+    // Sale view: # RST Date Vehicle Party Destination Product Bags BagType NetWt Bhada Remark
+    // Purchase view: # RST Date Vehicle Party Mandi Product Bags 1stWt 2ndWt NetWt TPWt G.Iss Cash Diesel
     const headers = isSale
       ? ['#', 'RST', 'Date', 'Vehicle', 'Party', 'Destination', 'Product', 'Bags', 'Bag Type', 'Net Wt', 'Bhada', 'Remark']
       : ['#', 'RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Bags', '1st Wt', '2nd Wt', 'Net Wt', 'TP Wt', 'G.Iss', 'Cash', 'Diesel'];
@@ -1695,8 +1706,10 @@ module.exports = function(database) {
       ? [false, true, false, false, false, false, false, true, false, true, true, false]
       : [false, true, false, false, false, false, false, true, true, true, true, true, true, true, true];
 
+    // Column group colors for header: Info=navy, Weight=teal, Money=dark green
     const drawTableHeader = (yPos) => {
       if (isSale) {
+        // Sale: cols 0-8 navy(info+bags+bag_type), col 9 teal(net wt), col 10 amber(bhada), col 11 navy(remark)
         const infoW = colW.slice(0, 9).reduce((s,w) => s+w, 0);
         doc.rect(LM, yPos, infoW, 15).fill('#1a237e');
         const wtW = colW[9];
@@ -1705,10 +1718,13 @@ module.exports = function(database) {
         doc.rect(LM + infoW + wtW, yPos, monW, 15).fill('#e65100');
         doc.rect(LM + infoW + wtW + monW, yPos, colW[11], 15).fill('#1a237e');
       } else {
+        // Info columns (#, RST, Date, Vehicle, Party, Mandi, Product, Bags) - Navy
         const infoW = colW.slice(0, 8).reduce((s,w) => s+w, 0);
         doc.rect(LM, yPos, infoW, 15).fill('#1a237e');
+        // Weight columns (1st, 2nd, Net, TP Wt) - Teal
         const wtW = colW.slice(8, 12).reduce((s,w) => s+w, 0);
         doc.rect(LM + infoW, yPos, wtW, 15).fill('#004d40');
+        // Money columns (G.Iss, Cash, Diesel) - Dark amber
         const monW = colW.slice(12, 15).reduce((s,w) => s+w, 0);
         doc.rect(LM + infoW + wtW, yPos, monW, 15).fill('#e65100');
       }
@@ -1784,6 +1800,9 @@ module.exports = function(database) {
 
       vals.forEach((v, i) => {
         if (isSale) {
+          // Sale-mode coloring:
+          //   col 0 (#) gray; col 1 (RST) bold navy; col 2 (Date) dark; col 9 (Net Wt) green;
+          //   col 10 (Bhada) orange bold; col 11 (Remark) default.
           if (i === 0) { doc.font(efn).fillColor('#78909c'); }
           else if (i === 1) { doc.font(efb).fillColor('#1a237e'); }
           else if (i === 2) { doc.font(efn).fillColor('#37474f'); }
@@ -1791,14 +1810,14 @@ module.exports = function(database) {
           else if (i === 10 && bhada > 0) { doc.font(efb).fillColor('#e65100'); }
           else { doc.font(efn).fillColor('#212121'); }
         } else {
-          if (i === 0) { doc.font(efn).fillColor('#78909c'); }
-          else if (i === 1) { doc.font(efb).fillColor('#1a237e'); }
-          else if (i === 2) { doc.font(efn).fillColor('#37474f'); }
-          else if (i === 8) { doc.font(efn).fillColor('#0277bd'); }
-          else if (i === 9) { doc.font(efn).fillColor('#7b1fa2'); }
-          else if (i === 10 && net > 0) { doc.font(efb).fillColor('#1b5e20'); }
-          else if (i === 11 && cash > 0) { doc.font(efb).fillColor('#2e7d32'); }
-          else if (i === 12 && diesel > 0) { doc.font(efb).fillColor('#e65100'); }
+          if (i === 0) { doc.font(efn).fillColor('#78909c'); } // # column gray
+          else if (i === 1) { doc.font(efb).fillColor('#1a237e'); } // RST bold navy
+          else if (i === 2) { doc.font(efn).fillColor('#37474f'); } // Date dark gray
+          else if (i === 8) { doc.font(efn).fillColor('#0277bd'); } // 1st Wt blue
+          else if (i === 9) { doc.font(efn).fillColor('#7b1fa2'); } // 2nd Wt purple
+          else if (i === 10 && net > 0) { doc.font(efb).fillColor('#1b5e20'); } // Net Wt green bold
+          else if (i === 11 && cash > 0) { doc.font(efb).fillColor('#2e7d32'); } // Cash green
+          else if (i === 12 && diesel > 0) { doc.font(efb).fillColor('#e65100'); } // Diesel orange
           else { doc.font(efn).fillColor('#212121'); }
         }
         doc.text(String(v || '-'), x, y + 3, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : 'left' });
@@ -2146,6 +2165,7 @@ module.exports = function(database) {
     );
     nikasis.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
+    // Step 1: Direct trip-targeted settlements (reference = truck_settle_ledger:{vno}:{rst})
     const directPaid = {};
     const poolNikasis = [];
     for (const n of nikasis) {
@@ -2246,6 +2266,7 @@ module.exports = function(database) {
     const nowIso = new Date().toISOString();
     const ts = `${Date.now()}_${vno}_${rstNo}`;
 
+    // 1. Cash/Bank/Owner NIKASI
     col('cash_transactions').push({
       id: `txn_${ts}`,
       date: dateStr, account: payAccount, bank_name: bankName, owner_name: ownerName,
@@ -2256,6 +2277,7 @@ module.exports = function(database) {
       created_by: username, created_at: nowIso,
     });
 
+    // 2. Ledger NIKASI for FIFO settlement
     const ownerTotal = Math.round((amount + roundOff) * 100) / 100;
     const descLedger = descBase + (roundOff ? ` (Pay: ${amount}, Round Off: ${roundOff})` : '');
     col('cash_transactions').push({
@@ -2886,5 +2908,6 @@ module.exports = function(database) {
     if (!vno) return res.status(400).json({ detail: 'vehicle_no required' });
     res.json(_buildWhatsAppText(vno, req.query));
   }));
+
   return router;
 };

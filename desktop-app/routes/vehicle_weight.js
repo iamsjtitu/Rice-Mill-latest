@@ -1050,6 +1050,7 @@ module.exports = function(database) {
       rst_no: rstNo,
       date: data.date || new Date().toISOString().split('T')[0],
       kms_year: kmsYear,
+      season: data.season || 'Kharif',
       vehicle_no: (data.vehicle_no || '').trim().toUpperCase(),
       party_name: (data.party_name || '').trim(),
       tp_no: tpNoRaw,

@@ -720,6 +720,7 @@ async def create_weight_entry(data: dict):
         "rst_no": rst_no,
         "date": data.get("date", datetime.now().strftime("%Y-%m-%d")),
         "kms_year": kms_year,
+        "season": data.get("season", "Kharif"),
         "vehicle_no": (data.get("vehicle_no", "") or "").strip().upper(),
         "party_name": (data.get("party_name", "") or "").strip(),
         "tp_no": tp_no_raw,

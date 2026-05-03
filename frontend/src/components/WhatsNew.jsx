@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.47",
+    date: "Feb 17, 2026",
+    title: "v104.44.47 — 🐛 VW Season Field Fix (Per-Trip Bhada Visibility)",
+    items: [
+      { type: "fix", text: "🐛 **Per-Trip Bhada me trip dikhega ab** — User ne complain kiya: 'ledger wagera bana par yaha nai aya'. Root cause: VW POST endpoint me `season` field hi nahi store ho raha tha (Python + Node dono me). Per-Trip panel apna fetch query me `season=Kharif` filter karta tha — VW me season=null tha, isliye filter mismatch → empty result." },
+      { type: "fix", text: "✅ **Backend fix** — VW POST endpoint ab `season: data.get('season', 'Kharif')` set karta hai. Triple-backend parity: Python + Node Desktop + Node LAN, sab fixed." },
+      { type: "fix", text: "🔄 **Existing data backfill** — Already-created VW entries with null season ko script ne update kar diya season='Kharif' set kar ke. Ek-time migration successful." },
+      { type: "improvement", text: "🧪 **Verified**: GET /api/truck-owner/per-trip-all?kms_year=2026-2027&season=Kharif ab trip return karta hai (RST 2, OD19K2002, ₹3750 bhada, status=pending)." },
+    ],
+  },
+  {
     version: "104.44.46",
     date: "Feb 17, 2026",
     title: "v104.44.46 — 🚛 Auto-Create VW Stub for Bhada Sync",
