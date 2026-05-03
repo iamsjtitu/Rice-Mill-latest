@@ -37,6 +37,7 @@ export default function Vouchers({ filters, user, onNavigate }) {
   const [activeTab, setActiveTab] = useState("sale");
   const [saleCat, setSaleCat] = useState("private_rice");
   const [branSubTab, setBranSubTab] = useState("sales");
+  const [bpSubTab, setBpSubTab] = useState("sales");  // v104.44.84 — Sales | Party Weight for all BP products
   const [purchaseSubTab, setPurchaseSubTab] = useState("vouchers");
 
   const activeCat = SALE_CATEGORIES.find(c => c.id === saleCat);
@@ -61,7 +62,7 @@ export default function Vouchers({ filters, user, onNavigate }) {
         <div className="space-y-3">
           <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
             {SALE_CATEGORIES.map(cat => (
-              <button key={cat.id} onClick={() => { setSaleCat(cat.id); if (cat.id === 'rice_bran') setBranSubTab('sales'); }}
+              <button key={cat.id} onClick={() => { setSaleCat(cat.id); if (cat.id === 'rice_bran') setBranSubTab('sales'); else setBpSubTab('sales'); }}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
                   saleCat === cat.id
                     ? "bg-amber-500 text-slate-900"
@@ -94,6 +95,22 @@ export default function Vouchers({ filters, user, onNavigate }) {
             </div>
           )}
 
+          {/* Other BP products (Broken/Kanki/Husk/etc.): Sales | Party Weight pill tabs */}
+          {activeCat?.type === "bp" && saleCat !== "rice_bran" && (
+            <div className="flex gap-2 border-b border-slate-700/50 pb-1.5">
+              <button onClick={() => setBpSubTab("sales")}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${bpSubTab === "sales" ? "bg-amber-600/30 text-amber-400 border border-amber-500/50" : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"}`}
+                data-testid="bp-subtab-sales">
+                Sales Register
+              </button>
+              <button onClick={() => setBpSubTab("party_weight")}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${bpSubTab === "party_weight" ? "bg-cyan-600/30 text-cyan-400 border border-cyan-500/50" : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"}`}
+                data-testid="bp-subtab-party-weight">
+                ⚖ Party Weight
+              </button>
+            </div>
+          )}
+
           {activeCat?.type === "dc_tracker" ? (
             <DCTracker filters={filters} user={user} />
           ) : activeCat?.type === "salebook" ? (
@@ -107,7 +124,11 @@ export default function Vouchers({ filters, user, onNavigate }) {
               <ByProductSaleRegister key={saleCat} filters={filters} user={user} product="Rice Bran" showPartyWeightTab={false} />
             )
           ) : activeCat?.type === "bp" ? (
-            <ByProductSaleRegister key={saleCat} filters={filters} user={user} product={activeCat.product} />
+            bpSubTab === "party_weight" ? (
+              <PartyWeightRegister filters={filters} user={user} product={activeCat.product} />
+            ) : (
+              <ByProductSaleRegister key={saleCat} filters={filters} user={user} product={activeCat.product} showPartyWeightTab={false} />
+            )
           ) : null}
         </div>
       ) : activeTab === "purchase" ? (

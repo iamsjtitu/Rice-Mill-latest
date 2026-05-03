@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.84",
+    date: "Feb 17, 2026",
+    title: "v104.44.84 — Pill-tabs for all BP products (Broken/Kanki/Husk/etc.)",
+    items: [
+      { type: "improvement", text: "🎨 **Consistent pill-style sub-tabs** — Ab **har BP product** (Broken Rice, Mota Kunda, Rejection Rice, Pin Broken, Poll, Bhusa, etc.) me Rice Bran jaisa hi sub-tab design: `Sales Register | ⚖ Party Weight`. Amber (active) / cyan (party weight) pill buttons with hover states." },
+      { type: "improvement", text: "🔄 **Category switch reset** — Jab product tab change hoti hai (Broken → Mota Kunda) to bpSubTab automatic 'sales' pe reset ho jata hai — stale Party Weight state nahi rehta." },
+    ],
+  },
+  {
     version: "104.44.83",
     date: "Feb 17, 2026",
     title: "v104.44.83 — Party Weight moved to top-level + Bill No header fix",
