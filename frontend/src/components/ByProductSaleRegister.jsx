@@ -273,11 +273,22 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       }
       // Sync Bhada (Lumpsum) to canonical Vehicle Weight entry — single source of truth
       // for truck-owner ledger. Backend's _sync_*_bhada_ledger updates on PUT to VW edit.
+      // v104.44.46 — Auto-create VW stub if missing
       const bhadaVal = parseFloat(form.bhada) || 0;
       if (form.rst_no) {
-        const r = await updateVwBhada(form.rst_no, bhadaVal, user.username, filters.kms_year || "");
-        if (!r.ok && bhadaVal > 0) {
-          toast.warning(`Bhada save hua par truck owner ledger me sync nahi hua (RST not in Vehicle Weight). Pehle Vehicle Weight entry banayein.`, { duration: 6000 });
+        const r = await updateVwBhada(form.rst_no, bhadaVal, user.username, filters.kms_year || "", {
+          vehicle_no: form.vehicle_no,
+          party_name: form.party_name,
+          farmer_name: form.party_name,
+          trans_type: "Dispatch(Sale)",
+          date: form.date,
+          season: filters.season,
+          product: product || "BYPRODUCT",
+        });
+        if (r.auto_created) {
+          toast.info(`Vehicle Weight entry auto-create ho gayi (RST ${form.rst_no}). Weight add karna chahein to VW tab me edit karein.`, { duration: 5000 });
+        } else if (!r.ok && bhadaVal > 0) {
+          toast.warning(`Bhada save hua par truck owner ledger me sync nahi hua (${r.message || "unknown"}).`, { duration: 6000 });
         }
       }
       setIsFormOpen(false); fetchData();

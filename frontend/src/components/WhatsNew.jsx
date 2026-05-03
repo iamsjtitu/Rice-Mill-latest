@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.46",
+    date: "Feb 17, 2026",
+    title: "v104.44.46 — 🚛 Auto-Create VW Stub for Bhada Sync",
+    items: [
+      { type: "feature", text: "🚛 **Bhada save karte waqt VW auto-create hota hai ab** — Pehle agar Vehicle Weight entry nahi thi to bhada save hota tha par truck owner ledger me sync nahi hota tha (warning: 'Pehle Vehicle Weight entry banayein'). Ab Sale / Purchase / By-Product Sale me bhada > 0 ho aur VW exist nahi karta to system ek **stub VW entry** auto-create karta hai (rst_no, vehicle_no, party_name, trans_type, bhada, date — saare fields auto-fill). Truck owner ledger automatically sync ho jaata hai." },
+      { type: "improvement", text: "📝 **Stub fields**: vehicle_no, party_name (= farmer_name fallback), trans_type (Sale=Dispatch, Purchase=Receive), date, kms_year, season, product, bhada. first_wt = 0 (placeholder). Status = 'pending' so user can edit later in VW tab to add actual weights." },
+      { type: "improvement", text: "✅ **Toast info, not warning** — Auto-create successful → 'Vehicle Weight entry auto-create ho gayi (RST X). Weight add karna chahein to VW tab me edit karein.' Friendly, not blocking." },
+      { type: "improvement", text: "🔧 **Idempotent** — Agar VW already exist hai (purana flow), to direct edit/PUT use hota hai (no auto-create). Auto-create sirf fresh case me trigger hota hai." },
+    ],
+  },
+  {
     version: "104.44.45",
     date: "Feb 17, 2026",
     title: "v104.44.45 — 🛍️ Bags Mirror in Pakka + Kaccha (Single Stock Deduction)",
