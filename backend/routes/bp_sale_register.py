@@ -491,6 +491,11 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
     elif gst_filter == "KCA":
         sales = [_project_kaccha_view(s) for s in sales if (_safe_num(s.get("kaccha_amount")) > 0 or (_safe_num(s.get("billed_amount")) == 0 and _safe_num(s.get("gst_percent")) == 0))]
 
+    # v104.44.51 — Detect if any split entries exist (so we add Pakka/Kaccha breakdown cols)
+    has_split = any(_safe_num(s.get('billed_amount')) > 0 and _safe_num(s.get('kaccha_amount')) > 0 for s in sales)
+    show_pakka_col = has_split and gst_filter not in ("PKA", "KCA")
+    show_kaccha_col = has_split and gst_filter not in ("PKA", "KCA")
+
     # Fetch oil premium data for Rice Bran
     oil_map = {}
     if product == "Rice Bran":
@@ -512,13 +517,23 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
     wb = Workbook(); ws = wb.active
     ws.title = f"{product or 'By-Product'} Sales"
 
-    thin = Side(style='thin', color='000000')
+    thin = Side(style='thin', color='B0C4DE')
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
     header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-    alt_fill = PatternFill(start_color="D6E4F0", end_color="D6E4F0", fill_type="solid")
+    alt_fill = PatternFill(start_color="F0F6FC", end_color="F0F6FC", fill_type="solid")
     total_fill = PatternFill(start_color="2E75B6", end_color="2E75B6", fill_type="solid")
+    # v104.44.51 — Color-coded fills/fonts for Pakka/Kaccha/Tax
+    pakka_fill = PatternFill(start_color="E8F5E9", end_color="E8F5E9", fill_type="solid")  # light green
+    kaccha_fill = PatternFill(start_color="FFEBEE", end_color="FFEBEE", fill_type="solid")  # light pink
+    tax_fill = PatternFill(start_color="FFF8E1", end_color="FFF8E1", fill_type="solid")  # light amber
+    pakka_font = Font(size=9, color="2E7D32", bold=True)
+    kaccha_font = Font(size=9, color="C62828", bold=True)
+    tax_font = Font(size=9, color="EF6C00", bold=True)
+    total_amt_font = Font(size=9, color="1B5E20", bold=True)
 
-    title = f"{product or 'By-Product'} Sale Register"
+    # Title with mode badge
+    mode_label = f" [{gst_filter}]" if gst_filter in ("PKA", "KCA") else " [ALL]"
+    title = f"{product or 'By-Product'} Sale Register{mode_label}"
     if kms_year: title += f" - FY {kms_year}"
     if season: title += f" ({season})"
 
@@ -550,7 +565,10 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
     cols.append(('N/W (Qtl)', 9, 'net_weight_qtl'))
     if has_bags: cols.append(('Bags', 7, 'bags'))
     cols.append(('Rate/Qtl', 9, 'rate_per_qtl'))
-    cols.append(('Amount', 12, 'amount'))
+    if show_pakka_col: cols.append(('Pakka Amt', 12, 'billed_amount'))
+    if show_kaccha_col: cols.append(('Kaccha Amt', 12, 'kaccha_amount'))
+    if not show_pakka_col and not show_kaccha_col:
+        cols.append(('Amount', 12, 'amount'))
     if has_tax: cols.append(('Tax', 9, 'tax_amount'))
     cols.append(('Total', 12, 'total'))
     if has_cash: cols.append(('Cash', 10, 'cash_paid'))
@@ -568,7 +586,18 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
     keys = [c[2] for c in cols]
     ncols = len(headers)
 
-    row = 5
+    # v104.44.51 — Build filter summary subtitle
+    flt_parts = []
+    if date_from or date_to:
+        flt_parts.append(f"Period: {date_from or '...'} to {date_to or '...'}")
+    if party_name: flt_parts.append(f"Party: {party_name}")
+    if vehicle_no: flt_parts.append(f"Vehicle: {vehicle_no}")
+    if bill_from: flt_parts.append(f"Bill From: {bill_from}")
+    if destination: flt_parts.append(f"Destination: {destination}")
+    if rst_no: flt_parts.append(f"RST: {rst_no}")
+    filter_summary = "  •  ".join(flt_parts) if flt_parts else ""
+
+    row = 6 if filter_summary else 5
     # Merge header rows to match ncols
     last_col_letter = get_column_letter(ncols)
     ws.merge_cells(f'A1:{last_col_letter}1')
@@ -581,8 +610,22 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
     ws.merge_cells(f'A3:{last_col_letter}3')
     c3 = ws.cell(row=3, column=1, value=title)
     c3.font = Font(bold=True, size=12, color="FFFFFF")
-    c3.fill = PatternFill(start_color="2E75B6", end_color="2E75B6", fill_type="solid")
+    # Mode color: PKA=emerald, KCA=rose, ALL=blue
+    if gst_filter == "PKA":
+        c3.fill = PatternFill(start_color="2E7D32", end_color="2E7D32", fill_type="solid")
+    elif gst_filter == "KCA":
+        c3.fill = PatternFill(start_color="C62828", end_color="C62828", fill_type="solid")
+    else:
+        c3.fill = PatternFill(start_color="2E75B6", end_color="2E75B6", fill_type="solid")
     c3.alignment = Alignment(horizontal='center')
+
+    # Filter summary subtitle row
+    if filter_summary:
+        ws.merge_cells(f'A4:{last_col_letter}4')
+        c4 = ws.cell(row=4, column=1, value=filter_summary)
+        c4.font = Font(italic=True, size=9, color="555555")
+        c4.fill = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
+        c4.alignment = Alignment(horizontal='center')
 
     for col_idx, h in enumerate(headers, 1):
         cell = ws.cell(row=row, column=col_idx, value=h)
@@ -592,12 +635,13 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
         cell.border = border
 
     # Data rows
-    t_nw = t_bags = t_amount = t_tax = t_total = t_cash = t_diesel = t_adv = t_bal = t_oil_premium = 0
+    t_nw = t_bags = t_amount = t_billed = t_kaccha = t_tax = t_total = t_cash = t_diesel = t_adv = t_bal = t_oil_premium = 0
     for idx, s in enumerate(sales):
         r = row + 1 + idx
         fill = alt_fill if idx % 2 == 0 else None
         t_nw += s.get('net_weight_kg', 0); t_bags += s.get('bags', 0)
-        t_amount += s.get('amount', 0); t_tax += s.get('tax_amount', 0); t_total += s.get('total', 0)
+        t_amount += s.get('amount', 0); t_billed += s.get('billed_amount', 0); t_kaccha += s.get('kaccha_amount', 0)
+        t_tax += s.get('tax_amount', 0); t_total += s.get('total', 0)
         t_cash += s.get('cash_paid', 0); t_diesel += s.get('diesel_paid', 0)
         t_adv += s.get('advance', 0); t_bal += s.get('balance', 0)
         op = oil_map.get(s.get('voucher_no') or '') or oil_map.get(s.get('rst_no') or '')
@@ -610,14 +654,23 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
             elif key == 'oil_pct': val = op.get('actual_oil_pct', '') if op else ''
             elif key == 'oil_diff': val = round(op.get('difference_pct', 0), 2) if op else ''
             elif key == 'oil_premium': val = round(op.get('premium_amount', 0), 2) if op else ''
-            else: val = s.get(key, 0) if key in ('net_weight_kg','bags','rate_per_qtl','amount','tax_amount','total','cash_paid','diesel_paid','advance','balance') else s.get(key, '')
+            else: val = s.get(key, 0) if key in ('net_weight_kg','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance') else s.get(key, '')
             cell = ws.cell(row=r, column=col_idx, value=val)
             cell.font = Font(size=9)
             cell.border = border
             if fill: cell.fill = fill
-            if key in ('net_weight_kg','net_weight_qtl','bags','rate_per_qtl','amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','oil_pct','oil_diff','oil_premium'):
+            # v104.44.51 — Color-coded for Pakka/Kaccha/Tax/Total cells
+            if key == 'billed_amount':
+                cell.fill = pakka_fill; cell.font = pakka_font
+            elif key == 'kaccha_amount':
+                cell.fill = kaccha_fill; cell.font = kaccha_font
+            elif key == 'tax_amount' and val:
+                cell.fill = tax_fill; cell.font = tax_font
+            elif key == 'total':
+                cell.font = total_amt_font
+            if key in ('net_weight_kg','net_weight_qtl','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','oil_pct','oil_diff','oil_premium'):
                 cell.alignment = Alignment(horizontal='right')
-            if key in ('amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','oil_premium'):
+            if key in ('amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','oil_premium'):
                 cell.number_format = '#,##0.00'
             if key == 'oil_premium' and op and (op.get('premium_amount', 0) or 0) < 0:
                 cell.font = Font(size=9, color="FF0000")
