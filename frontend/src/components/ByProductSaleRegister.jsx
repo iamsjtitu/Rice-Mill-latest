@@ -17,6 +17,7 @@ import { useCloseFiltersOnEsc } from "../utils/useCloseFiltersOnEsc";
 import { updateVwBhada } from "../utils/vw-bhada";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import logger from "../utils/logger";
+import PartyWeightRegister from "./PartyWeightRegister";
 
 const WhatsAppIcon = ({ className = "w-3.5 h-3.5" }) => (
   <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
@@ -388,6 +389,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const [stmtParty, setStmtParty] = useState("");
   const [expandedRows, setExpandedRows] = useState({});  // v104.44.56 Option B
   const toggleRow = (key) => setExpandedRows(p => ({ ...p, [key]: !p[key] }));
+  // v104.44.70 — Top-level sub-tab: "sales" (default) | "party_weight"
+  const [mainTab, setMainTab] = useState("sales");
   const clearFilters = () => setFilterValues({ date_from: "", date_to: "", billing_date_from: "", billing_date_to: "", rst_no: "", vehicle_no: "", bill_from: "", party_name: "", destination: "" });
 
   const totalAmount = filtered.reduce((s, v) => s + (v.total || 0), 0);
@@ -473,6 +476,27 @@ export default function ByProductSaleRegister({ filters, user, product }) {
 
   return (
     <div className="space-y-3" data-testid={`bp-sale-register-${product}`}>
+      {/* v104.44.70 — Top-level sub-tabs: Sales | Party Weight */}
+      <div className="flex gap-1 border-b border-slate-200 dark:border-slate-700">
+        <button
+          onClick={() => setMainTab("sales")}
+          className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${mainTab === "sales" ? "border-amber-500 text-amber-600 dark:text-amber-400" : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"}`}
+          data-testid={`bp-tab-sales-${product}`}
+        >
+          Sales Register
+        </button>
+        <button
+          onClick={() => setMainTab("party_weight")}
+          className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px flex items-center gap-1 ${mainTab === "party_weight" ? "border-cyan-500 text-cyan-600 dark:text-cyan-400" : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"}`}
+          data-testid={`bp-tab-party-weight-${product}`}
+        >
+          ⚖️ Party Weight
+        </button>
+      </div>
+
+      {mainTab === "party_weight" ? (
+        <PartyWeightRegister filters={filters} user={user} product={product} />
+      ) : (<>
       {/* Stock Summary Card */}
       {stockInfo && (
         <div className="grid grid-cols-4 gap-3">
@@ -1316,6 +1340,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
           </div>
         </DialogContent>
       </Dialog>
+      </>)}
     </div>
   );
 }
