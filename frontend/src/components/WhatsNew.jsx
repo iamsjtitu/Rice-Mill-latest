@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.77",
+    date: "Feb 17, 2026",
+    title: "v104.44.77 — Stock-on-Final-MW · N/W rename · Pakka/Kaccha Bags info",
+    items: [
+      { type: "improvement", text: "🏷️ **Rename** — `Total N/W (Qtl/Kg)` → `N/W (Qtl/Kg)`. Clean label." },
+      { type: "bug", text: "📦 **Stock deduction now from Final M.W** — Stock balance display aur actual deduction dono **post-cut Final M.W** use karte hain (e.g. 100 Q dispatch + 30 kg bag cut = 99.70 Q stock deducted, not 100 Q). Bag cut genuine weight loss hai — stock se kam nahi hona chahiye tha warna." },
+      { type: "feature", text: "🧮 **Pakka & Kaccha Bags (info only)** — Dono sections me auto-computed pro-rata bag count dikhta hai (Pakka: 90 · Kaccha: 60 in 150 split). Readonly/grayed — display only, stock double-deduct nahi hoti (actual minus sirf common Bags field se hota hai)." },
+    ],
+  },
+  {
     version: "104.44.76",
     date: "Feb 17, 2026",
     title: "v104.44.76 — BP Sale form unified flow: Common Bag+Weight block, split restored",

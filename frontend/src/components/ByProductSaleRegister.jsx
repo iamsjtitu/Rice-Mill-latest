@@ -238,6 +238,10 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const billedAmount = Math.round(billedQtl * rate * 100) / 100;
   const kacchaAmount = Math.round(kacchaQtl * kacchaRate * 100) / 100;
   const amount = isSplit ? billedAmount : Math.round(nwQtl * rate * 100) / 100; // GST-taxable portion
+  // v104.44.77 — Pro-rata bag count for display only (info field in Pakka / Kaccha panels).
+  // Distribution based on weight ratio; total always preserved (no double-deduct from stock).
+  const pakkaBagsInfo = (isSplit && nwKg > 0) ? Math.round(bagCount * (finalBilledKg / nwKg)) : 0;
+  const kacchaBagsInfo = isSplit ? Math.max(0, bagCount - pakkaBagsInfo) : 0;
   const gstPct = form.gst_type !== "none" ? (parseFloat(form.gst_percent) || 0) : 0;
   const taxAmt = Math.round(amount * gstPct / 100 * 100) / 100;
   const total = isSplit
@@ -1070,8 +1074,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label className="text-[11px] text-blue-700 dark:text-blue-300 font-semibold">
-                    Total N/W (Qtl)
-                    {stockInfo && <span className={`ml-1 font-bold ${(effectiveAvailQtl - totalNwQtl) >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>(Stock: {Math.round((effectiveAvailQtl - totalNwQtl) * 100) / 100} Qtl)</span>}
+                    N/W (Qtl)
+                    {stockInfo && <span className={`ml-1 font-bold ${(effectiveAvailQtl - nwQtl) >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>(Stock: {Math.round((effectiveAvailQtl - nwQtl) * 100) / 100} Qtl)</span>}
                   </Label>
                   <Input type="number" step="0.01"
                     value={form.net_weight_qtl_display ?? (form.net_weight_kg ? String(Math.round((parseFloat(form.net_weight_kg) || 0) / 100 * 100) / 100) : "")}
@@ -1095,7 +1099,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-nw-qtl" />
                 </div>
                 <div>
-                  <Label className="text-[11px] text-blue-700 dark:text-blue-300 font-semibold">Total N/W (Kg) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(auto)</span></Label>
+                  <Label className="text-[11px] text-blue-700 dark:text-blue-300 font-semibold">N/W (Kg) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(auto)</span></Label>
                   <Input type="number" step="0.01" value={form.net_weight_kg}
                     readOnly tabIndex={-1}
                     className="bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-300 h-9 text-xs cursor-not-allowed" data-testid="bp-nw" />
@@ -1145,7 +1149,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                 {/* PAKKA */}
                 <div className="p-3 rounded bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-300 dark:border-emerald-500/30 space-y-3">
                   <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Pakka (GST Bill)</p>
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-5 gap-3">
                   <div>
                     <Label className="text-[11px] text-slate-600 dark:text-slate-400">Pakka Wt (Qtl)</Label>
                     <Input type="number" step="0.01"
@@ -1183,13 +1187,19 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       ₹{billedAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                     </div>
                   </div>
+                  <div>
+                    <Label className="text-[11px] text-slate-500 dark:text-slate-400">Bags <span className="text-slate-400 dark:text-slate-500 text-[10px]">(info only)</span></Label>
+                    <div className="h-9 px-2 rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center text-xs text-slate-600 dark:text-slate-300 font-mono" data-testid="bp-billed-bags-info">
+                      {pakkaBagsInfo}
+                    </div>
+                  </div>
                   </div>
                 </div>
 
                 {/* KACCHA — simple 1-row: Qtl | Kg | Rate | Amount (NO bag fields, those are in common block) */}
                 <div className="p-3 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-500/30 space-y-3">
                   <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Kaccha (Slip — No GST)</p>
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-5 gap-3">
                     <div>
                       <Label className="text-[11px] text-slate-600 dark:text-slate-400">Kaccha Wt (Qtl)</Label>
                       <Input type="number" step="0.01"
@@ -1226,6 +1236,12 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       <Label className="text-[11px] text-amber-700 dark:text-amber-300 font-semibold">Kaccha Amount</Label>
                       <div className="h-9 px-2 rounded bg-amber-50 dark:bg-slate-900/60 border border-amber-400 dark:border-slate-700 flex items-center text-xs text-amber-700 dark:text-amber-300 font-mono font-bold" data-testid="bp-kaccha-amount">
                         ₹{kacchaAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-slate-500 dark:text-slate-400">Bags <span className="text-slate-400 dark:text-slate-500 text-[10px]">(info only)</span></Label>
+                      <div className="h-9 px-2 rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center text-xs text-slate-600 dark:text-slate-300 font-mono" data-testid="bp-kaccha-bags-info">
+                        {kacchaBagsInfo}
                       </div>
                     </div>
                   </div>
