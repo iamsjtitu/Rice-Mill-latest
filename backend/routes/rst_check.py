@@ -119,9 +119,13 @@ async def rst_check(
         exists_other.extend(await _search(c, rst_no, exclude_id))
 
     # Vehicle Weight trans_type-aware inclusion
+    # v104.44.64 — VW (Receive/Purchase) is the natural SOURCE of mill_entries (purchase context),
+    # so it should NOT be flagged as duplicate when filling Mill Entry / Paddy Purchase.
+    # Same logic for VW (Dispatch/Sale) → it's the source of sale_vouchers/bp_sale_register (sale context).
+    # We only flag VW in OTHER category (cross-type overlap), not same.
     # Same category: VW with matching trans_type (dispatch if context=sale, receive if context=purchase)
-    exists_same.extend(await _search_vw(rst_no, exclude_id, is_sale=(ctx == "sale")))
-    # Other category: VW with opposite trans_type
+    # → NOT a duplicate, it's the parent. Skip.
+    # Other category: VW with opposite trans_type → real conflict.
     exists_other.extend(await _search_vw(rst_no, exclude_id, is_sale=(ctx != "sale")))
 
     return {

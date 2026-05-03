@@ -70,8 +70,8 @@ module.exports = (db) => {
     const other_cols = context === 'sale' ? PURCHASE_COLLECTIONS : SALE_COLLECTIONS;
     const exists_same = same_cols.flatMap(c => search(c, rst_no, exclude_id));
     const exists_other = other_cols.flatMap(c => search(c, rst_no, exclude_id));
-    // VW: trans_type-aware
-    exists_same.push(...searchVw(rst_no, exclude_id, context === 'sale'));
+    // v104.44.64 — VW (matching trans_type) is natural SOURCE for same category — do NOT flag as duplicate.
+    // Only flag opposite-category VW (real cross-type overlap).
     exists_other.push(...searchVw(rst_no, exclude_id, context !== 'sale'));
     res.json({ rst_no, context, exists_same, exists_other });
   });

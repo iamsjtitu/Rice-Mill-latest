@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.64",
+    date: "Feb 17, 2026",
+    title: "v104.44.64 — 🩹 RST duplicate-check: Vehicle Weight = source, not duplicate",
+    items: [
+      { type: "fix", text: "🩹 **False 'Duplicate' warning fix** — Pehle Mill Entry/Paddy Purchase form me RST dalne pe agar usi RST ka Vehicle Weight (Receive(Purchase)) hota tha, to false 'Duplicate: Vehicle Weight — party · date' warning aati thi. Logically VW pehle hota hai, fir Mill Entry banta hai — VW source hai, duplicate nahi." },
+      { type: "improvement", text: "✅ **Smart context-aware check**: Sale forms me VW (Dispatch/Sale) source hai → no warning. Purchase forms me VW (Receive/Purchase) source hai → no warning. Cross-type (e.g. RST already in VW Dispatch but user fills Mill Entry) → warning bani rahegi." },
+      { type: "improvement", text: "🌐 **Triple-Backend Parity** — Python `/api/rst-check` + Node Desktop + Node LAN — teeno me identical logic. Verified curl test passed." },
+    ],
+  },
+  {
     version: "104.44.63",
     date: "Feb 17, 2026",
     title: "v104.44.63 — 🩹 Mill Entry edit → Vehicle Weight TP auto-sync (stale TP fix)",
