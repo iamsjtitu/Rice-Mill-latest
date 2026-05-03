@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.81",
+    date: "Feb 17, 2026",
+    title: "v104.44.81 — Non-split Rate/Amount width aligned with common block",
+    items: [
+      { type: "improvement", text: "📐 **Width alignment** — Non-split mode me `Rate (per Qtl)` aur `Amount (on Final M.W)` pehle half-width (50% each) the. Ab `grid-cols-6` use ho raha hai — teen-dono fields ab N/W(Qtl) jaisi same narrow width pe (1/6 = ~180px). Upar-niche drift khatam." },
+    ],
+  },
+  {
     version: "104.44.80",
     date: "Feb 17, 2026",
     title: "v104.44.80 — BP Sale common block: single-row layout",

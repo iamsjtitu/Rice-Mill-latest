@@ -1119,7 +1119,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             </div>
 
             {!isSplit && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-6 gap-3 items-start">
                 <div>
                   <Label className="text-[11px] text-slate-600 dark:text-slate-400">Rate (per Qtl)</Label>
                   <Input type="number" step="0.01" value={form.rate_per_qtl}
@@ -1127,7 +1127,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-rate" />
                 </div>
                 <div>
-                  <Label className="text-[11px] text-amber-700 dark:text-amber-300 font-semibold">Amount (on Final M.W)</Label>
+                  <Label className="text-[11px] text-amber-700 dark:text-amber-300 font-semibold">Amount <span className="text-slate-400 dark:text-slate-500 text-[10px]">(on Final M.W)</span></Label>
                   <div className="h-9 px-2 rounded bg-amber-50 dark:bg-slate-900/60 border border-amber-400 dark:border-amber-700/40 flex items-center text-xs text-amber-700 dark:text-amber-300 font-mono font-bold" data-testid="bp-amount">
                     ₹{amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                   </div>
