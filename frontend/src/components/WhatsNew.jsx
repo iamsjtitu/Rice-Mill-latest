@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.79",
+    date: "Feb 17, 2026",
+    title: "v104.44.79 — Bags field polish: normal styling + same value in Pakka/Kaccha",
+    items: [
+      { type: "improvement", text: "🏷️ **Common Bags label** — `Bags (total) (shared)` → sirf `Bags`. Clean consistent label." },
+      { type: "improvement", text: "🔁 **Pakka/Kaccha Bags auto-mirror total** — Jitne total bags (e.g. 150), Pakka me bhi 150, Kaccha me bhi 150 (same physical bags — paperwork split only). Pro-rata split hata diya." },
+      { type: "improvement", text: "🎨 **Bags field styling normalized** — Pakka Wt (Kg) (auto) jaisa hi look: readonly Input component with `bg-slate-100 border-slate-300 h-9`. Pehle thoda gray/dim tha — ab baaki fields ke saath uniform." },
+    ],
+  },
+  {
     version: "104.44.78",
     date: "Feb 17, 2026",
     title: "v104.44.78 — Bags column repositioned · Stock display on Final M.W",

@@ -238,10 +238,6 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const billedAmount = Math.round(billedQtl * rate * 100) / 100;
   const kacchaAmount = Math.round(kacchaQtl * kacchaRate * 100) / 100;
   const amount = isSplit ? billedAmount : Math.round(nwQtl * rate * 100) / 100; // GST-taxable portion
-  // v104.44.77 — Pro-rata bag count for display only (info field in Pakka / Kaccha panels).
-  // Distribution based on weight ratio; total always preserved (no double-deduct from stock).
-  const pakkaBagsInfo = (isSplit && nwKg > 0) ? Math.round(bagCount * (finalBilledKg / nwKg)) : 0;
-  const kacchaBagsInfo = isSplit ? Math.max(0, bagCount - pakkaBagsInfo) : 0;
   const gstPct = form.gst_type !== "none" ? (parseFloat(form.gst_percent) || 0) : 0;
   const taxAmt = Math.round(amount * gstPct / 100 * 100) / 100;
   const total = isSplit
@@ -1058,7 +1054,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   )}
                 </div>
                 <div>
-                  <Label className="text-[11px] text-slate-600 dark:text-slate-400">Bags (total) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(shared)</span></Label>
+                  <Label className="text-[11px] text-slate-600 dark:text-slate-400">Bags</Label>
                   <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
                     className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bags" />
                 </div>
@@ -1176,10 +1172,9 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       className="bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-300 h-9 text-xs cursor-not-allowed" data-testid="bp-billed-kg" />
                   </div>
                   <div>
-                    <Label className="text-[11px] text-slate-500 dark:text-slate-400">Bags</Label>
-                    <div className="h-9 px-2 rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center text-xs text-slate-600 dark:text-slate-300 font-mono" data-testid="bp-billed-bags-info">
-                      {pakkaBagsInfo}
-                    </div>
+                    <Label className="text-[11px] text-slate-600 dark:text-slate-400">Bags</Label>
+                    <Input type="number" value={bagCount || ""} readOnly tabIndex={-1}
+                      className="bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-300 h-9 text-xs cursor-not-allowed" data-testid="bp-billed-bags-info" />
                   </div>
                   <div>
                     <Label className="text-[11px] text-slate-600 dark:text-slate-400">Rate (per Qtl)</Label>
@@ -1226,10 +1221,9 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                         className="bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-300 h-9 text-xs cursor-not-allowed" data-testid="bp-kaccha-kg" />
                     </div>
                     <div>
-                      <Label className="text-[11px] text-slate-500 dark:text-slate-400">Bags</Label>
-                      <div className="h-9 px-2 rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center text-xs text-slate-600 dark:text-slate-300 font-mono" data-testid="bp-kaccha-bags-info">
-                        {kacchaBagsInfo}
-                      </div>
+                      <Label className="text-[11px] text-slate-600 dark:text-slate-400">Bags</Label>
+                      <Input type="number" value={bagCount || ""} readOnly tabIndex={-1}
+                        className="bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-300 h-9 text-xs cursor-not-allowed" data-testid="bp-kaccha-bags-info" />
                     </div>
                     <div>
                       <Label className="text-[11px] text-slate-600 dark:text-slate-400">Rate (per Qtl)</Label>
