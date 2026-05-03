@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from "react";
+import { commercialRound } from "../utils/roundOff";
 import axios from "axios";
 import { fmtDate } from "@/utils/date";
 import { toast } from "sonner";
@@ -399,7 +400,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
     try {
       const params = `kms_year=${filters.kms_year||''}&username=${user.username}&role=${user.role}`;
       const res = await axios.post(`${API}/truck-owner/${encodeURIComponent(selectedOwnerTruck.truck_no)}/pay?${params}`, {
-        amount: parseFloat(ownerPayAmount), note: ownerPayNote,
+        amount: commercialRound(parseFloat(ownerPayAmount)), note: ownerPayNote,
         payment_mode: ownerPayAcct.account,
         account: ownerPayAcct.account,
         bank_name: ownerPayAcct.bank_name,
@@ -476,7 +477,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
     try {
       const roundOff = parseFloat(paymentRoundOff) || 0;
       const payload = {
-        amount: parseFloat(paymentAmount), note: paymentNote, round_off: roundOff,
+        amount: commercialRound(parseFloat(paymentAmount)), note: paymentNote, round_off: roundOff,
         account: payAcct.account,
         bank_name: payAcct.bank_name,
         owner_name: payAcct.owner_name,

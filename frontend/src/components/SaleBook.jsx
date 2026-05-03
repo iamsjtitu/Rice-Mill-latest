@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { commercialRound } from "../utils/roundOff";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -220,9 +221,9 @@ export default function SaleBook({ filters, user, category }) {
           item_name: i.item_name, quantity: parseFloat(i.quantity) || 0, rate: parseFloat(i.rate) || 0, unit: i.unit || "Qntl",
           hsn_code: i.hsn_code || "", gst_percent: parseFloat(i.gst_percent) || 0,
         })),
-        cash_paid: parseFloat(form.cash_paid) || 0, diesel_paid: parseFloat(form.diesel_paid) || 0,
-        bhada: parseFloat(form.bhada) || 0,
-        advance: parseFloat(form.advance) || 0,
+        cash_paid: commercialRound(parseFloat(form.cash_paid) || 0), diesel_paid: commercialRound(parseFloat(form.diesel_paid) || 0),
+        bhada: commercialRound(parseFloat(form.bhada) || 0),
+        advance: commercialRound(parseFloat(form.advance) || 0),
       };
       if (editingId) {
         await axios.put(`${API}/sale-book/${editingId}?username=${user.username}&role=${user.role}`, payload);

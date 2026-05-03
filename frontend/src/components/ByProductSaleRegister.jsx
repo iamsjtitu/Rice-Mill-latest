@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { commercialRound } from "../utils/roundOff";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -280,6 +281,11 @@ export default function ByProductSaleRegister({ filters, user, product }) {
         net_weight_kg: nwKg,
         rate_per_qtl: rate,
         bags: parseInt(form.bags) || 0,
+        // v104.44.68 — Auto round-off payment fields globally
+        cash_paid: commercialRound(parseFloat(form.cash_paid) || 0),
+        diesel_paid: commercialRound(parseFloat(form.diesel_paid) || 0),
+        bhada: commercialRound(parseFloat(form.bhada) || 0),
+        advance: commercialRound(parseFloat(form.advance) || 0),
         split_billing: !!form.split_billing,
         billed_weight_kg: form.split_billing ? billedKg : 0,
         kaccha_weight_kg: form.split_billing ? kacchaKg : 0,

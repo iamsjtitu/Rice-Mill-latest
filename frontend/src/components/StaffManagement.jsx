@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { commercialRound } from "../utils/roundOff";
 import { fmtDate } from "@/utils/date";
 import axios from "axios";
 import { toast } from "sonner";
@@ -440,7 +441,7 @@ const AdvanceSection = ({ staff, filters, fetchAdvances, advances, payments }) =
     const s = staff.find(x => x.id === form.staff_id);
     try {
       await axios.post(`${API}/staff/advance`, {
-        ...form, staff_name: s?.name || "", amount: parseFloat(form.amount),
+        ...form, staff_name: s?.name || "", amount: commercialRound(parseFloat(form.amount)),
         kms_year: filters.kms_year || "", season: filters.season || "",
         account: advAcct.account, bank_name: advAcct.bank_name, owner_name: advAcct.owner_name,
       });

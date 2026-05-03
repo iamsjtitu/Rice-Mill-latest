@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { commercialRound } from "../utils/roundOff";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -395,7 +396,7 @@ export default function HemaliPayment({ filters, user }) {
         sardar_name: form.sardar_name.trim(),
         date: form.date,
         items: usedItems,
-        amount_paid: parseFloat(form.amount_paid) || amountPayable,
+        amount_paid: commercialRound(parseFloat(form.amount_paid) || amountPayable),
         kms_year: filters.kms_year || "",
         season: filters.season || "",
         created_by: user?.username || "",

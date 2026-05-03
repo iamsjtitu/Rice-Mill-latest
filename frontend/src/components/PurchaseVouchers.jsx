@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { commercialRound } from "../utils/roundOff";
 import { fmtDate } from "@/utils/date";
 import axios from "axios";
 import { toast } from "sonner";
@@ -209,10 +210,10 @@ export default function PurchaseVouchers({ filters, user }) {
         rate: parseFloat(i.rate) || 0,
         unit: i.unit || "Qntl",
       })),
-      cash_paid: parseFloat(form.cash_paid) || 0,
-      diesel_paid: parseFloat(form.diesel_paid) || 0,
-      bhada: parseFloat(form.bhada) || 0,
-      advance: parseFloat(form.advance) || 0,
+      cash_paid: commercialRound(parseFloat(form.cash_paid) || 0),
+      diesel_paid: commercialRound(parseFloat(form.diesel_paid) || 0),
+      bhada: commercialRound(parseFloat(form.bhada) || 0),
+      advance: commercialRound(parseFloat(form.advance) || 0),
       cgst_percent: parseFloat(form.cgst_percent) || 0,
       sgst_percent: parseFloat(form.sgst_percent) || 0,
       igst_percent: parseFloat(form.igst_percent) || 0,

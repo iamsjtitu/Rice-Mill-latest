@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.68",
+    date: "Feb 17, 2026",
+    title: "v104.44.68 — 💯 Global Auto Round-Off (49.50→50, 49.49→49)",
+    items: [
+      { type: "feature", text: "💯 **Global Auto Round-Off** — Pure software me payment fields ab automatic commercial rounding karte hain: ₹49.50 → ₹50 (round up), ₹49.49 → ₹49 (round down). No paise calculations on payments." },
+      { type: "improvement", text: "🌐 **Coverage** — Hemali Payment, BP Sale Register (cash/diesel/bhada/advance), Sale Book (bhada/advance), Purchase Vouchers (cash/diesel/bhada/advance), Cash Book transactions, Owner Payments, Voucher kanny payments, Staff Payments — sab places me apply." },
+      { type: "improvement", text: "⚙️ **Disable option** — Agar kabhi exact paise rakhne hain, browser console me `localStorage.AUTO_ROUNDOFF_DISABLED='1'` set karke disable kar sakte hain (per-user setting)." },
+      { type: "improvement", text: "🔢 Backend computations precise (.2 decimal) rahti hain — sirf user input rounding hota hai save time pe, fir natural totals/balances clean ho jate hain." },
+    ],
+  },
+  {
     version: "104.44.67",
     date: "Feb 17, 2026",
     title: "v104.44.67 — 💰 Hemali Create dialog: 1-click Round-Off shortcuts",

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { commercialRound } from "../utils/roundOff";
 import { fmtDate } from "@/utils/date";
 import axios from "axios";
 import { toast } from "sonner";
@@ -269,7 +270,8 @@ const CashBook = ({ filters, user }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const amt = parseFloat(form.amount);
+    // v104.44.68 — Auto round-off amount on save (49.50→50, 49.49→49)
+    const amt = commercialRound(parseFloat(form.amount));
     if (!amt || amt <= 0) { toast.error("Amount 0 se zyada hona chahiye"); return; }
     const roundOff = parseFloat(form.round_off) || 0;
     try {
@@ -497,7 +499,7 @@ const CashBook = ({ filters, user }) => {
       const payload = {
         party_name: obForm.party_name.trim(),
         party_type: obForm.party_type,
-        amount: parseFloat(obForm.amount) || 0,
+        amount: commercialRound(parseFloat(obForm.amount) || 0),
         balance_type: obForm.balance_type,
         note: obForm.note || '',
         kms_year: filters.kms_year || CURRENT_KMS_YEAR,
