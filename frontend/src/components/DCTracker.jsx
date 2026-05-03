@@ -529,18 +529,23 @@ export const DCEntries = ({ filters, user }) => {
               </Button>
             </div>
 
-            {/* Combined: Bhada Total summary + Depot Expenses */}
+            {/* v104.44.69 — Combined Bhada Total + Depot Expenses (Light-theme friendly) */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-amber-950/30 border border-amber-700/50 rounded p-2.5">
-                <Label className="text-xs text-amber-400 font-semibold">Total Bhada (sab trucks ka jod)</Label>
-                <div className="text-lg font-bold text-amber-300 mt-1" data-testid="delivery-total-bhada">
-                  Rs.{(delForm.trucks || []).reduce((s, t) => s + (parseFloat(t.bhada) || 0), 0).toLocaleString('en-IN')}
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700/50 rounded-lg p-3 shadow-sm">
+                <Label className="text-[11px] uppercase tracking-wide text-amber-700 dark:text-amber-400 font-semibold">Total Bhada</Label>
+                <p className="text-[10px] text-amber-600/80 dark:text-amber-500/80 -mt-0.5">sab trucks ka jod</p>
+                <div className="text-2xl font-extrabold text-amber-800 dark:text-amber-200 mt-1.5 tabular-nums" data-testid="delivery-total-bhada">
+                  ₹{(delForm.trucks || []).reduce((s, t) => s + (parseFloat(t.bhada) || 0), 0).toLocaleString('en-IN')}
                 </div>
-                <p className="text-[9px] text-amber-500 mt-0.5">Har truck ka bhada uske RST ke truck owner ko auto-jama hota hai</p>
+                <p className="text-[10px] text-amber-700/70 dark:text-amber-500/70 mt-2 leading-tight">Har truck ka bhada RST ke truck owner ko auto-jama hota hai</p>
               </div>
-              <div><Label className="text-xs text-purple-400 font-semibold">Depot Expenses (Rs.)</Label>
-                <Input type="number" step="0.01" value={delForm.depot_expenses} onChange={e => setDelForm(p=>({...p,depot_expenses:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-depot-expenses" />
-                <p className="text-[9px] text-purple-500 mt-0.5">Cash Book se auto katega</p></div>
+              <div className="bg-violet-50 dark:bg-violet-950/30 border border-violet-300 dark:border-violet-700/50 rounded-lg p-3 shadow-sm">
+                <Label className="text-[11px] uppercase tracking-wide text-violet-700 dark:text-violet-400 font-semibold">Depot Expenses</Label>
+                <p className="text-[10px] text-violet-600/80 dark:text-violet-500/80 -mt-0.5">Cash Book se auto katega</p>
+                <Input type="number" step="0.01" value={delForm.depot_expenses} onChange={e => setDelForm(p=>({...p,depot_expenses:e.target.value}))} placeholder="0"
+                  className="mt-1.5 bg-white dark:bg-slate-800 border-violet-200 dark:border-violet-700 text-violet-900 dark:text-violet-100 h-10 text-lg font-bold focus-visible:ring-violet-400 focus-visible:ring-offset-0 tabular-nums"
+                  data-testid="delivery-form-depot-expenses" />
+              </div>
             </div>
             <div><Label className="text-xs text-slate-400">Notes</Label>
               <Input value={delForm.notes} onChange={e => setDelForm(p=>({...p,notes:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>

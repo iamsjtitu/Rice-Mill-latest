@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.69",
+    date: "Feb 17, 2026",
+    title: "v104.44.69 — 🎨 DC Tracker: Bhada + Depot Expenses card light-theme polish",
+    items: [
+      { type: "improvement", text: "🎨 **DC Delivery form — Bhada + Depot Expenses** card redesigned. Light theme me soft amber (bhada) + violet (depot) pastel backgrounds, uppercase labels, bold tabular nums, proper borders + shadow. Dark theme pe bhi existing look preserved (dual-mode classes). Ab clear + professional dikhta hai." },
+    ],
+  },
+  {
     version: "104.44.68",
     date: "Feb 17, 2026",
     title: "v104.44.68 — 💯 Global Auto Round-Off (49.50→50, 49.49→49)",
