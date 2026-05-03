@@ -866,8 +866,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                 </div>
 
                 {/* PAKKA */}
-                <div className="grid grid-cols-5 gap-3 p-2 rounded bg-emerald-900/20 border border-emerald-500/30">
-                  <div className="col-span-5">
+                <div className="grid grid-cols-6 gap-3 p-2 rounded bg-emerald-900/20 border border-emerald-500/30">
+                  <div className="col-span-6">
                     <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Pakka (GST Bill)</p>
                   </div>
                   <div>
@@ -901,6 +901,12 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     <Input type="number" step="0.01" value={form.rate_per_qtl}
                       onChange={e => setForm(p => ({ ...p, rate_per_qtl: e.target.value }))}
                       className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-rate" />
+                  </div>
+                  <div>
+                    {/* v104.44.45 — Bags mirrored with Kaccha — same form.bags field, stock deducts once */}
+                    <Label className="text-[10px] text-slate-400">Bags (total) <span className="text-slate-500 text-[9px]">(shared)</span></Label>
+                    <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
+                      className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-billed-bags" />
                   </div>
                   <div className="col-span-2">
                     <Label className="text-[10px] text-slate-400">Pakka Amount</Label>
@@ -949,7 +955,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-kaccha-rate" />
                   </div>
                   <div>
-                    <Label className="text-[10px] text-slate-400">Bags (total)</Label>
+                    <Label className="text-[10px] text-slate-400">Bags (total) <span className="text-slate-500 text-[9px]">(shared)</span></Label>
                     <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
                       className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-bags" />
                   </div>

@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.45",
+    date: "Feb 17, 2026",
+    title: "v104.44.45 — 🛍️ Bags Mirror in Pakka + Kaccha (Single Stock Deduction)",
+    items: [
+      { type: "feature", text: "🛍️ **Bags input dono Pakka aur Kaccha section me dikhta hai ab** — Aapne bola: 'bags kaccha mai dala toh pakka mai aaja chahiye and pakka mai dala toh kaccha mai b copy ho jana chahiye'. Done — dono inputs same `form.bags` field se bound hain, kahin bhi type karenge dono me aa jaayega instantly." },
+      { type: "feature", text: "📦 **Stock deduction sirf ek baar** — Backend logic me `form.bags` single field hai, gunny_bag_register se bhi sirf ek baar deduct hota hai. Aapka demand: 'stock se sirf ek hi bags se deduct hona chahiye' — already correct, mirror sirf UX/clarity ke liye hai." },
+      { type: "improvement", text: "🏷️ **'(shared)' label** — Dono Bags inputs ke neeche ek small (shared) hint diya hai taaki user ko clear ho ki ye same physical bags hain, double-count nahi hote." },
+    ],
+  },
+  {
     version: "104.44.44",
     date: "Feb 17, 2026",
     title: "v104.44.44 — 🎯 Row-Level Pakka/Kaccha Split (Option A)",
