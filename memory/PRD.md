@@ -1,6 +1,60 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.51
+## Current Version: v104.44.70
+
+## ⚖️ v104.44.70 — Party Weight Register (By-Product Sale sub-tab)
+**Build date:** 2026-02-17
+
+### Feature
+New **"Party Weight"** sub-tab inside By-Product Sale Register — tracks party's own dharam-kaata weight vs our mill weight per voucher; auto-computes shortage/excess.
+
+### Flow
+1. User clicks "⚖️ Party Weight" sub-tab (top-level toggle next to "Sales Register" inside each product view: Rice Bran / Broken / Kanki / Husk etc.)
+2. Clicks **+ New** → dialog opens
+3. Types Voucher No. → press **Enter** or click **Fetch** → auto-fetches `party_name`, `date`, `RST`, `vehicle_no`, `our_net_weight_kg` from `bp_sale_register` (or `sale_vouchers` fallback)
+4. Our N/W fields locked (Kg + Qtl, read-only, blue-tinted)
+5. User enters Party N/W in **Kg or Qtl** — mutual auto-conversion (Kg ↔ Qtl)
+6. Live diff banner: **Shortage** (red) if our > party · **Excess** (green) if our < party · **Match** (neutral) if equal
+7. Save → persists to `party_weights` collection with duplicate guard per `(product, voucher_no, kms_year)`
+
+### API Endpoints (Triple-Backend Parity)
+- `GET /api/party-weight/lookup?voucher_no=&product=&kms_year=` — auto-fetch from sale records
+- `GET /api/party-weight?product=&kms_year=&season=&date_from=&date_to=&party_name=&voucher_no=` — list with filters
+- `POST /api/party-weight?username=&role=` — create (auto-enriches from sale record if field missing)
+- `PUT /api/party-weight/{id}?username=&role=` — edit (recomputes shortage/excess on weight change)
+- `DELETE /api/party-weight/{id}?username=&role=` — delete
+
+### DB Schema — `party_weights`
+```
+{ id, product, voucher_no, date, party_name, vehicle_no, rst_no,
+  our_net_weight_kg, party_net_weight_kg, shortage_kg, excess_kg,
+  remark, kms_year, season, created_at, updated_at, created_by }
+```
+
+### Triple-Backend Parity
+- ✅ Python: `/app/backend/routes/party_weight.py` + registered in `server.py` (line 89 + 126)
+- ✅ Node Desktop Electron: `/app/desktop-app/routes/party_weight.js` + registered in `main.js` (line ~1452)
+- ✅ Node LAN Express: `/app/local-server/routes/party_weight.js` + registered in `server.js` (line ~1183)
+
+### Verification
+- **Python curl**: Full CRUD cycle PASS (lookup S-001 → create (shortage=20) → update (shortage=10) → delete)
+- **Node in-process harness**: **22/22 PASS** (11 tests × 2 backends — list, 400/404 guards, lookup, create, duplicate-block, update-to-shortage, update-to-excess, delete, delete-404)
+- **Frontend UI screenshot**: Dialog shows auto-fetched MBOPL/OD19K2002, 15000 kg locked, 14980 party-kg entered → live "Shortage (Kami) 20 Kg (0.20 Qtl)" red banner ✓
+
+### Files Modified
+- NEW `/app/backend/routes/party_weight.py` (~195 lines)
+- NEW `/app/desktop-app/routes/party_weight.js` (lowdb parity ~170 lines)
+- NEW `/app/local-server/routes/party_weight.js` (copy of desktop)
+- `/app/backend/server.py` (+2 lines to register router)
+- `/app/desktop-app/main.js` (+1 line in routeDefs)
+- `/app/local-server/server.js` (+3 lines to register routes)
+- NEW `/app/frontend/src/components/PartyWeightRegister.jsx` (~370 lines)
+- `/app/frontend/src/components/ByProductSaleRegister.jsx` (+top-level sub-tab toggle)
+- `/app/frontend/src/components/WhatsNew.jsx` (+v104.44.70 entry)
+- `/app/frontend/src/utils/constants-version.js` → `104.44.70`
+- `/app/desktop-app/package.json` + `/app/local-server/package.json` → `104.44.70`
+
+---
 
 ## 🎯 v104.44.51 — 📊 BP Sale Register: Professional Excel/PDF Exports with PKA/KCA Breakdown
 **Build date:** 2026-02-17

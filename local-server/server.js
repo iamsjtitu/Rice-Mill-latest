@@ -1181,6 +1181,9 @@ async function startServer() {
     const rstCheckRoutes = require('./routes/rst_check')(database);
     app.use(rstCheckRoutes);
 
+    const partyWeightRoutes = require('./routes/party_weight')(database);
+    app.use(partyWeightRoutes);
+
     console.log('  [Routes] All modular routes loaded successfully');
 
     // ===== DATE FORMAT VALIDATOR - Startup Health Check =====

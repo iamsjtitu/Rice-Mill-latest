@@ -1449,6 +1449,7 @@ function createApiServer(database) {
     { name: 'oil_premium', load: () => require('./routes/oil_premium')(database) },
     { name: 'paddy_release', load: () => require('./routes/paddy_release')(database) },
     { name: 'rst_check', load: () => require('./routes/rst_check')(database) },
+    { name: 'party_weight', load: () => require('./routes/party_weight')(database) },
   ];
 
   let loadedCount = 0;

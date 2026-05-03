@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.70",
+    date: "Feb 17, 2026",
+    title: "v104.44.70 — ⚖️ Party Weight Register (By-Product Sale sub-tab)",
+    items: [
+      { type: "feature", text: "⚖️ **Party Weight** — By-Product Sale Register me naya sub-tab 'Party Weight'. Party ke dharam-kaata ka weight enter karke humare mill weight ke saath shortage/excess auto-track karo. Har product (Rice Bran / Broken / Kanki / Husk) ke liye alag." },
+      { type: "improvement", text: "🔍 **Voucher fetch** — Voucher No. type karke Enter dabao → automatic party/date/RST/vehicle + humara Net Weight auto-fill ho jata hai. Party weight enter karte hi shortage (kami) ya excess (zyada) live calculate hota hai." },
+      { type: "improvement", text: "🔄 **Kg ↔ Qtl auto-convert** — Party weight field me Kg daalo to Qtl auto-update, ya Qtl daalo to Kg — dono directions me mutual conversion. Commercial auto round-off bhi apply." },
+      { type: "improvement", text: "📊 **Header summary** — Top right me total entries, Our total, Party total, total shortage (red), total excess (green) — ek hi nazar me saari kami/zyada visible." },
+      { type: "improvement", text: "🌐 **Triple-Backend Parity** — Python FastAPI + Node Desktop Electron + Node LAN Express — teeno backends me identical `/api/party-weight` CRUD + lookup endpoints. 22/22 in-process harness tests PASS." },
+    ],
+  },
+  {
     version: "104.44.69",
     date: "Feb 17, 2026",
     title: "v104.44.69 — 🎨 DC Tracker: Bhada + Depot Expenses card light-theme polish",
