@@ -131,6 +131,132 @@ module.exports = function(database) {
     res.json(sales);
   });
 
+  // v104.44.56 — FIFO payment allocation helpers (Option A + B + C)
+  function _fetchPartyPayments(partyKey, kmsYear, season) {
+    if (!database.data.local_party_accounts) return [];
+    return database.data.local_party_accounts
+      .filter(p => p.party_name === partyKey && p.txn_type === 'payment'
+        && (!kmsYear || p.kms_year === kmsYear)
+        && (!season || p.season === season))
+      .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  }
+  function _enrichSalesWithPaymentsFifo(sales) {
+    // Group by (party_key, kms, season)
+    const buckets = {};
+    sales.forEach(s => {
+      const party = (s.party_name || '').trim();
+      if (!party) return;
+      s.payments_alloc = []; s._pka_alloc = []; s._kca_alloc = [];
+      const vm = s._view_mode || '';
+      const isSplit = _safeNum(s.billed_amount) > 0 && _safeNum(s.kaccha_amount) > 0;
+      const kms = s.kms_year || ''; const ssn = s.season || '';
+      const push = (key, amt, btype) => {
+        if (!buckets[key]) buckets[key] = [];
+        buckets[key].push({ sale: s, debit: amt, btype });
+      };
+      if (vm === 'PKA') push(`${party} (PKA)|${kms}|${ssn}`, _safeNum(s.total), 'pka');
+      else if (vm === 'KCA') push(`${party} (KCA)|${kms}|${ssn}`, _safeNum(s.total), 'kca');
+      else if (isSplit) {
+        const pkaDebit = _safeNum(s.billed_amount) + _safeNum(s.tax_amount);
+        const kcaDebit = _safeNum(s.kaccha_amount);
+        if (pkaDebit > 0) push(`${party} (PKA)|${kms}|${ssn}`, pkaDebit, 'pka');
+        if (kcaDebit > 0) push(`${party} (KCA)|${kms}|${ssn}`, kcaDebit, 'kca');
+      } else {
+        push(`${party}|${kms}|${ssn}`, _safeNum(s.total), 'all');
+      }
+    });
+    Object.entries(buckets).forEach(([bkey, entries]) => {
+      const [partyKey, kms, ssn] = bkey.split('|');
+      entries.sort((a, b) => ((a.sale.date || '').localeCompare(b.sale.date || '')) || ((a.sale.created_at || '').localeCompare(b.sale.created_at || '')));
+      const payments = _fetchPartyPayments(partyKey, kms, ssn);
+      const remaining = entries.map(e => ({ sale: e.sale, btype: e.btype, remaining: e.debit }));
+      payments.forEach(p => {
+        let amt = _safeNum(p.amount);
+        const pdate = p.date || ''; const pdesc = p.description || '';
+        for (const r of remaining) {
+          if (amt <= 0) break;
+          if (r.remaining <= 0) continue;
+          const take = Math.min(amt, r.remaining);
+          r.remaining = +(r.remaining - take).toFixed(2);
+          amt = +(amt - take).toFixed(2);
+          const entry = { date: pdate, amount: take, description: pdesc, type: r.btype };
+          if (r.btype === 'pka') r.sale._pka_alloc.push(entry);
+          else if (r.btype === 'kca') r.sale._kca_alloc.push(entry);
+          else r.sale.payments_alloc.push(entry);
+        }
+      });
+    });
+    sales.forEach(s => {
+      const all = [...(s.payments_alloc || []), ...(s._pka_alloc || []), ...(s._kca_alloc || [])];
+      all.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      s.payments_alloc = all;
+      s.total_received = +all.reduce((sum, p) => sum + _safeNum(p.amount), 0).toFixed(2);
+      s.last_payment_date = all.length ? all[all.length - 1].date : '';
+      const existingBalance = _safeNum(s.balance);
+      const netPending = +(existingBalance - s.total_received).toFixed(2);
+      s.pending_balance = netPending >= 0 ? netPending : netPending;
+      delete s._pka_alloc; delete s._kca_alloc;
+    });
+    return sales;
+  }
+
+  // v104.44.56 — GET /with-payments (Option A + B)
+  router.get('/api/bp-sale-register/with-payments', (req, res) => {
+    ensure();
+    let sales = [...database.data.bp_sale_register];
+    const { product, kms_year, season, gst_filter } = req.query;
+    if (product) sales = sales.filter(s => s.product === product);
+    if (kms_year) sales = sales.filter(s => s.kms_year === kms_year);
+    if (season) sales = sales.filter(s => s.season === season);
+    if (gst_filter === 'PKA') sales = sales.filter(s => _safeNum(s.billed_amount) > 0 || _safeNum(s.gst_percent) > 0).map(_projectPakkaView);
+    else if (gst_filter === 'KCA') sales = sales.filter(s => _safeNum(s.kaccha_amount) > 0 || (_safeNum(s.billed_amount) === 0 && _safeNum(s.gst_percent) === 0)).map(_projectKacchaView);
+    sales.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    sales = _enrichSalesWithPaymentsFifo(sales);
+    res.json(sales);
+  });
+
+  // v104.44.56 — GET /party-statement (Option C)
+  router.get('/api/bp-sale-register/party-statement', (req, res) => {
+    if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
+    const { party, kms_year, season, gst_filter } = req.query;
+    if (!party) return res.json({ party: '', entries: [], summary: {} });
+    let partyKeys;
+    if (gst_filter === 'PKA') partyKeys = [`${party} (PKA)`];
+    else if (gst_filter === 'KCA') partyKeys = [`${party} (KCA)`];
+    else partyKeys = [`${party} (PKA)`, `${party} (KCA)`, party];
+    let raw = database.data.local_party_accounts.filter(p => partyKeys.includes(p.party_name));
+    if (kms_year) raw = raw.filter(p => p.kms_year === kms_year);
+    if (season) raw = raw.filter(p => p.season === season);
+    raw.sort((a, b) => ((a.date || '').localeCompare(b.date || '')) || ((a.created_at || '').localeCompare(b.created_at || '')));
+    let balance = 0;
+    const entries = raw.map(r => {
+      const amt = _safeNum(r.amount);
+      const ttype = r.txn_type || '';
+      let flow = ttype.toUpperCase();
+      if (ttype === 'debit') { balance += amt; flow = 'Dr'; }
+      else if (ttype === 'payment') { balance -= amt; flow = 'Cr'; }
+      const desc = (r.description || '')
+        .replace('Pakka (GST Bill)', 'PKA (GST Bill)')
+        .replace('Kaccha (Slip)', 'KCA (Slip)')
+        .replace(' - Pakka', ' - PKA')
+        .replace(' - Kaccha', ' - KCA');
+      return {
+        date: r.date || '', party_name: r.party_name || '', txn_type: ttype, flow,
+        amount: +amt.toFixed(2), description: desc, reference: r.reference || '',
+        running_balance: +balance.toFixed(2)
+      };
+    });
+    const summary = {
+      party,
+      total_debit: +entries.filter(e => e.flow === 'Dr').reduce((s, e) => s + e.amount, 0).toFixed(2),
+      total_credit: +entries.filter(e => e.flow === 'Cr').reduce((s, e) => s + e.amount, 0).toFixed(2),
+      closing_balance: +balance.toFixed(2),
+      entry_count: entries.length
+    };
+    res.json({ party, gst_filter: gst_filter || 'ALL', kms_year: kms_year || '', season: season || '', entries, summary });
+  });
+
+
   /**
    * Calculate amount/tax/total based on billing mode.
    *
@@ -319,6 +445,10 @@ module.exports = function(database) {
       else if (gst_filter === 'KCA') sales = sales.filter(s => _safeNum(s.kaccha_amount) > 0 || (_safeNum(s.billed_amount) === 0 && _safeNum(s.gst_percent) === 0)).map(_projectKacchaView);
       sales.sort((a,b) => (a.date||'').localeCompare(b.date||''));
 
+      // v104.44.56 — Enrich with FIFO-allocated payments
+      sales = _enrichSalesWithPaymentsFifo(sales);
+      const hasPayments = sales.some(s => (s.total_received || 0) > 0);
+
       // Detect split entries → show PKA/KCA breakdown columns in ALL view
       const hasSplit = sales.some(s => _safeNum(s.billed_amount) > 0 && _safeNum(s.kaccha_amount) > 0);
       const showPkaCol = hasSplit && gst_filter !== 'PKA' && gst_filter !== 'KCA';
@@ -370,6 +500,12 @@ module.exports = function(database) {
       if (gst_filter !== 'PKA') {
         if (hasOil) { cols.push({h:'Oil%',k:'oil_pct',w:8},{h:'Diff%',k:'oil_diff',w:8},{h:'Premium',k:'oil_premium',w:12}); }
         cols.push({h:'Balance',k:'balance_final',w:12});
+        // v104.44.56 — payment columns
+        if (hasPayments) {
+          cols.push({h:'Last Pmt',k:'last_payment_date',w:11});
+          cols.push({h:'Received',k:'total_received',w:12});
+          cols.push({h:'Pending',k:'pending_balance',w:12});
+        }
       }
       if (has.remark) cols.push({h:'Remark',k:'remark',w:16});
 
@@ -444,18 +580,20 @@ module.exports = function(database) {
       });
 
       // Data rows + totals
-      const tot = { nw:0, bags:0, amt:0, billed:0, kaccha:0, tax:0, total:0, cash:0, diesel:0, adv:0, bal:0, balFinal:0, oilP:0 };
+      const tot = { nw:0, bags:0, amt:0, billed:0, kaccha:0, tax:0, total:0, cash:0, diesel:0, adv:0, bal:0, balFinal:0, oilP:0, recv:0, pend:0 };
       sales.forEach((s, idx) => {
         const r = headerRow + 1 + idx;
         const op = oilMap[s.voucher_no||''] || oilMap[s.rst_no||''];
         const prem = op ? _safeNum(op.premium_amount) : 0;
         const balFinal = +(_safeNum(s.balance) + prem).toFixed(2);
+        const recv = _safeNum(s.total_received);
+        const pend = _safeNum(s.pending_balance);
         tot.nw += _safeNum(s.net_weight_kg); tot.bags += _safeNum(s.bags);
         tot.amt += _safeNum(s.amount); tot.billed += _safeNum(s.billed_amount); tot.kaccha += _safeNum(s.kaccha_amount);
         tot.tax += _safeNum(s.tax_amount); tot.total += _safeNum(s.total);
         tot.cash += _safeNum(s.cash_paid); tot.diesel += _safeNum(s.diesel_paid);
         tot.adv += _safeNum(s.advance); tot.bal += _safeNum(s.balance);
-        tot.balFinal += balFinal;
+        tot.balFinal += balFinal; tot.recv += recv; tot.pend += pend;
         if (op) tot.oilP += prem;
 
         cols.forEach((c, i) => {
@@ -469,6 +607,9 @@ module.exports = function(database) {
           else if (c.k === 'oil_diff') val = op ? +((op.difference_pct||0).toFixed(2)) : '';
           else if (c.k === 'oil_premium') val = op ? +(prem.toFixed(2)) : '';
           else if (c.k === 'balance_final') val = balFinal;
+          else if (c.k === 'last_payment_date') val = s.last_payment_date ? fmtDate(s.last_payment_date) : '';
+          else if (c.k === 'total_received') val = recv > 0 ? recv : '';
+          else if (c.k === 'pending_balance') val = pend;
           else if (['net_weight_kg','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance'].includes(c.k)) val = _safeNum(s[c.k]);
           else val = s[c.k] || '';
           cell.value = val;
@@ -491,11 +632,17 @@ module.exports = function(database) {
           } else if (c.k === 'balance_final') {
             cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFFFF3E0'} };
             cell.font = { name:'Calibri', size:9, bold:true, color:{argb: balFinal > 0 ? 'FFC62828' : 'FF1B5E20' } };
+          } else if (c.k === 'total_received' && val) {
+            cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFE0F7FA'} };
+            cell.font = { name:'Calibri', size:9, bold:true, color:{argb:'FF00838F'} };
+          } else if (c.k === 'pending_balance') {
+            cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFFFE0B2'} };
+            cell.font = { name:'Calibri', size:9, bold:true, color:{argb: val > 0 ? 'FFE65100' : 'FF1B5E20' } };
           }
-          if (['net_weight_kg','net_weight_qtl','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','oil_pct','oil_diff','oil_premium'].includes(c.k)) {
+          if (['net_weight_kg','net_weight_qtl','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','total_received','pending_balance','oil_pct','oil_diff','oil_premium'].includes(c.k)) {
             cell.alignment = { horizontal:'right' };
           }
-          if (['amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','oil_premium'].includes(c.k)) {
+          if (['amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','total_received','pending_balance','oil_premium'].includes(c.k)) {
             cell.numFmt = '#,##0.00';
           }
           if (c.k === 'oil_premium' && op && prem < 0) {
@@ -526,9 +673,11 @@ module.exports = function(database) {
         else if (c.k === 'advance') v = +(tot.adv.toFixed(2));
         else if (c.k === 'balance') v = +(tot.bal.toFixed(2));
         else if (c.k === 'balance_final') v = +(tot.balFinal.toFixed(2));
+        else if (c.k === 'total_received') v = tot.recv > 0 ? +(tot.recv.toFixed(2)) : '';
+        else if (c.k === 'pending_balance') v = +(tot.pend.toFixed(2));
         else if (c.k === 'oil_premium') v = +(tot.oilP.toFixed(2));
         cell.value = v;
-        if (['net_weight_kg','net_weight_qtl','bags','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','oil_premium'].includes(c.k)) {
+        if (['net_weight_kg','net_weight_qtl','bags','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','total_received','pending_balance','oil_premium'].includes(c.k)) {
           cell.alignment = { horizontal:'right' };
         }
       });
@@ -568,6 +717,10 @@ module.exports = function(database) {
       if (gst_filter === 'PKA') sales = sales.filter(s => _safeNum(s.billed_amount) > 0 || _safeNum(s.gst_percent) > 0).map(_projectPakkaView);
       else if (gst_filter === 'KCA') sales = sales.filter(s => _safeNum(s.kaccha_amount) > 0 || (_safeNum(s.billed_amount) === 0 && _safeNum(s.gst_percent) === 0)).map(_projectKacchaView);
       sales.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+
+      // v104.44.56 — Enrich with FIFO-allocated payments
+      sales = _enrichSalesWithPaymentsFifo(sales);
+      const hasPayments = sales.some(s => (s.total_received || 0) > 0);
 
       // Detect split → show PKA/KCA breakdown columns
       const hasSplit = sales.some(s => _safeNum(s.billed_amount) > 0 && _safeNum(s.kaccha_amount) > 0);
@@ -617,6 +770,12 @@ module.exports = function(database) {
       if (gst_filter !== 'PKA') {
         if (hasOil) { pc.push(['Oil%',30,'oil_pct'],['Diff%',30,'oil_diff'],['Premium',45,'oil_premium']); }
         pc.push(['Balance',50,'balance_final']);
+        // v104.44.56 — payment columns
+        if (hasPayments) {
+          pc.push(['Last Pmt',42,'last_payment_date']);
+          pc.push(['Recvd',45,'total_received']);
+          pc.push(['Pending',50,'pending_balance']);
+        }
       }
 
       const headers = pc.map(c => c[0]);
@@ -679,21 +838,23 @@ module.exports = function(database) {
       y += rowH + 2;
 
       // Number column flags
-      const isNumCol = keys.map(k => ['net_weight_kg','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','oil_premium'].includes(k));
+      const isNumCol = keys.map(k => ['net_weight_kg','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','total_received','pending_balance','oil_premium'].includes(k));
 
       // Data rows
-      const tot = { nw:0, bags:0, amt:0, billed:0, kaccha:0, tax:0, total:0, cash:0, diesel:0, adv:0, bal:0, balFinal:0, oilP:0 };
+      const tot = { nw:0, bags:0, amt:0, billed:0, kaccha:0, tax:0, total:0, cash:0, diesel:0, adv:0, bal:0, balFinal:0, oilP:0, recv:0, pend:0 };
       sales.forEach((s, ri) => {
         if (y + rowH > doc.page.height - margin - 30) { doc.addPage(); y = margin; }
         const op = oilMap[s.voucher_no||''] || oilMap[s.rst_no||''];
         const prem = op ? _safeNum(op.premium_amount) : 0;
         const balFinal = +(_safeNum(s.balance) + prem).toFixed(2);
+        const recv = _safeNum(s.total_received);
+        const pend = _safeNum(s.pending_balance);
         tot.nw += _safeNum(s.net_weight_kg); tot.bags += _safeNum(s.bags);
         tot.amt += _safeNum(s.amount); tot.billed += _safeNum(s.billed_amount); tot.kaccha += _safeNum(s.kaccha_amount);
         tot.tax += _safeNum(s.tax_amount); tot.total += _safeNum(s.total);
         tot.cash += _safeNum(s.cash_paid); tot.diesel += _safeNum(s.diesel_paid);
         tot.adv += _safeNum(s.advance); tot.bal += _safeNum(s.balance);
-        tot.balFinal += balFinal;
+        tot.balFinal += balFinal; tot.recv += recv; tot.pend += pend;
         if (op) tot.oilP += prem;
 
         const baseBg = ri % 2 === 0 ? '#ffffff' : '#EBF1F8';
@@ -713,6 +874,9 @@ module.exports = function(database) {
           else if (k === 'balance_final') {
             cellVal = balFinal ? Math.round(balFinal).toLocaleString('en-IN') : '0';
           }
+          else if (k === 'last_payment_date') cellVal = s.last_payment_date ? fmtDate(s.last_payment_date) : '';
+          else if (k === 'total_received') cellVal = recv ? Math.round(recv).toLocaleString('en-IN') : '';
+          else if (k === 'pending_balance') cellVal = pend ? Math.round(pend).toLocaleString('en-IN') : '0';
           else if (k === 'oil_pct') cellVal = op ? `${op.actual_oil_pct}%` : '';
           else if (k === 'oil_diff') {
             if (op) { const d = op.difference_pct || 0; cellVal = `${d>0?'+':''}${d.toFixed(2)}%`; }
@@ -730,6 +894,8 @@ module.exports = function(database) {
           else if (k === 'tax_amount' && cellVal) { cellBg = '#FFE8B0'; textColor = '#E65100'; fontWeight = 'bold'; }
           else if (k === 'total') { textColor = '#0D47A1'; fontWeight = 'bold'; }
           else if (k === 'balance_final') { cellBg = '#FFF3E0'; textColor = balFinal > 0 ? '#C62828' : '#1B5E20'; fontWeight = 'bold'; }
+          else if (k === 'total_received' && cellVal) { cellBg = '#E0F7FA'; textColor = '#00838F'; fontWeight = 'bold'; }
+          else if (k === 'pending_balance') { cellBg = '#FFE0B2'; textColor = pend > 0 ? '#E65100' : '#1B5E20'; fontWeight = 'bold'; }
 
           doc.rect(x, y, widths[ci], rowH).fill(cellBg);
           doc.rect(x, y, widths[ci], rowH).stroke('#CCCCCC');
@@ -759,6 +925,9 @@ module.exports = function(database) {
         else if (k === 'advance') v = String(Math.round(tot.adv));
         else if (k === 'balance') v = Math.round(tot.bal).toLocaleString('en-IN');
         else if (k === 'balance_final') v = Math.round(tot.balFinal).toLocaleString('en-IN');
+        else if (k === 'last_payment_date') v = '';
+        else if (k === 'total_received') v = tot.recv ? Math.round(tot.recv).toLocaleString('en-IN') : '';
+        else if (k === 'pending_balance') v = Math.round(tot.pend).toLocaleString('en-IN');
         else if (k === 'oil_premium') v = Math.round(tot.oilP).toLocaleString('en-IN');
         doc.rect(x, y, widths[ci], rowH).stroke('#1F4E79');
         doc.fillColor('#FFFFFF').font(autoF(v, 'bold')).fontSize(fs)
@@ -776,6 +945,216 @@ module.exports = function(database) {
 
       await safePdfPipe(doc, res);
     } catch(e) { res.status(500).json({detail:'PDF failed: '+e.message}); }
+  });
+
+  // v104.44.56 — Option C: Party Statement Excel Export (A4 portrait)
+  router.get('/api/bp-sale-register/export/statement-excel', async (req, res) => {
+    try {
+      ensure();
+      const ExcelJS = require('exceljs');
+      const { fmtDate } = require('./pdf_helpers');
+      const { party, kms_year, season, gst_filter } = req.query;
+      if (!party) return res.status(400).json({ detail: 'party required' });
+      // Build statement (reuse the same logic as the route handler)
+      let partyKeys;
+      if (gst_filter === 'PKA') partyKeys = [`${party} (PKA)`];
+      else if (gst_filter === 'KCA') partyKeys = [`${party} (KCA)`];
+      else partyKeys = [`${party} (PKA)`, `${party} (KCA)`, party];
+      let raw = (database.data.local_party_accounts || []).filter(p => partyKeys.includes(p.party_name));
+      if (kms_year) raw = raw.filter(p => p.kms_year === kms_year);
+      if (season) raw = raw.filter(p => p.season === season);
+      raw.sort((a, b) => ((a.date || '').localeCompare(b.date || '')) || ((a.created_at || '').localeCompare(b.created_at || '')));
+      let balance = 0;
+      const entries = raw.map(r => {
+        const amt = _safeNum(r.amount); const ttype = r.txn_type || ''; let flow = ttype.toUpperCase();
+        if (ttype === 'debit') { balance += amt; flow = 'Dr'; }
+        else if (ttype === 'payment') { balance -= amt; flow = 'Cr'; }
+        const desc = (r.description || '')
+          .replace('Pakka (GST Bill)', 'PKA (GST Bill)').replace('Kaccha (Slip)', 'KCA (Slip)')
+          .replace(' - Pakka', ' - PKA').replace(' - Kaccha', ' - KCA');
+        return { date: r.date || '', party_name: r.party_name || '', flow, amount: amt, description: desc, running_balance: balance };
+      });
+      const summary = {
+        total_debit: +entries.filter(e => e.flow === 'Dr').reduce((s, e) => s + e.amount, 0).toFixed(2),
+        total_credit: +entries.filter(e => e.flow === 'Cr').reduce((s, e) => s + e.amount, 0).toFixed(2),
+        closing_balance: +balance.toFixed(2),
+        entry_count: entries.length
+      };
+      const branding = (database.getBranding ? database.getBranding() : {}) || {};
+      const company = (branding.company_name || 'Rice Mill').toUpperCase();
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet(`${party.substring(0, 25)} Statement`);
+      const cols = [{h:'Date',w:14},{h:'Sub-Ledger',w:18},{h:'Type',w:8},{h:'Description',w:38},{h:'Debit (Dr)',w:14},{h:'Credit (Cr)',w:14},{h:'Balance',w:14}];
+      cols.forEach((c, i) => { ws.getColumn(i + 1).width = c.w; });
+      const ncols = cols.length;
+      const mode = gst_filter || 'ALL';
+      const titleBg = mode === 'PKA' ? 'FF2E7D32' : (mode === 'KCA' ? 'FFC62828' : 'FF2E75B6');
+      // Row 1 company
+      ws.mergeCells(1, 1, 1, ncols);
+      const c1 = ws.getCell(1, 1); c1.value = company;
+      c1.font = { name: 'Calibri', bold: true, size: 14, color: {argb:'FF1F4E79'} }; c1.alignment = { horizontal: 'center' };
+      // Row 3 title
+      ws.mergeCells(3, 1, 3, ncols);
+      const c3 = ws.getCell(3, 1);
+      let title = `PARTY STATEMENT — ${party}  [${mode}]`;
+      if (kms_year) title += `   FY ${kms_year}`;
+      if (season) title += `   (${season})`;
+      c3.value = title;
+      c3.font = { name: 'Calibri', bold: true, size: 12, color: {argb:'FFFFFFFF'} };
+      c3.fill = { type: 'pattern', pattern: 'solid', fgColor: {argb: titleBg} };
+      c3.alignment = { horizontal: 'center' };
+      // Row 4 summary
+      ws.mergeCells(4, 1, 4, ncols);
+      const c4 = ws.getCell(4, 1);
+      c4.value = `Entries: ${summary.entry_count}   |   Total Debit: ₹${summary.total_debit.toLocaleString('en-IN')}   |   Total Credit: ₹${summary.total_credit.toLocaleString('en-IN')}   |   Closing Balance: ₹${summary.closing_balance.toLocaleString('en-IN')}`;
+      c4.font = { name: 'Calibri', italic: true, size: 9, color: {argb:'FF555555'} };
+      c4.fill = { type: 'pattern', pattern: 'solid', fgColor: {argb:'FFF5F5F5'} };
+      c4.alignment = { horizontal: 'center' };
+      // Header row 5
+      const headerRow = 5;
+      const border = { top:{style:'thin', color:{argb:'FFB0C4DE'}}, bottom:{style:'thin', color:{argb:'FFB0C4DE'}}, left:{style:'thin', color:{argb:'FFB0C4DE'}}, right:{style:'thin', color:{argb:'FFB0C4DE'}} };
+      cols.forEach((c, i) => {
+        const cell = ws.getCell(headerRow, i + 1); cell.value = c.h;
+        cell.font = { name: 'Calibri', bold: true, size: 10, color: {argb:'FFFFFFFF'} };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: {argb:'FF1F4E79'} };
+        cell.alignment = { horizontal: 'center' }; cell.border = border;
+      });
+      entries.forEach((e, idx) => {
+        const r = headerRow + 1 + idx;
+        const altFill = idx % 2 === 0 ? { type:'pattern', pattern:'solid', fgColor:{argb:'FFF0F6FC'} } : undefined;
+        const debit = e.flow === 'Dr' ? e.amount : 0;
+        const credit = e.flow === 'Cr' ? e.amount : 0;
+        const vals = [fmtDate(e.date), e.party_name, e.flow, e.description, debit, credit, e.running_balance];
+        vals.forEach((v, ci) => {
+          const cell = ws.getCell(r, ci + 1); cell.value = v;
+          cell.font = { name: 'Calibri', size: 9 }; cell.border = border;
+          if (altFill) cell.fill = altFill;
+          if (ci >= 4) { cell.alignment = { horizontal: 'right' }; cell.numFmt = '#,##0.00'; }
+          if (ci === 4 && v) cell.font = { name:'Calibri', size:9, bold:true, color:{argb:'FF1B5E20'} };
+          else if (ci === 5 && v) cell.font = { name:'Calibri', size:9, bold:true, color:{argb:'FFC62828'} };
+          else if (ci === 6) cell.font = { name:'Calibri', size:9, bold:true, color:{argb:'FF0D47A1'} };
+        });
+      });
+      const tr = headerRow + 1 + entries.length;
+      for (let i = 1; i <= ncols; i++) {
+        const cell = ws.getCell(tr, i); cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FF2E75B6'} };
+        cell.font = { name:'Calibri', bold:true, size:9, color:{argb:'FFFFFFFF'} }; cell.border = border;
+      }
+      ws.getCell(tr, 1).value = 'CLOSING';
+      ws.getCell(tr, 5).value = summary.total_debit; ws.getCell(tr, 5).numFmt = '#,##0.00'; ws.getCell(tr, 5).alignment = { horizontal:'right' };
+      ws.getCell(tr, 6).value = summary.total_credit; ws.getCell(tr, 6).numFmt = '#,##0.00'; ws.getCell(tr, 6).alignment = { horizontal:'right' };
+      ws.getCell(tr, 7).value = summary.closing_balance; ws.getCell(tr, 7).numFmt = '#,##0.00'; ws.getCell(tr, 7).alignment = { horizontal:'right' };
+      ws.views = [{ state: 'frozen', xSplit: 0, ySplit: headerRow }];
+      ws.pageSetup = { orientation: 'portrait', paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+      const fn = `${party.toLowerCase().replace(/\s+/g, '_')}_statement_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition',`attachment; filename=${fn}`);
+      await wb.xlsx.write(res); res.end();
+    } catch(e) { res.status(500).json({detail:'Statement Excel failed: '+e.message}); }
+  });
+
+  // v104.44.56 — Option C: Party Statement PDF Export (A4 portrait)
+  router.get('/api/bp-sale-register/export/statement-pdf', async (req, res) => {
+    try {
+      ensure();
+      const PDFDocument = require('pdfkit');
+      const { addPdfHeader, safePdfPipe, fmtDate, F, autoF } = require('./pdf_helpers');
+      const { party, kms_year, season, gst_filter } = req.query;
+      if (!party) return res.status(400).json({ detail: 'party required' });
+      let partyKeys;
+      if (gst_filter === 'PKA') partyKeys = [`${party} (PKA)`];
+      else if (gst_filter === 'KCA') partyKeys = [`${party} (KCA)`];
+      else partyKeys = [`${party} (PKA)`, `${party} (KCA)`, party];
+      let raw = (database.data.local_party_accounts || []).filter(p => partyKeys.includes(p.party_name));
+      if (kms_year) raw = raw.filter(p => p.kms_year === kms_year);
+      if (season) raw = raw.filter(p => p.season === season);
+      raw.sort((a, b) => ((a.date || '').localeCompare(b.date || '')) || ((a.created_at || '').localeCompare(b.created_at || '')));
+      let balance = 0;
+      const entries = raw.map(r => {
+        const amt = _safeNum(r.amount); const ttype = r.txn_type || ''; let flow = ttype.toUpperCase();
+        if (ttype === 'debit') { balance += amt; flow = 'Dr'; }
+        else if (ttype === 'payment') { balance -= amt; flow = 'Cr'; }
+        const desc = (r.description || '')
+          .replace('Pakka (GST Bill)', 'PKA (GST Bill)').replace('Kaccha (Slip)', 'KCA (Slip)')
+          .replace(' - Pakka', ' - PKA').replace(' - Kaccha', ' - KCA');
+        return { date: r.date || '', party_name: r.party_name || '', flow, amount: amt, description: desc, running_balance: balance };
+      });
+      const summary = {
+        total_debit: +entries.filter(e => e.flow === 'Dr').reduce((s, e) => s + e.amount, 0).toFixed(2),
+        total_credit: +entries.filter(e => e.flow === 'Cr').reduce((s, e) => s + e.amount, 0).toFixed(2),
+        closing_balance: +balance.toFixed(2),
+        entry_count: entries.length
+      };
+      const doc = new PDFDocument({ size: 'A4', layout: 'portrait', margin: 18 });
+      const fn = `${party.toLowerCase().replace(/\s+/g, '_')}_statement_${new Date().toISOString().slice(0, 10)}.pdf`;
+      res.setHeader('Content-Type','application/pdf');
+      res.setHeader('Content-Disposition',`attachment; filename=${fn}`);
+      const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill' };
+      const mode = gst_filter || 'ALL';
+      let title = `PARTY STATEMENT — ${party}  [${mode}]`;
+      if (kms_year) title += `   FY ${kms_year}`;
+      if (season) title += `   (${season})`;
+      addPdfHeader(doc, title, branding);
+      // Summary
+      const summaryY = doc.y;
+      doc.rect(18, summaryY, doc.page.width - 36, 16).fill('#F5F5F5');
+      const sumText = `Entries: ${summary.entry_count}  |  Total Debit: ${summary.total_debit.toLocaleString('en-IN')}  |  Total Credit: ${summary.total_credit.toLocaleString('en-IN')}  |  Closing: ${summary.closing_balance.toLocaleString('en-IN')}`;
+      doc.fontSize(8).font(autoF(sumText, 'bold')).fillColor('#1F4E79')
+        .text(sumText, 22, summaryY + 4, { width: doc.page.width - 44, align: 'center', lineBreak: false });
+      doc.y = summaryY + 20;
+      // Table
+      const headers = ['Date', 'Sub-Ledger', 'Type', 'Description', 'Dr', 'Cr', 'Balance'];
+      const widths = [55, 70, 28, 218, 60, 60, 65];
+      const totalW = widths.reduce((a, b) => a + b, 0);
+      const startX = (doc.page.width - totalW) / 2;
+      const fs = 7; const rowH = fs + 6; let y = doc.y;
+      // Header row
+      doc.rect(startX, y, totalW, rowH + 2).fill('#1F4E79');
+      let x = startX;
+      headers.forEach((h, i) => {
+        doc.fillColor('#FFFFFF').font(autoF(h, 'bold')).fontSize(fs)
+          .text(h, x + 2, y + 3, { width: widths[i] - 4, align: 'center', lineBreak: false });
+        x += widths[i];
+      });
+      y += rowH + 2;
+      entries.forEach((e, ri) => {
+        if (y + rowH > doc.page.height - 30) { doc.addPage(); y = 18; }
+        const baseBg = ri % 2 === 0 ? '#ffffff' : '#EBF1F8';
+        x = startX;
+        const debit = e.flow === 'Dr' ? Math.round(e.amount).toLocaleString('en-IN') : '';
+        const credit = e.flow === 'Cr' ? Math.round(e.amount).toLocaleString('en-IN') : '';
+        const cells = [fmtDate(e.date), e.party_name.substring(0, 18), e.flow, e.description.substring(0, 55), debit, credit, Math.round(e.running_balance).toLocaleString('en-IN')];
+        const colors_ = [baseBg, baseBg, baseBg, baseBg, baseBg, baseBg, baseBg];
+        const txtColors = ['#333', '#333', '#333', '#333', '#1B5E20', '#C62828', '#0D47A1'];
+        cells.forEach((v, ci) => {
+          doc.rect(x, y, widths[ci], rowH).fill(colors_[ci]);
+          doc.rect(x, y, widths[ci], rowH).stroke('#CCCCCC');
+          const align = ci >= 4 ? 'right' : 'left';
+          const isBold = ci >= 4;
+          doc.fillColor(txtColors[ci]).font(autoF(v, isBold ? 'bold' : 'normal')).fontSize(fs)
+            .text(String(v), x + 2, y + 2, { width: widths[ci] - 4, height: rowH - 2, lineBreak: false, align });
+          x += widths[ci];
+        });
+        y += rowH;
+      });
+      // Closing row
+      if (y + rowH > doc.page.height - 30) { doc.addPage(); y = 18; }
+      doc.rect(startX, y, totalW, rowH).fill('#2E75B6');
+      x = startX;
+      const closingCells = ['CLOSING', '', '', '', Math.round(summary.total_debit).toLocaleString('en-IN'), Math.round(summary.total_credit).toLocaleString('en-IN'), Math.round(summary.closing_balance).toLocaleString('en-IN')];
+      closingCells.forEach((v, ci) => {
+        doc.rect(x, y, widths[ci], rowH).stroke('#1F4E79');
+        const align = ci >= 4 ? 'right' : 'left';
+        doc.fillColor('#FFFFFF').font(autoF(v, 'bold')).fontSize(fs)
+          .text(String(v), x + 2, y + 2, { width: widths[ci] - 4, height: rowH - 2, lineBreak: false, align });
+        x += widths[ci];
+      });
+      y += rowH;
+      doc.y = y + 6;
+      doc.fontSize(7).font(F('normal')).fillColor('#999999')
+        .text(`Generated: ${new Date().toLocaleDateString('en-IN')} ${new Date().toLocaleTimeString('en-IN')}`, { align: 'left' });
+      await safePdfPipe(doc, res);
+    } catch(e) { res.status(500).json({detail:'Statement PDF failed: '+e.message}); }
   });
 
   return router;

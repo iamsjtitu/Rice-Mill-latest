@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -83,7 +83,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       if (filters.kms_year) stockParams.append("kms_year", filters.kms_year);
       if (filters.season) stockParams.append("season", filters.season);
       const fetches = [
-        axios.get(`${API}/bp-sale-register?${params}`),
+        axios.get(`${API}/bp-sale-register/with-payments?${params}`),
         axios.get(`${API}/bp-sale-register/suggestions/bill-from`),
         axios.get(`${API}/bp-sale-register/suggestions/party-name`),
         axios.get(`${API}/bp-sale-register/suggestions/destination`),
@@ -354,6 +354,13 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   };
   const isRiceBran = product === "Rice Bran";
   const hasAnyOilPremium = isRiceBran && filtered.some(s => getOilPremium(s));
+  // v104.44.56 — Payment columns visible only if at least one sale has received payments
+  const hasAnyPayments = filtered.some(s => (s.payments_alloc?.length || 0) > 0);
+  // v104.44.56 — Option C: Party Statement dialog state
+  const [stmtDialogOpen, setStmtDialogOpen] = useState(false);
+  const [stmtParty, setStmtParty] = useState("");
+  const [expandedRows, setExpandedRows] = useState({});  // v104.44.56 Option B
+  const toggleRow = (key) => setExpandedRows(p => ({ ...p, [key]: !p[key] }));
   const clearFilters = () => setFilterValues({ date_from: "", date_to: "", billing_date_from: "", billing_date_to: "", rst_no: "", vehicle_no: "", bill_from: "", party_name: "", destination: "" });
 
   const totalAmount = filtered.reduce((s, v) => s + (v.total || 0), 0);
@@ -486,6 +493,12 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             className="h-8 w-8 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600" title="Send to Group (summary + PDF)" data-testid="bp-group-btn">
             <Users className="w-4 h-4" />
           </Button>
+          {/* v104.44.56 — Option C: Party Statement button */}
+          <Button onClick={() => setStmtDialogOpen(true)} variant="ghost" size="sm"
+            className="h-8 w-8 p-0 text-purple-400 hover:bg-purple-900/30 border border-purple-600" title="Party Statement (chronological ledger PDF/Excel)" data-testid="bp-stmt-btn">
+            <FileText className="w-4 h-4" />
+            <span className="absolute -top-1 -right-1 text-[8px] font-bold bg-purple-500 text-white rounded-full px-1">$</span>
+          </Button>
           <Button onClick={openNew} size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900" data-testid="bp-sale-add">
             <Plus className="w-4 h-4 mr-1" /> New Sale
           </Button>
@@ -595,6 +608,11 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Premium</TableHead>
                   </>}
                   {gstFilter !== "PKA" && <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[75px] text-right" title="Balance after Premium adjustment">Balance</TableHead>}
+                  {gstFilter !== "PKA" && hasAnyPayments && <>
+                    <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px]" title="Last payment date received">Last Pmt</TableHead>
+                    <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[75px] text-right" title="Total payments received against this sale (FIFO)">Received</TableHead>
+                    <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[80px] text-right" title="Pending after all payments + premium">Pending</TableHead>
+                  </>}
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -602,7 +620,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                 {filtered.length === 0 ? (
                   <TableRow><TableCell colSpan={gstFilter === "PKA" ? 16 : (hasAnyOilPremium ? 20 : 17)} className="text-center text-slate-400 py-6">Koi sale nahi</TableCell></TableRow>
                 ) : filtered.map(s => (
-                  <TableRow key={s.id} className="border-slate-700 hover:bg-slate-700/30">
+                  <React.Fragment key={s.id}>
+                  <TableRow className="border-slate-700 hover:bg-slate-700/30">
                     <TableCell className="text-white text-[10px] px-2 whitespace-nowrap">{fmtDate(s.date)}</TableCell>
                     <TableCell className="text-cyan-400 text-[10px] px-2 font-medium">{s.voucher_no}</TableCell>
                     <TableCell className="text-slate-300 text-[10px] px-2 whitespace-nowrap">{s.bill_number}</TableCell>
@@ -662,14 +681,41 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       const balFinal = Math.round(((s.balance || 0) + prem) * 100) / 100;
                       return <TableCell className={`text-[10px] px-2 text-right font-bold whitespace-nowrap ${balFinal > 0 ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`} title={`Balance after Premium: ${(s.balance || 0).toLocaleString()} ${prem >= 0 ? '+' : ''}${prem.toLocaleString()}`}>{balFinal.toLocaleString()}</TableCell>;
                     })()}
+                    {gstFilter !== "PKA" && hasAnyPayments && <>
+                      <TableCell className="text-slate-300 text-[10px] px-2 whitespace-nowrap">{s.last_payment_date ? fmtDate(s.last_payment_date) : <span className="text-slate-500">—</span>}</TableCell>
+                      <TableCell className="text-cyan-700 dark:text-cyan-400 text-[10px] px-2 text-right font-bold whitespace-nowrap">{(s.total_received || 0) > 0 ? (s.total_received || 0).toLocaleString() : <span className="text-slate-500 dark:text-slate-600">—</span>}</TableCell>
+                      <TableCell className={`text-[10px] px-2 text-right font-bold whitespace-nowrap ${(s.pending_balance || 0) > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}`}>{(s.pending_balance || 0).toLocaleString()}</TableCell>
+                    </>}
                     <TableCell className="px-1">
                       <div className="flex gap-0.5">
+                        {(s.payments_alloc?.length || 0) > 0 && (
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-purple-400 hover:bg-purple-900/30" title={`${s.payments_alloc.length} payment(s) — click to expand`} onClick={() => toggleRow(s.voucher_no || s.id)} data-testid={`bp-expand-${s.voucher_no || s.id}`}>
+                            {expandedRows[s.voucher_no || s.id] ? <span className="text-[14px] leading-none">▾</span> : <span className="text-[14px] leading-none">▸</span>}
+                          </Button>
+                        )}
                         <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-400 hover:text-white" onClick={() => setViewSale(s)} data-testid={`bp-view-${s.id}`}><Eye className="w-3 h-3" /></Button>
                         <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-400" onClick={() => openEdit(s)} data-testid={`bp-edit-${s.voucher_no || s.id}`}><Edit className="w-3 h-3" /></Button>
                         {user.role === "admin" && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400" onClick={() => handleDelete(s.id)}><Trash2 className="w-3 h-3" /></Button>}
                       </div>
                     </TableCell>
                   </TableRow>
+                  {/* v104.44.56 Option B — expandable nested payment rows */}
+                  {expandedRows[s.voucher_no || s.id] && (s.payments_alloc?.length || 0) > 0 && s.payments_alloc.map((p, pi) => (
+                    <TableRow key={`${s.id}-p-${pi}`} className="border-slate-800 bg-slate-900/40 hover:bg-slate-800/40">
+                      <TableCell colSpan={4} className="text-[10px] px-2 py-1 pl-12 text-purple-400 italic">
+                        ↳ <span className="text-slate-400">Payment</span> {fmtDate(p.date)}
+                      </TableCell>
+                      <TableCell colSpan={6} className="text-[10px] px-2 py-1 text-slate-300 truncate">{p.description || ''}</TableCell>
+                      <TableCell className="text-[10px] px-2 py-1 text-right">
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${p.type === 'pka' ? 'bg-emerald-900/30 text-emerald-400' : p.type === 'kca' ? 'bg-rose-900/30 text-rose-400' : 'bg-slate-700 text-slate-300'}`}>{(p.type || '').toUpperCase() || '—'}</span>
+                      </TableCell>
+                      <TableCell className="text-[10px] px-2 py-1 text-right text-slate-500">—</TableCell>
+                      <TableCell className="text-[10px] px-2 py-1 text-right text-slate-500">—</TableCell>
+                      <TableCell className="text-[10px] px-2 py-1 text-right font-bold text-cyan-700 dark:text-cyan-400">−{(p.amount || 0).toLocaleString()}</TableCell>
+                      <TableCell colSpan={5} />
+                    </TableRow>
+                  ))}
+                </React.Fragment>
                 ))}
               </TableBody>
             </Table>
@@ -1153,6 +1199,94 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       </Dialog>
       {/* v104.44.39 — Send to WhatsApp Group dialog */}
       <SendToGroupDialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen} text={groupText} pdfUrl={groupPdfUrl} />
+
+      {/* v104.44.56 Option C — Party Statement Dialog */}
+      <Dialog open={stmtDialogOpen} onOpenChange={setStmtDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md" data-testid="bp-stmt-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-purple-400 flex items-center gap-2">
+              <FileText className="w-4 h-4" /> Party Statement
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs text-slate-400">Party Name</Label>
+              <Input list="stmt-party-list" value={stmtParty} onChange={e => setStmtParty(e.target.value)}
+                placeholder="Type or select party..."
+                className="bg-slate-700 border-slate-600 text-white text-xs h-8 mt-1"
+                data-testid="bp-stmt-party" />
+              <datalist id="stmt-party-list">
+                {partySugg.map(p => <option key={p} value={p} />)}
+              </datalist>
+              <p className="text-[10px] text-slate-500 mt-1">Statement {gstFilter === 'ALL' ? 'PKA + KCA combined' : gstFilter + ' only'} mode me banayega. Filters (KMS year, season) apply honge.</p>
+            </div>
+            <div className="flex gap-2 pt-2 border-t border-slate-700">
+              <Button onClick={async () => {
+                if (!stmtParty.trim()) { toast.error("Party name daalein"); return; }
+                try {
+                  const params = new URLSearchParams();
+                  params.append('party', stmtParty.trim());
+                  if (filters.kms_year) params.append('kms_year', filters.kms_year);
+                  if (filters.season) params.append('season', filters.season);
+                  if (gstFilter && gstFilter !== 'ALL') params.append('gst_filter', gstFilter);
+                  const { downloadFile } = await import('../utils/download');
+                  const fname = `${stmtParty.toLowerCase().replace(/\s+/g, '_')}_statement_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                  downloadFile(`/api/bp-sale-register/export/statement-excel?${params}`, fname);
+                  toast.success("Statement Excel downloaded");
+                  setStmtDialogOpen(false);
+                } catch(e) { toast.error("Statement Excel fail"); }
+              }} className="flex-1 bg-green-600 hover:bg-green-700 text-white" data-testid="bp-stmt-excel">
+                <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+              </Button>
+              <Button onClick={async () => {
+                if (!stmtParty.trim()) { toast.error("Party name daalein"); return; }
+                try {
+                  const params = new URLSearchParams();
+                  params.append('party', stmtParty.trim());
+                  if (filters.kms_year) params.append('kms_year', filters.kms_year);
+                  if (filters.season) params.append('season', filters.season);
+                  if (gstFilter && gstFilter !== 'ALL') params.append('gst_filter', gstFilter);
+                  const { downloadFile } = await import('../utils/download');
+                  const fname = `${stmtParty.toLowerCase().replace(/\s+/g, '_')}_statement_${new Date().toISOString().slice(0, 10)}.pdf`;
+                  downloadFile(`/api/bp-sale-register/export/statement-pdf?${params}`, fname);
+                  toast.success("Statement PDF downloaded");
+                  setStmtDialogOpen(false);
+                } catch(e) { toast.error("Statement PDF fail"); }
+              }} className="flex-1 bg-red-600 hover:bg-red-700 text-white" data-testid="bp-stmt-pdf">
+                <FileText className="w-4 h-4 mr-1" /> PDF
+              </Button>
+              <Button onClick={async () => {
+                if (!stmtParty.trim()) { toast.error("Party name daalein"); return; }
+                try {
+                  const params = new URLSearchParams();
+                  params.append('party', stmtParty.trim());
+                  if (filters.kms_year) params.append('kms_year', filters.kms_year);
+                  if (filters.season) params.append('season', filters.season);
+                  if (gstFilter && gstFilter !== 'ALL') params.append('gst_filter', gstFilter);
+                  const url = `${API}/bp-sale-register/export/statement-pdf?${params}`;
+                  const res = await fetch(url, { credentials: 'include' });
+                  const blob = await res.blob();
+                  const fname = `${stmtParty.toLowerCase().replace(/\s+/g, '_')}_statement.pdf`;
+                  const file = new File([blob], fname, { type: 'application/pdf' });
+                  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({ files: [file], title: fname, text: `${stmtParty} Statement` });
+                    toast.success("Share dialog open");
+                  } else {
+                    const url2 = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url2; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
+                    setTimeout(() => URL.revokeObjectURL(url2), 4000);
+                    window.open(`https://wa.me/?text=${encodeURIComponent(`${stmtParty} Statement`)}`, "_blank");
+                  }
+                  setStmtDialogOpen(false);
+                } catch(e) { toast.error("Share fail"); }
+              }} className="flex-1 bg-[#25D366] hover:bg-green-700 text-white" data-testid="bp-stmt-whatsapp">
+                <WhatsAppIcon className="w-4 h-4 mr-1" /> Send
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

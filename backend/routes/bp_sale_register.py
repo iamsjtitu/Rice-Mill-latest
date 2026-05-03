@@ -214,6 +214,96 @@ def _safe_num(v):
     except (ValueError, TypeError): return 0.0
 
 
+# v104.44.56 — Payment fetching + FIFO allocation per sale (Option A + B)
+async def _fetch_party_payments(party: str, kms_year: str = "", season: str = "") -> list:
+    """Fetch all 'payment' txns for a party (PKA/KCA aware). Returns chronological list."""
+    if not party: return []
+    q = {"party_name": party, "txn_type": "payment"}
+    if kms_year: q["kms_year"] = kms_year
+    if season: q["season"] = season
+    items = await db.local_party_accounts.find(q, {"_id": 0}).sort("date", 1).to_list(10000)
+    return items
+
+
+async def _enrich_sales_with_payments_fifo(sales: list, gst_filter: str = "") -> list:
+    """For each sale, attach FIFO-allocated payments. Mutates and returns sales list.
+    Each sale gets: payments_alloc[], total_received, last_payment_date, final_balance.
+    For split-billing: PKA payments allocated to PKA portion (billed+tax), KCA payments to kaccha portion.
+    """
+    # Group sales by (party_with_suffix, kms_year, season)
+    # For ALL view: each sale contributes BOTH PKA and KCA debits separately (need 2 buckets)
+    # For PKA/KCA view: only one bucket per sale
+    # We'll iterate per party-bucket and FIFO-allocate payments.
+    from collections import defaultdict
+    buckets = defaultdict(list)  # key=(party_suffixed, kms, season), val=list of (sale, debit_amount, bucket_type)
+
+    for s in sales:
+        party = s.get('party_name', '') or ''
+        kms = s.get('kms_year', '') or ''
+        ssn = s.get('season', '') or ''
+        if not party: continue
+        s.setdefault('payments_alloc', [])
+        s['_pka_alloc'] = []; s['_kca_alloc'] = []
+        view_mode = s.get('_view_mode', '')
+        is_split = _safe_num(s.get('billed_amount')) > 0 and _safe_num(s.get('kaccha_amount')) > 0
+
+        if view_mode == 'PKA':
+            buckets[(f"{party} (PKA)", kms, ssn)].append((s, _safe_num(s.get('total')), 'pka'))
+        elif view_mode == 'KCA':
+            buckets[(f"{party} (KCA)", kms, ssn)].append((s, _safe_num(s.get('total')), 'kca'))
+        else:
+            # ALL view
+            if is_split:
+                pka_debit = _safe_num(s.get('billed_amount')) + _safe_num(s.get('tax_amount'))
+                kca_debit = _safe_num(s.get('kaccha_amount'))
+                if pka_debit > 0:
+                    buckets[(f"{party} (PKA)", kms, ssn)].append((s, pka_debit, 'pka'))
+                if kca_debit > 0:
+                    buckets[(f"{party} (KCA)", kms, ssn)].append((s, kca_debit, 'kca'))
+            else:
+                # Non-split: party stored without suffix
+                buckets[(party, kms, ssn)].append((s, _safe_num(s.get('total')), 'all'))
+
+    # Allocate payments via FIFO per bucket
+    for (party_key, kms, ssn), entries in buckets.items():
+        # Sort entries by sale date (FIFO)
+        entries.sort(key=lambda x: (x[0].get('date', '') or '', x[0].get('created_at', '') or ''))
+        payments = await _fetch_party_payments(party_key, kms, ssn)
+        # Each payment is allocated to oldest unpaid sale first
+        remaining = [{"sale": s, "debit": debit, "remaining": debit, "btype": bt} for (s, debit, bt) in entries]
+        for p in payments:
+            amt = _safe_num(p.get('amount'))
+            pdate = p.get('date', '') or ''
+            pdesc = p.get('description', '') or ''
+            for r in remaining:
+                if amt <= 0: break
+                if r['remaining'] <= 0: continue
+                take = min(amt, r['remaining'])
+                r['remaining'] = round(r['remaining'] - take, 2)
+                amt = round(amt - take, 2)
+                alloc_entry = {"date": pdate, "amount": take, "description": pdesc, "type": r['btype']}
+                if r['btype'] == 'pka': r['sale']['_pka_alloc'].append(alloc_entry)
+                elif r['btype'] == 'kca': r['sale']['_kca_alloc'].append(alloc_entry)
+                else: r['sale']['payments_alloc'].append(alloc_entry)
+
+    # Aggregate per sale
+    for s in sales:
+        all_pmts = list(s.get('payments_alloc', [])) + list(s.get('_pka_alloc', [])) + list(s.get('_kca_alloc', []))
+        all_pmts.sort(key=lambda x: x.get('date', '') or '')
+        s['payments_alloc'] = all_pmts
+        s['total_received'] = round(sum(_safe_num(p.get('amount')) for p in all_pmts), 2)
+        s['last_payment_date'] = all_pmts[-1]['date'] if all_pmts else ''
+        # final_balance = total - received - (advance baked into balance already)
+        # Use existing balance field as the source-of-truth opening, then subtract additional received
+        # Actually balance was computed as total - cash_paid - diesel - advance at sale entry time
+        # We'll compute net_pending = max(0, balance - subsequent received)
+        existing_balance = _safe_num(s.get('balance'))
+        net_pending = round(existing_balance - s['total_received'], 2)
+        s['pending_balance'] = max(0, net_pending) if net_pending >= 0 else net_pending  # allow negative (overpayment)
+        s.pop('_pka_alloc', None); s.pop('_kca_alloc', None)
+    return sales
+
+
 def _project_pakka_view(s: dict) -> dict:
     """v104.44.44 — Return a row-level pakka-only projection of entry.
     Zero out kaccha fields, recompute total = billed + tax.
@@ -286,6 +376,76 @@ async def get_bp_sales(product: str = "", kms_year: str = "", season: str = "",
             or (_safe_num(s.get("billed_amount")) == 0 and _safe_num(s.get("gst_percent")) == 0)
         )]
     return sales
+
+
+# v104.44.56 — Sales enriched with payment allocation (Option A + B)
+@router.get("/bp-sale-register/with-payments")
+async def get_bp_sales_with_payments(product: str = "", kms_year: str = "", season: str = "",
+                                     gst_filter: Optional[str] = None):
+    sales = await get_bp_sales(product=product, kms_year=kms_year, season=season, gst_filter=gst_filter)
+    sales = await _enrich_sales_with_payments_fifo(sales, gst_filter or "")
+    return sales
+
+
+# v104.44.56 — Party Statement: chronological ledger (Option C)
+@router.get("/bp-sale-register/party-statement")
+async def get_bp_party_statement(party: str, kms_year: str = "", season: str = "",
+                                  gst_filter: Optional[str] = None):
+    """Returns chronological ledger entries for a party: sales (debit) + payments + premium adjustments.
+    gst_filter: 'PKA' → only `{party} (PKA)` ledger; 'KCA' → `(KCA)`; else → all (PKA + KCA + non-split combined).
+    """
+    if not party: return {"party": "", "entries": [], "summary": {}}
+    # Determine which party_name suffixes to include
+    if gst_filter == "PKA":
+        party_keys = [f"{party} (PKA)"]
+    elif gst_filter == "KCA":
+        party_keys = [f"{party} (KCA)"]
+    else:
+        party_keys = [f"{party} (PKA)", f"{party} (KCA)", party]
+
+    q = {"party_name": {"$in": party_keys}}
+    if kms_year: q["kms_year"] = kms_year
+    if season: q["season"] = season
+    raw = await db.local_party_accounts.find(q, {"_id": 0}).to_list(20000)
+    raw.sort(key=lambda x: (x.get('date', '') or '', x.get('created_at', '') or ''))
+    # Note: Oil premium adjustments are already auto-created as payment entries in
+    # local_party_accounts by the oil_premium flow (description "Lab Test Premium..."),
+    # so we do NOT re-fetch them here to avoid double-counting.
+
+    # Compute running balance
+    balance = 0.0
+    entries = []
+    for r in raw:
+        amt = _safe_num(r.get('amount'))
+        ttype = r.get('txn_type', '') or ''
+        # Normalize description text to use PKA/KCA only (legacy entries used Pakka/Kaccha)
+        desc = (r.get('description', '') or '').replace('Pakka (GST Bill)', 'PKA (GST Bill)').replace('Kaccha (Slip)', 'KCA (Slip)').replace(' - Pakka', ' - PKA').replace(' - Kaccha', ' - KCA')
+        # debit increases balance (party owes), payment decreases
+        if ttype == 'debit':
+            balance += amt; flow = 'Dr'
+        elif ttype == 'payment':
+            balance -= amt; flow = 'Cr'
+        else:
+            flow = ttype.upper()
+        entries.append({
+            "date": r.get('date', '') or '',
+            "party_name": r.get('party_name', '') or '',
+            "txn_type": ttype, "flow": flow,
+            "amount": round(amt, 2),
+            "description": desc,
+            "reference": r.get('reference', '') or '',
+            "running_balance": round(balance, 2),
+        })
+
+    summary = {
+        "party": party,
+        "total_debit": round(sum(_safe_num(e.get('amount')) for e in entries if e.get('flow') == 'Dr'), 2),
+        "total_credit": round(sum(_safe_num(e.get('amount')) for e in entries if e.get('flow') == 'Cr'), 2),
+        "closing_balance": round(balance, 2),
+        "entry_count": len(entries),
+    }
+    return {"party": party, "gst_filter": gst_filter or "ALL", "kms_year": kms_year, "season": season,
+            "entries": entries, "summary": summary}
 
 
 def _compute_amounts_and_tax(data: dict) -> None:
@@ -497,6 +657,10 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
     elif gst_filter == "KCA":
         sales = [_project_kaccha_view(s) for s in sales if (_safe_num(s.get("kaccha_amount")) > 0 or (_safe_num(s.get("billed_amount")) == 0 and _safe_num(s.get("gst_percent")) == 0))]
 
+    # v104.44.56 — Enrich with FIFO-allocated payments (payment columns auto-show if any payment exists)
+    sales = await _enrich_sales_with_payments_fifo(sales, gst_filter or "")
+    has_payments = any((s.get('total_received') or 0) > 0 for s in sales)
+
     # v104.44.51 — Detect if any split entries exist (so we add Pakka/Kaccha breakdown cols)
     has_split = any(_safe_num(s.get('billed_amount')) > 0 and _safe_num(s.get('kaccha_amount')) > 0 for s in sales)
     show_pakka_col = has_split and gst_filter not in ("PKA", "KCA")
@@ -588,6 +752,11 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
             cols.append(('Diff%', 8, 'oil_diff'))
             cols.append(('Premium', 12, 'oil_premium'))
         cols.append(('Balance', 12, 'balance_final'))
+        # v104.44.56 — Payment summary columns (only when at least one sale has received payments)
+        if has_payments:
+            cols.append(('Last Pmt', 10, 'last_payment_date'))
+            cols.append(('Received', 12, 'total_received'))
+            cols.append(('Pending', 12, 'pending_balance'))
     if has_remark: cols.append(('Remark', 16, 'remark'))
 
     headers = [c[0] for c in cols]
@@ -644,7 +813,7 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
         cell.border = border
 
     # Data rows
-    t_nw = t_bags = t_amount = t_billed = t_kaccha = t_tax = t_total = t_cash = t_diesel = t_adv = t_bal = t_bal_final = t_oil_premium = 0
+    t_nw = t_bags = t_amount = t_billed = t_kaccha = t_tax = t_total = t_cash = t_diesel = t_adv = t_bal = t_bal_final = t_oil_premium = t_received = t_pending = 0
     for idx, s in enumerate(sales):
         r = row + 1 + idx
         fill = alt_fill if idx % 2 == 0 else None
@@ -659,6 +828,10 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
         t_adv += s.get('advance', 0); t_bal += s.get('balance', 0)
         t_bal_final += bal_final
         if op: t_oil_premium += prem
+        # v104.44.56 — accumulate payment totals
+        recv = s.get('total_received', 0) or 0
+        pend = s.get('pending_balance', 0) or 0
+        t_received += recv; t_pending += pend
         for col_idx, key in enumerate(keys, 1):
             if key == 'voucher_no': val = s.get('voucher_no', '') or ''
             elif key == 'date': val = fmt_date(s.get('date', ''))
@@ -668,6 +841,9 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
             elif key == 'oil_diff': val = round(op.get('difference_pct', 0), 2) if op else ''
             elif key == 'oil_premium': val = round(prem, 2) if op else ''
             elif key == 'balance_final': val = bal_final
+            elif key == 'last_payment_date': val = fmt_date(s.get('last_payment_date', '')) if s.get('last_payment_date') else ''
+            elif key == 'total_received': val = recv if recv > 0 else ''
+            elif key == 'pending_balance': val = pend
             else: val = s.get(key, 0) if key in ('net_weight_kg','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance') else s.get(key, '')
             cell = ws.cell(row=r, column=col_idx, value=val)
             cell.font = Font(size=9)
@@ -685,9 +861,15 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
             elif key == 'balance_final':
                 # red if positive (party owes), green if zero/negative
                 cell.font = Font(size=9, bold=True, color=("C62828" if val > 0 else "1B5E20"))
-            if key in ('net_weight_kg','net_weight_qtl','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','oil_pct','oil_diff','oil_premium'):
+            elif key == 'total_received' and val:
+                cell.fill = PatternFill(start_color="E0F7FA", end_color="E0F7FA", fill_type="solid")
+                cell.font = Font(size=9, bold=True, color="00838F")
+            elif key == 'pending_balance':
+                cell.fill = PatternFill(start_color="FFF3E0", end_color="FFF3E0", fill_type="solid")
+                cell.font = Font(size=9, bold=True, color=("E65100" if val > 0 else "1B5E20"))
+            if key in ('net_weight_kg','net_weight_qtl','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','total_received','pending_balance','oil_pct','oil_diff','oil_premium'):
                 cell.alignment = Alignment(horizontal='right')
-            if key in ('amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','oil_premium'):
+            if key in ('amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','total_received','pending_balance','oil_premium'):
                 cell.number_format = '#,##0.00'
             if key == 'oil_premium' and op and prem < 0:
                 cell.font = Font(size=9, color="FF0000")
@@ -713,6 +895,8 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
         elif key == 'advance': ws.cell(row=tr, column=col_idx, value=round(t_adv, 2)).alignment = Alignment(horizontal='right')
         elif key == 'balance': ws.cell(row=tr, column=col_idx, value=round(t_bal, 2)).alignment = Alignment(horizontal='right')
         elif key == 'balance_final': ws.cell(row=tr, column=col_idx, value=round(t_bal_final, 2)).alignment = Alignment(horizontal='right')
+        elif key == 'total_received': ws.cell(row=tr, column=col_idx, value=round(t_received, 2)).alignment = Alignment(horizontal='right')
+        elif key == 'pending_balance': ws.cell(row=tr, column=col_idx, value=round(t_pending, 2)).alignment = Alignment(horizontal='right')
         elif key == 'oil_premium':
             c = ws.cell(row=tr, column=col_idx, value=round(t_oil_premium, 2))
             c.alignment = Alignment(horizontal='right')
@@ -774,6 +958,10 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
         sales = [_project_pakka_view(s) for s in sales if (_safe_num(s.get("billed_amount")) > 0 or _safe_num(s.get("gst_percent")) > 0)]
     elif gst_filter == "KCA":
         sales = [_project_kaccha_view(s) for s in sales if (_safe_num(s.get("kaccha_amount")) > 0 or (_safe_num(s.get("billed_amount")) == 0 and _safe_num(s.get("gst_percent")) == 0))]
+
+    # v104.44.56 — Enrich with FIFO-allocated payments
+    sales = await _enrich_sales_with_payments_fifo(sales, gst_filter or "")
+    has_payments = any((s.get('total_received') or 0) > 0 for s in sales)
 
     # Fetch oil premium data for Rice Bran
     oil_map_pdf = {}
@@ -876,6 +1064,11 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
             pdf_cols.append(('Diff%', 30, 'oil_diff'))
             pdf_cols.append(('Premium', 45, 'oil_premium'))
         pdf_cols.append(('Balance', 50, 'balance_final'))
+        # v104.44.56 — payment columns
+        if has_payments:
+            pdf_cols.append(('Last Pmt', 42, 'last_payment_date'))
+            pdf_cols.append(('Recvd', 45, 'total_received'))
+            pdf_cols.append(('Pending', 50, 'pending_balance'))
 
     headers = [c[0] for c in pdf_cols]
     col_widths = [c[1] for c in pdf_cols]
@@ -889,11 +1082,14 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
         col_widths = [round(w * scale) for w in col_widths]
 
     data = [headers]
-    t_nw = t_bags = t_amt = t_billed = t_kaccha = t_tax = t_total = t_cash = t_diesel = t_adv = t_bal = t_bal_final = t_oil_prem_pdf = 0
+    t_nw = t_bags = t_amt = t_billed = t_kaccha = t_tax = t_total = t_cash = t_diesel = t_adv = t_bal = t_bal_final = t_oil_prem_pdf = t_received_pdf = t_pending_pdf = 0
     for idx, s in enumerate(sales):
         op = oil_map_pdf.get(s.get('voucher_no') or '') or oil_map_pdf.get(s.get('rst_no') or '')
         prem = (op.get('premium_amount', 0) or 0) if op else 0
         bal_final = round((s.get('balance', 0) or 0) + prem, 2)
+        recv = s.get('total_received', 0) or 0
+        pend = s.get('pending_balance', 0) or 0
+        t_received_pdf += recv; t_pending_pdf += pend
         t_nw += s.get('net_weight_kg', 0); t_bags += s.get('bags', 0)
         t_amt += s.get('amount', 0); t_billed += s.get('billed_amount', 0); t_kaccha += s.get('kaccha_amount', 0)
         t_tax += s.get('tax_amount', 0); t_total += s.get('total', 0)
@@ -913,6 +1109,12 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
                 row_data.append(f"{v:,.0f}" if v else '')
             elif key == 'balance_final':
                 row_data.append(f"{bal_final:,.0f}" if bal_final else '0')
+            elif key == 'last_payment_date':
+                row_data.append(fmt_date(s.get('last_payment_date', '')) if s.get('last_payment_date') else '')
+            elif key == 'total_received':
+                row_data.append(f"{recv:,.0f}" if recv else '')
+            elif key == 'pending_balance':
+                row_data.append(f"{pend:,.0f}" if pend else '0')
             elif key == 'oil_pct': row_data.append(f"{op.get('actual_oil_pct', '')}%" if op else '')
             elif key == 'oil_diff':
                 if op:
@@ -940,13 +1142,16 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
         elif key == 'balance': total_row.append(f"{t_bal:,.0f}")
         elif key == 'balance_final': total_row.append(f"{t_bal_final:,.0f}")
         elif key == 'oil_premium': total_row.append(f"{t_oil_prem_pdf:,.0f}")
+        elif key == 'last_payment_date': total_row.append('')
+        elif key == 'total_received': total_row.append(f"{t_received_pdf:,.0f}" if t_received_pdf else '')
+        elif key == 'pending_balance': total_row.append(f"{t_pending_pdf:,.0f}")
         else: total_row.append('')
     data.append(total_row)
 
     table = RLTable(data, colWidths=col_widths, repeatRows=1)
 
     # Find first numeric column index for right-align
-    first_num = next((i for i, k in enumerate(col_keys) if k in ('net_weight_kg','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final')), len(col_keys))
+    first_num = next((i for i, k in enumerate(col_keys) if k in ('net_weight_kg','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','total_received','pending_balance')), len(col_keys))
 
     nrows = len(data)
     style_cmds = [
@@ -997,6 +1202,19 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
         style_cmds.append(('TEXTCOLOR', (bf_idx, 1), (bf_idx, -2), colors.HexColor('#C62828')))
         style_cmds.append(('FONTNAME', (bf_idx, 1), (bf_idx, -2), 'Helvetica-Bold'))
     except ValueError: pass
+    # v104.44.56 — Payment columns styling
+    try:
+        rcv_idx = col_keys.index('total_received')
+        style_cmds.append(('BACKGROUND', (rcv_idx, 1), (rcv_idx, -2), colors.HexColor('#E0F7FA')))
+        style_cmds.append(('TEXTCOLOR', (rcv_idx, 1), (rcv_idx, -2), colors.HexColor('#00838F')))
+        style_cmds.append(('FONTNAME', (rcv_idx, 1), (rcv_idx, -2), 'Helvetica-Bold'))
+    except ValueError: pass
+    try:
+        pnd_idx = col_keys.index('pending_balance')
+        style_cmds.append(('BACKGROUND', (pnd_idx, 1), (pnd_idx, -2), colors.HexColor('#FFE0B2')))
+        style_cmds.append(('TEXTCOLOR', (pnd_idx, 1), (pnd_idx, -2), colors.HexColor('#E65100')))
+        style_cmds.append(('FONTNAME', (pnd_idx, 1), (pnd_idx, -2), 'Helvetica-Bold'))
+    except ValueError: pass
     table.setStyle(TableStyle(style_cmds))
     elements.append(table)
 
@@ -1012,3 +1230,179 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
     fn = f"{(product or 'byproduct').lower().replace(' ','_')}_sale_register_{datetime.now().strftime('%Y%m%d')}.pdf"
     return Response(content=buffer.getvalue(), media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={fn}"})
+
+
+# v104.44.56 — Option C: Party Statement Excel Export (chronological ledger A4)
+@router.get("/bp-sale-register/export/statement-excel")
+async def export_party_statement_excel(party: str, kms_year: str = "", season: str = "",
+                                        gst_filter: Optional[str] = None):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from io import BytesIO
+    from fastapi.responses import Response
+    stmt = await get_bp_party_statement(party=party, kms_year=kms_year, season=season, gst_filter=gst_filter)
+    branding = await db.branding.find_one({}, {"_id": 0}) or {}
+    company = (branding.get('company_name') or 'Rice Mill').upper()
+    address = branding.get('address', '') or ''
+    phone = branding.get('phone', '') or ''
+
+    wb = Workbook(); ws = wb.active; ws.title = f"{party[:25]} Statement"
+    border = Border(left=Side(style='thin', color='B0C4DE'), right=Side(style='thin', color='B0C4DE'),
+                    top=Side(style='thin', color='B0C4DE'), bottom=Side(style='thin', color='B0C4DE'))
+    cols = [('Date', 14), ('Sub-Ledger', 18), ('Type', 8), ('Description', 38), ('Debit (Dr)', 14), ('Credit (Cr)', 14), ('Balance', 14)]
+    ncols = len(cols)
+    for i, (h, w) in enumerate(cols, 1): ws.column_dimensions[ws.cell(1, i).column_letter].width = w
+
+    # Row 1: company
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
+    c = ws.cell(1, 1, company); c.font = Font(bold=True, size=14, color='1F4E79'); c.alignment = Alignment(horizontal='center')
+    # Row 2: address
+    if address or phone:
+        ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=ncols)
+        c = ws.cell(2, 1, f"{address}  |  {phone}"); c.font = Font(size=9, color='666666'); c.alignment = Alignment(horizontal='center')
+    # Row 3: title
+    mode = gst_filter or 'ALL'
+    ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=ncols)
+    title = f"PARTY STATEMENT — {party}  [{mode}]"
+    if kms_year: title += f"   FY {kms_year}"
+    if season: title += f"   ({season})"
+    c = ws.cell(3, 1, title); c.font = Font(bold=True, size=12, color='FFFFFF')
+    c.fill = PatternFill('solid', fgColor='2E75B6'); c.alignment = Alignment(horizontal='center')
+
+    # Row 4: summary
+    s = stmt['summary']
+    ws.merge_cells(start_row=4, start_column=1, end_row=4, end_column=ncols)
+    summary_txt = f"Entries: {s['entry_count']}   |   Total Debit: ₹{s['total_debit']:,.2f}   |   Total Credit: ₹{s['total_credit']:,.2f}   |   Closing Balance: ₹{s['closing_balance']:,.2f}"
+    c = ws.cell(4, 1, summary_txt); c.font = Font(italic=True, size=9, color='555555')
+    c.fill = PatternFill('solid', fgColor='F5F5F5'); c.alignment = Alignment(horizontal='center')
+
+    # Row 5: header
+    header_row = 5
+    for i, (h, _) in enumerate(cols, 1):
+        c = ws.cell(header_row, i, h)
+        c.font = Font(bold=True, size=10, color='FFFFFF')
+        c.fill = PatternFill('solid', fgColor='1F4E79')
+        c.alignment = Alignment(horizontal='center')
+        c.border = border
+
+    # Data
+    for idx, e in enumerate(stmt['entries']):
+        r = header_row + 1 + idx
+        alt = PatternFill('solid', fgColor='F0F6FC') if idx % 2 == 0 else None
+        debit = e['amount'] if e['flow'] == 'Dr' else 0
+        credit = e['amount'] if e['flow'] == 'Cr' else 0
+        vals = [fmt_date(e['date']), e.get('party_name', ''), e['flow'], e.get('description', ''),
+                debit, credit, e['running_balance']]
+        for ci, v in enumerate(vals, 1):
+            c = ws.cell(r, ci, v); c.font = Font(size=9); c.border = border
+            if alt: c.fill = alt
+            if ci >= 5: c.alignment = Alignment(horizontal='right'); c.number_format = '#,##0.00'
+            if ci == 5 and v: c.font = Font(size=9, bold=True, color='1B5E20')  # Debit green
+            elif ci == 6 and v: c.font = Font(size=9, bold=True, color='C62828')  # Credit red
+            elif ci == 7: c.font = Font(size=9, bold=True, color='0D47A1')  # Balance dark blue
+
+    # Total row
+    tr = header_row + 1 + len(stmt['entries'])
+    for i in range(1, ncols + 1):
+        c = ws.cell(tr, i); c.fill = PatternFill('solid', fgColor='2E75B6'); c.font = Font(bold=True, size=9, color='FFFFFF'); c.border = border
+    ws.cell(tr, 1, 'CLOSING')
+    ws.cell(tr, 5, s['total_debit']).number_format = '#,##0.00'
+    ws.cell(tr, 6, s['total_credit']).number_format = '#,##0.00'
+    ws.cell(tr, 7, s['closing_balance']).number_format = '#,##0.00'
+    for i in range(5, 8): ws.cell(tr, i).alignment = Alignment(horizontal='right')
+
+    ws.freeze_panes = ws.cell(header_row + 1, 1)
+    ws.auto_filter.ref = f"A{header_row}:{ws.cell(header_row, ncols).column_letter}{tr - 1}"
+    ws.print_options.horizontalCentered = True
+    ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+    ws.page_setup.fitToPage = True; ws.page_setup.fitToWidth = 1; ws.page_setup.fitToHeight = 0
+    ws.sheet_view.showGridLines = False
+
+    buf = BytesIO(); wb.save(buf); buf.seek(0)
+    fn = f"{party.lower().replace(' ', '_')}_statement_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    return Response(content=buf.getvalue(),
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename={fn}'})
+
+
+# v104.44.56 — Option C: Party Statement PDF Export (A4 portrait, professional)
+@router.get("/bp-sale-register/export/statement-pdf")
+async def export_party_statement_pdf(party: str, kms_year: str = "", season: str = "",
+                                      gst_filter: Optional[str] = None):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table as RLTable, TableStyle
+    from io import BytesIO
+    from fastapi.responses import Response
+    stmt = await get_bp_party_statement(party=party, kms_year=kms_year, season=season, gst_filter=gst_filter)
+    branding = await db.branding.find_one({}, {"_id": 0}) or {}
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=18, rightMargin=18, topMargin=18, bottomMargin=18)
+    elements = []; styles = getSampleStyleSheet()
+
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header(branding))
+
+    mode = gst_filter or 'ALL'
+    title_bg = colors.HexColor('#2E7D32') if mode == 'PKA' else (colors.HexColor('#C62828') if mode == 'KCA' else colors.HexColor('#2E75B6'))
+    title_style = ParagraphStyle('StmtTitle', parent=styles['Heading2'], fontSize=11,
+        textColor=colors.white, backColor=title_bg, spaceAfter=4, alignment=1, borderPadding=(4, 4, 4, 4))
+    title = f"PARTY STATEMENT — {party}  [{mode}]"
+    if kms_year: title += f"   FY {kms_year}"
+    if season: title += f"   ({season})"
+    elements.append(Paragraph(title, title_style))
+
+    s = stmt['summary']
+    sub_style = ParagraphStyle('SubT', parent=styles['Normal'], fontSize=8, alignment=1,
+        textColor=colors.HexColor('#555555'), backColor=colors.HexColor('#F5F5F5'), borderPadding=(3, 3, 3, 3))
+    summary_txt = f"<b>Entries:</b> {s['entry_count']}  |  <b>Total Debit:</b> <font color='#1B5E20'>₹{s['total_debit']:,.2f}</font>  |  <b>Total Credit:</b> <font color='#C62828'>₹{s['total_credit']:,.2f}</font>  |  <b>Closing Balance:</b> <font color='red'>₹{s['closing_balance']:,.2f}</font>"
+    elements.append(Paragraph(summary_txt, sub_style))
+    elements.append(Spacer(1, 5))
+
+    # Table
+    headers = ['Date', 'Sub-Ledger', 'Type', 'Description', 'Debit (Dr)', 'Credit (Cr)', 'Balance']
+    col_widths = [55, 70, 28, 230, 65, 65, 65]
+    data = [headers]
+    for e in stmt['entries']:
+        debit = f"{e['amount']:,.0f}" if e['flow'] == 'Dr' else ''
+        credit = f"{e['amount']:,.0f}" if e['flow'] == 'Cr' else ''
+        data.append([fmt_date(e['date']), e.get('party_name', '')[:18], e['flow'], e.get('description', '')[:55], debit, credit, f"{e['running_balance']:,.0f}"])
+    data.append(['CLOSING', '', '', '', f"{s['total_debit']:,.0f}", f"{s['total_credit']:,.0f}", f"{s['closing_balance']:,.0f}"])
+
+    table = RLTable(data, colWidths=col_widths, repeatRows=1)
+    nrows = len(data)
+    style_cmds = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E79')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('FONTSIZE', (0, 1), (-1, -1), 7),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('ALIGN', (4, 1), (-1, -1), 'RIGHT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#CCCCCC')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#EBF1F8')]),
+        ('BACKGROUND', (0, nrows - 1), (-1, nrows - 1), colors.HexColor('#2E75B6')),
+        ('TEXTCOLOR', (0, nrows - 1), (-1, nrows - 1), colors.white),
+        ('FONTNAME', (0, nrows - 1), (-1, nrows - 1), 'Helvetica-Bold'),
+        ('TEXTCOLOR', (4, 1), (4, -2), colors.HexColor('#1B5E20')),  # Dr green
+        ('TEXTCOLOR', (5, 1), (5, -2), colors.HexColor('#C62828')),  # Cr red
+        ('TEXTCOLOR', (6, 1), (6, -2), colors.HexColor('#0D47A1')),  # Balance blue
+        ('FONTNAME', (4, 1), (6, -2), 'Helvetica-Bold'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]
+    table.setStyle(TableStyle(style_cmds))
+    elements.append(table)
+
+    elements.append(Spacer(1, 6))
+    gen_style = ParagraphStyle('Gen', parent=styles['Normal'], fontSize=7, textColor=colors.HexColor('#999999'))
+    elements.append(Paragraph(f"Generated: {datetime.now().strftime('%d/%m/%Y %H:%M')}", gen_style))
+
+    doc.build(elements); buffer.seek(0)
+    fn = f"{party.lower().replace(' ', '_')}_statement_{datetime.now().strftime('%Y%m%d')}.pdf"
+    return Response(content=buffer.getvalue(), media_type='application/pdf',
+        headers={'Content-Disposition': f'attachment; filename={fn}'})

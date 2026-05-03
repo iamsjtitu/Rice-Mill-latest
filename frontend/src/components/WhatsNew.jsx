@@ -7,6 +7,19 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.56",
+    date: "Feb 17, 2026",
+    title: "v104.44.56 — 💰 Sales Ledger: Payment Tracking + Party Statement (A+B+C combo)",
+    items: [
+      { type: "feature", text: "💰 **Auto Payment Fetch (Option A)** — Har sale row me 3 naye columns: **Last Pmt** (last payment date), **Received** (cumulative payments via FIFO), **Pending** (after all payments + premium). PKA payments PKA portion ko, KCA payments KCA portion ko allocate hote hain." },
+      { type: "feature", text: "📋 **Expandable Payment Rows (Option B)** — Sale ke saath ▸ button click karo to neeche nested payment rows: Date, Description, PKA/KCA badge, Amount. Sirf un sales pe button dikhega jin par payments aaye hain." },
+      { type: "feature", text: "📄 **Party Statement (Option C)** — Naya purple `$` icon button: Party select karo, mode (ALL/PKA/KCA) chuno → A4 portrait PDF ya Excel download. Chronological ledger (Sale Dr + Payment Cr + Premium Cr) running balance ke saath. Tally-style format. Send button bhi WhatsApp/share-sheet ke liye." },
+      { type: "improvement", text: "📊 **Excel + PDF exports** me bhi 3 naye columns (Last Pmt, Received, Pending) auto-show hote hain jab payments aate hain. PKA mode me hide (since billed-only view). Color-coded — Received cyan, Pending orange." },
+      { type: "improvement", text: "🔤 **Description normalization** — Statement me legacy 'Pakka'/'Kaccha' descriptions automatically PKA/KCA me convert hote hain. Consistent abbreviation poore software me." },
+      { type: "improvement", text: "🌐 **Triple-Backend Parity** — Python FastAPI + Node Desktop + Node LAN — teeno backends me identical API: `/api/bp-sale-register/with-payments`, `/api/bp-sale-register/party-statement`, `/api/bp-sale-register/export/statement-excel`, `/api/bp-sale-register/export/statement-pdf`." },
+    ],
+  },
+  {
     version: "104.44.55",
     date: "Feb 17, 2026",
     title: "v104.44.55 — 📤 WhatsApp button: ab seedha PDF share karta hai",
