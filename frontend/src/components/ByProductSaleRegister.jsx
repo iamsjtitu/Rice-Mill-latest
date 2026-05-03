@@ -28,7 +28,7 @@ const WhatsAppIcon = ({ className = "w-3.5 h-3.5" }) => (
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = `${_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')}/api`;
 
-export default function ByProductSaleRegister({ filters, user, product }) {
+export default function ByProductSaleRegister({ filters, user, product, showPartyWeightTab = true }) {
   const showConfirm = useConfirm();
   const [sales, setSales] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -535,7 +535,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
 
   return (
     <div className="space-y-3" data-testid={`bp-sale-register-${product}`}>
-      {/* v104.44.70 — Top-level sub-tabs: Sales | Party Weight */}
+      {/* v104.44.70 — Top-level sub-tabs: Sales | Party Weight (shown only when parent doesn't inline Party Weight tab) */}
+      {showPartyWeightTab && (
       <div className="flex gap-1 border-b border-slate-200 dark:border-slate-700">
         <button
           onClick={() => setMainTab("sales")}
@@ -552,6 +553,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
           ⚖️ Party Weight
         </button>
       </div>
+      )}
 
       {mainTab === "party_weight" ? (
         <PartyWeightRegister filters={filters} user={user} product={product} />
@@ -697,30 +699,30 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             <Table className="min-w-[1100px]">
               <TableHeader>
                 <TableRow className="border-slate-700 hover:bg-transparent">
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px]">Date</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[60px]">Voucher</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px]">Bill No</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px]">Bill Date</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px]">RST</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[85px]">Vehicle</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[90px]">Bill From</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[100px]">Party</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[75px]">Destination</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[60px] text-right">N/W(Qtl)</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[40px] text-right">Bags</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[50px] text-right">Rate/Q</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Amount</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[55px] text-right">Tax</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Total</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px] whitespace-nowrap">Date</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[60px] whitespace-nowrap">Voucher</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] whitespace-nowrap">Bill No</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px] whitespace-nowrap">Bill Date</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px] whitespace-nowrap">RST</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[85px] whitespace-nowrap">Vehicle</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[90px] whitespace-nowrap">Bill From</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[100px] whitespace-nowrap">Party</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[75px] whitespace-nowrap">Destination</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px] text-right whitespace-nowrap">N/W (Qtl)</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[50px] text-right whitespace-nowrap">Bags</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[60px] text-right whitespace-nowrap">Rate/Q</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right whitespace-nowrap">Amount</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[55px] text-right whitespace-nowrap">Tax</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right whitespace-nowrap">Total</TableHead>
                   {gstFilter !== "PKA" && hasAnyOilPremium && <>
-                    <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px] text-right">Oil%</TableHead>
-                    <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px] text-right">Diff%</TableHead>
-                    <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Premium</TableHead>
+                    <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px] text-right whitespace-nowrap">Oil%</TableHead>
+                    <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px] text-right whitespace-nowrap">Diff%</TableHead>
+                    <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right whitespace-nowrap">Premium</TableHead>
                   </>}
-                  {gstFilter !== "PKA" && <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[75px] text-right" title="Balance after Premium adjustment">Balance</TableHead>}
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px]" title="Last payment date received">Last Pmt</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[75px] text-right" title="Total payments received against this sale">Received</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[80px] text-right" title="Pending after all payments + premium (negative = overpaid)">Pending</TableHead>
+                  {gstFilter !== "PKA" && <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[75px] text-right whitespace-nowrap" title="Balance after Premium adjustment">Balance</TableHead>}
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px] whitespace-nowrap" title="Last payment date received">Last Pmt</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[75px] text-right whitespace-nowrap" title="Total payments received against this sale">Received</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[80px] text-right whitespace-nowrap" title="Pending after all payments + premium (negative = overpaid)">Pending</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[110px]"></TableHead>
                 </TableRow>
               </TableHeader>

@@ -7,6 +7,24 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.83",
+    date: "Feb 17, 2026",
+    title: "v104.44.83 — Party Weight moved to top-level + Bill No header fix",
+    items: [
+      { type: "improvement", text: "🗂️ **Party Weight top-level tab (Rice Bran)** — Ab `Sales Register | Labtest Report | Party Weight` ek hi row me hain (Rice Bran category me). Pehle Sales Register ke andar ek aur 'Sales Register' + 'Party Weight' duplicate sub-tab tha — wo hata diya." },
+      { type: "improvement", text: "📋 **Bill No header single-line** — Table me `Bill No` 2 lines me wrap ho raha tha. `whitespace-nowrap` add kiya Date/Voucher/Bill No/Bill Date/RST/Last Pmt/Received/Pending sab headers pe — no more wrap drift." },
+    ],
+  },
+  {
+    version: "104.44.82",
+    date: "Feb 17, 2026",
+    title: "v104.44.82 — Table headers: no more 2-line wrapping",
+    items: [
+      { type: "improvement", text: "📋 **Table headers single-line** — `N/W (Qtl)`, `Rate/Q`, Bill No, Vehicle, Amount, Tax, etc. sab ab `whitespace-nowrap` ke saath single-line me dikhte hain. Pehle 2 lines me wrap ho rahe the." },
+      { type: "improvement", text: "📐 N/W (Qtl) column 60px → 70px · Bags 40px → 50px · Rate/Q 50px → 60px — thoda widen kiya so text fits clean." },
+    ],
+  },
+  {
     version: "104.44.81",
     date: "Feb 17, 2026",
     title: "v104.44.81 — Non-split Rate/Amount width aligned with common block",

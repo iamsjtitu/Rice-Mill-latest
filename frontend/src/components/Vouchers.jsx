@@ -7,6 +7,7 @@ import StockSummary from "./StockSummary";
 import { PaddyPurchase, PartySummary } from "./PaddyPurchase";
 import ByProductSaleRegister from "./ByProductSaleRegister";
 import OilPremiumRegister from "./OilPremiumRegister";
+import PartyWeightRegister from "./PartyWeightRegister";
 import PaddyPurchaseRegister from "./PaddyPurchaseRegister";
 import DCTracker from "./DCTracker";
 import { PaddyCustodyRegister, TransitPassRegister, MillingRegister } from "./GovtRegisters";
@@ -72,7 +73,7 @@ export default function Vouchers({ filters, user, onNavigate }) {
             ))}
           </div>
 
-          {/* Rice Bran sub-tabs: Sales | Oil Premium */}
+          {/* Rice Bran sub-tabs: Sales | Labtest Report | Party Weight */}
           {saleCat === "rice_bran" && (
             <div className="flex gap-2 border-b border-slate-700/50 pb-1.5">
               <button onClick={() => setBranSubTab("sales")}
@@ -85,6 +86,11 @@ export default function Vouchers({ filters, user, onNavigate }) {
                 data-testid="bran-subtab-oil-premium">
                 Labtest Report
               </button>
+              <button onClick={() => setBranSubTab("party_weight")}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${branSubTab === "party_weight" ? "bg-cyan-600/30 text-cyan-400 border border-cyan-500/50" : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"}`}
+                data-testid="bran-subtab-party-weight">
+                ⚖ Party Weight
+              </button>
             </div>
           )}
 
@@ -95,8 +101,10 @@ export default function Vouchers({ filters, user, onNavigate }) {
           ) : saleCat === "rice_bran" ? (
             branSubTab === "oil_premium" ? (
               <OilPremiumRegister filters={filters} user={user} />
+            ) : branSubTab === "party_weight" ? (
+              <PartyWeightRegister filters={filters} user={user} product="Rice Bran" />
             ) : (
-              <ByProductSaleRegister key={saleCat} filters={filters} user={user} product="Rice Bran" />
+              <ByProductSaleRegister key={saleCat} filters={filters} user={user} product="Rice Bran" showPartyWeightTab={false} />
             )
           ) : activeCat?.type === "bp" ? (
             <ByProductSaleRegister key={saleCat} filters={filters} user={user} product={activeCat.product} />
