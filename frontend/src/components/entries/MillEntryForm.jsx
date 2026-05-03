@@ -123,7 +123,27 @@ export function MillEntryForm({
                     clearCrossRst();
                   }
                 }}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.target.blur();
+                    // v104.44.65 — After RST fetch, jump to first unlocked input (skips readonly/disabled)
+                    setTimeout(() => {
+                      const form = e.target.closest('form');
+                      if (!form) return;
+                      const inputs = form.querySelectorAll('input, textarea, select');
+                      for (const el of inputs) {
+                        if (el === e.target) continue;
+                        if (el.disabled || el.readOnly) continue;
+                        if (el.type === 'hidden') continue;
+                        if (el.offsetParent === null) continue; // hidden
+                        el.focus();
+                        if (el.select) try { el.select(); } catch (_) { /* ignore */ }
+                        break;
+                      }
+                    }, 350); // wait for debounced rst lookup + state update
+                  }
+                }}
                 placeholder="RST Number"
                 className={`bg-slate-700 border-slate-600 text-white ${dupWarning.rst ? 'border-red-500 ring-1 ring-red-500' : ''}`}
                 data-testid="input-rst-no"

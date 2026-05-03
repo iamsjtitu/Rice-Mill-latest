@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.65",
+    date: "Feb 17, 2026",
+    title: "v104.44.65 — ⏎ Mill Entry: RST → Enter → first unlocked field auto-focus",
+    items: [
+      { type: "feature", text: "⏎ **Smart Tab/Enter flow** — Mill Entry 'Nayi Entry' me RST number type karke Enter dabane pe sab fields fetch ho jate hain, aur cursor automatically **first unlocked editable field** (e.g. BAG / Dust / Pole / Varta) pe jump kar jata hai. Locked/readonly fields skip ho jate hain. Tezi se entry karna easier." },
+    ],
+  },
+  {
     version: "104.44.64",
     date: "Feb 17, 2026",
     title: "v104.44.64 — 🩹 RST duplicate-check: Vehicle Weight = source, not duplicate",
