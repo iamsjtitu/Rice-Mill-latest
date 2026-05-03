@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.86",
+    date: "Feb 17, 2026",
+    title: "v104.44.86 — Total Sales: Govt Rice / SaleBook included",
+    items: [
+      { type: "feature", text: "🏛️ **Govt Rice / SaleBook** ab Total Sales Register me shamil. `sale_vouchers` collection (Govt CMR + paid Govt sales) se data fetch hota hai. Items ki quantity automatically Qtl me convert hoti hai (Kg → /100). Product column me `Govt Rice · <item_names>` dikhta hai." },
+      { type: "improvement", text: "🔽 **Source dropdown expanded** — Ab 4 options: `All Sources` (default — BP + Pvt + Govt), `BP Sale (By-Products)`, `Pvt Rice`, `Govt Rice / SaleBook`." },
+      { type: "improvement", text: "🏷️ **Govt Rice split tag** — Govt voucher ka `gst_type == 'none'` ho to KCA badge, warna PKA badge (CGST+SGST ya IGST calculated)." },
+    ],
+  },
+  {
     version: "104.44.85",
     date: "Feb 17, 2026",
     title: "v104.44.85 — 📊 Total Sales Register (new tab in Sales Register)",

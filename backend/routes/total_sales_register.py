@@ -119,6 +119,69 @@ def _rs_to_row(s: dict) -> dict:
     }
 
 
+def _sv_to_row(s: dict) -> dict:
+    """Normalize sale_vouchers document (Govt Rice / SaleBook) into unified row."""
+    items = s.get("items", []) or []
+    # Aggregate from items (quantity treated as weight in Qtl already per SaleBook convention,
+    # but some older rows may have it in KG — normalize by checking magnitude)
+    total_qtl = 0.0
+    total_bags = 0
+    rates = []
+    product_names = []
+    for it in items:
+        q = float(it.get("quantity", 0) or it.get("weight_qntl", 0) or 0)
+        # If unit is KG, convert to Qtl
+        unit = (it.get("unit", "") or "").upper()
+        if unit == "KG":
+            q = q / 100
+        total_qtl += q
+        total_bags += int(it.get("bags", 0) or 0)
+        r = float(it.get("rate", 0) or 0)
+        if r > 0:
+            rates.append(r)
+        nm = it.get("item_name", "") or ""
+        if nm and nm not in product_names:
+            product_names.append(nm)
+    avg_rate = round(sum(rates) / len(rates), 0) if rates else 0
+    subtotal = float(s.get("subtotal", 0) or 0)
+    # Tax: CGST + SGST + IGST
+    tax = float(s.get("cgst_amount", 0) or 0) + float(s.get("sgst_amount", 0) or 0) + float(s.get("igst_amount", 0) or 0)
+    total = float(s.get("total", 0) or 0) or round(subtotal + tax, 2)
+    paid = float(s.get("paid_amount", 0) or 0)
+    balance = float(s.get("balance", 0) or 0) or round(total - paid, 2)
+    gst_type = s.get("gst_type", "none")
+    is_kca = gst_type == "none" or gst_type == ""
+    product_label = "Govt Rice" + (f" · {' / '.join(product_names[:2])}" if product_names else "")
+    voucher = s.get("voucher_no_label") or (f"S-{s.get('voucher_no', 0):03d}" if s.get("voucher_no") else "")
+    return {
+        "source": "sale_voucher",
+        "id": s.get("id"),
+        "date": s.get("date", ""),
+        "voucher_no": voucher,
+        "bill_number": s.get("invoice_no", ""),
+        "billing_date": s.get("date", ""),
+        "rst_no": str(s.get("rst_no", "") or ""),
+        "vehicle_no": s.get("truck_no", ""),
+        "bill_from": s.get("bill_book", ""),
+        "product": product_label,
+        "party_name": s.get("party_name", ""),
+        "destination": s.get("destination", ""),
+        "net_weight_qtl": round(total_qtl, 2),
+        "bags": total_bags,
+        "rate_per_qtl": avg_rate,
+        "amount": round(subtotal, 2),
+        "tax": round(tax, 2),
+        "total": round(total, 2),
+        "balance": round(balance, 2),
+        "advance": round(paid, 2),
+        "kms_year": s.get("kms_year", ""),
+        "season": s.get("season", ""),
+        "split_billing": False,
+        "split_type": "KCA" if is_kca else "PKA",
+        "gst_type": gst_type,
+    }
+
+
 @router.get("/total-sales-register")
 async def get_total_sales(
     kms_year: Optional[str] = None,
@@ -163,6 +226,20 @@ async def get_total_sales(
         rs_items = await db.rice_sales.find(q_rs, {"_id": 0}).to_list(20000)
         for s in rs_items:
             rows.append(_rs_to_row(s))
+
+    # Govt Rice / SaleBook
+    if source in (None, "sale_voucher"):
+        q_sv = dict(q_common)
+        if party_name:
+            q_sv["party_name"] = {"$regex": party_name, "$options": "i"}
+        sv_items = await db.sale_vouchers.find(q_sv, {"_id": 0}).to_list(20000)
+        for s in sv_items:
+            row = _sv_to_row(s)
+            # product filter: if explicit product, include only if matches any item name
+            if product:
+                if product.lower() not in (row.get("product") or "").lower():
+                    continue
+            rows.append(row)
 
     # Free-text search across party, vehicle, rst, voucher, product
     if search:
