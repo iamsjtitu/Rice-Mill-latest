@@ -1184,6 +1184,9 @@ async function startServer() {
     const partyWeightRoutes = require('./routes/party_weight')(database);
     app.use(partyWeightRoutes);
 
+    const totalSalesRoutes = require('./routes/total_sales_register')(database);
+    app.use(totalSalesRoutes);
+
     console.log('  [Routes] All modular routes loaded successfully');
 
     // ===== DATE FORMAT VALIDATOR - Startup Health Check =====

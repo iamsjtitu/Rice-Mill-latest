@@ -1450,6 +1450,7 @@ function createApiServer(database) {
     { name: 'paddy_release', load: () => require('./routes/paddy_release')(database) },
     { name: 'rst_check', load: () => require('./routes/rst_check')(database) },
     { name: 'party_weight', load: () => require('./routes/party_weight')(database) },
+    { name: 'total_sales_register', load: () => require('./routes/total_sales_register')(database) },
   ];
 
   let loadedCount = 0;

@@ -29,14 +29,14 @@ const PRODUCT_OPTIONS = [
   { value: "Husk", label: "Husk" },
   { value: "Kanki", label: "Kanki" },
   { value: "Rice", label: "Pvt Rice (all types)" },
-  { value: "Govt Rice", label: "Govt Rice / SaleBook" },
+  { value: "Govt Rice", label: "Govt Rice" },
 ];
 
 const SOURCE_OPTIONS = [
   { value: "", label: "All Sources" },
   { value: "bp_sale", label: "BP Sale (By-Products)" },
   { value: "rice_sale", label: "Pvt Rice" },
-  { value: "sale_voucher", label: "Govt Rice / SaleBook" },
+  { value: "sale_voucher", label: "Govt Rice" },
 ];
 
 export default function TotalSalesRegister({ filters, user }) {

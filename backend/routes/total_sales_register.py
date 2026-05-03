@@ -1,11 +1,12 @@
 """
-Total Sales Register — unified view across BP + Pvt Rice sales.
-v104.44.85
+Total Sales Register — unified view across BP + Pvt Rice + Govt Rice sales.
+v104.44.87 — Govt Rice included, Received from cash_transactions (party-level FIFO)
 """
 from fastapi import APIRouter, Query
 from typing import Optional
 from datetime import datetime, timezone
 import os, io
+from collections import defaultdict
 from motor.motor_asyncio import AsyncIOMotorClient
 
 MONGO_URL = os.environ.get("MONGO_URL")
@@ -14,6 +15,35 @@ client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 
 router = APIRouter()
+
+
+def _safe_num(v):
+    try: return float(v or 0)
+    except Exception: return 0.0
+
+
+async def _fetch_party_received(party: str, kms_year: str = "", season: str = "") -> float:
+    """Total payments received for a party from cash_transactions (txn_type='jama').
+    Matches the logic in bp_sale_register._fetch_party_payments.
+    """
+    if not party: return 0.0
+    q = {"category": party, "txn_type": "jama"}
+    if kms_year: q["kms_year"] = kms_year
+    if season: q["season"] = season
+    raws = await db.cash_transactions.find(q, {"_id": 0}).to_list(10000)
+    skip_keywords = ('lab test premium', 'oil premium', 'sale bhada')
+    raws = [r for r in raws if not any(k in (r.get('description', '') or '').lower() for k in skip_keywords)]
+    # Dedupe by (date, description) — prefer auto_ledger mirror
+    grouped = {}
+    for r in raws:
+        key = (r.get('date', '') or '', (r.get('description', '') or '').strip().lower())
+        ref = (r.get('reference', '') or '')
+        existing = grouped.get(key)
+        if existing is None:
+            grouped[key] = r
+        elif ref.startswith('auto_ledger:') and not (existing.get('reference', '') or '').startswith('auto_ledger:'):
+            grouped[key] = r
+    return round(sum(_safe_num(r.get('amount', 0)) for r in grouped.values()), 2)
 
 
 def _bp_to_rows(s: dict) -> list:
@@ -240,6 +270,33 @@ async def get_total_sales(
                 if product.lower() not in (row.get("product") or "").lower():
                     continue
             rows.append(row)
+
+    # v104.44.87 — Allocate payments from cash_transactions per party (FIFO by date).
+    # BP split rows use suffixed party_name: "PartyName (PKA)" / "PartyName (KCA)".
+    # Non-split BP + Pvt Rice + Govt use plain party_name.
+    def _party_key(r):
+        if r.get("split_type") in ("PKA", "KCA") and r.get("source") == "bp_sale":
+            return f"{(r.get('party_name') or '').strip()} ({r['split_type']})"
+        return (r.get("party_name") or "").strip()
+
+    party_rows = defaultdict(list)
+    for r in rows:
+        pk = _party_key(r)
+        if pk:
+            party_rows[(pk, r.get("kms_year", ""), r.get("season", ""))].append(r)
+    for (pk, kms, ssn), group in party_rows.items():
+        received_total = await _fetch_party_received(pk, kms, ssn)
+        group.sort(key=lambda r: (r.get("date") or "", r.get("id") or ""))
+        remaining = received_total
+        for r in group:
+            if remaining <= 0:
+                r["advance"] = 0.0
+                r["balance"] = round(float(r.get("total", 0) or 0), 2)
+                continue
+            alloc = min(remaining, float(r.get("total", 0) or 0))
+            r["advance"] = round(alloc, 2)
+            r["balance"] = round(float(r.get("total", 0) or 0) - alloc, 2)
+            remaining = round(remaining - alloc, 2)
 
     # Free-text search across party, vehicle, rst, voucher, product
     if search:
