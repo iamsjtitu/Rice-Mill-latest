@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.72",
+    date: "Feb 17, 2026",
+    title: "v104.44.72 — BP Sale form polish: Bag fields placement + order",
+    items: [
+      { type: "improvement", text: "📋 **Inline order** — BP Sale form me ab user-specified sequence: `Bags → Bag Type → Bag W.C → Final M.W → Amount`. Alag-alag cyan panel hata diya — sab ek hi row me clean." },
+      { type: "improvement", text: "➖ **Pakka section se Bags removed** — Split mode me Pakka section me ab Bags field nahi dikhega. Sirf: Pakka Wt (Qtl/Kg) + Rate + Amount." },
+      { type: "improvement", text: "➕ **Bags only in Kaccha (split mode)** — Split mode me Bags + Bag Type + Bag W.C + Final M.W sirf Kaccha section me. Bag count still shared (ek hi deduction)." },
+      { type: "improvement", text: "🎯 **Split mode cut logic** — Bag weight cut ab Kaccha side pe full absorb hota hai (Pakka bill untouched rehta hai — GST-paid portion safe). Pehle pro-rata tha." },
+    ],
+  },
+  {
     version: "104.44.71",
     date: "Feb 17, 2026",
     title: "v104.44.71 — 🧺 BP Sale: Bag Type Stock Deduct + Bag Weight Cut (Bran)",

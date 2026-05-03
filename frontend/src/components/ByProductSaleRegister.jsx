@@ -229,10 +229,9 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   // Final weights after cut (billing basis)
   const nwKg = Math.max(0, Math.round((rawNwKg - totalCutKg) * 100) / 100);
   const nwQtl = nwKg / 100;
-  // For split: pro-rate the cut between PKA and KCA by their gross weights
-  const splitRawSum = billedKg + kacchaKg;
-  const pakkaCutKg = (isSplit && splitRawSum > 0) ? Math.round((totalCutKg * billedKg / splitRawSum) * 100) / 100 : 0;
-  const kacchaCutKg = isSplit ? Math.round((totalCutKg - pakkaCutKg) * 100) / 100 : 0;
+  // For split: entire cut absorbed by Kaccha side (Pakka bill stays untouched per user spec)
+  const pakkaCutKg = 0;
+  const kacchaCutKg = isSplit ? totalCutKg : 0;
   const finalBilledKg = Math.max(0, billedKg - pakkaCutKg);
   const finalKacchaKg = Math.max(0, kacchaKg - kacchaCutKg);
   const billedQtl = finalBilledKg / 100;
@@ -1015,7 +1014,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
 
             {!isSplit && (
               <>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label className="text-[10px] text-slate-400">N/W (Qtl) {stockInfo && <span className={`font-bold ${(effectiveAvailQtl - nwQtl) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((effectiveAvailQtl - nwQtl) * 100) / 100} Qtl)</span>}</Label>
                   <Input type="number" step="0.01"
@@ -1034,9 +1033,17 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     className="bg-slate-800 border-slate-700 text-slate-300 h-8 text-xs cursor-not-allowed" data-testid="bp-nw" />
                 </div>
                 <div>
+                  <Label className="text-[10px] text-slate-400">Rate (per Qtl)</Label>
+                  <Input type="number" step="0.01" value={form.rate_per_qtl}
+                    onChange={e => setForm(p => ({ ...p, rate_per_qtl: e.target.value }))}
+                    className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-rate" />
+                </div>
+              </div>
+              {/* v104.44.72 — Bags → Bag Type → Bag W.C → Final M.W → Amount (user-specified order) */}
+              <div className={`grid gap-3 ${product === "Rice Bran" ? "grid-cols-5" : "grid-cols-4"}`}>
+                <div>
                   <Label className="text-[10px] text-slate-400">
-                    Bags
-                    {form.bag_type && bagStock[form.bag_type] !== undefined && (
+                    Bags {form.bag_type && bagStock[form.bag_type] !== undefined && (
                       <span className={`ml-1 font-bold ${(bagStock[form.bag_type] - bagCount) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                         (Stock: {bagStock[form.bag_type] - bagCount})
                       </span>
@@ -1046,43 +1053,42 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-bags" />
                 </div>
                 <div>
-                  <Label className="text-[10px] text-slate-400">Rate (per Qtl)</Label>
-                  <Input type="number" step="0.01" value={form.rate_per_qtl}
-                    onChange={e => setForm(p => ({ ...p, rate_per_qtl: e.target.value }))}
-                    className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-rate" />
-                </div>
-              </div>
-              {/* v104.44.71 — Bag Type (stock deduct) + Bag Weight Cut (Bran only) */}
-              <div className={`grid gap-3 ${product === "Rice Bran" ? "grid-cols-2" : "grid-cols-1"} p-2 rounded bg-cyan-900/10 border border-cyan-700/30`}>
-                <div>
-                  <Label className="text-[10px] text-cyan-300 font-semibold uppercase tracking-wider">Bag Type <span className="text-amber-400">*</span> <span className="text-slate-500 text-[9px]">(stock se ghatega)</span></Label>
+                  <Label className="text-[10px] text-cyan-300 font-semibold">Bag Type <span className="text-amber-400">*</span></Label>
                   <Select value={form.bag_type || ""} onValueChange={v => setForm(p => ({ ...p, bag_type: v }))}>
-                    <SelectTrigger className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="bp-bag-type">
-                      <SelectValue placeholder="Select bag type..." />
+                    <SelectTrigger className="bg-slate-700 border-cyan-700/50 text-white h-8 text-xs" data-testid="bp-bag-type">
+                      <SelectValue placeholder="Select..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="old">Old (Market) — Stock: {bagStock.old ?? 0}</SelectItem>
-                      <SelectItem value="bran_plastic">Bran P.Pkt — Stock: {bagStock.bran_plastic ?? 0}</SelectItem>
-                      <SelectItem value="broken_plastic">Broken P.Pkt — Stock: {bagStock.broken_plastic ?? 0}</SelectItem>
+                      <SelectItem value="old">Old (Market) — {bagStock.old ?? 0}</SelectItem>
+                      <SelectItem value="bran_plastic">Bran P.Pkt — {bagStock.bran_plastic ?? 0}</SelectItem>
+                      <SelectItem value="broken_plastic">Broken P.Pkt — {bagStock.broken_plastic ?? 0}</SelectItem>
                     </SelectContent>
                   </Select>
                   {bagCount > 0 && form.bag_type && bagStock[form.bag_type] !== undefined && bagCount > bagStock[form.bag_type] && (
-                    <p className="text-red-400 text-[10px] mt-0.5">⚠ Bag stock se zyada use ho raha hai ({bagCount - bagStock[form.bag_type]} bags short)</p>
+                    <p className="text-red-400 text-[9px] mt-0.5">⚠ {bagCount - bagStock[form.bag_type]} bags short</p>
                   )}
                 </div>
                 {product === "Rice Bran" && (
                   <div>
-                    <Label className="text-[10px] text-cyan-300 font-semibold uppercase tracking-wider">Bag Weight Cut (g/bag) <span className="text-slate-500 text-[9px]">(Bran only)</span></Label>
-                    <div className="flex gap-2 items-center">
-                      <Input type="number" value={form.bag_weight_cut_g}
-                        onChange={e => setForm(p => ({ ...p, bag_weight_cut_g: e.target.value }))}
-                        placeholder="200" className="bg-slate-700 border-slate-500 text-white h-8 text-xs w-24" data-testid="bp-bag-cut" />
-                      <span className="text-[10px] text-slate-400">
-                        Cut: <span className="text-amber-400 font-bold">{totalCutKg.toFixed(2)} Kg</span> · Final: <span className="text-emerald-400 font-bold">{nwKg.toFixed(2)} Kg</span>
-                      </span>
-                    </div>
+                    <Label className="text-[10px] text-cyan-300 font-semibold">Bag W.C (g)</Label>
+                    <Input type="number" value={form.bag_weight_cut_g}
+                      onChange={e => setForm(p => ({ ...p, bag_weight_cut_g: e.target.value }))}
+                      placeholder="200" className="bg-slate-700 border-cyan-700/50 text-white h-8 text-xs" data-testid="bp-bag-cut" />
                   </div>
                 )}
+                <div>
+                  <Label className="text-[10px] text-emerald-300 font-semibold">Final M.W (Kg)</Label>
+                  <div className="h-8 px-2 rounded bg-slate-900/60 border border-emerald-700/40 flex items-center text-xs text-emerald-300 font-mono font-bold" data-testid="bp-final-mw">
+                    {nwKg.toFixed(2)}
+                    {totalCutKg > 0 && <span className="ml-1 text-[9px] text-slate-500">(−{totalCutKg.toFixed(2)})</span>}
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-[10px] text-amber-300 font-semibold">Amount</Label>
+                  <div className="h-8 px-2 rounded bg-slate-900/60 border border-amber-700/40 flex items-center text-xs text-amber-300 font-mono font-bold" data-testid="bp-amount">
+                    ₹{amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  </div>
+                </div>
               </div>
               </>
             )}
@@ -1120,47 +1126,9 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   </div>
                 </div>
 
-                {/* v104.44.71 — Bag Type + Cut (split mode: shared — ek bar hi stock se ghatega) */}
-                <div className={`grid gap-3 ${product === "Rice Bran" ? "grid-cols-2" : "grid-cols-1"} p-2 rounded bg-cyan-900/10 border border-cyan-700/30`}>
-                  <div>
-                    <Label className="text-[10px] text-cyan-300 font-semibold uppercase tracking-wider">Bag Type <span className="text-amber-400">*</span> <span className="text-slate-500 text-[9px]">(stock se 1 baar ghatega — shared)</span></Label>
-                    <Select value={form.bag_type || ""} onValueChange={v => setForm(p => ({ ...p, bag_type: v }))}>
-                      <SelectTrigger className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="bp-split-bag-type">
-                        <SelectValue placeholder="Select bag type..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="old">Old (Market) — Stock: {bagStock.old ?? 0}</SelectItem>
-                        <SelectItem value="bran_plastic">Bran P.Pkt — Stock: {bagStock.bran_plastic ?? 0}</SelectItem>
-                        <SelectItem value="broken_plastic">Broken P.Pkt — Stock: {bagStock.broken_plastic ?? 0}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {bagCount > 0 && form.bag_type && bagStock[form.bag_type] !== undefined && bagCount > bagStock[form.bag_type] && (
-                      <p className="text-red-400 text-[10px] mt-0.5">⚠ Bag stock se zyada use ho raha hai ({bagCount - bagStock[form.bag_type]} bags short)</p>
-                    )}
-                  </div>
-                  {product === "Rice Bran" && (
-                    <div>
-                      <Label className="text-[10px] text-cyan-300 font-semibold uppercase tracking-wider">Bag Weight Cut (g/bag) <span className="text-slate-500 text-[9px]">(Bran only · pro-rata)</span></Label>
-                      <div className="flex gap-2 items-center">
-                        <Input type="number" value={form.bag_weight_cut_g}
-                          onChange={e => setForm(p => ({ ...p, bag_weight_cut_g: e.target.value }))}
-                          placeholder="200" className="bg-slate-700 border-slate-500 text-white h-8 text-xs w-24" data-testid="bp-split-bag-cut" />
-                        <span className="text-[10px] text-slate-400">
-                          Total Cut: <span className="text-amber-400 font-bold">{totalCutKg.toFixed(2)} Kg</span>
-                        </span>
-                      </div>
-                      {totalCutKg > 0 && (
-                        <p className="text-[10px] text-cyan-400 mt-0.5">
-                          Final PKA: <span className="font-bold text-emerald-400">{finalBilledKg.toFixed(2)} Kg</span> · Final KCA: <span className="font-bold text-amber-400">{finalKacchaKg.toFixed(2)} Kg</span>
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-
                 {/* PAKKA */}
-                <div className="grid grid-cols-6 gap-3 p-2 rounded bg-emerald-900/20 border border-emerald-500/30">
-                  <div className="col-span-6">
+                <div className="grid grid-cols-4 gap-3 p-2 rounded bg-emerald-900/20 border border-emerald-500/30">
+                  <div className="col-span-4">
                     <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Pakka (GST Bill)</p>
                   </div>
                   <div>
@@ -1196,12 +1164,6 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-rate" />
                   </div>
                   <div>
-                    {/* v104.44.45 — Bags mirrored with Kaccha — same form.bags field, stock deducts once */}
-                    <Label className="text-[10px] text-slate-400">Bags (total) <span className="text-slate-500 text-[9px]">(shared)</span></Label>
-                    <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
-                      className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-billed-bags" />
-                  </div>
-                  <div className="col-span-2">
                     <Label className="text-[10px] text-slate-400">Pakka Amount</Label>
                     <div className="h-8 px-2 rounded bg-slate-900/60 border border-slate-700 flex items-center text-xs text-emerald-300 font-mono" data-testid="bp-billed-amount">
                       ₹{billedAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
@@ -1210,8 +1172,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                 </div>
 
                 {/* KACCHA */}
-                <div className="grid grid-cols-5 gap-3 p-2 rounded bg-amber-900/20 border border-amber-500/30">
-                  <div className="col-span-5">
+                <div className={`grid gap-3 p-2 rounded bg-amber-900/20 border border-amber-500/30 ${product === "Rice Bran" ? "grid-cols-8" : "grid-cols-7"}`}>
+                  <div className={product === "Rice Bran" ? "col-span-8" : "col-span-7"}>
                     <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Kaccha (Slip — No GST)</p>
                   </div>
                   <div>
@@ -1247,10 +1209,42 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       placeholder={rate ? String(rate) : "Same as Pakka"}
                       className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-kaccha-rate" />
                   </div>
+                  {/* v104.44.72 — Bags → Bag Type → Bag W.C → Final M.W → Amount (Kaccha side only in split mode) */}
                   <div>
                     <Label className="text-[10px] text-slate-400">Bags (total) <span className="text-slate-500 text-[9px]">(shared)</span></Label>
                     <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
                       className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-bags" />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-cyan-300 font-semibold">Bag Type <span className="text-amber-400">*</span></Label>
+                    <Select value={form.bag_type || ""} onValueChange={v => setForm(p => ({ ...p, bag_type: v }))}>
+                      <SelectTrigger className="bg-slate-700 border-cyan-700/50 text-white h-8 text-xs" data-testid="bp-bag-type">
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="old">Old (Market) — {bagStock.old ?? 0}</SelectItem>
+                        <SelectItem value="bran_plastic">Bran P.Pkt — {bagStock.bran_plastic ?? 0}</SelectItem>
+                        <SelectItem value="broken_plastic">Broken P.Pkt — {bagStock.broken_plastic ?? 0}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {bagCount > 0 && form.bag_type && bagStock[form.bag_type] !== undefined && bagCount > bagStock[form.bag_type] && (
+                      <p className="text-red-400 text-[9px] mt-0.5">⚠ {bagCount - bagStock[form.bag_type]} bags short</p>
+                    )}
+                  </div>
+                  {product === "Rice Bran" && (
+                    <div>
+                      <Label className="text-[10px] text-cyan-300 font-semibold">Bag W.C (g)</Label>
+                      <Input type="number" value={form.bag_weight_cut_g}
+                        onChange={e => setForm(p => ({ ...p, bag_weight_cut_g: e.target.value }))}
+                        placeholder="200" className="bg-slate-700 border-cyan-700/50 text-white h-8 text-xs" data-testid="bp-bag-cut" />
+                    </div>
+                  )}
+                  <div>
+                    <Label className="text-[10px] text-emerald-300 font-semibold">Final M.W (Kg)</Label>
+                    <div className="h-8 px-2 rounded bg-slate-900/60 border border-emerald-700/40 flex items-center text-xs text-emerald-300 font-mono font-bold" data-testid="bp-kaccha-final-mw">
+                      {finalKacchaKg.toFixed(2)}
+                      {totalCutKg > 0 && <span className="ml-1 text-[9px] text-slate-500">(−{totalCutKg.toFixed(2)})</span>}
+                    </div>
                   </div>
                   <div>
                     <Label className="text-[10px] text-slate-400">Kaccha Amount</Label>
