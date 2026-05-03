@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.57",
+    date: "Feb 17, 2026",
+    title: "v104.44.57 — 🧹 Payment columns + Layout cleanup",
+    items: [
+      { type: "fix", text: "🧹 **Premium-related entries skip in Received** — Lab Test Premium / Oil Premium ledger entries ab `Received` me count nahi honge (wo already Balance me adjusted hain). Sirf actual party payments dikhayenge. Triple-backend (Python + Node Desktop + LAN)." },
+      { type: "improvement", text: "📏 **N/W Kg column hata** — frontend table + Excel + PDF teeno me sirf **N/W (Qtl)** column. Quintal hi standard hai." },
+      { type: "fix", text: "🔧 **Action menu wrap fix** — table action buttons (Eye/Edit/Delete/Expand) ab single line me rahenge, vertically wrap nahi honge. `flex-nowrap` + `shrink-0` + 110px width set." },
+    ],
+  },
+  {
     version: "104.44.56",
     date: "Feb 17, 2026",
     title: "v104.44.56 — 💰 Sales Ledger: Payment Tracking + Party Statement (A+B+C combo)",

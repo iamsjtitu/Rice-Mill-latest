@@ -596,7 +596,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[90px]">Bill From</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[100px]">Party</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[75px]">Destination</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[60px] text-right">N/W(Kg)</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[60px] text-right">N/W(Qtl)</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[40px] text-right">Bags</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[50px] text-right">Rate/Q</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Amount</TableHead>
@@ -613,7 +613,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[75px] text-right" title="Total payments received against this sale (FIFO)">Received</TableHead>
                     <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[80px] text-right" title="Pending after all payments + premium">Pending</TableHead>
                   </>}
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px]"></TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[110px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -634,7 +634,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       {s.split_billing && <span className="ml-1 text-[9px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold" title={`Pakka: ${(s.billed_weight_kg||0)}kg · Kaccha: ${(s.kaccha_weight_kg||0)}kg`}>SPLIT</span>}
                     </TableCell>
                     <TableCell className="text-slate-300 text-[10px] px-2 whitespace-nowrap">{s.destination}</TableCell>
-                    <TableCell className="text-blue-700 dark:text-blue-300 text-[10px] px-2 text-right">{s.net_weight_kg}</TableCell>
+                    <TableCell className="text-blue-700 dark:text-blue-300 text-[10px] px-2 text-right whitespace-nowrap">{((s.net_weight_kg || 0) / 100).toFixed(2)}</TableCell>
                     <TableCell className="text-slate-700 dark:text-slate-300 text-[10px] px-2 text-right">{s.bags}</TableCell>
                     <TableCell className="text-slate-700 dark:text-slate-300 text-[10px] px-2 text-right">
                       {s.split_billing && s._view_mode !== "PKA" && s._view_mode !== "KCA" ? (
@@ -686,16 +686,16 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       <TableCell className="text-cyan-700 dark:text-cyan-400 text-[10px] px-2 text-right font-bold whitespace-nowrap">{(s.total_received || 0) > 0 ? (s.total_received || 0).toLocaleString() : <span className="text-slate-500 dark:text-slate-600">—</span>}</TableCell>
                       <TableCell className={`text-[10px] px-2 text-right font-bold whitespace-nowrap ${(s.pending_balance || 0) > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}`}>{(s.pending_balance || 0).toLocaleString()}</TableCell>
                     </>}
-                    <TableCell className="px-1">
-                      <div className="flex gap-0.5">
+                    <TableCell className="px-1 w-[110px]">
+                      <div className="flex gap-0.5 flex-nowrap items-center">
                         {(s.payments_alloc?.length || 0) > 0 && (
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-purple-400 hover:bg-purple-900/30" title={`${s.payments_alloc.length} payment(s) — click to expand`} onClick={() => toggleRow(s.voucher_no || s.id)} data-testid={`bp-expand-${s.voucher_no || s.id}`}>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0 text-purple-400 hover:bg-purple-900/30" title={`${s.payments_alloc.length} payment(s) — click to expand`} onClick={() => toggleRow(s.voucher_no || s.id)} data-testid={`bp-expand-${s.voucher_no || s.id}`}>
                             {expandedRows[s.voucher_no || s.id] ? <span className="text-[14px] leading-none">▾</span> : <span className="text-[14px] leading-none">▸</span>}
                           </Button>
                         )}
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-400 hover:text-white" onClick={() => setViewSale(s)} data-testid={`bp-view-${s.id}`}><Eye className="w-3 h-3" /></Button>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-400" onClick={() => openEdit(s)} data-testid={`bp-edit-${s.voucher_no || s.id}`}><Edit className="w-3 h-3" /></Button>
-                        {user.role === "admin" && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400" onClick={() => handleDelete(s.id)}><Trash2 className="w-3 h-3" /></Button>}
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0 text-slate-400 hover:text-white" onClick={() => setViewSale(s)} data-testid={`bp-view-${s.id}`}><Eye className="w-3 h-3" /></Button>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0 text-blue-400" onClick={() => openEdit(s)} data-testid={`bp-edit-${s.voucher_no || s.id}`}><Edit className="w-3 h-3" /></Button>
+                        {user.role === "admin" && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0 text-red-400" onClick={() => handleDelete(s.id)}><Trash2 className="w-3 h-3" /></Button>}
                       </div>
                     </TableCell>
                   </TableRow>

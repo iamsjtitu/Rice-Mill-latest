@@ -269,6 +269,9 @@ async def _enrich_sales_with_payments_fifo(sales: list, gst_filter: str = "") ->
         # Sort entries by sale date (FIFO)
         entries.sort(key=lambda x: (x[0].get('date', '') or '', x[0].get('created_at', '') or ''))
         payments = await _fetch_party_payments(party_key, kms, ssn)
+        # v104.44.57 — Skip premium-related ledger entries from Received calculation
+        # (premium is already adjusted via Balance column; don't double-count)
+        payments = [p for p in payments if not any(k in (p.get('description', '') or '').lower() for k in ('lab test premium', 'oil premium'))]
         # Each payment is allocated to oldest unpaid sale first
         remaining = [{"sale": s, "debit": debit, "remaining": debit, "btype": bt} for (s, debit, bt) in entries]
         for p in payments:
@@ -731,7 +734,6 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
     if has_bill_from: cols.append(('Bill From', 14, 'bill_from'))
     cols.append(('Party Name', 16, 'party_name'))
     if has_dest: cols.append(('Destination', 14, 'destination'))
-    cols.append(('N/W (Kg)', 10, 'net_weight_kg'))
     cols.append(('N/W (Qtl)', 9, 'net_weight_qtl'))
     if has_bags: cols.append(('Bags', 7, 'bags'))
     cols.append(('Rate/Qtl', 9, 'rate_per_qtl'))
@@ -836,7 +838,7 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
             if key == 'voucher_no': val = s.get('voucher_no', '') or ''
             elif key == 'date': val = fmt_date(s.get('date', ''))
             elif key == 'billing_date': val = fmt_date(s.get('billing_date', ''))
-            elif key == 'net_weight_qtl': val = round(s.get('net_weight_qtl', 0), 2)
+            elif key == 'net_weight_qtl': val = round((s.get('net_weight_qtl', 0) or s.get('net_weight_kg', 0)/100), 2)
             elif key == 'oil_pct': val = op.get('actual_oil_pct', '') if op else ''
             elif key == 'oil_diff': val = round(op.get('difference_pct', 0), 2) if op else ''
             elif key == 'oil_premium': val = round(prem, 2) if op else ''
@@ -1044,7 +1046,7 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
     if has_bill_from: pdf_cols.append(('Bill From', 55, 'bill_from'))
     pdf_cols.append(('Party', 65, 'party_name'))
     if has_dest: pdf_cols.append(('Destination', 50, 'destination'))
-    pdf_cols.append(('N/W(Kg)', 40, 'net_weight_kg'))
+    pdf_cols.append(('N/W(Qtl)', 40, 'net_weight_qtl'))
     if has_bags: pdf_cols.append(('Bags', 28, 'bags'))
     pdf_cols.append(('Rate/Q', 38, 'rate_per_qtl'))
     if show_pakka_col: pdf_cols.append(('PKA', 50, 'billed_amount'))
@@ -1122,6 +1124,9 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
                     row_data.append(f"{'+' if d > 0 else ''}{d:.2f}%")
                 else: row_data.append('')
             elif key == 'oil_premium': row_data.append(f"{prem:,.0f}" if op else '')
+            elif key == 'net_weight_qtl':
+                qtl = s.get('net_weight_qtl', 0) or (s.get('net_weight_kg', 0) or 0) / 100
+                row_data.append(f"{qtl:,.2f}")
             else: row_data.append(s.get(key, 0) if key in ('net_weight_kg','bags','rate_per_qtl','cash_paid','diesel_paid','advance') else s.get(key, ''))
         data.append(row_data)
 
@@ -1130,6 +1135,7 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
     for key in col_keys:
         if key == 'date': total_row.append('TOTAL')
         elif key == 'net_weight_kg': total_row.append(round(t_nw, 0))
+        elif key == 'net_weight_qtl': total_row.append(round(t_nw / 100, 2))
         elif key == 'bags': total_row.append(t_bags)
         elif key == 'amount': total_row.append(f"{t_amt:,.0f}")
         elif key == 'billed_amount': total_row.append(f"{t_billed:,.0f}" if t_billed else '')
@@ -1151,7 +1157,7 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
     table = RLTable(data, colWidths=col_widths, repeatRows=1)
 
     # Find first numeric column index for right-align
-    first_num = next((i for i, k in enumerate(col_keys) if k in ('net_weight_kg','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','total_received','pending_balance')), len(col_keys))
+    first_num = next((i for i, k in enumerate(col_keys) if k in ('net_weight_kg','net_weight_qtl','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','total_received','pending_balance')), len(col_keys))
 
     nrows = len(data)
     style_cmds = [

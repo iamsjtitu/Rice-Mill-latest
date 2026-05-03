@@ -168,7 +168,12 @@ module.exports = function(database) {
     Object.entries(buckets).forEach(([bkey, entries]) => {
       const [partyKey, kms, ssn] = bkey.split('|');
       entries.sort((a, b) => ((a.sale.date || '').localeCompare(b.sale.date || '')) || ((a.sale.created_at || '').localeCompare(b.sale.created_at || '')));
-      const payments = _fetchPartyPayments(partyKey, kms, ssn);
+      // v104.44.57 — Skip premium-related payments (Lab Test Premium / Oil Premium adjustments)
+      // Premium is already deducted via the Balance column → don't re-count in 'Received'
+      const payments = _fetchPartyPayments(partyKey, kms, ssn).filter(p => {
+        const d = (p.description || '').toLowerCase();
+        return !d.includes('lab test premium') && !d.includes('oil premium');
+      });
       const remaining = entries.map(e => ({ sale: e.sale, btype: e.btype, remaining: e.debit }));
       payments.forEach(p => {
         let amt = _safeNum(p.amount);
@@ -484,7 +489,7 @@ module.exports = function(database) {
       if (has.billfrom) cols.push({h:'Bill From',k:'bill_from',w:14});
       cols.push({h:'Party Name',k:'party_name',w:16});
       if (has.dest) cols.push({h:'Destination',k:'destination',w:14});
-      cols.push({h:'N/W (Kg)',k:'net_weight_kg',w:10},{h:'N/W (Qtl)',k:'net_weight_qtl',w:9});
+      cols.push({h:'N/W (Qtl)',k:'net_weight_qtl',w:10});
       if (has.bags) cols.push({h:'Bags',k:'bags',w:7});
       cols.push({h:'Rate/Qtl',k:'rate_per_qtl',w:9});
       if (showPkaCol) cols.push({h:'PKA Amt',k:'billed_amount',w:12});
@@ -754,7 +759,7 @@ module.exports = function(database) {
       if (has.billfrom) pc.push(['BillFrom',55,'bill_from']);
       pc.push(['Party',65,'party_name']);
       if (has.dest) pc.push(['Destination',50,'destination']);
-      pc.push(['NW(Kg)',40,'net_weight_kg']);
+      pc.push(['NW(Qtl)',40,'net_weight_qtl']);
       if (has.bags) pc.push(['Bags',28,'bags']);
       pc.push(['Rate/Q',38,'rate_per_qtl']);
       if (showPkaCol) pc.push(['PKA',50,'billed_amount']);
