@@ -80,6 +80,34 @@ module.exports = function(database) {
     database.data.local_party_accounts = database.data.local_party_accounts.filter(t => !(t.reference && t.reference.includes(`bp_sale`) && t.reference.includes(docId)));
   }
 
+  // v104.44.44 — Row-level pakka/kaccha view projections
+  function _safeNum(v) { const n = Number(v); return isNaN(n) ? 0 : n; }
+  function _projectPakkaView(s) {
+    const billed = _safeNum(s.billed_amount);
+    const tax = _safeNum(s.tax_amount);
+    return { ...s,
+      kaccha_weight_kg: 0, kaccha_weight_qtl: 0, kaccha_weight_qtl_display: '',
+      kaccha_amount: 0, kaccha_rate_per_qtl: 0,
+      net_weight_kg: _safeNum(s.billed_weight_kg),
+      net_weight_qtl: _safeNum(s.billed_weight_qtl),
+      net_weight_qtl_display: s.billed_weight_qtl_display || '',
+      amount: billed, total: billed + tax, _view_mode: 'PKA'
+    };
+  }
+  function _projectKacchaView(s) {
+    const kac = _safeNum(s.kaccha_amount);
+    const kacRate = _safeNum(s.kaccha_rate_per_qtl);
+    return { ...s,
+      billed_weight_kg: 0, billed_weight_qtl: 0, billed_weight_qtl_display: '',
+      billed_amount: 0, gst_type: 'none', gst_percent: 0, tax_amount: 0,
+      rate_per_qtl: kacRate > 0 ? s.kaccha_rate_per_qtl : s.rate_per_qtl,
+      net_weight_kg: _safeNum(s.kaccha_weight_kg),
+      net_weight_qtl: _safeNum(s.kaccha_weight_qtl),
+      net_weight_qtl_display: s.kaccha_weight_qtl_display || '',
+      amount: kac, total: kac, _view_mode: 'KCA'
+    };
+  }
+
   router.get('/api/bp-sale-register', (req, res) => {
     ensure();
     let sales = [...database.data.bp_sale_register];
@@ -87,11 +115,11 @@ module.exports = function(database) {
     if (product) sales = sales.filter(s => s.product === product);
     if (kms_year) sales = sales.filter(s => s.kms_year === kms_year);
     if (season) sales = sales.filter(s => s.season === season);
-    // v104.44.43 — PKA / KCA filter (KCA = pure kaccha only, no pakka portion)
+    // v104.44.44 — Row-level PKA/KCA projection
     if (gst_filter === 'PKA') {
-      sales = sales.filter(s => Number(s.billed_amount || 0) > 0 || Number(s.gst_percent || 0) > 0);
+      sales = sales.filter(s => _safeNum(s.billed_amount) > 0 || _safeNum(s.gst_percent) > 0).map(_projectPakkaView);
     } else if (gst_filter === 'KCA') {
-      sales = sales.filter(s => Number(s.billed_amount || 0) === 0 && Number(s.gst_percent || 0) === 0);
+      sales = sales.filter(s => _safeNum(s.kaccha_amount) > 0 || (_safeNum(s.billed_amount) === 0 && _safeNum(s.gst_percent) === 0)).map(_projectKacchaView);
     }
     sales.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     res.json(sales);
@@ -281,9 +309,9 @@ module.exports = function(database) {
       if (bill_from) sales = sales.filter(s => (s.bill_from||'').toLowerCase().includes(bill_from.toLowerCase()));
       if (party_name) sales = sales.filter(s => (s.party_name||'').toLowerCase().includes(party_name.toLowerCase()));
       if (destination) sales = sales.filter(s => (s.destination||'').toLowerCase().includes(destination.toLowerCase()));
-      // v104.44.43 — PKA / KCA filter (KCA = pure kaccha only)
-      if (gst_filter === 'PKA') sales = sales.filter(s => Number(s.billed_amount || 0) > 0 || Number(s.gst_percent || 0) > 0);
-      else if (gst_filter === 'KCA') sales = sales.filter(s => Number(s.billed_amount || 0) === 0 && Number(s.gst_percent || 0) === 0);
+      // v104.44.44 — Row-level PKA/KCA projection
+      if (gst_filter === 'PKA') sales = sales.filter(s => _safeNum(s.billed_amount) > 0 || _safeNum(s.gst_percent) > 0).map(_projectPakkaView);
+      else if (gst_filter === 'KCA') sales = sales.filter(s => _safeNum(s.kaccha_amount) > 0 || (_safeNum(s.billed_amount) === 0 && _safeNum(s.gst_percent) === 0)).map(_projectKacchaView);
       sales.sort((a,b) => (a.date||'').localeCompare(b.date||''));
 
       // Oil premium map for Rice Bran
@@ -380,9 +408,9 @@ module.exports = function(database) {
       if (bill_from) sales = sales.filter(s => (s.bill_from||'').toLowerCase().includes(bill_from.toLowerCase()));
       if (party_name) sales = sales.filter(s => (s.party_name||'').toLowerCase().includes(party_name.toLowerCase()));
       if (destination) sales = sales.filter(s => (s.destination||'').toLowerCase().includes(destination.toLowerCase()));
-      // v104.44.43 — PKA / KCA filter (KCA = pure kaccha only)
-      if (gst_filter === 'PKA') sales = sales.filter(s => Number(s.billed_amount || 0) > 0 || Number(s.gst_percent || 0) > 0);
-      else if (gst_filter === 'KCA') sales = sales.filter(s => Number(s.billed_amount || 0) === 0 && Number(s.gst_percent || 0) === 0);
+      // v104.44.44 — Row-level PKA/KCA projection
+      if (gst_filter === 'PKA') sales = sales.filter(s => _safeNum(s.billed_amount) > 0 || _safeNum(s.gst_percent) > 0).map(_projectPakkaView);
+      else if (gst_filter === 'KCA') sales = sales.filter(s => _safeNum(s.kaccha_amount) > 0 || (_safeNum(s.billed_amount) === 0 && _safeNum(s.gst_percent) === 0)).map(_projectKacchaView);
       sales.sort((a,b) => (a.date||'').localeCompare(b.date||''));
 
       // Oil premium map for Rice Bran

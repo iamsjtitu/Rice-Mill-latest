@@ -7,6 +7,19 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.44",
+    date: "Feb 17, 2026",
+    title: "v104.44.44 — 🎯 Row-Level Pakka/Kaccha Split (Option A)",
+    items: [
+      { type: "feature", text: "🎯 **Split entries ab row-level pe split hote hain** — Aapne kaha 'Pakka ka entries sirf PKA mai ana chahiye, Kaccha ka sirf Kaccha mai aur ALL mai KCA + PKA ka'. Ab S-006 SPLIT (₹3L pakka + ₹1.85L kaccha):" },
+      { type: "improvement", text: "  → **PKA tab me**: ye entry dikhega lekin sirf pakka portion ke saath — 10000kg billed weight, ₹300,000 Amount, ₹315,000 Total (with 5% GST). Kaccha columns blank/0." },
+      { type: "improvement", text: "  → **KCA tab me**: ye entry dikhega lekin sirf kaccha portion ke saath — 5000kg kaccha weight, 3700 rate, ₹185,000 Total. Pakka + GST columns blank/0." },
+      { type: "improvement", text: "  → **ALL tab me**: full original entry (Amount ₹300K, Total ₹500K — sab data)." },
+      { type: "fix", text: "🔧 **Excel/PDF/WhatsApp/Group sub-tab ke hisab se** — PKA pe ho aur Excel click karein → backend `_project_pakka_view()` apply hota hai before Excel generation. Sirf pakka portion data Excel me. KCA me sirf kaccha. Triple-backend parity (Python + Node Desktop + Node LAN)." },
+      { type: "improvement", text: "🧪 **Live verified Rice Bran 2026-2027**: ALL=9 entries (Total ₹20,16,952), PKA=4 entries (Total ₹9,74,333), KCA=8 entries (Total ₹6,65,963). Split entries dono tabs me dikh rahe hain with portion-specific data." },
+    ],
+  },
+  {
     version: "104.44.43",
     date: "Feb 17, 2026",
     title: "v104.44.43 — 🎯 KCA Strict: Pure Kaccha Only (No Split)",

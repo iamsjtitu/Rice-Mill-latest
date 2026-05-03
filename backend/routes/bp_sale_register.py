@@ -209,6 +209,56 @@ async def _delete_bp_ledger_entries(doc_id):
     await db.local_party_accounts.delete_many({"reference": {"$regex": f"bp_sale_adv:{doc_id}"}})
 
 
+def _safe_num(v):
+    try: return float(v or 0)
+    except (ValueError, TypeError): return 0.0
+
+
+def _project_pakka_view(s: dict) -> dict:
+    """v104.44.44 — Return a row-level pakka-only projection of entry.
+    Zero out kaccha fields, recompute total = billed + tax."""
+    s2 = dict(s)
+    billed = _safe_num(s.get("billed_amount"))
+    tax = _safe_num(s.get("tax_amount"))
+    s2["kaccha_weight_kg"] = 0
+    s2["kaccha_weight_qtl"] = 0
+    s2["kaccha_weight_qtl_display"] = ""
+    s2["kaccha_amount"] = 0
+    s2["kaccha_rate_per_qtl"] = 0
+    # Net weight + amounts → only pakka portion
+    s2["net_weight_kg"] = _safe_num(s.get("billed_weight_kg"))
+    s2["net_weight_qtl"] = _safe_num(s.get("billed_weight_qtl"))
+    s2["net_weight_qtl_display"] = s.get("billed_weight_qtl_display", "")
+    s2["amount"] = billed
+    s2["total"] = billed + tax
+    s2["_view_mode"] = "PKA"
+    return s2
+
+
+def _project_kaccha_view(s: dict) -> dict:
+    """v104.44.44 — Return a row-level kaccha-only projection of entry.
+    Zero out pakka/GST fields, recompute total = kaccha amount."""
+    s2 = dict(s)
+    kac = _safe_num(s.get("kaccha_amount"))
+    s2["billed_weight_kg"] = 0
+    s2["billed_weight_qtl"] = 0
+    s2["billed_weight_qtl_display"] = ""
+    s2["billed_amount"] = 0
+    s2["gst_type"] = "none"
+    s2["gst_percent"] = 0
+    s2["tax_amount"] = 0
+    # Use kaccha rate as primary rate
+    if _safe_num(s.get("kaccha_rate_per_qtl")) > 0:
+        s2["rate_per_qtl"] = s.get("kaccha_rate_per_qtl")
+    s2["net_weight_kg"] = _safe_num(s.get("kaccha_weight_kg"))
+    s2["net_weight_qtl"] = _safe_num(s.get("kaccha_weight_qtl"))
+    s2["net_weight_qtl_display"] = s.get("kaccha_weight_qtl_display", "")
+    s2["amount"] = kac
+    s2["total"] = kac
+    s2["_view_mode"] = "KCA"
+    return s2
+
+
 @router.get("/bp-sale-register")
 async def get_bp_sales(product: str = "", kms_year: str = "", season: str = "",
                        gst_filter: Optional[str] = None):
@@ -217,16 +267,17 @@ async def get_bp_sales(product: str = "", kms_year: str = "", season: str = "",
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     sales = await db.bp_sale_register.find(query, {"_id": 0}).sort("created_at", -1).to_list(10000)
-    # v104.44.43 — PKA / KCA filter (KCA = pure kaccha only, no pakka portion)
+    # v104.44.44 — Row-level split: PKA shows only pakka portion, KCA only kaccha portion
     if gst_filter == "PKA":
-        sales = [s for s in sales if (
-            float(s.get("billed_amount") or 0) > 0
-            or float(s.get("gst_percent") or 0) > 0
+        # Include entries with any pakka portion (full pakka OR split). Mask kaccha fields.
+        sales = [_project_pakka_view(s) for s in sales if (
+            _safe_num(s.get("billed_amount")) > 0 or _safe_num(s.get("gst_percent")) > 0
         )]
     elif gst_filter == "KCA":
-        sales = [s for s in sales if (
-            float(s.get("billed_amount") or 0) == 0
-            and float(s.get("gst_percent") or 0) == 0
+        # Include entries with any kaccha portion (pure kaccha OR split). Mask pakka fields.
+        sales = [_project_kaccha_view(s) for s in sales if (
+            _safe_num(s.get("kaccha_amount")) > 0
+            or (_safe_num(s.get("billed_amount")) == 0 and _safe_num(s.get("gst_percent")) == 0)
         )]
     return sales
 
@@ -434,11 +485,11 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
         if billing_date_from: query["billing_date"]["$gte"] = billing_date_from
         if billing_date_to: query["billing_date"]["$lte"] = billing_date_to
     sales = await db.bp_sale_register.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
-    # v104.44.43 — PKA / KCA filter (KCA = pure kaccha, no pakka portion)
+    # v104.44.44 — Row-level PKA/KCA: split entries appear with only relevant portion
     if gst_filter == "PKA":
-        sales = [s for s in sales if (float(s.get("billed_amount") or 0) > 0 or float(s.get("gst_percent") or 0) > 0)]
+        sales = [_project_pakka_view(s) for s in sales if (_safe_num(s.get("billed_amount")) > 0 or _safe_num(s.get("gst_percent")) > 0)]
     elif gst_filter == "KCA":
-        sales = [s for s in sales if (float(s.get("billed_amount") or 0) == 0 and float(s.get("gst_percent") or 0) == 0)]
+        sales = [_project_kaccha_view(s) for s in sales if (_safe_num(s.get("kaccha_amount")) > 0 or (_safe_num(s.get("billed_amount")) == 0 and _safe_num(s.get("gst_percent")) == 0))]
 
     # Fetch oil premium data for Rice Bran
     oil_map = {}
@@ -645,11 +696,11 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
         if billing_date_from: query["billing_date"]["$gte"] = billing_date_from
         if billing_date_to: query["billing_date"]["$lte"] = billing_date_to
     sales = await db.bp_sale_register.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
-    # v104.44.43 — PKA / KCA filter (KCA = pure kaccha only)
+    # v104.44.44 — Row-level PKA/KCA
     if gst_filter == "PKA":
-        sales = [s for s in sales if (float(s.get("billed_amount") or 0) > 0 or float(s.get("gst_percent") or 0) > 0)]
+        sales = [_project_pakka_view(s) for s in sales if (_safe_num(s.get("billed_amount")) > 0 or _safe_num(s.get("gst_percent")) > 0)]
     elif gst_filter == "KCA":
-        sales = [s for s in sales if (float(s.get("billed_amount") or 0) == 0 and float(s.get("gst_percent") or 0) == 0)]
+        sales = [_project_kaccha_view(s) for s in sales if (_safe_num(s.get("kaccha_amount")) > 0 or (_safe_num(s.get("billed_amount")) == 0 and _safe_num(s.get("gst_percent")) == 0))]
 
     # Fetch oil premium data for Rice Bran
     oil_map_pdf = {}
