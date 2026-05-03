@@ -1032,81 +1032,76 @@ export default function ByProductSaleRegister({ filters, user, product }) {
               </div>
             </div>
 
-            {/* v104.44.76 — COMMON block (shared by split & non-split modes):
-                Row 1: Bag Type | Bags | Bag W.C
-                Row 2: Total N/W (Qtl) | Total N/W (Kg) | Final M.W (Kg) */}
-            <div className="space-y-3 p-3 rounded bg-cyan-50 dark:bg-cyan-900/10 border border-cyan-300 dark:border-cyan-700/30">
-              <div className={`grid gap-3 ${product === "Rice Bran" ? "grid-cols-3" : "grid-cols-2"}`}>
-                <div>
-                  <Label className="text-[11px] text-cyan-700 dark:text-cyan-300 font-semibold">Bag Type <span className="text-amber-500 dark:text-amber-400">*</span></Label>
-                  <Select value={form.bag_type || ""} onValueChange={v => setForm(p => ({ ...p, bag_type: v }))}>
-                    <SelectTrigger className="bg-white dark:bg-slate-700 border-cyan-400/50 dark:border-cyan-700/50 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bag-type">
-                      <SelectValue placeholder="Select..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="old">Old (Market) — {bagStock.old ?? 0}</SelectItem>
-                      <SelectItem value="bran_plastic">Bran P.Pkt — {bagStock.bran_plastic ?? 0}</SelectItem>
-                      <SelectItem value="broken_plastic">Broken P.Pkt — {bagStock.broken_plastic ?? 0}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {bagCount > 0 && form.bag_type && bagStock[form.bag_type] !== undefined && bagCount > bagStock[form.bag_type] && (
-                    <p className="text-red-500 dark:text-red-400 text-[10px] mt-0.5">⚠ {bagCount - bagStock[form.bag_type]} bags short</p>
-                  )}
-                </div>
-                <div>
-                  <Label className="text-[11px] text-slate-600 dark:text-slate-400">Bags</Label>
-                  <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
-                    className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bags" />
-                </div>
-                {product === "Rice Bran" && (
-                  <div>
-                    <Label className="text-[11px] text-cyan-700 dark:text-cyan-300 font-semibold">Bag W.C (g) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(fixed)</span></Label>
-                    <Input type="number" value={form.bag_weight_cut_g}
-                      readOnly disabled tabIndex={-1}
-                      className="bg-slate-100 dark:bg-slate-800 border-cyan-300 dark:border-cyan-800 text-slate-600 dark:text-slate-300 h-9 text-xs cursor-not-allowed disabled:opacity-100 font-bold" data-testid="bp-bag-cut" />
-                  </div>
+            {/* v104.44.80 — COMMON block (single row, shared by split & non-split modes):
+                N/W (Qtl) | N/W (Kg) | Bag Type | Bags | Bag W.C (Bran only) | Final M.W */}
+            <div className={`grid gap-3 items-start p-3 rounded bg-cyan-50 dark:bg-cyan-900/10 border border-cyan-300 dark:border-cyan-700/30 ${product === "Rice Bran" ? "grid-cols-6" : "grid-cols-5"}`}>
+              <div>
+                <Label className="text-[11px] text-blue-700 dark:text-blue-300 font-semibold">N/W (Qtl)</Label>
+                <Input type="number" step="0.01"
+                  value={form.net_weight_qtl_display ?? (form.net_weight_kg ? String(Math.round((parseFloat(form.net_weight_kg) || 0) / 100 * 100) / 100) : "")}
+                  onChange={e => {
+                    const qtl = e.target.value;
+                    const newTotalKg = qtl === "" ? "" : String(Math.round((parseFloat(qtl) || 0) * 100 * 100) / 100);
+                    const newTotalQtl = parseFloat(qtl) || 0;
+                    const newFinalKg = Math.max(0, Math.round((newTotalQtl * 100 - totalCutKg) * 100) / 100);
+                    const newFinalQtl = newFinalKg / 100;
+                    const curPakkaQtl = parseFloat(form.billed_weight_qtl_display) || 0;
+                    const newKacchaQtl = curPakkaQtl > 0 ? Math.max(0, Math.round((newFinalQtl - curPakkaQtl) * 100) / 100) : 0;
+                    setForm(p => ({
+                      ...p,
+                      net_weight_qtl_display: qtl, net_weight_kg: newTotalKg,
+                      kaccha_weight_qtl_display: curPakkaQtl > 0 ? String(newKacchaQtl) : p.kaccha_weight_qtl_display,
+                      kaccha_weight_kg: curPakkaQtl > 0 ? String(Math.round(newKacchaQtl * 100 * 100) / 100) : p.kaccha_weight_kg,
+                    }));
+                  }}
+                  className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-nw-qtl" />
+              </div>
+              <div>
+                <Label className="text-[11px] text-blue-700 dark:text-blue-300 font-semibold">N/W (Kg) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(auto)</span></Label>
+                <Input type="number" step="0.01" value={form.net_weight_kg}
+                  readOnly tabIndex={-1}
+                  className="bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-300 h-9 text-xs cursor-not-allowed" data-testid="bp-nw" />
+              </div>
+              <div>
+                <Label className="text-[11px] text-cyan-700 dark:text-cyan-300 font-semibold">Bag Type <span className="text-amber-500 dark:text-amber-400">*</span></Label>
+                <Select value={form.bag_type || ""} onValueChange={v => setForm(p => ({ ...p, bag_type: v }))}>
+                  <SelectTrigger className="bg-white dark:bg-slate-700 border-cyan-400/50 dark:border-cyan-700/50 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bag-type">
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="old">Old (Market) — {bagStock.old ?? 0}</SelectItem>
+                    <SelectItem value="bran_plastic">Bran P.Pkt — {bagStock.bran_plastic ?? 0}</SelectItem>
+                    <SelectItem value="broken_plastic">Broken P.Pkt — {bagStock.broken_plastic ?? 0}</SelectItem>
+                  </SelectContent>
+                </Select>
+                {bagCount > 0 && form.bag_type && bagStock[form.bag_type] !== undefined && bagCount > bagStock[form.bag_type] && (
+                  <p className="text-red-500 dark:text-red-400 text-[10px] mt-0.5">⚠ {bagCount - bagStock[form.bag_type]} bags short</p>
                 )}
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label className="text-[11px] text-slate-600 dark:text-slate-400">Bags</Label>
+                <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
+                  className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bags" />
+              </div>
+              {product === "Rice Bran" && (
                 <div>
-                  <Label className="text-[11px] text-blue-700 dark:text-blue-300 font-semibold">N/W (Qtl)</Label>
-                  <Input type="number" step="0.01"
-                    value={form.net_weight_qtl_display ?? (form.net_weight_kg ? String(Math.round((parseFloat(form.net_weight_kg) || 0) / 100 * 100) / 100) : "")}
-                    onChange={e => {
-                      const qtl = e.target.value;
-                      const newTotalKg = qtl === "" ? "" : String(Math.round((parseFloat(qtl) || 0) * 100 * 100) / 100);
-                      const newTotalQtl = parseFloat(qtl) || 0;
-                      // New Final M.W (after cut) for auto-balance recompute
-                      const newFinalKg = Math.max(0, Math.round((newTotalQtl * 100 - totalCutKg) * 100) / 100);
-                      const newFinalQtl = newFinalKg / 100;
-                      // If Pakka already set, recalc Kaccha from NEW Final M.W
-                      const curPakkaQtl = parseFloat(form.billed_weight_qtl_display) || 0;
-                      const newKacchaQtl = curPakkaQtl > 0 ? Math.max(0, Math.round((newFinalQtl - curPakkaQtl) * 100) / 100) : 0;
-                      setForm(p => ({
-                        ...p,
-                        net_weight_qtl_display: qtl, net_weight_kg: newTotalKg,
-                        kaccha_weight_qtl_display: curPakkaQtl > 0 ? String(newKacchaQtl) : p.kaccha_weight_qtl_display,
-                        kaccha_weight_kg: curPakkaQtl > 0 ? String(Math.round(newKacchaQtl * 100 * 100) / 100) : p.kaccha_weight_kg,
-                      }));
-                    }}
-                    className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-nw-qtl" />
+                  <Label className="text-[11px] text-cyan-700 dark:text-cyan-300 font-semibold">Bag W.C (g) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(fixed)</span></Label>
+                  <Input type="number" value={form.bag_weight_cut_g}
+                    readOnly disabled tabIndex={-1}
+                    className="bg-slate-100 dark:bg-slate-800 border-cyan-300 dark:border-cyan-800 text-slate-600 dark:text-slate-300 h-9 text-xs cursor-not-allowed disabled:opacity-100 font-bold" data-testid="bp-bag-cut" />
                 </div>
-                <div>
-                  <Label className="text-[11px] text-blue-700 dark:text-blue-300 font-semibold">N/W (Kg) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(auto)</span></Label>
-                  <Input type="number" step="0.01" value={form.net_weight_kg}
-                    readOnly tabIndex={-1}
-                    className="bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-300 h-9 text-xs cursor-not-allowed" data-testid="bp-nw" />
+              )}
+              <div>
+                <Label className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold whitespace-nowrap">Final M.W (Kg) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(after cut)</span></Label>
+                <div className="h-9 px-2 rounded bg-emerald-50 dark:bg-slate-900/60 border border-emerald-400 dark:border-emerald-700/40 flex items-center text-xs text-emerald-700 dark:text-emerald-300 font-mono font-bold" data-testid="bp-final-mw">
+                  {nwKg.toFixed(2)}
+                  {totalCutKg > 0 && <span className="ml-1 text-[10px] text-slate-500">(−{totalCutKg.toFixed(2)})</span>}
                 </div>
-                <div>
-                  <Label className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold">
-                    Final M.W (Kg) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(after cut)</span>
-                    {stockInfo && <span className={`ml-1 font-bold ${(effectiveAvailQtl - nwQtl) >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>· Stock: {Math.round((effectiveAvailQtl - nwQtl) * 100) / 100} Qtl</span>}
-                  </Label>
-                  <div className="h-9 px-2 rounded bg-emerald-50 dark:bg-slate-900/60 border border-emerald-400 dark:border-emerald-700/40 flex items-center text-xs text-emerald-700 dark:text-emerald-300 font-mono font-bold" data-testid="bp-final-mw">
-                    {nwKg.toFixed(2)}
-                    {totalCutKg > 0 && <span className="ml-1 text-[10px] text-slate-500">(−{totalCutKg.toFixed(2)})</span>}
-                  </div>
-                </div>
+                {stockInfo && (
+                  <p className={`text-[10px] mt-0.5 font-semibold ${(effectiveAvailQtl - nwQtl) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                    Stock: {Math.round((effectiveAvailQtl - nwQtl) * 100) / 100} Qtl
+                  </p>
+                )}
               </div>
             </div>
 

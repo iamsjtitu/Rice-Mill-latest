@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.80",
+    date: "Feb 17, 2026",
+    title: "v104.44.80 — BP Sale common block: single-row layout",
+    items: [
+      { type: "improvement", text: "📏 **Single-row common block** — `N/W (Qtl) | N/W (Kg) (auto) | Bag Type * | Bags | Bag W.C (g) (fixed) | Final M.W (Kg) (after cut)` — sab ek hi row me 6 cols. Pehle 2 rows me tha — ab compact." },
+      { type: "improvement", text: "🔧 **Alignment fix** — Final M.W ka `Stock: X Qtl` indicator ab Label se hata ke input box ke **neeche** small hint line me. Labels sab ek-ek line me, boxes sab same height pe aligned (no field upar-niche drift)." },
+      { type: "improvement", text: "🎯 **`items-start` grid** — Sab fields top-aligned even if labels wrap." },
+    ],
+  },
+  {
     version: "104.44.79",
     date: "Feb 17, 2026",
     title: "v104.44.79 — Bags field polish: normal styling + same value in Pakka/Kaccha",
