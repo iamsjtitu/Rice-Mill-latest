@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.60",
+    date: "Feb 17, 2026",
+    title: "v104.44.60 — 🎯 Pending = Statement closing + Double-count dedupe",
+    items: [
+      { type: "fix", text: "🎯 **Critical fix — Double-count removed** — Cash Book payments cash_transactions me 2 jagah store hote hain (manual + auto_ledger mirror), is wajah se Received aur expanded rows me ₹1L ke ₹2L dikh rahe the. Ab dedupe by (date+description), prefer auto_ledger entry. PKA me sirf ₹1L, KCA me sirf ₹94,318.18 dikhega." },
+      { type: "improvement", text: "🎯 **Pending = Balance + Premium − Received** — ab Pending column ka value Party Statement ke closing balance se exactly match karta hai. ALL: ₹2,57,500 (= 5,27,500 − 75,681.82 premium − 1,94,318.18 cash). PKA me premium nahi (sirf billed), KCA me premium add hota hai." },
+      { type: "improvement", text: "🌐 **Triple-Backend Parity** — Python + Node Desktop + Node LAN — teeno backends me identical dedupe + premium logic." },
+    ],
+  },
+  {
     version: "104.44.59",
     date: "Feb 17, 2026",
     title: "v104.44.59 — 💯 Whole-payment FIFO + PKA payment columns",

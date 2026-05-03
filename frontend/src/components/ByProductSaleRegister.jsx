@@ -681,7 +681,13 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     })()}
                     <TableCell className="text-slate-300 text-[10px] px-2 whitespace-nowrap">{s.last_payment_date ? fmtDate(s.last_payment_date) : <span className="text-slate-500">—</span>}</TableCell>
                     <TableCell className="text-cyan-700 dark:text-cyan-400 text-[10px] px-2 text-right font-bold whitespace-nowrap">{(s.total_received || 0) > 0 ? (s.total_received || 0).toLocaleString() : <span className="text-slate-500 dark:text-slate-600">—</span>}</TableCell>
-                    <TableCell className={`text-[10px] px-2 text-right font-bold whitespace-nowrap ${(s.pending_balance || 0) > 0 ? 'text-orange-600 dark:text-orange-400' : ((s.pending_balance || 0) < 0 ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400')}`} title={(s.pending_balance || 0) < 0 ? 'Overpaid (extra received)' : 'Pending balance'}>{(s.pending_balance || 0).toLocaleString()}</TableCell>
+                    {(() => {
+                      const op = getOilPremium(s);
+                      const prem = (op && gstFilter !== 'PKA') ? Number(op.premium_amount || 0) : 0;
+                      // v104.44.60 — Pending = Balance + Premium − Received (matches Statement closing). PKA: no premium.
+                      const pendingFinal = Math.round(((s.balance || 0) + prem - (s.total_received || 0)) * 100) / 100;
+                      return <TableCell className={`text-[10px] px-2 text-right font-bold whitespace-nowrap ${pendingFinal > 0 ? 'text-orange-600 dark:text-orange-400' : (pendingFinal < 0 ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400')}`} title={pendingFinal < 0 ? 'Overpaid (extra received)' : 'Pending balance'}>{pendingFinal.toLocaleString()}</TableCell>;
+                    })()}
                     <TableCell className="px-1 w-[110px]">
                       <div className="flex gap-0.5 flex-nowrap items-center">
                         {(s.payments_alloc?.length || 0) > 0 && (

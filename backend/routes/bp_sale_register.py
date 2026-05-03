@@ -216,34 +216,40 @@ def _safe_num(v):
 
 # v104.44.56 — Payment fetching + FIFO allocation per sale (Option A + B)
 async def _fetch_party_payments(party: str, kms_year: str = "", season: str = "") -> list:
-    """Fetch all payment txns for a party from BOTH local_party_accounts AND cash_transactions.
-    v104.44.58 — User records payments via Cash Book (cash_transactions, txn_type='jama').
-    Returns chronological list. Excludes premium adjustments (already in Balance) + sale debits."""
+    """Fetch all payment txns for a party from cash_transactions (canonical source for actual cash flows).
+    v104.44.60 — Use cash_transactions (txn_type='jama') as primary, dedupe by (date, description) since
+    cash_transactions can contain both manual and auto_ledger mirror entries for same payment.
+    Excludes premium adjustments (already in Balance) + sale debits."""
     if not party: return []
-    items = []
-    # 1. Payments recorded directly in local_party_accounts
-    q1 = {"party_name": party, "txn_type": "payment"}
-    if kms_year: q1["kms_year"] = kms_year
-    if season: q1["season"] = season
-    items.extend(await db.local_party_accounts.find(q1, {"_id": 0}).to_list(10000))
-    # 2. Payments recorded via Cash Book (txn_type='jama' with category=party)
-    q2 = {"category": party, "txn_type": "jama"}
-    if kms_year: q2["kms_year"] = kms_year
-    if season: q2["season"] = season
-    cash_items = await db.cash_transactions.find(q2, {"_id": 0}).to_list(10000)
-    for c in cash_items:
-        # Map cash_transactions entry to a payment-like shape
-        items.append({
-            "date": c.get('date', ''),
-            "party_name": c.get('category', ''),
-            "amount": c.get('amount', 0),
-            "description": c.get('description', '') or '',
-            "txn_type": "payment",
-            "reference": c.get('id', ''),
-        })
-    # Filter: skip premium (already in Balance) + skip self-sale-debit entries (rare in jama, but safe)
+    q = {"category": party, "txn_type": "jama"}
+    if kms_year: q["kms_year"] = kms_year
+    if season: q["season"] = season
+    raws = await db.cash_transactions.find(q, {"_id": 0}).to_list(10000)
     skip_keywords = ('lab test premium', 'oil premium', 'sale bhada', 'rice bran sale', 'rice sale', 'paddy sale', 'sale #', 'sale-')
-    items = [p for p in items if not any(k in (p.get('description', '') or '').lower() for k in skip_keywords)]
+    raws = [r for r in raws if not any(k in (r.get('description', '') or '').lower() for k in skip_keywords)]
+    # Dedupe by (date, description) — prefer entry with reference starting with 'auto_ledger:' (canonical mirror)
+    grouped = {}
+    for r in raws:
+        key = (r.get('date', '') or '', (r.get('description', '') or '').strip().lower())
+        ref = (r.get('reference', '') or '')
+        existing = grouped.get(key)
+        if existing is None:
+            grouped[key] = r
+        else:
+            # Prefer the auto_ledger version
+            if ref.startswith('auto_ledger:') and not (existing.get('reference', '') or '').startswith('auto_ledger:'):
+                grouped[key] = r
+    items = []
+    for r in grouped.values():
+        items.append({
+            "date": r.get('date', '') or '',
+            "party_name": r.get('category', '') or '',
+            "amount": r.get('amount', 0) or 0,
+            "description": r.get('description', '') or '',
+            "txn_type": "payment",
+            "reference": r.get('reference', '') or '',
+            "created_at": r.get('created_at', '') or '',
+        })
     items.sort(key=lambda x: (x.get('date', '') or '', x.get('created_at', '') or ''))
     return items
 
@@ -312,9 +318,17 @@ async def _enrich_sales_with_payments_fifo(sales: list, gst_filter: str = "") ->
         s['payments_alloc'] = all_pmts
         s['total_received'] = round(sum(_safe_num(p.get('amount')) for p in all_pmts), 2)
         s['last_payment_date'] = all_pmts[-1]['date'] if all_pmts else ''
-        # Pending = Balance − Received (allow negative for overpayment)
+        # v104.44.60 — Pending = Balance + Premium − Received (matches Party Statement closing).
+        # Premium only adds when NOT in PKA view (premium is always on KCA side accounting-wise).
         existing_balance = _safe_num(s.get('balance'))
-        s['pending_balance'] = round(existing_balance - s['total_received'], 2)
+        prem = 0.0
+        if s.get('_view_mode') != 'PKA' and s.get('product') == 'Rice Bran' and (s.get('voucher_no') or s.get('rst_no')):
+            op = await db.oil_premium.find_one({"$or": [
+                {"voucher_no": s.get('voucher_no', '')},
+                {"rst_no": s.get('rst_no', '')}
+            ]}, {"_id": 0, "premium_amount": 1})
+            if op: prem = _safe_num(op.get('premium_amount'))
+        s['pending_balance'] = round(existing_balance + prem - s['total_received'], 2)
         s.pop('_pka_alloc', None); s.pop('_kca_alloc', None)
     return sales
 
@@ -418,32 +432,43 @@ async def get_bp_party_statement(party: str, kms_year: str = "", season: str = "
     else:
         party_keys = [f"{party} (PKA)", f"{party} (KCA)", party]
 
+    # v104.44.60 — Sale debits + premium credits come from local_party_accounts;
+    # actual cash payments come from cash_transactions (deduped by date+description, preferring auto_ledger).
     q = {"party_name": {"$in": party_keys}}
     if kms_year: q["kms_year"] = kms_year
     if season: q["season"] = season
     raw = await db.local_party_accounts.find(q, {"_id": 0}).to_list(20000)
-    # v104.44.58 — Also pull payments from cash_transactions (jama with category=party)
+    # Drop any pure cash payment mirrors that may already be in local_party_accounts
+    # (we'll bring them in deduped from cash_transactions for accuracy)
+    raw = [r for r in raw if not (r.get('txn_type') == 'payment' and (r.get('reference', '') or '').startswith('auto_ledger:'))]
+
+    # Add cash payments from cash_transactions (deduped, exclude premium/sale)
     qc = {"category": {"$in": party_keys}, "txn_type": "jama"}
     if kms_year: qc["kms_year"] = kms_year
     if season: qc["season"] = season
     cash_items = await db.cash_transactions.find(qc, {"_id": 0}).to_list(20000)
     skip_kw = ('lab test premium', 'oil premium', 'sale bhada', 'rice bran sale', 'rice sale', 'paddy sale', 'sale #', 'sale-')
+    cash_items = [c for c in cash_items if not any(k in (c.get('description', '') or '').lower() for k in skip_kw)]
+    grouped = {}
     for c in cash_items:
-        desc = (c.get('description', '') or '')
-        if any(k in desc.lower() for k in skip_kw): continue
+        key = ((c.get('category') or ''), c.get('date', '') or '', (c.get('description', '') or '').strip().lower())
+        ref = (c.get('reference', '') or '')
+        existing = grouped.get(key)
+        if existing is None:
+            grouped[key] = c
+        elif ref.startswith('auto_ledger:') and not (existing.get('reference', '') or '').startswith('auto_ledger:'):
+            grouped[key] = c
+    for c in grouped.values():
         raw.append({
             "date": c.get('date', '') or '',
             "party_name": c.get('category', '') or '',
             "txn_type": "payment",
             "amount": c.get('amount', 0) or 0,
-            "description": desc,
-            "reference": c.get('id', '') or '',
+            "description": c.get('description', '') or '',
+            "reference": c.get('reference', '') or '',
             "created_at": c.get('created_at', '') or '',
         })
     raw.sort(key=lambda x: (x.get('date', '') or '', x.get('created_at', '') or ''))
-    # Note: Oil premium adjustments are already auto-created as payment entries in
-    # local_party_accounts by the oil_premium flow (description "Lab Test Premium..."),
-    # so we do NOT re-fetch them here to avoid double-counting.
 
     # Compute running balance
     balance = 0.0

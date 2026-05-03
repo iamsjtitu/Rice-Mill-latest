@@ -132,28 +132,32 @@ module.exports = function(database) {
   });
 
   // v104.44.56 — FIFO payment allocation helpers (Option A + B + C)
-  // v104.44.58 — Pull payments from BOTH local_party_accounts AND cash_transactions (jama txns)
+  // v104.44.60 — Use cash_transactions as canonical source for actual cash payments,
+  // dedupe by (date, description) preferring auto_ledger entries.
   function _fetchPartyPayments(partyKey, kmsYear, season) {
-    const items = [];
-    const lpa = (database.data.local_party_accounts || [])
-      .filter(p => p.party_name === partyKey && p.txn_type === 'payment'
-        && (!kmsYear || p.kms_year === kmsYear)
-        && (!season || p.season === season));
-    items.push(...lpa);
-    const ct = (database.data.cash_transactions || [])
+    const raws = (database.data.cash_transactions || [])
       .filter(c => c.category === partyKey && c.txn_type === 'jama'
         && (!kmsYear || c.kms_year === kmsYear)
         && (!season || c.season === season));
-    ct.forEach(c => items.push({
-      date: c.date || '', party_name: c.category || '', txn_type: 'payment',
-      amount: c.amount || 0, description: c.description || '', reference: c.id || '',
-      created_at: c.created_at || ''
-    }));
     const skip = ['lab test premium', 'oil premium', 'sale bhada', 'rice bran sale', 'rice sale', 'paddy sale', 'sale #', 'sale-'];
-    return items.filter(p => {
-      const d = (p.description || '').toLowerCase();
+    const filtered = raws.filter(c => {
+      const d = (c.description || '').toLowerCase();
       return !skip.some(k => d.includes(k));
-    }).sort((a, b) => ((a.date || '').localeCompare(b.date || '')) || ((a.created_at || '').localeCompare(b.created_at || '')));
+    });
+    // Dedupe by (date, description), preferring auto_ledger entries
+    const grouped = {};
+    filtered.forEach(c => {
+      const key = `${c.date || ''}|${(c.description || '').trim().toLowerCase()}`;
+      const ref = c.reference || '';
+      const existing = grouped[key];
+      if (!existing) grouped[key] = c;
+      else if (ref.startsWith('auto_ledger:') && !(existing.reference || '').startsWith('auto_ledger:')) grouped[key] = c;
+    });
+    return Object.values(grouped).map(c => ({
+      date: c.date || '', party_name: c.category || '', txn_type: 'payment',
+      amount: c.amount || 0, description: c.description || '', reference: c.reference || '',
+      created_at: c.created_at || ''
+    })).sort((a, b) => ((a.date || '').localeCompare(b.date || '')) || ((a.created_at || '').localeCompare(b.created_at || '')));
   }
   function _enrichSalesWithPaymentsFifo(sales) {
     // Group by (party_key, kms, season)
@@ -207,8 +211,15 @@ module.exports = function(database) {
       s.total_received = +all.reduce((sum, p) => sum + _safeNum(p.amount), 0).toFixed(2);
       s.last_payment_date = all.length ? all[all.length - 1].date : '';
       const existingBalance = _safeNum(s.balance);
-      // v104.44.59 — Allow negative pending (overpayment)
-      s.pending_balance = +(existingBalance - s.total_received).toFixed(2);
+      // v104.44.60 — Pending = Balance + Premium − Received (matches Statement)
+      // Premium only adds when NOT in PKA view (premium is always on KCA side accounting-wise).
+      let prem = 0;
+      if (s._view_mode !== 'PKA' && s.product === 'Rice Bran' && (s.voucher_no || s.rst_no)) {
+        const op = (database.data.oil_premium || []).find(o =>
+          (s.voucher_no && o.voucher_no === s.voucher_no) || (s.rst_no && o.rst_no === s.rst_no));
+        if (op) prem = _safeNum(op.premium_amount);
+      }
+      s.pending_balance = +(existingBalance + prem - s.total_received).toFixed(2);
       delete s._pka_alloc; delete s._kca_alloc;
     });
     return sales;
@@ -238,21 +249,32 @@ module.exports = function(database) {
     if (gst_filter === 'PKA') partyKeys = [`${party} (PKA)`];
     else if (gst_filter === 'KCA') partyKeys = [`${party} (KCA)`];
     else partyKeys = [`${party} (PKA)`, `${party} (KCA)`, party];
+    // v104.44.60 — Sale debits + premium credits from local_party_accounts;
+    // actual cash payments from cash_transactions (deduped by date+description, preferring auto_ledger).
     let raw = (database.data.local_party_accounts || []).filter(p => partyKeys.includes(p.party_name));
     if (kms_year) raw = raw.filter(p => p.kms_year === kms_year);
     if (season) raw = raw.filter(p => p.season === season);
-    // v104.44.58 — Also pull payments from cash_transactions (jama with category=party)
+    // Drop auto_ledger payment mirrors from local_party_accounts (we'll re-add deduped from cash_transactions)
+    raw = raw.filter(r => !(r.txn_type === 'payment' && (r.reference || '').startsWith('auto_ledger:')));
+
     const cashItems = (database.data.cash_transactions || []).filter(c =>
       partyKeys.includes(c.category) && c.txn_type === 'jama'
       && (!kms_year || c.kms_year === kms_year)
       && (!season || c.season === season));
     const skipKw = ['lab test premium', 'oil premium', 'sale bhada', 'rice bran sale', 'rice sale', 'paddy sale', 'sale #', 'sale-'];
-    cashItems.forEach(c => {
-      const desc = c.description || '';
-      if (skipKw.some(k => desc.toLowerCase().includes(k))) return;
+    const filteredCash = cashItems.filter(c => !skipKw.some(k => (c.description || '').toLowerCase().includes(k)));
+    const grouped = {};
+    filteredCash.forEach(c => {
+      const key = `${c.category || ''}|${c.date || ''}|${(c.description || '').trim().toLowerCase()}`;
+      const ref = c.reference || '';
+      const existing = grouped[key];
+      if (!existing) grouped[key] = c;
+      else if (ref.startsWith('auto_ledger:') && !(existing.reference || '').startsWith('auto_ledger:')) grouped[key] = c;
+    });
+    Object.values(grouped).forEach(c => {
       raw.push({
         date: c.date || '', party_name: c.category || '', txn_type: 'payment',
-        amount: c.amount || 0, description: desc, reference: c.id || '',
+        amount: c.amount || 0, description: c.description || '', reference: c.reference || '',
         created_at: c.created_at || ''
       });
     });
@@ -988,16 +1010,19 @@ module.exports = function(database) {
       let raw = (database.data.local_party_accounts || []).filter(p => partyKeys.includes(p.party_name));
       if (kms_year) raw = raw.filter(p => p.kms_year === kms_year);
       if (season) raw = raw.filter(p => p.season === season);
-      // v104.44.58 — Also pull payments from cash_transactions
-      const _cashItemsX = (database.data.cash_transactions || []).filter(c =>
+      raw = raw.filter(r => !(r.txn_type === 'payment' && (r.reference || '').startsWith('auto_ledger:')));
+      const _ci = (database.data.cash_transactions || []).filter(c =>
         partyKeys.includes(c.category) && c.txn_type === 'jama'
-        && (!kms_year || c.kms_year === kms_year)
-        && (!season || c.season === season));
-      const _skipKwX = ['lab test premium', 'oil premium', 'sale bhada', 'rice bran sale', 'rice sale', 'paddy sale', 'sale #', 'sale-'];
-      _cashItemsX.forEach(c => {
-        const d = c.description || ''; if (_skipKwX.some(k => d.toLowerCase().includes(k))) return;
-        raw.push({ date: c.date||'', party_name: c.category||'', txn_type: 'payment', amount: c.amount||0, description: d, reference: c.id||'', created_at: c.created_at||'' });
+        && (!kms_year || c.kms_year === kms_year) && (!season || c.season === season));
+      const _skip = ['lab test premium', 'oil premium', 'sale bhada', 'rice bran sale', 'rice sale', 'paddy sale', 'sale #', 'sale-'];
+      const _f = _ci.filter(c => !_skip.some(k => (c.description || '').toLowerCase().includes(k)));
+      const _g = {};
+      _f.forEach(c => {
+        const k = `${c.category || ''}|${c.date || ''}|${(c.description || '').trim().toLowerCase()}`;
+        const r = c.reference || '';
+        if (!_g[k] || (r.startsWith('auto_ledger:') && !(_g[k].reference || '').startsWith('auto_ledger:'))) _g[k] = c;
       });
+      Object.values(_g).forEach(c => raw.push({ date: c.date||'', party_name: c.category||'', txn_type:'payment', amount: c.amount||0, description: c.description||'', reference: c.reference||'', created_at: c.created_at||'' }));
       raw.sort((a, b) => ((a.date || '').localeCompare(b.date || '')) || ((a.created_at || '').localeCompare(b.created_at || '')));
       let balance = 0;
       const entries = raw.map(r => {
