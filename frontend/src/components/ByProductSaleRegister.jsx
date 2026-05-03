@@ -392,14 +392,41 @@ export default function ByProductSaleRegister({ filters, user, product }) {
     return lines.join('\n');
   };
 
+  // v104.44.55 — WhatsApp button: directly share the PDF file via Web Share API
+  // Mobile: opens native share sheet (WhatsApp/Telegram/etc with PDF attached)
+  // Desktop: tries Web Share, falls back to download + open wa.me with summary text
   const handleHeaderWhatsApp = async () => {
     if (filtered.length === 0) { toast.error("Koi entries nahi"); return; }
-    const text = _bpSummaryText();
+    const summary = _bpSummaryText();
+    const pdfUrl = `${API}/bp-sale-register/export/pdf?${buildExportParams()}`;
+    const productSlug = (product || 'byproduct').toLowerCase().replace(/\s+/g, '_');
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const filename = `${productSlug}_sale_register_${todayStr}.pdf`;
+
     try {
-      await navigator.clipboard.writeText(text);
-      toast.success("Summary copy ho gayi — WhatsApp chat me paste karein", { duration: 4000 });
-    } catch {
-      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+      toast.info("PDF ready kar rahe...", { duration: 1500 });
+      const res = await fetch(pdfUrl, { credentials: 'include' });
+      if (!res.ok) throw new Error('PDF fetch failed');
+      const blob = await res.blob();
+      const file = new File([blob], filename, { type: 'application/pdf' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        // Native share — WhatsApp/Telegram select karke direct PDF send
+        await navigator.share({ files: [file], title: filename, text: summary });
+        toast.success("Share dialog open — WhatsApp select karein");
+        return;
+      }
+      // Fallback: download PDF + open WhatsApp Web with summary text
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      window.open(`https://wa.me/?text=${encodeURIComponent(summary)}`, "_blank");
+      toast.success("PDF download ho gayi + WhatsApp open — manually attach karein", { duration: 5000 });
+    } catch (e) {
+      if (e?.name === 'AbortError') return; // user cancelled native share
+      toast.error("WhatsApp share fail: " + (e.message || e));
     }
   };
 
@@ -452,7 +479,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             <FileText className="w-4 h-4" />
           </Button>
           <Button onClick={handleHeaderWhatsApp} variant="ghost" size="sm"
-            className="h-8 w-8 p-0 text-[#25D366] hover:bg-green-900/30 border border-green-600" title="WhatsApp (summary text)" data-testid="bp-whatsapp-btn">
+            className="h-8 w-8 p-0 text-[#25D366] hover:bg-green-900/30 border border-green-600" title="WhatsApp pe PDF share karein" data-testid="bp-whatsapp-btn">
             <WhatsAppIcon className="w-4 h-4" />
           </Button>
           <Button onClick={handleHeaderGroup} variant="ghost" size="sm"

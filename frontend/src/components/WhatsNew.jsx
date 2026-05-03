@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.55",
+    date: "Feb 17, 2026",
+    title: "v104.44.55 — 📤 WhatsApp button: ab seedha PDF share karta hai",
+    items: [
+      { type: "feature", text: "📤 **WhatsApp button** ab summary text copy nahi karta — direct **PDF file** share karta hai. Mobile pe native share-sheet (WhatsApp / Telegram / Email select karke send), Desktop pe PDF download + WhatsApp Web open." },
+      { type: "improvement", text: "🎯 BP Sale Register me click karte hi PDF generate hota hai aur Web Share API se WhatsApp pe attach hone ke liye taiyar — koi extra paste/manual step nahi." },
+    ],
+  },
+  {
     version: "104.44.54",
     date: "Feb 17, 2026",
     title: "v104.44.54 — 🧹 PDF clean-up: Payment Summary line removed",
