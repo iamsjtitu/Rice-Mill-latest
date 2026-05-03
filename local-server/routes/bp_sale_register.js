@@ -240,6 +240,23 @@ module.exports = function(database) {
     res.json(sales);
   });
 
+  // v104.44.61 — Lightweight ETag for auto-refresh
+  router.get('/api/bp-sale-register/payments-etag', (req, res) => {
+    ensure();
+    let latest = '';
+    const collections = ['cash_transactions', 'local_party_accounts', 'oil_premium', 'bp_sale_register'];
+    collections.forEach(name => {
+      const arr = database.data[name] || [];
+      arr.forEach(doc => {
+        const ua = doc.updated_at || '';
+        const ca = doc.created_at || '';
+        if (ua > latest) latest = ua;
+        if (ca > latest) latest = ca;
+      });
+    });
+    res.json({ etag: latest });
+  });
+
   // v104.44.56 — GET /party-statement (Option C)
   router.get('/api/bp-sale-register/party-statement', (req, res) => {
     if (!database.data.local_party_accounts) database.data.local_party_accounts = [];

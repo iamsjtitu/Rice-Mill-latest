@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.61",
+    date: "Feb 17, 2026",
+    title: "v104.44.61 — 🔄 Auto Statement Sync (live polling every 5s)",
+    items: [
+      { type: "feature", text: "🔄 **Auto Statement Sync** — BP Sale Register me khole hue ho aur dusri tab me Cash Book / Premium / Sale entry add/edit/delete karo, to **5 second me automatic refresh** ho jayega — manual refresh nahi karna padega. Live pulse indicator (green dot) header me dikhata hai sync active hai." },
+      { type: "improvement", text: "⚡ **Lightweight ETag mechanism** — Sirf latest mutation timestamp poll hota hai (~50 bytes), full data tab fetch hota hai jab actual change ho. Performance optimal." },
+      { type: "improvement", text: "🌐 **Triple-Backend Parity** — Naya `/api/bp-sale-register/payments-etag` endpoint Python + Node Desktop + Node LAN teeno me available." },
+    ],
+  },
+  {
     version: "104.44.60",
     date: "Feb 17, 2026",
     title: "v104.44.60 — 🎯 Pending = Statement closing + Double-count dedupe",

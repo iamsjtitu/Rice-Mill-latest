@@ -416,6 +416,23 @@ async def get_bp_sales_with_payments(product: str = "", kms_year: str = "", seas
     return sales
 
 
+# v104.44.61 — Lightweight ETag for auto-refresh: returns latest mutation timestamp
+# across collections that affect BP Sale Register payments display.
+@router.get("/bp-sale-register/payments-etag")
+async def get_payments_etag():
+    """Returns max(updated_at|created_at) across cash_transactions, local_party_accounts, oil_premium, bp_sale_register.
+    Frontend polls this every few seconds; if changed → refetch /with-payments.
+    """
+    latest = ""
+    for coll in (db.cash_transactions, db.local_party_accounts, db.oil_premium, db.bp_sale_register):
+        # Latest by created_at OR updated_at (string ISO timestamps)
+        for field in ("updated_at", "created_at"):
+            doc = await coll.find_one({field: {"$exists": True}}, {"_id": 0, field: 1}, sort=[(field, -1)])
+            if doc and (doc.get(field) or '') > latest:
+                latest = doc[field]
+    return {"etag": latest}
+
+
 # v104.44.56 — Party Statement: chronological ledger (Option C)
 @router.get("/bp-sale-register/party-statement")
 async def get_bp_party_statement(party: str, kms_year: str = "", season: str = "",

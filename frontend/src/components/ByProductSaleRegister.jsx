@@ -111,6 +111,27 @@ export default function ByProductSaleRegister({ filters, user, product }) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // v104.44.61 — Auto-refresh: poll payments-etag every 5s, refetch when changed
+  const lastEtagRef = React.useRef('');
+  useEffect(() => {
+    let stopped = false;
+    const poll = async () => {
+      if (stopped) return;
+      try {
+        const r = await axios.get(`${API}/bp-sale-register/payments-etag`);
+        const newEtag = r.data?.etag || '';
+        if (lastEtagRef.current && newEtag && newEtag !== lastEtagRef.current) {
+          // Cash Book / payment-related collections changed → refetch sales
+          fetchData();
+        }
+        lastEtagRef.current = newEtag;
+      } catch { /* silently ignore — keep polling */ }
+    };
+    poll();  // immediate first poll to capture baseline
+    const id = setInterval(poll, 5000);
+    return () => { stopped = true; clearInterval(id); };
+  }, [fetchData]);
+
   // RST auto-fetch from Vehicle Weight — Sale context only
   // Backend validates trans_type and returns 409 if RST belongs to Purchase
   const fetchRst = async (rstNo) => {
@@ -476,7 +497,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             className="pl-8 bg-slate-800 border-slate-600 text-white h-8 text-xs" data-testid="bp-sale-search" />
         </div>
         <div className="flex gap-2 items-center">
-          <span className="text-xs text-slate-400">{filtered.length} entries | Total: <span className="text-emerald-400 font-bold">{totalAmount.toLocaleString()}</span>{gstFilter !== "PKA" && <> | Balance: <span className={totalBalanceFinal > 0 ? "text-red-500 font-bold" : "text-green-500 font-bold"}>{Math.round(totalBalanceFinal).toLocaleString()}</span></>}</span>
+          <span className="text-xs text-slate-400" title="Auto-refresh: BP Sale Register cash payments ke saath sync rehta hai (every 5s check)">{filtered.length} entries | Total: <span className="text-emerald-400 font-bold">{totalAmount.toLocaleString()}</span>{gstFilter !== "PKA" && <> | Balance: <span className={totalBalanceFinal > 0 ? "text-red-500 font-bold" : "text-green-500 font-bold"}>{Math.round(totalBalanceFinal).toLocaleString()}</span></>} <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" title="Live sync"></span></span>
           <Button onClick={async () => { try { const params = buildExportParams(); const { downloadFile } = await import('../utils/download'); const { buildFilename } = await import('../utils/filename-format'); const fname = buildFilename({ base: `${product || 'byproduct'}_sales`, party: filterValues.party_name || filters.party_name, dateFrom: filterValues.date_from || filters.date_from, dateTo: filterValues.date_to || filters.date_to, kmsYear: filters.kms_year, ext: 'xlsx' }); downloadFile(`/api/bp-sale-register/export/excel?${params}`, fname); toast.success("Excel exported!"); } catch(e) { toast.error("Export failed"); }}}
             variant="ghost" size="sm" className="h-8 w-8 p-0 text-green-400 hover:bg-green-900/30 border border-green-600" title="Excel (current filters)" data-testid="bp-export-excel">
             <FileSpreadsheet className="w-4 h-4" />
