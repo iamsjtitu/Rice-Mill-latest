@@ -33,6 +33,7 @@ export default function PartyWeightRegister({ filters, user, product }) {
     locked: true,  // our fields locked by default
   });
   const [lookupBusy, setLookupBusy] = useState(false);
+  const [voucherLocked, setVoucherLocked] = useState(false);  // true after successful fetch
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -52,6 +53,7 @@ export default function PartyWeightRegister({ filters, user, product }) {
 
   const openNew = () => {
     setEditId(null);
+    setVoucherLocked(false);
     setForm({
       voucher_no: "", date: "", party_name: "", vehicle_no: "", rst_no: "",
       our_net_weight_kg: "", our_net_weight_qtl: "",
@@ -63,6 +65,7 @@ export default function PartyWeightRegister({ filters, user, product }) {
 
   const openEdit = (s) => {
     setEditId(s.id);
+    setVoucherLocked(true);  // always locked in edit
     setForm({
       voucher_no: s.voucher_no || "",
       date: s.date || "",
@@ -79,10 +82,13 @@ export default function PartyWeightRegister({ filters, user, product }) {
     setDialogOpen(true);
   };
 
-  // Voucher lookup (on Enter or blur)
+  // Voucher lookup (on Enter or blur) — auto-prepends "S-" if user typed only number
   const doLookup = async () => {
-    const v = form.voucher_no.trim();
-    if (!v) return;
+    const raw = form.voucher_no.trim();
+    if (!raw) return;
+    // Auto-prefix "S-" if user typed digits-only (or missing "-"), so "001" → "S-001"
+    const needsPrefix = !raw.toUpperCase().startsWith("S-") && !raw.includes("-");
+    const v = needsPrefix ? `S-${raw}` : raw;
     setLookupBusy(true);
     try {
       const params = new URLSearchParams({ voucher_no: v });
@@ -92,6 +98,7 @@ export default function PartyWeightRegister({ filters, user, product }) {
       const d = res.data;
       setForm(p => ({
         ...p,
+        voucher_no: v,  // normalize to full form
         date: d.date || p.date,
         party_name: d.party_name || "",
         vehicle_no: d.vehicle_no || "",
@@ -99,15 +106,30 @@ export default function PartyWeightRegister({ filters, user, product }) {
         our_net_weight_kg: String(d.net_weight_kg || 0),
         our_net_weight_qtl: ((d.net_weight_kg || 0) / 100).toFixed(2),
       }));
+      setVoucherLocked(true);  // lock voucher input after successful fetch
       toast.success(`Voucher #${v} fetched: ${d.party_name} · ${d.net_weight_kg} kg`);
-      // Focus party weight kg
+      // Focus party weight qtl (now first field in order)
       setTimeout(() => {
-        const el = document.querySelector('[data-testid="pw-party-kg"]');
+        const el = document.querySelector('[data-testid="pw-party-qtl"]');
         if (el) { el.focus(); try { el.select(); } catch(_){} }
       }, 150);
     } catch (e) {
       toast.error(`Voucher #${v} not found`);
     } finally { setLookupBusy(false); }
+  };
+
+  // "Change voucher" → unlock to allow re-fetch
+  const unlockVoucher = () => {
+    setVoucherLocked(false);
+    setForm(p => ({
+      ...p,
+      voucher_no: "", date: "", party_name: "", vehicle_no: "", rst_no: "",
+      our_net_weight_kg: "", our_net_weight_qtl: "",
+    }));
+    setTimeout(() => {
+      const el = document.querySelector('[data-testid="pw-voucher-no"]');
+      if (el) { el.focus(); try { el.select(); } catch(_){} }
+    }, 80);
   };
 
   // Mutual conversion for party weight (kg ↔ qtl)
@@ -117,12 +139,15 @@ export default function PartyWeightRegister({ filters, user, product }) {
   };
   const updatePartyQtl = (v) => {
     const qtl = parseFloat(v) || 0;
-    setForm(p => ({ ...p, party_net_weight_qtl: v, party_net_weight_kg: v === "" ? "" : String(qtl * 100) }));
+    // Multiply then round to 2 decimals to avoid JS float noise (149.80 * 100 = 14980.000000000002)
+    const kgClean = Math.round(qtl * 100 * 100) / 100;
+    setForm(p => ({ ...p, party_net_weight_qtl: v, party_net_weight_kg: v === "" ? "" : String(kgClean) }));
   };
 
   const ourKg = parseFloat(form.our_net_weight_kg) || 0;
   const partyKg = parseFloat(form.party_net_weight_kg) || 0;
-  const diffKg = ourKg - partyKg;
+  const diffKgRaw = ourKg - partyKg;
+  const diffKg = Math.round(diffKgRaw * 100) / 100;  // 2-decimal clean (avoids 19.99999 float noise)
   const diffQtl = diffKg / 100;
 
   const handleSave = async () => {
@@ -251,21 +276,27 @@ export default function PartyWeightRegister({ filters, user, product }) {
           <div className="space-y-3">
             {/* Voucher fetch row */}
             <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700/50 rounded-lg p-3">
-              <Label className="text-xs font-semibold text-amber-700 dark:text-amber-400">Voucher No.</Label>
+              <Label className="text-xs font-semibold text-amber-700 dark:text-amber-400">Voucher No. <span className="font-normal text-amber-600/70 dark:text-amber-500/70">(sirf number: e.g. 001 → S-001)</span></Label>
               <div className="flex gap-2 mt-1">
                 <Input
                   value={form.voucher_no}
                   onChange={e => setForm(p => ({ ...p, voucher_no: e.target.value }))}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); doLookup(); } }}
-                  placeholder="Enter voucher no. & press Enter"
-                  className="bg-white dark:bg-slate-700 border-amber-300 dark:border-amber-700 text-slate-900 dark:text-white h-9"
+                  placeholder="Enter number & press Enter (S- auto-prepend)"
+                  className={`bg-white dark:bg-slate-700 border-amber-300 dark:border-amber-700 text-slate-900 dark:text-white h-9 ${voucherLocked ? 'cursor-not-allowed bg-amber-100 dark:bg-amber-900/40 font-bold' : ''}`}
                   autoFocus
-                  disabled={!!editId}
+                  disabled={voucherLocked}
                   data-testid="pw-voucher-no"
                 />
-                <Button onClick={doLookup} disabled={lookupBusy || !form.voucher_no.trim() || !!editId} size="sm" className="bg-amber-500 hover:bg-amber-600 text-white h-9" data-testid="pw-fetch">
-                  <Search className="w-4 h-4 mr-1" /> {lookupBusy ? '...' : 'Fetch'}
-                </Button>
+                {voucherLocked && !editId ? (
+                  <Button onClick={unlockVoucher} size="sm" variant="outline" className="h-9 border-amber-400 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/50" data-testid="pw-unlock">
+                    Change
+                  </Button>
+                ) : (
+                  <Button onClick={doLookup} disabled={lookupBusy || !form.voucher_no.trim() || !!editId} size="sm" className="bg-amber-500 hover:bg-amber-600 text-white h-9" data-testid="pw-fetch">
+                    <Search className="w-4 h-4 mr-1" /> {lookupBusy ? '...' : 'Fetch'}
+                  </Button>
+                )}
               </div>
               {form.party_name && (
                 <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-2">
@@ -274,35 +305,24 @@ export default function PartyWeightRegister({ filters, user, product }) {
               )}
             </div>
 
-            {/* Our weight (locked) + Party weight (dual kg/qtl input) */}
+            {/* Our weight (locked) + Party weight (dual qtl/kg input) */}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-300 dark:border-blue-700/50 rounded-lg p-3">
                 <Label className="text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase">Our N/W (Locked)</Label>
                 <div className="grid grid-cols-2 gap-2 mt-1">
                   <div>
-                    <Label className="text-[10px] text-blue-600/80 dark:text-blue-500/80">Kg</Label>
-                    <Input value={form.our_net_weight_kg} readOnly className="bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-200 h-9 font-bold tabular-nums cursor-not-allowed" data-testid="pw-our-kg" />
+                    <Label className="text-[10px] text-blue-600/80 dark:text-blue-500/80">Qtl</Label>
+                    <Input value={form.our_net_weight_qtl} readOnly disabled className="bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-200 h-9 font-bold tabular-nums cursor-not-allowed disabled:opacity-100" data-testid="pw-our-qtl" />
                   </div>
                   <div>
-                    <Label className="text-[10px] text-blue-600/80 dark:text-blue-500/80">Qtl</Label>
-                    <Input value={form.our_net_weight_qtl} readOnly className="bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-200 h-9 font-bold tabular-nums cursor-not-allowed" data-testid="pw-our-qtl" />
+                    <Label className="text-[10px] text-blue-600/80 dark:text-blue-500/80">Kg</Label>
+                    <Input value={form.our_net_weight_kg} readOnly disabled className="bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-200 h-9 font-bold tabular-nums cursor-not-allowed disabled:opacity-100" data-testid="pw-our-kg" />
                   </div>
                 </div>
               </div>
               <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-300 dark:border-indigo-700/50 rounded-lg p-3">
                 <Label className="text-xs font-semibold text-indigo-700 dark:text-indigo-400 uppercase">Party N/W</Label>
                 <div className="grid grid-cols-2 gap-2 mt-1">
-                  <div>
-                    <Label className="text-[10px] text-indigo-600/80 dark:text-indigo-500/80">Kg</Label>
-                    <Input
-                      type="number"
-                      value={form.party_net_weight_kg}
-                      onChange={e => updatePartyKg(e.target.value)}
-                      placeholder="0"
-                      className="bg-white dark:bg-slate-700 border-indigo-300 dark:border-indigo-700 text-indigo-900 dark:text-white h-9 font-bold tabular-nums"
-                      data-testid="pw-party-kg"
-                    />
-                  </div>
                   <div>
                     <Label className="text-[10px] text-indigo-600/80 dark:text-indigo-500/80">Qtl</Label>
                     <Input
@@ -313,6 +333,17 @@ export default function PartyWeightRegister({ filters, user, product }) {
                       placeholder="0"
                       className="bg-white dark:bg-slate-700 border-indigo-300 dark:border-indigo-700 text-indigo-900 dark:text-white h-9 font-bold tabular-nums"
                       data-testid="pw-party-qtl"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-indigo-600/80 dark:text-indigo-500/80">Kg</Label>
+                    <Input
+                      type="number"
+                      value={form.party_net_weight_kg}
+                      onChange={e => updatePartyKg(e.target.value)}
+                      placeholder="0"
+                      className="bg-white dark:bg-slate-700 border-indigo-300 dark:border-indigo-700 text-indigo-900 dark:text-white h-9 font-bold tabular-nums"
+                      data-testid="pw-party-kg"
                     />
                   </div>
                 </div>

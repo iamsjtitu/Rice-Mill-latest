@@ -12,9 +12,8 @@ const CHANGELOG = [
     title: "v104.44.70 — ⚖️ Party Weight Register (By-Product Sale sub-tab)",
     items: [
       { type: "feature", text: "⚖️ **Party Weight** — By-Product Sale Register me naya sub-tab 'Party Weight'. Party ke dharam-kaata ka weight enter karke humare mill weight ke saath shortage/excess auto-track karo. Har product (Rice Bran / Broken / Kanki / Husk) ke liye alag." },
-      { type: "improvement", text: "🔍 **Voucher fetch** — Voucher No. type karke Enter dabao → automatic party/date/RST/vehicle + humara Net Weight auto-fill ho jata hai. Party weight enter karte hi shortage (kami) ya excess (zyada) live calculate hota hai." },
-      { type: "improvement", text: "🔄 **Kg ↔ Qtl auto-convert** — Party weight field me Kg daalo to Qtl auto-update, ya Qtl daalo to Kg — dono directions me mutual conversion. Commercial auto round-off bhi apply." },
-      { type: "improvement", text: "📊 **Header summary** — Top right me total entries, Our total, Party total, total shortage (red), total excess (green) — ek hi nazar me saari kami/zyada visible." },
+      { type: "improvement", text: "⚡ **Smart Voucher Fetch** — Sirf number type karo (e.g. '001' → automatically 'S-001'). Enter press karo ya Fetch click karo → party/date/RST/vehicle + humara Net Weight auto-fill ho jata hai. Fetch ke baad voucher field lock ho jata hai (Change button se wapas khol sakte hain)." },
+      { type: "improvement", text: "🔒 **Our N/W Locked (Qtl pehle, Kg baad me)** — Auto-fetched weight fully readonly — koi edit nahi. Party N/W me pehle Qtl enter karo, Kg auto-calculate hota hai (ya vice versa). Live shortage (red) / excess (green) / match display." },
       { type: "improvement", text: "🌐 **Triple-Backend Parity** — Python FastAPI + Node Desktop Electron + Node LAN Express — teeno backends me identical `/api/party-weight` CRUD + lookup endpoints. 22/22 in-process harness tests PASS." },
     ],
   },
