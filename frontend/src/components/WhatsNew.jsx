@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.74",
+    date: "Feb 17, 2026",
+    title: "v104.44.74 — BP Sale: Bag Type pehle, Bag W.C locked, Keyboard Shortcuts",
+    items: [
+      { type: "improvement", text: "🔀 **Field order** — BP Sale form me ab `Bag Type * → Bags → Bag W.C → Final M.W → Amount`. Pehle Bag Type select karo, tabhi Bags ka stock-remaining dikhta hai correctly." },
+      { type: "improvement", text: "🔒 **Bag W.C (g) locked** — Ab default 200g fixed hai (Rice Bran). User edit nahi kar sakta — consistency maintain. Greyed out + disabled." },
+      { type: "feature", text: "⌨️ **Keyboard shortcuts added** — `Enter` = Save · `Esc` = Close · `Ctrl+S` (ya Cmd+S) = **Save & New**. Save & New flow me party, date, bill_from, destination, bag_type auto-preserve hote hain — next entry ke liye sirf RST/bags change karna hota hai. Data entry 30-40% tez!" },
+      { type: "improvement", text: "💾 **Save & New button** — Dedicated emerald-500 button form me `Save Sale` ke baad. Click pe current entry save → party/date retain → RST field focus. Toast: 'Next entry — party/date auto-filled'." },
+      { type: "improvement", text: "ℹ **Dialog title hint** — Top-right me shortcut hint: `Enter · Esc · Ctrl+S`." },
+    ],
+  },
+  {
     version: "104.44.73",
     date: "Feb 17, 2026",
     title: "v104.44.73 — BP Sale dialog: wider, white-theme-compliant, cleaner layout",

@@ -296,8 +296,9 @@ export default function ByProductSaleRegister({ filters, user, product }) {
     setIsFormOpen(true);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e, opts = {}) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const saveAndNew = !!opts.saveAndNew;
     if (!form.party_name?.trim()) { toast.error("Party Name daalen"); return; }
     if (form.split_billing) {
       if (billedKg <= 0 && kacchaKg <= 0) { toast.error("Pakka ya Kaccha weight daalen"); return; }
@@ -358,6 +359,25 @@ export default function ByProductSaleRegister({ filters, user, product }) {
         } else if (!r.ok && bhadaVal > 0) {
           toast.warning(`Bhada save hua par truck owner ledger me sync nahi hua (${r.message || "unknown"}).`, { duration: 6000 });
         }
+      }
+      // v104.44.74 — Ctrl+S = Save & New (preserves party/date/bill_from/season for fast multi-entry)
+      if (saveAndNew && !editingId) {
+        const preserve = {
+          party_name: form.party_name, date: form.date, billing_date: form.billing_date,
+          vehicle_no: "", bill_from: form.bill_from, destination: form.destination,
+          bag_type: form.bag_type, bag_weight_cut_g: form.bag_weight_cut_g,
+          kms_year: form.kms_year, season: form.season,
+        };
+        setForm({ ...blankForm, ...preserve });
+        setEditingId(null);
+        fetchData(); fetchBagStock();
+        toast.info("Next entry — party/date auto-filled", { duration: 2000 });
+        // Focus RST for fast next-entry
+        setTimeout(() => {
+          const el = document.querySelector('[data-testid="bp-rst"]');
+          if (el) el.focus();
+        }, 80);
+        return;
       }
       setIsFormOpen(false); fetchData(); fetchBagStock();
     } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
@@ -933,9 +953,23 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white max-w-6xl max-h-[92vh] overflow-y-auto" data-testid="bp-sale-form">
           <DialogHeader>
-            <DialogTitle className="text-amber-400">{editingId ? "Edit" : "New"} {product} Sale</DialogTitle>
+            <DialogTitle className="text-amber-600 dark:text-amber-400 flex items-center justify-between">
+              <span>{editingId ? "Edit" : "New"} {product} Sale</span>
+              <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">
+                ⌨ Enter = Save · Esc = Close · Ctrl+S = Save & New
+              </span>
+            </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-3">
+          <form
+            onSubmit={handleSubmit}
+            onKeyDown={(e) => {
+              // v104.44.74 — Ctrl+S / Cmd+S → Save & New (preserves party/date)
+              if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+                e.preventDefault();
+                handleSubmit(null, { saveAndNew: true });
+              }
+            }}
+            className="space-y-3">
             <div className="grid grid-cols-4 gap-3">
               <div>
                 <Label className="text-[11px] text-slate-600 dark:text-slate-400">Voucher No</Label>
@@ -1039,19 +1073,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-rate" />
                 </div>
               </div>
-              {/* v104.44.72 — Bags → Bag Type → Bag W.C → Final M.W → Amount (user-specified order) */}
+              {/* v104.44.74 — Bag Type → Bags → Bag W.C → Final M.W → Amount (Bag Type pehle) */}
               <div className={`grid gap-3 ${product === "Rice Bran" ? "grid-cols-5" : "grid-cols-4"}`}>
-                <div>
-                  <Label className="text-[11px] text-slate-600 dark:text-slate-400">
-                    Bags {form.bag_type && bagStock[form.bag_type] !== undefined && (
-                      <span className={`ml-1 font-bold ${(bagStock[form.bag_type] - bagCount) >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                        (Stock: {bagStock[form.bag_type] - bagCount})
-                      </span>
-                    )}
-                  </Label>
-                  <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
-                    className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bags" />
-                </div>
                 <div>
                   <Label className="text-[11px] text-cyan-700 dark:text-cyan-300 font-semibold">Bag Type <span className="text-amber-500 dark:text-amber-400">*</span></Label>
                   <Select value={form.bag_type || ""} onValueChange={v => setForm(p => ({ ...p, bag_type: v }))}>
@@ -1068,12 +1091,23 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     <p className="text-red-500 dark:text-red-400 text-[10px] mt-0.5">⚠ {bagCount - bagStock[form.bag_type]} bags short</p>
                   )}
                 </div>
+                <div>
+                  <Label className="text-[11px] text-slate-600 dark:text-slate-400">
+                    Bags {form.bag_type && bagStock[form.bag_type] !== undefined && (
+                      <span className={`ml-1 font-bold ${(bagStock[form.bag_type] - bagCount) >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                        (Stock: {bagStock[form.bag_type] - bagCount})
+                      </span>
+                    )}
+                  </Label>
+                  <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
+                    className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bags" />
+                </div>
                 {product === "Rice Bran" && (
                   <div>
-                    <Label className="text-[11px] text-cyan-700 dark:text-cyan-300 font-semibold">Bag W.C (g)</Label>
+                    <Label className="text-[11px] text-cyan-700 dark:text-cyan-300 font-semibold">Bag W.C (g) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(fixed)</span></Label>
                     <Input type="number" value={form.bag_weight_cut_g}
-                      onChange={e => setForm(p => ({ ...p, bag_weight_cut_g: e.target.value }))}
-                      placeholder="200" className="bg-white dark:bg-slate-700 border-cyan-400/50 dark:border-cyan-700/50 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bag-cut" />
+                      readOnly disabled tabIndex={-1}
+                      className="bg-slate-100 dark:bg-slate-800 border-cyan-300 dark:border-cyan-800 text-slate-600 dark:text-slate-300 h-9 text-xs cursor-not-allowed disabled:opacity-100 font-bold" data-testid="bp-bag-cut" />
                   </div>
                 )}
                 <div>
@@ -1174,7 +1208,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                 {/* KACCHA */}
                 <div className="p-3 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-500/30 space-y-3">
                   <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Kaccha (Slip — No GST)</p>
-                  {/* Row 1 — weights + rate + bags */}
+                  {/* Row 1 — weights + rate + Bag Type (pehle) */}
                   <div className="grid grid-cols-4 gap-3">
                     <div>
                       <Label className="text-[11px] text-slate-600 dark:text-slate-400">Kaccha Wt (Qtl)</Label>
@@ -1209,14 +1243,6 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                         className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-kaccha-rate" />
                     </div>
                     <div>
-                      <Label className="text-[11px] text-slate-600 dark:text-slate-400">Bags (total) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(shared)</span></Label>
-                      <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
-                        className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bags" />
-                    </div>
-                  </div>
-                  {/* Row 2 — bag type + cut + final M.W + kaccha amount */}
-                  <div className={`grid gap-3 ${product === "Rice Bran" ? "grid-cols-4" : "grid-cols-3"}`}>
-                    <div>
                       <Label className="text-[11px] text-cyan-700 dark:text-cyan-300 font-semibold">Bag Type <span className="text-amber-500 dark:text-amber-400">*</span></Label>
                       <Select value={form.bag_type || ""} onValueChange={v => setForm(p => ({ ...p, bag_type: v }))}>
                         <SelectTrigger className="bg-white dark:bg-slate-700 border-cyan-400/50 dark:border-cyan-700/50 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bag-type">
@@ -1232,12 +1258,20 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                         <p className="text-red-500 dark:text-red-400 text-[10px] mt-0.5">⚠ {bagCount - bagStock[form.bag_type]} bags short</p>
                       )}
                     </div>
+                  </div>
+                  {/* Row 2 — Bags + Bag W.C (locked) + Final M.W + Kaccha Amount */}
+                  <div className={`grid gap-3 ${product === "Rice Bran" ? "grid-cols-4" : "grid-cols-3"}`}>
+                    <div>
+                      <Label className="text-[11px] text-slate-600 dark:text-slate-400">Bags (total) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(shared)</span></Label>
+                      <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
+                        className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bags" />
+                    </div>
                     {product === "Rice Bran" && (
                       <div>
-                        <Label className="text-[11px] text-cyan-700 dark:text-cyan-300 font-semibold">Bag W.C (g)</Label>
+                        <Label className="text-[11px] text-cyan-700 dark:text-cyan-300 font-semibold">Bag W.C (g) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(fixed)</span></Label>
                         <Input type="number" value={form.bag_weight_cut_g}
-                          onChange={e => setForm(p => ({ ...p, bag_weight_cut_g: e.target.value }))}
-                          placeholder="200" className="bg-white dark:bg-slate-700 border-cyan-400/50 dark:border-cyan-700/50 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bag-cut" />
+                          readOnly disabled tabIndex={-1}
+                          className="bg-slate-100 dark:bg-slate-800 border-cyan-300 dark:border-cyan-800 text-slate-600 dark:text-slate-300 h-9 text-xs cursor-not-allowed disabled:opacity-100 font-bold" data-testid="bp-bag-cut" />
                       </div>
                     )}
                     <div>
@@ -1359,9 +1393,17 @@ export default function ByProductSaleRegister({ filters, user, product }) {
 
             <div className="flex gap-2 pt-2">
               <Button type="submit" className="bg-amber-500 hover:bg-amber-600 text-slate-900 flex-1" data-testid="bp-sale-submit">
-                {editingId ? "Update" : "Save Sale"}
+                {editingId ? "Update" : "Save Sale"} <span className="ml-1 text-[9px] opacity-70 font-normal hidden sm:inline">(Enter)</span>
               </Button>
-              <Button type="button" variant="outline" className="border-slate-600 text-slate-300" onClick={() => setIsFormOpen(false)}>Cancel</Button>
+              {!editingId && (
+                <Button type="button" onClick={() => handleSubmit(null, { saveAndNew: true })}
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white" data-testid="bp-sale-save-new">
+                  Save &amp; New <span className="ml-1 text-[9px] opacity-70 font-normal hidden sm:inline">(Ctrl+S)</span>
+                </Button>
+              )}
+              <Button type="button" variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300" onClick={() => setIsFormOpen(false)}>
+                Cancel <span className="ml-1 text-[9px] opacity-70 hidden sm:inline">(Esc)</span>
+              </Button>
             </div>
           </form>
         </DialogContent>
