@@ -1290,10 +1290,11 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   </div>
                 </div>
 
-                {/* Mismatch warning */}
-                {totalSplitQtl > 0 && Math.abs((billedQtl + kacchaQtl) - totalSplitQtl) > 0.01 && (
-                  <p className="text-amber-400 text-[10px] text-right">
-                    ⚠ Pakka + Kaccha = {(billedQtl + kacchaQtl).toFixed(2)} Q, Total N/W = {totalSplitQtl.toFixed(2)} Q (mismatch)
+                {/* Mismatch warning — compare RAW (pre-cut) Pakka + Kaccha against Total N/W.
+                    Cut is a separate deduction applied AFTER split, so raw sum must match total. */}
+                {totalSplitQtl > 0 && Math.abs(((billedKg + kacchaKg) / 100) - totalSplitQtl) > 0.01 && (
+                  <p className="text-amber-500 dark:text-amber-400 text-[10px] text-right">
+                    ⚠ Pakka + Kaccha (raw) = {((billedKg + kacchaKg) / 100).toFixed(2)} Q, Total N/W = {totalSplitQtl.toFixed(2)} Q (mismatch)
                   </p>
                 )}
 

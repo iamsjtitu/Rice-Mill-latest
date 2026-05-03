@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.75",
+    date: "Feb 17, 2026",
+    title: "v104.44.75 — Bug: Split mode false mismatch warning fix",
+    items: [
+      { type: "bug", text: "🐛 **False mismatch warning fix** — Split mode me bag cut ho raha tha to `Pakka + Kaccha = 149.70 Q, Total = 150.00 Q (mismatch)` jhootha warning aa raha tha. Logic me final (post-cut) Qtl compare ho rahi thi total (pre-cut) se. Ab **raw Pakka + raw Kaccha** compare hota hai Total se — bag cut ko legitimate deduction samajhta hai. Ab warning sirf genuine imbalance pe hi." },
+    ],
+  },
+  {
     version: "104.44.74",
     date: "Feb 17, 2026",
     title: "v104.44.74 — BP Sale: Bag Type pehle, Bag W.C locked, Keyboard Shortcuts",
