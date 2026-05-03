@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.78",
+    date: "Feb 17, 2026",
+    title: "v104.44.78 — Bags column repositioned · Stock display on Final M.W",
+    items: [
+      { type: "improvement", text: "📦 **Bags column move** — Pakka aur Kaccha dono sections me Bags ab `Wt (Kg)` ke baad + `Rate` ke pehle. Order: `Qtl → Kg → Bags → Rate → Amount`. '(info only)' text bhi hata diya — clean 'Bags' label." },
+      { type: "improvement", text: "🏷️ **Stock shifted to Final M.W (Kg)** — Pehle `N/W (Qtl)` ke saath `(Stock: X Qtl)` dikh raha tha jo confusing tha. Ab stock indicator **Final M.W (Kg)** label pe (red/green) — jaha actually stock minus hota hai." },
+    ],
+  },
+  {
     version: "104.44.77",
     date: "Feb 17, 2026",
     title: "v104.44.77 — Stock-on-Final-MW · N/W rename · Pakka/Kaccha Bags info",

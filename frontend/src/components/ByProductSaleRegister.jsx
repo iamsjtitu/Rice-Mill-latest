@@ -1073,10 +1073,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label className="text-[11px] text-blue-700 dark:text-blue-300 font-semibold">
-                    N/W (Qtl)
-                    {stockInfo && <span className={`ml-1 font-bold ${(effectiveAvailQtl - nwQtl) >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>(Stock: {Math.round((effectiveAvailQtl - nwQtl) * 100) / 100} Qtl)</span>}
-                  </Label>
+                  <Label className="text-[11px] text-blue-700 dark:text-blue-300 font-semibold">N/W (Qtl)</Label>
                   <Input type="number" step="0.01"
                     value={form.net_weight_qtl_display ?? (form.net_weight_kg ? String(Math.round((parseFloat(form.net_weight_kg) || 0) / 100 * 100) / 100) : "")}
                     onChange={e => {
@@ -1105,7 +1102,10 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     className="bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-300 h-9 text-xs cursor-not-allowed" data-testid="bp-nw" />
                 </div>
                 <div>
-                  <Label className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold">Final M.W (Kg) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(after cut)</span></Label>
+                  <Label className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold">
+                    Final M.W (Kg) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(after cut)</span>
+                    {stockInfo && <span className={`ml-1 font-bold ${(effectiveAvailQtl - nwQtl) >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>· Stock: {Math.round((effectiveAvailQtl - nwQtl) * 100) / 100} Qtl</span>}
+                  </Label>
                   <div className="h-9 px-2 rounded bg-emerald-50 dark:bg-slate-900/60 border border-emerald-400 dark:border-emerald-700/40 flex items-center text-xs text-emerald-700 dark:text-emerald-300 font-mono font-bold" data-testid="bp-final-mw">
                     {nwKg.toFixed(2)}
                     {totalCutKg > 0 && <span className="ml-1 text-[10px] text-slate-500">(−{totalCutKg.toFixed(2)})</span>}
@@ -1176,6 +1176,12 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       className="bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-300 h-9 text-xs cursor-not-allowed" data-testid="bp-billed-kg" />
                   </div>
                   <div>
+                    <Label className="text-[11px] text-slate-500 dark:text-slate-400">Bags</Label>
+                    <div className="h-9 px-2 rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center text-xs text-slate-600 dark:text-slate-300 font-mono" data-testid="bp-billed-bags-info">
+                      {pakkaBagsInfo}
+                    </div>
+                  </div>
+                  <div>
                     <Label className="text-[11px] text-slate-600 dark:text-slate-400">Rate (per Qtl)</Label>
                     <Input type="number" step="0.01" value={form.rate_per_qtl}
                       onChange={e => setForm(p => ({ ...p, rate_per_qtl: e.target.value }))}
@@ -1185,12 +1191,6 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     <Label className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold">Pakka Amount</Label>
                     <div className="h-9 px-2 rounded bg-emerald-50 dark:bg-slate-900/60 border border-emerald-400 dark:border-slate-700 flex items-center text-xs text-emerald-700 dark:text-emerald-300 font-mono font-bold" data-testid="bp-billed-amount">
                       ₹{billedAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-[11px] text-slate-500 dark:text-slate-400">Bags <span className="text-slate-400 dark:text-slate-500 text-[10px]">(info only)</span></Label>
-                    <div className="h-9 px-2 rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center text-xs text-slate-600 dark:text-slate-300 font-mono" data-testid="bp-billed-bags-info">
-                      {pakkaBagsInfo}
                     </div>
                   </div>
                   </div>
@@ -1226,6 +1226,12 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                         className="bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-300 h-9 text-xs cursor-not-allowed" data-testid="bp-kaccha-kg" />
                     </div>
                     <div>
+                      <Label className="text-[11px] text-slate-500 dark:text-slate-400">Bags</Label>
+                      <div className="h-9 px-2 rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center text-xs text-slate-600 dark:text-slate-300 font-mono" data-testid="bp-kaccha-bags-info">
+                        {kacchaBagsInfo}
+                      </div>
+                    </div>
+                    <div>
                       <Label className="text-[11px] text-slate-600 dark:text-slate-400">Rate (per Qtl)</Label>
                       <Input type="number" step="0.01" value={form.kaccha_rate_per_qtl}
                         onChange={e => setForm(p => ({ ...p, kaccha_rate_per_qtl: e.target.value }))}
@@ -1236,12 +1242,6 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       <Label className="text-[11px] text-amber-700 dark:text-amber-300 font-semibold">Kaccha Amount</Label>
                       <div className="h-9 px-2 rounded bg-amber-50 dark:bg-slate-900/60 border border-amber-400 dark:border-slate-700 flex items-center text-xs text-amber-700 dark:text-amber-300 font-mono font-bold" data-testid="bp-kaccha-amount">
                         ₹{kacchaAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-[11px] text-slate-500 dark:text-slate-400">Bags <span className="text-slate-400 dark:text-slate-500 text-[10px]">(info only)</span></Label>
-                      <div className="h-9 px-2 rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center text-xs text-slate-600 dark:text-slate-300 font-mono" data-testid="bp-kaccha-bags-info">
-                        {kacchaBagsInfo}
                       </div>
                     </div>
                   </div>
