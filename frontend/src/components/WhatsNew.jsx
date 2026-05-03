@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.39",
+    date: "Feb 17, 2026",
+    title: "v104.44.39 — 🐛 BP Sale Register Filter Fix + WhatsApp/Group Icons",
+    items: [
+      { type: "fix", text: "🐛 **Filter ke hisab se Excel/PDF download fix** — By-Product Sale Register me top-bar ke parent filters (date_from, date_to, party_name) export me **NAHI ja rahe the** — sirf local filter values jaate the. Ab parent + local merge hota hai (local always wins). Aapne agar top-bar me 'date 1-15 May' aur 'party MBOPL' choose kiya hai, ab Excel/PDF unhi entries ka aayega." },
+      { type: "feature", text: "📤 **4-Icon export pattern** — Har product (Rice Bran, Husk, Phak, Awan, Broken etc) me Excel + PDF + WhatsApp + Group icons ab side by side. WhatsApp icon → summary text clipboard me copy (Total Entries, Amount, Balance + top-10 entries list). Group icon → SendToGroupDialog with PDF attach for WhatsApp groups." },
+      { type: "improvement", text: "🎨 **Icon-only consistency** — Excel/PDF buttons ab icon-only h-8 w-8 style with color borders, matching Transit Pass + Payments tab pattern. Saaf, compact look." },
+    ],
+  },
+  {
     version: "104.44.38",
     date: "Feb 17, 2026",
     title: "v104.44.38 — ⌨️ ESC/Backspace UX + Optional What's New Popup",

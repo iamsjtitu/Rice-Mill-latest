@@ -8,13 +8,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Edit, Search, Download, Eye, Filter } from "lucide-react";
+import { Plus, Trash2, Edit, Search, Download, Eye, Filter, FileSpreadsheet, FileText, Users } from "lucide-react";
 import { fmtDate } from "@/utils/date";
 import { useConfirm } from "./ConfirmProvider";
 import { useRstCheck } from "../hooks/useRstCheck";
 import { useCloseFiltersOnEsc } from "../utils/useCloseFiltersOnEsc";
 import { updateVwBhada } from "../utils/vw-bhada";
+import { SendToGroupDialog } from "./SendToGroupDialog";
 import logger from "../utils/logger";
+
+const WhatsAppIcon = ({ className = "w-3.5 h-3.5" }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+    <path d="M20.52 3.48A11.77 11.77 0 0 0 12.02 0C5.46 0 .12 5.33.12 11.9a11.8 11.8 0 0 0 1.6 5.95L0 24l6.3-1.65a11.88 11.88 0 0 0 5.72 1.46h.01c6.56 0 11.9-5.33 11.9-11.9a11.76 11.76 0 0 0-3.41-8.43zM12.03 21.8h-.01a9.88 9.88 0 0 1-5.04-1.38l-.36-.21-3.74.98 1-3.64-.23-.37a9.85 9.85 0 0 1-1.52-5.28c0-5.47 4.45-9.9 9.9-9.9 2.65 0 5.14 1.03 7.01 2.9a9.87 9.87 0 0 1 2.9 7.02c0 5.46-4.45 9.9-9.91 9.9zm5.43-7.41c-.3-.15-1.76-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.76.97-.93 1.17-.17.2-.34.22-.64.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.64-2.05-.17-.3-.02-.47.13-.62.13-.13.3-.34.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51-.17-.01-.37-.01-.57-.01-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.48 0 1.47 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.3 1.26.48 1.69.62.71.22 1.35.19 1.86.12.57-.08 1.76-.72 2-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35z"/>
+  </svg>
+);
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = `${_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')}/api`;
@@ -33,6 +40,10 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const [filterValues, setFilterValues] = useState({ date_from: "", date_to: "", billing_date_from: "", billing_date_to: "", rst_no: "", vehicle_no: "", bill_from: "", party_name: "", destination: "" });
   const [billFromSugg, setBillFromSugg] = useState([]);
   const [partySugg, setPartySugg] = useState([]);
+  // v104.44.39 — Send to Group dialog state
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [groupText, setGroupText] = useState("");
+  const [groupPdfUrl, setGroupPdfUrl] = useState("");
   const [destSugg, setDestSugg] = useState([]);
   const [rstLoading, setRstLoading] = useState(false);
   const [oilPremiumMap, setOilPremiumMap] = useState({});
@@ -292,21 +303,27 @@ export default function ByProductSaleRegister({ filters, user, product }) {
     return true;
   });
 
-  // Build export filter params
+  // Build export filter params — v104.44.39: merge parent filters (date_from/date_to/party_name)
+  // with local filterValues (local always wins). Fixes "filter ke hisab se download nahi ho raha".
   const buildExportParams = () => {
     const params = new URLSearchParams();
     if (product) params.append('product', product);
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
     if (filters.season) params.append('season', filters.season);
     const f = filterValues;
-    if (f.date_from) params.append('date_from', f.date_from);
-    if (f.date_to) params.append('date_to', f.date_to);
+    // Date range: local > parent
+    const dFrom = f.date_from || filters.date_from || '';
+    const dTo = f.date_to || filters.date_to || '';
+    if (dFrom) params.append('date_from', dFrom);
+    if (dTo) params.append('date_to', dTo);
     if (f.billing_date_from) params.append('billing_date_from', f.billing_date_from);
     if (f.billing_date_to) params.append('billing_date_to', f.billing_date_to);
     if (f.rst_no) params.append('rst_no', f.rst_no);
     if (f.vehicle_no) params.append('vehicle_no', f.vehicle_no);
     if (f.bill_from) params.append('bill_from', f.bill_from);
-    if (f.party_name) params.append('party_name', f.party_name);
+    // Party: local > parent
+    const pName = f.party_name || filters.party_name || '';
+    if (pName) params.append('party_name', pName);
     if (f.destination) params.append('destination', f.destination);
     return params;
   };
@@ -324,6 +341,51 @@ export default function ByProductSaleRegister({ filters, user, product }) {
 
   const totalAmount = filtered.reduce((s, v) => s + (v.total || 0), 0);
   const totalBalance = filtered.reduce((s, v) => s + (v.balance || 0), 0);
+
+  // v104.44.39 — Build WhatsApp summary text for current product+filters
+  const _bpSummaryText = () => {
+    const flt = [];
+    if (filters.kms_year) flt.push(`KMS: ${filters.kms_year}`);
+    if (filters.season) flt.push(`Season: ${filters.season}`);
+    const f = filterValues;
+    if (f.party_name || filters.party_name) flt.push(`Party: ${f.party_name || filters.party_name}`);
+    if (f.date_from || filters.date_from) flt.push(`From: ${f.date_from || filters.date_from}`);
+    if (f.date_to || filters.date_to) flt.push(`To: ${f.date_to || filters.date_to}`);
+    if (f.destination) flt.push(`Dest: ${f.destination}`);
+    const lines = [];
+    lines.push(`*📋 ${product} Sale Register*`);
+    if (flt.length) { lines.push(''); lines.push(`_${flt.join(' · ')}_`); }
+    lines.push('');
+    lines.push(`📊 Total Entries: *${filtered.length}*`);
+    lines.push(`💰 Total Amount: *₹${totalAmount.toLocaleString()}*`);
+    lines.push(`📕 Total Balance: *₹${totalBalance.toLocaleString()}*`);
+    if (filtered.length > 0 && filtered.length <= 10) {
+      lines.push('');
+      lines.push('*Entries:*');
+      filtered.slice(0, 10).forEach(s => {
+        lines.push(`• ${s.voucher_no || '-'} · ${fmtDate(s.date)} · ${s.party_name || '-'} · ${s.bags || 0}bg · ₹${(s.total || 0).toLocaleString()}`);
+      });
+    }
+    return lines.join('\n');
+  };
+
+  const handleHeaderWhatsApp = async () => {
+    if (filtered.length === 0) { toast.error("Koi entries nahi"); return; }
+    const text = _bpSummaryText();
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Summary copy ho gayi — WhatsApp chat me paste karein", { duration: 4000 });
+    } catch {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    }
+  };
+
+  const handleHeaderGroup = () => {
+    if (filtered.length === 0) { toast.error("Koi entries nahi"); return; }
+    setGroupText(_bpSummaryText());
+    setGroupPdfUrl(`${API}/bp-sale-register/export/pdf?${buildExportParams()}`);
+    setGroupDialogOpen(true);
+  };
 
   return (
     <div className="space-y-3" data-testid={`bp-sale-register-${product}`}>
@@ -358,13 +420,21 @@ export default function ByProductSaleRegister({ filters, user, product }) {
         </div>
         <div className="flex gap-2 items-center">
           <span className="text-xs text-slate-400">{filtered.length} entries | Total: <span className="text-emerald-400 font-bold">{totalAmount.toLocaleString()}</span> | Balance: <span className="text-red-400 font-bold">{totalBalance.toLocaleString()}</span></span>
-          <Button onClick={async () => { try { const params = buildExportParams(); const { downloadFile } = await import('../utils/download'); const { buildFilename } = await import('../utils/filename-format'); const fname = buildFilename({ base: `${product || 'byproduct'}_sales`, party: filters.party_name, dateFrom: filters.date_from, dateTo: filters.date_to, kmsYear: filters.kms_year, ext: 'xlsx' }); downloadFile(`/api/bp-sale-register/export/excel?${params}`, fname); toast.success("Excel exported!"); } catch(e) { toast.error("Export failed"); }}}
-            variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700 h-7 text-[10px]" data-testid="bp-export-excel">
-            <Download className="w-3 h-3" />
+          <Button onClick={async () => { try { const params = buildExportParams(); const { downloadFile } = await import('../utils/download'); const { buildFilename } = await import('../utils/filename-format'); const fname = buildFilename({ base: `${product || 'byproduct'}_sales`, party: filterValues.party_name || filters.party_name, dateFrom: filterValues.date_from || filters.date_from, dateTo: filterValues.date_to || filters.date_to, kmsYear: filters.kms_year, ext: 'xlsx' }); downloadFile(`/api/bp-sale-register/export/excel?${params}`, fname); toast.success("Excel exported!"); } catch(e) { toast.error("Export failed"); }}}
+            variant="ghost" size="sm" className="h-8 w-8 p-0 text-green-400 hover:bg-green-900/30 border border-green-600" title="Excel (current filters)" data-testid="bp-export-excel">
+            <FileSpreadsheet className="w-4 h-4" />
           </Button>
-          <Button onClick={async () => { try { const params = buildExportParams(); const { downloadFile } = await import('../utils/download'); const { buildFilename } = await import('../utils/filename-format'); const fname = buildFilename({ base: `${product || 'byproduct'}_sales`, party: filters.party_name, dateFrom: filters.date_from, dateTo: filters.date_to, kmsYear: filters.kms_year, ext: 'pdf' }); downloadFile(`/api/bp-sale-register/export/pdf?${params}`, fname); toast.success("PDF exported!"); } catch(e) { toast.error("Export failed"); }}}
-            variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700 h-7 text-[10px]" data-testid="bp-export-pdf">
-            <Download className="w-3 h-3" />
+          <Button onClick={async () => { try { const params = buildExportParams(); const { downloadFile } = await import('../utils/download'); const { buildFilename } = await import('../utils/filename-format'); const fname = buildFilename({ base: `${product || 'byproduct'}_sales`, party: filterValues.party_name || filters.party_name, dateFrom: filterValues.date_from || filters.date_from, dateTo: filterValues.date_to || filters.date_to, kmsYear: filters.kms_year, ext: 'pdf' }); downloadFile(`/api/bp-sale-register/export/pdf?${params}`, fname); toast.success("PDF exported!"); } catch(e) { toast.error("Export failed"); }}}
+            variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-400 hover:bg-red-900/30 border border-red-600" title="PDF (current filters)" data-testid="bp-export-pdf">
+            <FileText className="w-4 h-4" />
+          </Button>
+          <Button onClick={handleHeaderWhatsApp} variant="ghost" size="sm"
+            className="h-8 w-8 p-0 text-[#25D366] hover:bg-green-900/30 border border-green-600" title="WhatsApp (summary text)" data-testid="bp-whatsapp-btn">
+            <WhatsAppIcon className="w-4 h-4" />
+          </Button>
+          <Button onClick={handleHeaderGroup} variant="ghost" size="sm"
+            className="h-8 w-8 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600" title="Send to Group (summary + PDF)" data-testid="bp-group-btn">
+            <Users className="w-4 h-4" />
           </Button>
           <Button onClick={openNew} size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900" data-testid="bp-sale-add">
             <Plus className="w-4 h-4 mr-1" /> New Sale
@@ -980,6 +1050,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
           </form>
         </DialogContent>
       </Dialog>
+      {/* v104.44.39 — Send to WhatsApp Group dialog */}
+      <SendToGroupDialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen} text={groupText} pdfUrl={groupPdfUrl} />
     </div>
   );
 }
