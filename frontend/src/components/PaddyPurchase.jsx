@@ -26,6 +26,12 @@ import { SendToGroupDialog } from "./SendToGroupDialog";
 import RecordHistory from "./RecordHistory";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 import logger from "../utils/logger";
+
+const WhatsAppIcon = ({ className = "w-3.5 h-3.5" }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+    <path d="M20.52 3.48A11.77 11.77 0 0 0 12.02 0C5.46 0 .12 5.33.12 11.9a11.8 11.8 0 0 0 1.6 5.95L0 24l6.3-1.65a11.88 11.88 0 0 0 5.72 1.46h.01c6.56 0 11.9-5.33 11.9-11.9a11.76 11.76 0 0 0-3.41-8.43zM12.03 21.8h-.01a9.88 9.88 0 0 1-5.04-1.38l-.36-.21-3.74.98 1-3.64-.23-.37a9.85 9.85 0 0 1-1.52-5.28c0-5.47 4.45-9.9 9.9-9.9 2.65 0 5.14 1.03 7.01 2.9a9.87 9.87 0 0 1 2.9 7.02c0 5.46-4.45 9.9-9.91 9.9zm5.43-7.41c-.3-.15-1.76-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.76.97-.93 1.17-.17.2-.34.22-.64.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.64-2.05-.17-.3-.02-.47.13-.62.13-.13.3-.34.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51-.17-.01-.37-.01-.57-.01-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.48 0 1.47 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.3 1.26.48 1.69.62.71.22 1.35.19 1.86.12.57-.08 1.76-.72 2-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35z"/>
+  </svg>
+);
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
@@ -240,20 +246,89 @@ export const PaddyPurchase = ({ filters, user }) => {
   }, [filtered]);
 
   const handleExport = async (type) => {
+    // v104.44.41 — Send full filter set: kms_year, season, date_from/to, party_name, mandi_name, agent_name, search
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
     if (filters.season) p.append('season', filters.season);
+    if (filters.date_from) p.append('date_from', filters.date_from);
+    if (filters.date_to) p.append('date_to', filters.date_to);
+    if (filters.party_name) p.append('party_name', filters.party_name);
+    if (filters.mandi_name) p.append('mandi_name', filters.mandi_name);
+    if (filters.agent_name) p.append('agent_name', filters.agent_name);
     if (searchText) p.append('search', searchText);
     const { buildFilename } = await import('../utils/filename-format');
     const ext = type === 'pdf' ? 'pdf' : 'xlsx';
     const fname = buildFilename({
       base: 'paddy-purchase-register',
-      party: searchText,
+      party: filters.party_name || searchText,
+      dateFrom: filters.date_from,
+      dateTo: filters.date_to,
       kmsYear: filters.kms_year,
       extra: filters.season ? filters.season.toLowerCase() : '',
       ext,
     });
     downloadFile(`/api/private-paddy/${type}?${p}`, fname);
+  };
+
+  // v104.44.41 — Header WhatsApp + Group share
+  const buildPaddyFilterParams = () => {
+    const p = new URLSearchParams();
+    if (filters.kms_year) p.append('kms_year', filters.kms_year);
+    if (filters.season) p.append('season', filters.season);
+    if (filters.date_from) p.append('date_from', filters.date_from);
+    if (filters.date_to) p.append('date_to', filters.date_to);
+    if (filters.party_name) p.append('party_name', filters.party_name);
+    if (filters.mandi_name) p.append('mandi_name', filters.mandi_name);
+    if (filters.agent_name) p.append('agent_name', filters.agent_name);
+    if (searchText) p.append('search', searchText);
+    return p;
+  };
+
+  const _paddySummaryText = () => {
+    const flt = [];
+    if (filters.kms_year) flt.push(`KMS: ${filters.kms_year}`);
+    if (filters.season) flt.push(`Season: ${filters.season}`);
+    if (filters.party_name) flt.push(`Party: ${filters.party_name}`);
+    if (filters.mandi_name) flt.push(`Mandi: ${filters.mandi_name}`);
+    if (filters.agent_name) flt.push(`Agent: ${filters.agent_name}`);
+    if (filters.date_from) flt.push(`From: ${filters.date_from}`);
+    if (filters.date_to) flt.push(`To: ${filters.date_to}`);
+    if (searchText) flt.push(`Search: ${searchText}`);
+    const lines = [];
+    lines.push(`*🌾 Paddy Purchase Summary*`);
+    if (flt.length) { lines.push(''); lines.push(`_${flt.join(' · ')}_`); }
+    lines.push('');
+    lines.push(`📊 Total Entries: *${filtered.length}*`);
+    lines.push(`⚖️ Total Qntl: *${totals.totalQntl}* Q`);
+    lines.push(`💰 Total Amount: *₹${totals.totalAmt.toLocaleString()}*`);
+    lines.push(`💵 Paid: *₹${totals.totalPaid.toLocaleString()}*`);
+    lines.push(`📕 Balance: *₹${totals.balance.toLocaleString()}*`);
+    if (filtered.length > 0 && filtered.length <= 10) {
+      lines.push('');
+      lines.push('*Entries:*');
+      filtered.slice(0, 10).forEach(it => {
+        lines.push(`• RST ${it.rst_no || '-'} · ${it.date || '-'} · ${it.party_name || it.mandi_name || '-'} · ${it.final_qntl || it.quantity_qntl || 0}Q · ₹${(it.total_amount || 0).toLocaleString()}`);
+      });
+    }
+    return lines.join('\n');
+  };
+
+  const handleHeaderWhatsApp = async () => {
+    if (filtered.length === 0) { toast.error("Koi paddy entries nahi"); return; }
+    const text = _paddySummaryText();
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Summary copy ho gayi — WhatsApp chat me paste karein", { duration: 4000 });
+    } catch {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    }
+  };
+
+  const handleHeaderGroupSummary = () => {
+    if (filtered.length === 0) { toast.error("Koi paddy entries nahi"); return; }
+    setGroupText(_paddySummaryText());
+    setGroupPdfUrl(`${API}/private-paddy/pdf?${buildPaddyFilterParams()}`);
+    setGroupDialogOpen(true);
   };
 
   return (
@@ -282,11 +357,19 @@ export const PaddyPurchase = ({ filters, user }) => {
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="paddy-refresh-btn">
           <RefreshCw className="w-4 h-4" />
         </Button>
-        <Button onClick={() => handleExport('pdf')} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30" data-testid="paddy-export-pdf">
+        <Button onClick={() => handleExport('pdf')} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30 h-9 w-9 p-0" title="PDF (current filters)" data-testid="paddy-export-pdf">
           <FileText className="w-4 h-4" />
         </Button>
-        <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-green-700 text-green-400 hover:bg-green-900/30" data-testid="paddy-export-excel">
+        <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-green-700 text-green-400 hover:bg-green-900/30 h-9 w-9 p-0" title="Excel (current filters)" data-testid="paddy-export-excel">
           <FileSpreadsheet className="w-4 h-4" />
+        </Button>
+        <Button onClick={handleHeaderWhatsApp} variant="outline" size="sm"
+          className="h-9 w-9 p-0 text-[#25D366] hover:bg-green-900/30 border border-green-600" title="WhatsApp (summary text)" data-testid="paddy-whatsapp-btn">
+          <WhatsAppIcon className="w-4 h-4" />
+        </Button>
+        <Button onClick={handleHeaderGroupSummary} variant="outline" size="sm"
+          className="h-9 w-9 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600" title="Send to Group (summary + PDF)" data-testid="paddy-group-btn">
+          <Users className="w-4 h-4" />
         </Button>
         <div className="relative ml-auto min-w-[200px]">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />

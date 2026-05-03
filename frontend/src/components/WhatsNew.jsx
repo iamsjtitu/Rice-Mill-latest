@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.41",
+    date: "Feb 17, 2026",
+    title: "v104.44.41 — 📤 Purchase + Paddy Register WhatsApp/Group + Filter Sync",
+    items: [
+      { type: "feature", text: "📤 **Purchase Vouchers me 4-icon export pattern** — PDF + Excel + WhatsApp + Group icons. WhatsApp icon: filtered vouchers ka summary text clipboard copy (Total Vouchers, Gross Purchase, Advance, Cash Paid, Balance + top-10 list). Group icon: SendToGroupDialog with PDF attach for WhatsApp groups." },
+      { type: "feature", text: "📤 **Paddy Purchase me 4-icon export pattern** — Same pattern. WhatsApp summary me Total Qntl, Total Amount, Paid, Balance dikhta hai. Group share filter-aware PDF bhejta hai." },
+      { type: "fix", text: "🐛 **Filter sync** — Purchase + Paddy export Excel/PDF me top-bar ke saare filters (date_from, date_to, party_name, season + Paddy ke liye mandi_name + agent_name) backend tak jaate hain. Pehle sirf kms_year + search jaata tha. Ab user agar 'date 1-15 May' aur 'mandi BERAR' set kare to Excel/PDF unhi entries ka aayega." },
+      { type: "feature", text: "🔧 **Backend filter extension** — `/api/purchase-book/export/{excel,pdf}` me 3 naye params, `/api/private-paddy/{excel,pdf}` me 5 naye params. Triple-backend parity (Python + Node Desktop + Node LAN)." },
+      { type: "improvement", text: "🎨 **Pura Register section consistent** — Sale Book, By-Product Sale, Purchase Vouchers, Paddy Purchase — sab me Excel + PDF + WhatsApp + Group 4-icon row. Transit Pass + Payments tab ke saath uniform feel." },
+    ],
+  },
+  {
     version: "104.44.40",
     date: "Feb 17, 2026",
     title: "v104.44.40 — 📤 Sale Book WhatsApp/Group + Filter-Aware Export",

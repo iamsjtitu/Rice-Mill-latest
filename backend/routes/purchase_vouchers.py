@@ -642,7 +642,8 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
 # ============ PURCHASE BOOK PDF EXPORT ============
 
 @router.get("/purchase-book/export/pdf")
-async def export_purchase_book_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None):
+async def export_purchase_book_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None,
+                                    date_from: Optional[str] = None, date_to: Optional[str] = None, party_name: Optional[str] = None):
     from fastapi.responses import Response
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
@@ -655,6 +656,13 @@ async def export_purchase_book_pdf(kms_year: Optional[str] = None, season: Optio
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
+    # v104.44.41 — Date range + party filter for Purchase export
+    if date_from or date_to:
+        query["date"] = {}
+        if date_from: query["date"]["$gte"] = date_from
+        if date_to: query["date"]["$lte"] = date_to
+    if party_name:
+        query["party_name"] = {"$regex": party_name, "$options": "i"}
     if search:
         query["$or"] = [
             {"party_name": {"$regex": search, "$options": "i"}},
@@ -791,12 +799,20 @@ async def export_purchase_book_pdf(kms_year: Optional[str] = None, season: Optio
 # ============ PURCHASE BOOK EXCEL EXPORT ============
 
 @router.get("/purchase-book/export/excel")
-async def export_purchase_book_excel(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None):
+async def export_purchase_book_excel(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None,
+                                      date_from: Optional[str] = None, date_to: Optional[str] = None, party_name: Optional[str] = None):
     from fastapi.responses import Response
     import io
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
+    # v104.44.41 — Date range + party filter for Purchase export
+    if date_from or date_to:
+        query["date"] = {}
+        if date_from: query["date"]["$gte"] = date_from
+        if date_to: query["date"]["$lte"] = date_to
+    if party_name:
+        query["party_name"] = {"$regex": party_name, "$options": "i"}
     if search:
         query["$or"] = [
             {"party_name": {"$regex": search, "$options": "i"}},

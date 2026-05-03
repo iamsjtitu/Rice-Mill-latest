@@ -1029,11 +1029,21 @@ async def fix_missing_ledger_nikasi():
 # ============ EXPORT: Private Paddy PDF/Excel ============
 
 @router.get("/private-paddy/excel")
-async def export_private_paddy_excel(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None):
+async def export_private_paddy_excel(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None,
+                                      date_from: Optional[str] = None, date_to: Optional[str] = None,
+                                      party_name: Optional[str] = None, mandi_name: Optional[str] = None, agent_name: Optional[str] = None):
     from io import BytesIO
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
+    # v104.44.41 — Date range + party + mandi + agent filter for export
+    if date_from or date_to:
+        query["date"] = {}
+        if date_from: query["date"]["$gte"] = date_from
+        if date_to: query["date"]["$lte"] = date_to
+    if party_name: query["party_name"] = {"$regex": party_name, "$options": "i"}
+    if mandi_name: query["mandi_name"] = {"$regex": mandi_name, "$options": "i"}
+    if agent_name: query["agent_name"] = {"$regex": agent_name, "$options": "i"}
     items = await db.private_paddy.find(query, {"_id": 0}).sort([("date", 1), ("created_at", 1)]).to_list(5000)
     if search:
         s = search.lower()
@@ -1104,7 +1114,9 @@ async def export_private_paddy_excel(kms_year: Optional[str] = None, season: Opt
 
 
 @router.get("/private-paddy/pdf")
-async def export_private_paddy_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None):
+async def export_private_paddy_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None,
+                                    date_from: Optional[str] = None, date_to: Optional[str] = None,
+                                    party_name: Optional[str] = None, mandi_name: Optional[str] = None, agent_name: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
     from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
@@ -1116,6 +1128,14 @@ async def export_private_paddy_pdf(kms_year: Optional[str] = None, season: Optio
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
+    # v104.44.41 — Date range + party + mandi + agent filter for export
+    if date_from or date_to:
+        query["date"] = {}
+        if date_from: query["date"]["$gte"] = date_from
+        if date_to: query["date"]["$lte"] = date_to
+    if party_name: query["party_name"] = {"$regex": party_name, "$options": "i"}
+    if mandi_name: query["mandi_name"] = {"$regex": mandi_name, "$options": "i"}
+    if agent_name: query["agent_name"] = {"$regex": agent_name, "$options": "i"}
     items = await db.private_paddy.find(query, {"_id": 0}).sort([("date", 1), ("created_at", 1)]).to_list(5000)
     if search:
         s = search.lower()

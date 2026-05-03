@@ -350,9 +350,25 @@ module.exports = function(database) {
     const PDFDocument = require('pdfkit');
     const branding = database.getBranding ? database.getBranding() : {};
     let vouchers = [...database.data.purchase_vouchers];
-    const { kms_year, season } = req.query;
+    const { kms_year, season, search, date_from, date_to, party_name } = req.query;
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
     if (season) vouchers = vouchers.filter(v => v.season === season);
+    // v104.44.41 — Date range + party + search filter for export
+    if (date_from) vouchers = vouchers.filter(v => (v.date || '') >= date_from);
+    if (date_to) vouchers = vouchers.filter(v => (v.date || '') <= date_to);
+    if (party_name) {
+      const pL = String(party_name).toLowerCase();
+      vouchers = vouchers.filter(v => String(v.party_name || '').toLowerCase().includes(pL));
+    }
+    if (search) {
+      const sL = String(search).toLowerCase();
+      vouchers = vouchers.filter(v =>
+        String(v.party_name || '').toLowerCase().includes(sL) ||
+        String(v.invoice_no || '').toLowerCase().includes(sL) ||
+        String(v.truck_no || '').toLowerCase().includes(sL) ||
+        String(v.rst_no || '').toLowerCase().includes(sL)
+      );
+    }
     vouchers.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
     res.setHeader('Content-Type', 'application/pdf');
@@ -397,9 +413,25 @@ module.exports = function(database) {
     const ExcelJS = require('exceljs');
     const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
     let vouchers = [...database.data.purchase_vouchers];
-    const { kms_year, season } = req.query;
+    const { kms_year, season, search, date_from, date_to, party_name } = req.query;
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
     if (season) vouchers = vouchers.filter(v => v.season === season);
+    // v104.44.41 — Date range + party + search filter for export
+    if (date_from) vouchers = vouchers.filter(v => (v.date || '') >= date_from);
+    if (date_to) vouchers = vouchers.filter(v => (v.date || '') <= date_to);
+    if (party_name) {
+      const pL = String(party_name).toLowerCase();
+      vouchers = vouchers.filter(v => String(v.party_name || '').toLowerCase().includes(pL));
+    }
+    if (search) {
+      const sL = String(search).toLowerCase();
+      vouchers = vouchers.filter(v =>
+        String(v.party_name || '').toLowerCase().includes(sL) ||
+        String(v.invoice_no || '').toLowerCase().includes(sL) ||
+        String(v.truck_no || '').toLowerCase().includes(sL) ||
+        String(v.rst_no || '').toLowerCase().includes(sL)
+      );
+    }
     vouchers.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Purchase Book');
     const colCount = 12;

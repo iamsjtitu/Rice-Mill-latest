@@ -349,10 +349,16 @@ module.exports = function(database) {
     const ExcelJS = require('exceljs');
     const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
     if (!database.data.private_paddy) database.data.private_paddy = [];
-    const { kms_year, season, search } = req.query;
+    const { kms_year, season, search, date_from, date_to, party_name, mandi_name, agent_name } = req.query;
     let items = [...database.data.private_paddy];
     if (kms_year) items = items.filter(i => i.kms_year === kms_year);
     if (season) items = items.filter(i => i.season === season);
+    // v104.44.41 — Date + party + mandi + agent filter
+    if (date_from) items = items.filter(i => (i.date || '') >= date_from);
+    if (date_to) items = items.filter(i => (i.date || '') <= date_to);
+    if (party_name) { const pL = String(party_name).toLowerCase(); items = items.filter(i => String(i.party_name||'').toLowerCase().includes(pL)); }
+    if (mandi_name) { const mL = String(mandi_name).toLowerCase(); items = items.filter(i => String(i.mandi_name||'').toLowerCase().includes(mL)); }
+    if (agent_name) { const aL = String(agent_name).toLowerCase(); items = items.filter(i => String(i.agent_name||'').toLowerCase().includes(aL)); }
     if (search) {
       const s = search.toLowerCase();
       items = items.filter(i => (i.party_name||'').toLowerCase().includes(s) || (i.mandi_name||'').toLowerCase().includes(s) || (i.agent_name||'').toLowerCase().includes(s));
@@ -402,10 +408,16 @@ module.exports = function(database) {
     const PDFDocument = require('pdfkit');
     const branding = database.getBranding ? database.getBranding() : {};
     if (!database.data.private_paddy) database.data.private_paddy = [];
-    const { kms_year, season, search } = req.query;
+    const { kms_year, season, search, date_from, date_to, party_name, mandi_name, agent_name } = req.query;
     let items = [...database.data.private_paddy];
     if (kms_year) items = items.filter(i => i.kms_year === kms_year);
     if (season) items = items.filter(i => i.season === season);
+    // v104.44.41 — Date + party + mandi + agent filter
+    if (date_from) items = items.filter(i => (i.date || '') >= date_from);
+    if (date_to) items = items.filter(i => (i.date || '') <= date_to);
+    if (party_name) { const pL = String(party_name).toLowerCase(); items = items.filter(i => String(i.party_name||'').toLowerCase().includes(pL)); }
+    if (mandi_name) { const mL = String(mandi_name).toLowerCase(); items = items.filter(i => String(i.mandi_name||'').toLowerCase().includes(mL)); }
+    if (agent_name) { const aL = String(agent_name).toLowerCase(); items = items.filter(i => String(i.agent_name||'').toLowerCase().includes(aL)); }
     if (search) {
       const s = search.toLowerCase();
       items = items.filter(i => (i.party_name||'').toLowerCase().includes(s) || (i.mandi_name||'').toLowerCase().includes(s) || (i.agent_name||'').toLowerCase().includes(s));

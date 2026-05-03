@@ -16,16 +16,23 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import {
-  Plus, Trash2, RefreshCw, Search, FileText, FileSpreadsheet, Eye, ShoppingBag, IndianRupee, Receipt, Clock, History, Undo2, Printer,
+  Plus, Trash2, RefreshCw, Search, FileText, FileSpreadsheet, Eye, ShoppingBag, IndianRupee, Receipt, Clock, History, Undo2, Printer, Users,
 } from "lucide-react";
 import { formatPurchaseVoucher } from "../utils/voucher-format";
 import { downloadFile, fetchAsBlob } from "../utils/download";
 import { ShareFileViaWhatsApp } from "./common/ShareFileViaWhatsApp";
+import { SendToGroupDialog } from "./SendToGroupDialog";
 import RoundOffInput from "./common/RoundOffInput";
 import { useConfirm } from "./ConfirmProvider";
 import { useRstCheck } from "../hooks/useRstCheck";
 import { fetchVwByRst, updateVwBhada } from "../utils/vw-bhada";
 import logger from "../utils/logger";
+
+const WhatsAppIcon = ({ className = "w-3.5 h-3.5" }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+    <path d="M20.52 3.48A11.77 11.77 0 0 0 12.02 0C5.46 0 .12 5.33.12 11.9a11.8 11.8 0 0 0 1.6 5.95L0 24l6.3-1.65a11.88 11.88 0 0 0 5.72 1.46h.01c6.56 0 11.9-5.33 11.9-11.9a11.76 11.76 0 0 0-3.41-8.43zM12.03 21.8h-.01a9.88 9.88 0 0 1-5.04-1.38l-.36-.21-3.74.98 1-3.64-.23-.37a9.85 9.85 0 0 1-1.52-5.28c0-5.47 4.45-9.9 9.9-9.9 2.65 0 5.14 1.03 7.01 2.9a9.87 9.87 0 0 1 2.9 7.02c0 5.46-4.45 9.9-9.91 9.9zm5.43-7.41c-.3-.15-1.76-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.76.97-.93 1.17-.17.2-.34.22-.64.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.64-2.05-.17-.3-.02-.47.13-.62.13-.13.3-.34.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51-.17-.01-.37-.01-.57-.01-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.48 0 1.47 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.3 1.26.48 1.69.62.71.22 1.35.19 1.86.12.57-.08 1.76-.72 2-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35z"/>
+  </svg>
+);
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
@@ -39,6 +46,10 @@ export default function PurchaseVouchers({ filters, user }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState(null);
   const [originalRst, setOriginalRst] = useState("");
+  // v104.44.41 — Send to Group dialog state
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [groupText, setGroupText] = useState("");
+  const [groupPdfUrl, setGroupPdfUrl] = useState("");
   const { checkRst, clear: clearRstCheck, RstWarning, buildBlockerMessage: buildRstMsg } = useRstCheck({ context: "purchase", excludeId: editId });
   const [searchText, setSearchText] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
@@ -275,19 +286,87 @@ export default function PurchaseVouchers({ filters, user }) {
   const toggleSelectAll = () => setSelectedIds(prev => prev.length === vouchers.length ? [] : vouchers.map(v => v.id));
 
   const handleExport = async (type) => {
+    // v104.44.41 — Send full filter set: kms_year, season, date_from/to, party_name, search
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
+    if (filters.season) p.append('season', filters.season);
+    if (filters.date_from) p.append('date_from', filters.date_from);
+    if (filters.date_to) p.append('date_to', filters.date_to);
+    if (filters.party_name) p.append('party_name', filters.party_name);
     if (searchText) p.append('search', searchText);
     const qs = p.toString() ? `?${p.toString()}` : '';
     const { buildFilename } = await import('../utils/filename-format');
     const ext = type === 'pdf' ? 'pdf' : 'xlsx';
     const fname = buildFilename({
       base: 'purchase_book',
-      party: searchText,
+      party: filters.party_name || searchText,
+      dateFrom: filters.date_from,
+      dateTo: filters.date_to,
       kmsYear: filters.kms_year,
       ext,
     });
     downloadFile(`/api/purchase-book/export/${type}${qs}`, fname);
+  };
+
+  // v104.44.41 — Header WhatsApp + Group share
+  const buildPurchaseFilterParams = () => {
+    const p = new URLSearchParams();
+    if (filters.kms_year) p.append('kms_year', filters.kms_year);
+    if (filters.season) p.append('season', filters.season);
+    if (filters.date_from) p.append('date_from', filters.date_from);
+    if (filters.date_to) p.append('date_to', filters.date_to);
+    if (filters.party_name) p.append('party_name', filters.party_name);
+    if (searchText) p.append('search', searchText);
+    return p;
+  };
+
+  const _purchaseSummaryText = () => {
+    const flt = [];
+    if (filters.kms_year) flt.push(`KMS: ${filters.kms_year}`);
+    if (filters.season) flt.push(`Season: ${filters.season}`);
+    if (filters.party_name) flt.push(`Party: ${filters.party_name}`);
+    if (filters.date_from) flt.push(`From: ${filters.date_from}`);
+    if (filters.date_to) flt.push(`To: ${filters.date_to}`);
+    if (searchText) flt.push(`Search: ${searchText}`);
+    const tot = vouchers.reduce((s, v) => s + (v.total || 0), 0);
+    const adv = vouchers.reduce((s, v) => s + (v.advance || 0), 0);
+    const cash = vouchers.reduce((s, v) => s + (v.cash_paid || 0), 0);
+    const bal = vouchers.reduce((s, v) => s + (v.balance || 0), 0);
+    const lines = [];
+    lines.push(`*🛒 Purchase Vouchers Summary*`);
+    if (flt.length) { lines.push(''); lines.push(`_${flt.join(' · ')}_`); }
+    lines.push('');
+    lines.push(`📊 Total Vouchers: *${vouchers.length}*`);
+    lines.push(`💰 Gross Purchase: *₹${tot.toLocaleString()}*`);
+    lines.push(`💵 Advance: *₹${adv.toLocaleString()}*`);
+    lines.push(`💸 Cash Paid: *₹${cash.toLocaleString()}*`);
+    lines.push(`📕 Balance: *₹${bal.toLocaleString()}*`);
+    if (vouchers.length > 0 && vouchers.length <= 10) {
+      lines.push('');
+      lines.push('*Vouchers:*');
+      vouchers.slice(0, 10).forEach(v => {
+        lines.push(`• ${formatPurchaseVoucher(v) || v.voucher_no || '-'} · ${v.date || '-'} · ${v.party_name || '-'} · ₹${(v.total || 0).toLocaleString()}`);
+      });
+    }
+    return lines.join('\n');
+  };
+
+  const handleHeaderWhatsApp = async () => {
+    if (vouchers.length === 0) { toast.error("Koi purchase vouchers nahi"); return; }
+    const text = _purchaseSummaryText();
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Summary copy ho gayi — WhatsApp chat me paste karein", { duration: 4000 });
+    } catch {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    }
+  };
+
+  const handleHeaderGroupSummary = () => {
+    if (vouchers.length === 0) { toast.error("Koi purchase vouchers nahi"); return; }
+    setGroupText(_purchaseSummaryText());
+    setGroupPdfUrl(`${API}/purchase-book/export/pdf?${buildPurchaseFilterParams()}`);
+    setGroupDialogOpen(true);
   };
 
   const handlePrintInvoice = async (v) => {
@@ -373,24 +452,20 @@ export default function PurchaseVouchers({ filters, user }) {
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="pv-refresh-btn">
           <RefreshCw className="w-4 h-4" />
         </Button>
-        <Button onClick={() => handleExport('pdf')} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30 h-9 w-9 p-0" title="PDF" data-testid="pv-export-pdf">
+        <Button onClick={() => handleExport('pdf')} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30 h-9 w-9 p-0" title="PDF (current filters)" data-testid="pv-export-pdf">
           <FileText className="w-4 h-4" />
         </Button>
-        <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-green-700 text-green-400 hover:bg-green-900/30 h-9 w-9 p-0" title="Excel" data-testid="pv-export-excel">
+        <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-green-700 text-green-400 hover:bg-green-900/30 h-9 w-9 p-0" title="Excel (current filters)" data-testid="pv-export-excel">
           <FileSpreadsheet className="w-4 h-4" />
         </Button>
-        <ShareFileViaWhatsApp
-          getFile={async () => {
-            const p = new URLSearchParams();
-            if (filters.kms_year) p.append('kms_year', filters.kms_year);
-            if (searchText) p.append('search', searchText);
-            const qs = p.toString() ? `?${p.toString()}` : '';
-            return await fetchAsBlob(`/api/purchase-book/export/pdf${qs}`, 'purchase_book.pdf');
-          }}
-          caption="Purchase Vouchers Report"
-          title="Purchase Vouchers WhatsApp pe bhejein (PDF)"
-          testId="pv-share-whatsapp"
-        />
+        <Button onClick={handleHeaderWhatsApp} variant="outline" size="sm"
+          className="h-9 w-9 p-0 text-[#25D366] hover:bg-green-900/30 border border-green-600" title="WhatsApp (summary text)" data-testid="pv-whatsapp-btn">
+          <WhatsAppIcon className="w-4 h-4" />
+        </Button>
+        <Button onClick={handleHeaderGroupSummary} variant="outline" size="sm"
+          className="h-9 w-9 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600" title="Send to Group (summary + PDF)" data-testid="pv-group-btn">
+          <Users className="w-4 h-4" />
+        </Button>
         <div className="relative ml-auto min-w-[200px]">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input value={searchText} onChange={e => setSearchText(e.target.value)}
@@ -847,6 +922,8 @@ export default function PurchaseVouchers({ filters, user }) {
           </div>
         </DialogContent>
       </Dialog>
+      {/* v104.44.41 — Send to WhatsApp Group dialog */}
+      <SendToGroupDialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen} text={groupText} pdfUrl={groupPdfUrl} />
     </div>
   );
 }
