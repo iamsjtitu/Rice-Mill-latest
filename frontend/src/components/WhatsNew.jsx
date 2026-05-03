@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.73",
+    date: "Feb 17, 2026",
+    title: "v104.44.73 — BP Sale dialog: wider, white-theme-compliant, cleaner layout",
+    items: [
+      { type: "improvement", text: "📐 **Wider form** — Dialog ab `max-w-6xl` (pehle `max-w-2xl` tha — Mill Entry jaisa spacious). Har field ko breathing room mil raha hai." },
+      { type: "improvement", text: "☀️ **White theme compliant** — Har input, label, panel, amount-box light theme me properly visible. Blue/Green/Amber sections me light-mode variants (blue-50/emerald-50/amber-50 backgrounds with darker text)." },
+      { type: "improvement", text: "📊 **Kaccha 2-row layout** — Kaccha section ab 2 rows me: Row 1 (Kaccha Qtl | Kg | Rate | Bags) · Row 2 (Bag Type | Bag W.C | Final M.W | Kaccha Amount). Labels ab wrap nahi hote." },
+      { type: "improvement", text: "📏 **Taller inputs (h-9)** + **larger labels (text-[11px])** — Better readability, less eye strain." },
+    ],
+  },
+  {
     version: "104.44.72",
     date: "Feb 17, 2026",
     title: "v104.44.72 — BP Sale form polish: Bag fields placement + order",

@@ -520,14 +520,14 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       <div className="flex gap-1 border-b border-slate-200 dark:border-slate-700">
         <button
           onClick={() => setMainTab("sales")}
-          className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${mainTab === "sales" ? "border-amber-500 text-amber-600 dark:text-amber-400" : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"}`}
+          className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${mainTab === "sales" ? "border-amber-500 text-amber-600 dark:text-amber-400" : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200"}`}
           data-testid={`bp-tab-sales-${product}`}
         >
           Sales Register
         </button>
         <button
           onClick={() => setMainTab("party_weight")}
-          className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px flex items-center gap-1 ${mainTab === "party_weight" ? "border-cyan-500 text-cyan-600 dark:text-cyan-400" : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"}`}
+          className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px flex items-center gap-1 ${mainTab === "party_weight" ? "border-cyan-500 text-cyan-600 dark:text-cyan-400" : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200"}`}
           data-testid={`bp-tab-party-weight-${product}`}
         >
           ⚖️ Party Weight
@@ -541,33 +541,33 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       {stockInfo && (
         <div className="grid grid-cols-4 gap-3">
           <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
-            <p className="text-[10px] text-slate-400 mb-1">Produced (Milling)</p>
-            <p className="text-lg font-bold text-green-400">{stockInfo.produced_qntl || 0} <span className="text-xs text-slate-400">Qtl</span></p>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 mb-1">Produced (Milling)</p>
+            <p className="text-lg font-bold text-green-400">{stockInfo.produced_qntl || 0} <span className="text-xs text-slate-600 dark:text-slate-400">Qtl</span></p>
           </CardContent></Card>
           <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
-            <p className="text-[10px] text-slate-400 mb-1">Total Sold</p>
-            <p className="text-lg font-bold text-orange-400">{stockInfo.sold_qntl || 0} <span className="text-xs text-slate-400">Qtl</span></p>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 mb-1">Total Sold</p>
+            <p className="text-lg font-bold text-orange-400">{stockInfo.sold_qntl || 0} <span className="text-xs text-slate-600 dark:text-slate-400">Qtl</span></p>
           </CardContent></Card>
           <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
-            <p className="text-[10px] text-slate-400 mb-1">Available Stock</p>
-            <p className={`text-lg font-bold ${(stockInfo.available_qntl || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{stockInfo.available_qntl || 0} <span className="text-xs text-slate-400">Qtl</span></p>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 mb-1">Available Stock</p>
+            <p className={`text-lg font-bold ${(stockInfo.available_qntl || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{stockInfo.available_qntl || 0} <span className="text-xs text-slate-600 dark:text-slate-400">Qtl</span></p>
           </CardContent></Card>
           <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
-            <p className="text-[10px] text-slate-400 mb-1">Total Revenue</p>
-            <p className="text-lg font-bold text-amber-400">{(stockInfo.total_revenue || 0).toLocaleString()} <span className="text-xs text-slate-400">Rs</span></p>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 mb-1">Total Revenue</p>
+            <p className="text-lg font-bold text-amber-400">{(stockInfo.total_revenue || 0).toLocaleString()} <span className="text-xs text-slate-600 dark:text-slate-400">Rs</span></p>
           </CardContent></Card>
         </div>
       )}
 
       <div className="flex items-center justify-between gap-3">
         <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-2 top-2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-2 top-2 w-4 h-4 text-slate-600 dark:text-slate-400" />
           <Input placeholder="Search party, bill, vehicle..." value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="pl-8 bg-slate-800 border-slate-600 text-white h-8 text-xs" data-testid="bp-sale-search" />
+            className="pl-8 bg-slate-800 border-slate-600 text-white h-9 text-xs" data-testid="bp-sale-search" />
         </div>
         <div className="flex gap-2 items-center">
-          <span className="text-xs text-slate-400" title="Auto-refresh: BP Sale Register cash payments ke saath sync rehta hai (every 5s check)">{filtered.length} entries | Total: <span className="text-emerald-400 font-bold">{totalAmount.toLocaleString()}</span>{gstFilter !== "PKA" && <> | Balance: <span className={totalBalanceFinal > 0 ? "text-red-500 font-bold" : "text-green-500 font-bold"}>{Math.round(totalBalanceFinal).toLocaleString()}</span></>} <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" title="Live sync"></span></span>
+          <span className="text-xs text-slate-600 dark:text-slate-400" title="Auto-refresh: BP Sale Register cash payments ke saath sync rehta hai (every 5s check)">{filtered.length} entries | Total: <span className="text-emerald-400 font-bold">{totalAmount.toLocaleString()}</span>{gstFilter !== "PKA" && <> | Balance: <span className={totalBalanceFinal > 0 ? "text-red-500 font-bold" : "text-green-500 font-bold"}>{Math.round(totalBalanceFinal).toLocaleString()}</span></>} <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" title="Live sync"></span></span>
           <Button onClick={async () => { try { const params = buildExportParams(); const { downloadFile } = await import('../utils/download'); const { buildFilename } = await import('../utils/filename-format'); const fname = buildFilename({ base: `${product || 'byproduct'}_sales`, party: filterValues.party_name || filters.party_name, dateFrom: filterValues.date_from || filters.date_from, dateTo: filterValues.date_to || filters.date_to, kmsYear: filters.kms_year, ext: 'xlsx' }); downloadFile(`/api/bp-sale-register/export/excel?${params}`, fname); toast.success("Excel exported!"); } catch(e) { toast.error("Export failed"); }}}
             variant="ghost" size="sm" className="h-8 w-8 p-0 text-green-400 hover:bg-green-900/30 border border-green-600" title="Excel (current filters)" data-testid="bp-export-excel">
             <FileSpreadsheet className="w-4 h-4" />
@@ -604,7 +604,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
           { key: "KCA", label: "KCA", activeCls: "bg-rose-500 text-slate-900 shadow-sm", desc: "Pure Kaccha sales (split nahi)" },
         ].map(t => (
           <button key={t.key} onClick={() => setGstFilter(t.key)} title={t.desc}
-            className={`px-4 py-1.5 text-xs font-semibold rounded transition-all ${gstFilter === t.key ? t.activeCls : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'}`}
+            className={`px-4 py-1.5 text-xs font-semibold rounded transition-all ${gstFilter === t.key ? t.activeCls : 'text-slate-600 dark:text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'}`}
             data-testid={`bp-gst-tab-${t.key}`}>
             {t.label}
           </button>
@@ -614,7 +614,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       {/* Filter Bar */}
       <div className="space-y-2">
         <Button onClick={() => setShowFilters(p => !p)} variant="ghost" size="sm"
-          className={`text-xs ${hasActiveFilters ? 'text-amber-400' : 'text-slate-400'} hover:bg-slate-700`} data-testid="bp-filter-toggle">
+          className={`text-xs ${hasActiveFilters ? 'text-amber-400' : 'text-slate-600 dark:text-slate-400'} hover:bg-slate-700`} data-testid="bp-filter-toggle">
           <Filter className="w-3 h-3 mr-1" /> Filters {hasActiveFilters && `(Active)`}
           {hasActiveFilters && <button onClick={(e) => { e.stopPropagation(); clearFilters(); }} className="ml-2 text-red-400 hover:text-red-300 text-[10px]">Clear</button>}
         </Button>
@@ -623,49 +623,49 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             <div>
               <Label className="text-[9px] text-slate-500">Date From</Label>
               <Input type="date" value={filterValues.date_from} onChange={e => setFilterValues(p => ({ ...p, date_from: e.target.value }))}
-                className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+                className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-7 text-[10px]" />
             </div>
             <div>
               <Label className="text-[9px] text-slate-500">Date To</Label>
               <Input type="date" value={filterValues.date_to} onChange={e => setFilterValues(p => ({ ...p, date_to: e.target.value }))}
-                className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+                className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-7 text-[10px]" />
             </div>
             <div>
               <Label className="text-[9px] text-slate-500">Bill Date From</Label>
               <Input type="date" value={filterValues.billing_date_from} onChange={e => setFilterValues(p => ({ ...p, billing_date_from: e.target.value }))}
-                className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+                className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-7 text-[10px]" />
             </div>
             <div>
               <Label className="text-[9px] text-slate-500">Bill Date To</Label>
               <Input type="date" value={filterValues.billing_date_to} onChange={e => setFilterValues(p => ({ ...p, billing_date_to: e.target.value }))}
-                className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+                className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-7 text-[10px]" />
             </div>
             <div>
               <Label className="text-[9px] text-slate-500">RST No</Label>
               <Input value={filterValues.rst_no} onChange={e => setFilterValues(p => ({ ...p, rst_no: e.target.value }))} placeholder="RST"
-                className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+                className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-7 text-[10px]" />
             </div>
             <div>
               <Label className="text-[9px] text-slate-500">Vehicle</Label>
               <Input value={filterValues.vehicle_no} onChange={e => setFilterValues(p => ({ ...p, vehicle_no: e.target.value }))} placeholder="Vehicle"
-                className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+                className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-7 text-[10px]" />
             </div>
             <div>
               <Label className="text-[9px] text-slate-500">Bill From</Label>
               <Input value={filterValues.bill_from} onChange={e => setFilterValues(p => ({ ...p, bill_from: e.target.value }))} placeholder="Bill From"
-                list="filter-bf" className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+                list="filter-bf" className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-7 text-[10px]" />
               <datalist id="filter-bf">{billFromSugg.map(s => <option key={s} value={s} />)}</datalist>
             </div>
             <div>
               <Label className="text-[9px] text-slate-500">Party</Label>
               <Input value={filterValues.party_name} onChange={e => setFilterValues(p => ({ ...p, party_name: e.target.value }))} placeholder="Party"
-                list="filter-party" className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+                list="filter-party" className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-7 text-[10px]" />
               <datalist id="filter-party">{partySugg.map(s => <option key={s} value={s} />)}</datalist>
             </div>
             <div>
               <Label className="text-[9px] text-slate-500">Destination</Label>
               <Input value={filterValues.destination} onChange={e => setFilterValues(p => ({ ...p, destination: e.target.value }))} placeholder="Destination"
-                list="filter-dest" className="bg-slate-700 border-slate-600 text-white h-7 text-[10px]" />
+                list="filter-dest" className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-7 text-[10px]" />
               <datalist id="filter-dest">{destSugg.map(s => <option key={s} value={s} />)}</datalist>
             </div>
           </div>
@@ -707,17 +707,17 @@ export default function ByProductSaleRegister({ filters, user, product }) {
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={gstFilter === "PKA" ? 16 : (hasAnyOilPremium ? 20 : 17)} className="text-center text-slate-400 py-6">Koi sale nahi</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={gstFilter === "PKA" ? 16 : (hasAnyOilPremium ? 20 : 17)} className="text-center text-slate-600 dark:text-slate-400 py-6">Koi sale nahi</TableCell></TableRow>
                 ) : filtered.map(s => (
                   <React.Fragment key={s.id}>
                   <TableRow className="border-slate-700 hover:bg-slate-700/30">
                     <TableCell className="text-white text-[10px] px-2 whitespace-nowrap">{fmtDate(s.date)}</TableCell>
                     <TableCell className="text-cyan-400 text-[10px] px-2 font-medium">{s.voucher_no}</TableCell>
                     <TableCell className="text-slate-300 text-[10px] px-2 whitespace-nowrap">{s.bill_number}</TableCell>
-                    <TableCell className="text-slate-400 text-[10px] px-2 whitespace-nowrap">{fmtDate(s.billing_date)}</TableCell>
+                    <TableCell className="text-slate-600 dark:text-slate-400 text-[10px] px-2 whitespace-nowrap">{fmtDate(s.billing_date)}</TableCell>
                     <TableCell className="text-amber-400 text-[10px] px-2 font-medium">{s.rst_no}</TableCell>
                     <TableCell className="text-slate-300 text-[10px] px-2 whitespace-nowrap">{s.vehicle_no}</TableCell>
-                    <TableCell className="text-slate-400 text-[10px] px-2 whitespace-nowrap truncate max-w-[90px]">{s.bill_from}</TableCell>
+                    <TableCell className="text-slate-600 dark:text-slate-400 text-[10px] px-2 whitespace-nowrap truncate max-w-[90px]">{s.bill_from}</TableCell>
                     <TableCell className="text-white text-[10px] px-2 font-medium whitespace-nowrap">
                       {s.party_name}
                       {s.split_billing && <span className="ml-1 text-[9px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold" title={`Pakka: ${(s.billed_weight_kg||0)}kg · Kaccha: ${(s.kaccha_weight_kg||0)}kg`}>SPLIT</span>}
@@ -749,7 +749,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       )}
                     </TableCell>
                     <TableCell className="text-[10px] px-2 text-right whitespace-nowrap">
-                      {Number(s.tax_amount || 0) > 0 ? <span className="text-amber-700 dark:text-amber-400 font-semibold">{(s.tax_amount || 0).toLocaleString()}</span> : <span className="text-slate-400 dark:text-slate-600">—</span>}
+                      {Number(s.tax_amount || 0) > 0 ? <span className="text-amber-700 dark:text-amber-400 font-semibold">{(s.tax_amount || 0).toLocaleString()}</span> : <span className="text-slate-600 dark:text-slate-400 dark:text-slate-600">—</span>}
                     </TableCell>
                     <TableCell className="text-emerald-700 dark:text-emerald-400 text-[10px] px-2 text-right font-bold whitespace-nowrap">{(s.total || 0).toLocaleString()}</TableCell>
                     {gstFilter !== "PKA" && hasAnyOilPremium && (() => {
@@ -786,7 +786,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                             {expandedRows[s.voucher_no || s.id] ? <span className="text-[14px] leading-none">▾</span> : <span className="text-[14px] leading-none">▸</span>}
                           </Button>
                         )}
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0 text-slate-400 hover:text-white" onClick={() => setViewSale(s)} data-testid={`bp-view-${s.id}`}><Eye className="w-3 h-3" /></Button>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0 text-slate-600 dark:text-slate-400 hover:text-white" onClick={() => setViewSale(s)} data-testid={`bp-view-${s.id}`}><Eye className="w-3 h-3" /></Button>
                         <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0 text-blue-400" onClick={() => openEdit(s)} data-testid={`bp-edit-${s.voucher_no || s.id}`}><Edit className="w-3 h-3" /></Button>
                         {user.role === "admin" && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0 text-red-400" onClick={() => handleDelete(s.id)}><Trash2 className="w-3 h-3" /></Button>}
                       </div>
@@ -796,7 +796,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   {expandedRows[s.voucher_no || s.id] && (s.payments_alloc?.length || 0) > 0 && s.payments_alloc.map((p, pi) => (
                     <TableRow key={`${s.id}-p-${pi}`} className="border-slate-800 bg-slate-900/40 hover:bg-slate-800/40">
                       <TableCell colSpan={4} className="text-[10px] px-2 py-1 pl-12 text-purple-400 italic">
-                        ↳ <span className="text-slate-400">Payment</span> {fmtDate(p.date)}
+                        ↳ <span className="text-slate-600 dark:text-slate-400">Payment</span> {fmtDate(p.date)}
                       </TableCell>
                       <TableCell colSpan={6} className="text-[10px] px-2 py-1 text-slate-300 truncate">{p.description || ''}</TableCell>
                       <TableCell className="text-[10px] px-2 py-1 text-right">
@@ -825,23 +825,23 @@ export default function ByProductSaleRegister({ filters, user, product }) {
           {viewSale && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-                {viewSale.voucher_no && <div><span className="text-slate-400 text-xs">Voucher No:</span> <span className="text-cyan-400 font-medium">{viewSale.voucher_no}</span></div>}
-                {viewSale.bill_number && <div><span className="text-slate-400 text-xs">Bill No:</span> <span className="text-white font-medium">{viewSale.bill_number}</span></div>}
-                {viewSale.billing_date && <div><span className="text-slate-400 text-xs">Billing Date:</span> <span className="text-white">{fmtDate(viewSale.billing_date)}</span></div>}
-                {viewSale.date && <div><span className="text-slate-400 text-xs">Date:</span> <span className="text-white">{fmtDate(viewSale.date)}</span></div>}
-                {viewSale.rst_no && <div><span className="text-slate-400 text-xs">RST No:</span> <span className="text-amber-400 font-medium">{viewSale.rst_no}</span></div>}
-                {viewSale.vehicle_no && <div><span className="text-slate-400 text-xs">Vehicle:</span> <span className="text-white">{viewSale.vehicle_no}</span></div>}
-                {viewSale.bill_from && <div><span className="text-slate-400 text-xs">Bill From:</span> <span className="text-white">{viewSale.bill_from}</span></div>}
-                {viewSale.party_name && <div><span className="text-slate-400 text-xs">Party:</span> <span className="text-white font-medium">{viewSale.party_name}</span></div>}
+                {viewSale.voucher_no && <div><span className="text-slate-600 dark:text-slate-400 text-xs">Voucher No:</span> <span className="text-cyan-400 font-medium">{viewSale.voucher_no}</span></div>}
+                {viewSale.bill_number && <div><span className="text-slate-600 dark:text-slate-400 text-xs">Bill No:</span> <span className="text-white font-medium">{viewSale.bill_number}</span></div>}
+                {viewSale.billing_date && <div><span className="text-slate-600 dark:text-slate-400 text-xs">Billing Date:</span> <span className="text-white">{fmtDate(viewSale.billing_date)}</span></div>}
+                {viewSale.date && <div><span className="text-slate-600 dark:text-slate-400 text-xs">Date:</span> <span className="text-white">{fmtDate(viewSale.date)}</span></div>}
+                {viewSale.rst_no && <div><span className="text-slate-600 dark:text-slate-400 text-xs">RST No:</span> <span className="text-amber-400 font-medium">{viewSale.rst_no}</span></div>}
+                {viewSale.vehicle_no && <div><span className="text-slate-600 dark:text-slate-400 text-xs">Vehicle:</span> <span className="text-white">{viewSale.vehicle_no}</span></div>}
+                {viewSale.bill_from && <div><span className="text-slate-600 dark:text-slate-400 text-xs">Bill From:</span> <span className="text-white">{viewSale.bill_from}</span></div>}
+                {viewSale.party_name && <div><span className="text-slate-600 dark:text-slate-400 text-xs">Party:</span> <span className="text-white font-medium">{viewSale.party_name}</span></div>}
                 {viewSale.sauda_amount != null && viewSale.sauda_amount !== '' && Number(viewSale.sauda_amount) > 0 && (
-                  <div><span className="text-slate-400 text-xs">Sauda Amount:</span> <span className="text-cyan-300 font-medium">₹{Number(viewSale.sauda_amount).toLocaleString('en-IN')}/Qtl</span> <span className="text-slate-500 text-[9px]">(info only)</span></div>
+                  <div><span className="text-slate-600 dark:text-slate-400 text-xs">Sauda Amount:</span> <span className="text-cyan-300 font-medium">₹{Number(viewSale.sauda_amount).toLocaleString('en-IN')}/Qtl</span> <span className="text-slate-400 dark:text-slate-500">(info only)</span></div>
                 )}
-                {viewSale.destination && <div><span className="text-slate-400 text-xs">Destination:</span> <span className="text-white">{viewSale.destination}</span></div>}
+                {viewSale.destination && <div><span className="text-slate-600 dark:text-slate-400 text-xs">Destination:</span> <span className="text-white">{viewSale.destination}</span></div>}
               </div>
               <div className="border-t border-slate-600 pt-2 grid grid-cols-3 gap-x-4 gap-y-2">
-                {viewSale.net_weight_kg > 0 && <div><span className="text-slate-400 text-xs">N/W:</span> <span className="text-blue-300 font-medium">{viewSale.net_weight_kg} Kg ({(viewSale.net_weight_qtl || 0).toFixed(2)} Q)</span></div>}
-                {viewSale.bags > 0 && <div><span className="text-slate-400 text-xs">Bags:</span> <span className="text-white">{viewSale.bags}</span></div>}
-                {viewSale.rate_per_qtl > 0 && <div><span className="text-slate-400 text-xs">Rate/Q:</span> <span className="text-white">{viewSale.rate_per_qtl}</span></div>}
+                {viewSale.net_weight_kg > 0 && <div><span className="text-slate-600 dark:text-slate-400 text-xs">N/W:</span> <span className="text-blue-300 font-medium">{viewSale.net_weight_kg} Kg ({(viewSale.net_weight_qtl || 0).toFixed(2)} Q)</span></div>}
+                {viewSale.bags > 0 && <div><span className="text-slate-600 dark:text-slate-400 text-xs">Bags:</span> <span className="text-white">{viewSale.bags}</span></div>}
+                {viewSale.rate_per_qtl > 0 && <div><span className="text-slate-600 dark:text-slate-400 text-xs">Rate/Q:</span> <span className="text-white">{viewSale.rate_per_qtl}</span></div>}
               </div>
               <div className="border-t border-slate-600 pt-2 space-y-1">
                 {(() => {
@@ -855,7 +855,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     return (
                       <>
                         <div className="flex justify-between"><span className="text-emerald-400 text-xs">Pakka ({((viewSale.billed_weight_kg || 0)/100).toFixed(2)} Q × {viewSale.rate_per_qtl})</span><span className="text-emerald-400 font-bold">₹{(viewSale.billed_amount || 0).toLocaleString('en-IN')}</span></div>
-                        {viewSale.tax_amount > 0 && <div className="flex justify-between"><span className="text-slate-400 text-xs">GST ({viewSale.gst_percent || 0}% on Pakka)</span><span className="text-orange-400">₹{(viewSale.tax_amount || 0).toLocaleString('en-IN')}</span></div>}
+                        {viewSale.tax_amount > 0 && <div className="flex justify-between"><span className="text-slate-600 dark:text-slate-400 text-xs">GST ({viewSale.gst_percent || 0}% on Pakka)</span><span className="text-orange-400">₹{(viewSale.tax_amount || 0).toLocaleString('en-IN')}</span></div>}
                         <div className="flex justify-between"><span className="text-amber-400 text-xs">Kaccha ({((viewSale.kaccha_weight_kg || 0)/100).toFixed(2)} Q × {viewSale.kaccha_rate_per_qtl || viewSale.rate_per_qtl})</span><span className="text-amber-400 font-bold">₹{baseKaccha.toLocaleString('en-IN')}</span></div>
                         {premiumAdj !== 0 && (
                           <>
@@ -868,8 +868,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   }
                   return (
                     <>
-                      {viewSale.amount > 0 && <div className="flex justify-between"><span className="text-slate-400">Amount</span><span className="text-emerald-400">{(viewSale.amount || 0).toLocaleString()}</span></div>}
-                      {viewSale.tax_amount > 0 && <div className="flex justify-between"><span className="text-slate-400">Tax ({viewSale.gst_percent || 0}%)</span><span className="text-orange-400">{(viewSale.tax_amount || 0).toLocaleString()}</span></div>}
+                      {viewSale.amount > 0 && <div className="flex justify-between"><span className="text-slate-600 dark:text-slate-400">Amount</span><span className="text-emerald-400">{(viewSale.amount || 0).toLocaleString()}</span></div>}
+                      {viewSale.tax_amount > 0 && <div className="flex justify-between"><span className="text-slate-600 dark:text-slate-400">Tax ({viewSale.gst_percent || 0}%)</span><span className="text-orange-400">{(viewSale.tax_amount || 0).toLocaleString()}</span></div>}
                       {premiumAdj !== 0 && (
                         <div className="flex justify-between"><span className={`text-xs ${premiumAdj < 0 ? 'text-red-400' : 'text-emerald-400'}`}>↳ Lab Test Adj. ({op.bran_type}: {(op.difference_pct||0) > 0 ? '+' : ''}{(op.difference_pct||0).toFixed(2)}%)</span><span className={`font-bold ${premiumAdj < 0 ? 'text-red-400' : 'text-emerald-400'}`}>{premiumAdj > 0 ? '+' : ''}₹{premiumAdj.toLocaleString('en-IN')}</span></div>
                       )}
@@ -886,7 +886,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   }
                   return (
                     <>
-                      <div className="flex justify-between text-xs"><span className="text-slate-400">Original Total</span><span className="text-slate-300 line-through">₹{baseTotal.toLocaleString('en-IN')}</span></div>
+                      <div className="flex justify-between text-xs"><span className="text-slate-600 dark:text-slate-400">Original Total</span><span className="text-slate-300 line-through">₹{baseTotal.toLocaleString('en-IN')}</span></div>
                       <div className="flex justify-between font-bold"><span className="text-white">Effective Total (after Lab Test)</span><span className="text-emerald-400 text-base">₹{effectiveTotal.toLocaleString('en-IN')}</span></div>
                     </>
                   );
@@ -909,17 +909,17 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   );
                 })()}
               </div>
-              {viewSale.remark && <div className="border-t border-slate-600 pt-2"><span className="text-slate-400 text-xs">Remark:</span> <span className="text-slate-300">{viewSale.remark}</span></div>}
+              {viewSale.remark && <div className="border-t border-slate-600 pt-2"><span className="text-slate-600 dark:text-slate-400 text-xs">Remark:</span> <span className="text-slate-300">{viewSale.remark}</span></div>}
               {(() => { const op = getOilPremium(viewSale); return op ? (
                 <div className="border-t border-slate-600 pt-2 space-y-1">
                   <p className="text-[10px] text-amber-400 font-medium mb-1">Oil Premium</p>
                   <div className="grid grid-cols-3 gap-x-4 gap-y-1">
-                    <div><span className="text-slate-400 text-xs">Type:</span> <span className={op.bran_type === 'Raw' ? 'text-orange-400' : 'text-blue-400'}>{op.bran_type}</span></div>
-                    <div><span className="text-slate-400 text-xs">Standard:</span> <span className="text-slate-300">{op.standard_oil_pct}%</span></div>
-                    <div><span className="text-slate-400 text-xs">Actual:</span> <span className="text-white font-bold">{op.actual_oil_pct}%</span></div>
+                    <div><span className="text-slate-600 dark:text-slate-400 text-xs">Type:</span> <span className={op.bran_type === 'Raw' ? 'text-orange-400' : 'text-blue-400'}>{op.bran_type}</span></div>
+                    <div><span className="text-slate-600 dark:text-slate-400 text-xs">Standard:</span> <span className="text-slate-300">{op.standard_oil_pct}%</span></div>
+                    <div><span className="text-slate-600 dark:text-slate-400 text-xs">Actual:</span> <span className="text-white font-bold">{op.actual_oil_pct}%</span></div>
                   </div>
                   <div className="flex justify-between items-center mt-1">
-                    <span className="text-slate-400 text-xs">Diff: <span className={`font-bold ${(op.difference_pct||0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{(op.difference_pct||0) > 0 ? '+' : ''}{(op.difference_pct||0).toFixed(2)}%</span></span>
+                    <span className="text-slate-600 dark:text-slate-400 text-xs">Diff: <span className={`font-bold ${(op.difference_pct||0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{(op.difference_pct||0) > 0 ? '+' : ''}{(op.difference_pct||0).toFixed(2)}%</span></span>
                     <span className={`text-base font-bold ${(op.premium_amount||0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>Rs. {(op.premium_amount||0).toLocaleString()}</span>
                   </div>
                 </div>
@@ -931,84 +931,84 @@ export default function ByProductSaleRegister({ filters, user, product }) {
 
       {/* Sale Form Dialog */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="bp-sale-form">
+        <DialogContent className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white max-w-6xl max-h-[92vh] overflow-y-auto" data-testid="bp-sale-form">
           <DialogHeader>
             <DialogTitle className="text-amber-400">{editingId ? "Edit" : "New"} {product} Sale</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-3">
             <div className="grid grid-cols-4 gap-3">
               <div>
-                <Label className="text-[10px] text-slate-400">Voucher No</Label>
+                <Label className="text-[11px] text-slate-600 dark:text-slate-400">Voucher No</Label>
                 <Input value={form.voucher_no} onChange={e => setForm(p => ({ ...p, voucher_no: e.target.value }))}
-                  className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-voucher-no" />
+                  className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-voucher-no" />
               </div>
               <div>
-                <Label className="text-[10px] text-slate-400">Bill Number</Label>
+                <Label className="text-[11px] text-slate-600 dark:text-slate-400">Bill Number</Label>
                 <Input value={form.bill_number} onChange={e => setForm(p => ({ ...p, bill_number: e.target.value }))}
-                  className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-bill-number" />
+                  className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bill-number" />
               </div>
               <div>
-                <Label className="text-[10px] text-slate-400">Billing Date</Label>
+                <Label className="text-[11px] text-slate-600 dark:text-slate-400">Billing Date</Label>
                 <Input type="date" value={form.billing_date} onChange={e => setForm(p => ({ ...p, billing_date: e.target.value }))}
-                  className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-billing-date" />
+                  className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-billing-date" />
               </div>
               <div>
-                <Label className="text-[10px] text-slate-400">Date</Label>
+                <Label className="text-[11px] text-slate-600 dark:text-slate-400">Date</Label>
                 <Input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
-                  className="bg-slate-700 border-slate-600 text-white h-8 text-xs" required data-testid="bp-date" />
+                  className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" required data-testid="bp-date" />
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <Label className="text-[10px] text-slate-400">RST Number {rstLoading && <span className="text-amber-400">(loading...)</span>}</Label>
+                <Label className="text-[11px] text-slate-600 dark:text-slate-400">RST Number {rstLoading && <span className="text-amber-400">(loading...)</span>}</Label>
                 <Input value={form.rst_no} onChange={e => {
                     const v = e.target.value;
                     setForm(p => ({ ...p, rst_no: v }));
                     if (v.trim()) checkRst(v); else clearRstCheck();
                   }}
                   onBlur={() => { if (form.rst_no) fetchRst(form.rst_no); }}
-                  placeholder="RST se auto-fetch" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-rst" />
+                  placeholder="RST se auto-fetch" className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-rst" />
                 <RstWarning />
               </div>
               <div>
-                <Label className="text-[10px] text-slate-400">Vehicle Number</Label>
+                <Label className="text-[11px] text-slate-600 dark:text-slate-400">Vehicle Number</Label>
                 <Input value={form.vehicle_no} onChange={e => setForm(p => ({ ...p, vehicle_no: e.target.value }))}
-                  className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-vehicle" />
+                  className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-vehicle" />
               </div>
               <div>
-                <Label className="text-[10px] text-slate-400">Bill From</Label>
+                <Label className="text-[11px] text-slate-600 dark:text-slate-400">Bill From</Label>
                 <Input value={form.bill_from} onChange={e => setForm(p => ({ ...p, bill_from: e.target.value }))}
-                  list="bill-from-list" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-bill-from" />
+                  list="bill-from-list" className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bill-from" />
                 <datalist id="bill-from-list">{billFromSugg.map(s => <option key={s} value={s} />)}</datalist>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-[10px] text-slate-400">Party Name *</Label>
+                <Label className="text-[11px] text-slate-600 dark:text-slate-400">Party Name *</Label>
                 <Input value={form.party_name} onChange={e => setForm(p => ({ ...p, party_name: e.target.value }))}
-                  list="party-list" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" required data-testid="bp-party" />
+                  list="party-list" className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" required data-testid="bp-party" />
                 <datalist id="party-list">{partySugg.map(s => <option key={s} value={s} />)}</datalist>
               </div>
               <div>
-                <Label className="text-[10px] text-slate-400">Destination</Label>
+                <Label className="text-[11px] text-slate-600 dark:text-slate-400">Destination</Label>
                 <Input value={form.destination} onChange={e => setForm(p => ({ ...p, destination: e.target.value }))}
-                  list="dest-list" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-dest" />
+                  list="dest-list" className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-dest" />
                 <datalist id="dest-list">{destSugg.map(s => <option key={s} value={s} />)}</datalist>
               </div>
             </div>
 
             {/* Split billing toggle */}
-            <div className="flex items-center justify-between p-2 rounded border border-slate-600 bg-slate-700/40">
+            <div className="flex items-center justify-between p-3 rounded border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/40">
               <div className="flex-1">
-                <Label className="text-[11px] text-slate-200 font-medium flex items-center gap-2">
+                <Label className="text-[12px] text-slate-700 dark:text-slate-200 font-medium flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={!!form.split_billing}
                     onChange={e => setForm(p => ({ ...p, split_billing: e.target.checked }))}
                     className="w-4 h-4 accent-amber-500" data-testid="bp-split-toggle" />
                   Split Billing (Pakka + Kaccha)
                 </Label>
-                <p className="text-[10px] text-slate-500 ml-6">Ek dispatch mein kuch maal bill pe, kuch slip pe — GST sirf billed portion pe lagega</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 ml-6">Ek dispatch mein kuch maal bill pe, kuch slip pe — GST sirf billed portion pe lagega</p>
               </div>
             </div>
 
@@ -1016,46 +1016,46 @@ export default function ByProductSaleRegister({ filters, user, product }) {
               <>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label className="text-[10px] text-slate-400">N/W (Qtl) {stockInfo && <span className={`font-bold ${(effectiveAvailQtl - nwQtl) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((effectiveAvailQtl - nwQtl) * 100) / 100} Qtl)</span>}</Label>
+                  <Label className="text-[11px] text-slate-600 dark:text-slate-400">N/W (Qtl) {stockInfo && <span className={`font-bold ${(effectiveAvailQtl - nwQtl) >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>(Stock: {Math.round((effectiveAvailQtl - nwQtl) * 100) / 100} Qtl)</span>}</Label>
                   <Input type="number" step="0.01"
                     value={form.net_weight_qtl_display ?? (form.net_weight_kg ? String(Math.round((parseFloat(form.net_weight_kg) || 0) / 100 * 100) / 100) : "")}
                     onChange={e => {
                       const qtl = e.target.value;
                       setForm(p => ({ ...p, net_weight_qtl_display: qtl, net_weight_kg: qtl === "" ? "" : String(Math.round((parseFloat(qtl) || 0) * 100 * 100) / 100) }));
                     }}
-                    className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-nw-qtl" />
-                  {stockInfo && nwQtl > effectiveAvailQtl && <p className="text-red-400 text-[9px] mt-0.5">Stock se zyada!</p>}
+                    className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-nw-qtl" />
+                  {stockInfo && nwQtl > effectiveAvailQtl && <p className="text-red-500 dark:text-red-400 text-[10px] mt-0.5">Stock se zyada!</p>}
                 </div>
                 <div>
-                  <Label className="text-[10px] text-slate-400">N/W (Kg) <span className="text-slate-500 text-[9px]">(auto)</span></Label>
+                  <Label className="text-[11px] text-slate-600 dark:text-slate-400">N/W (Kg) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(auto)</span></Label>
                   <Input type="number" step="0.01" value={form.net_weight_kg}
                     readOnly tabIndex={-1}
-                    className="bg-slate-800 border-slate-700 text-slate-300 h-8 text-xs cursor-not-allowed" data-testid="bp-nw" />
+                    className="bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-300 h-9 text-xs cursor-not-allowed" data-testid="bp-nw" />
                 </div>
                 <div>
-                  <Label className="text-[10px] text-slate-400">Rate (per Qtl)</Label>
+                  <Label className="text-[11px] text-slate-600 dark:text-slate-400">Rate (per Qtl)</Label>
                   <Input type="number" step="0.01" value={form.rate_per_qtl}
                     onChange={e => setForm(p => ({ ...p, rate_per_qtl: e.target.value }))}
-                    className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-rate" />
+                    className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-rate" />
                 </div>
               </div>
               {/* v104.44.72 — Bags → Bag Type → Bag W.C → Final M.W → Amount (user-specified order) */}
               <div className={`grid gap-3 ${product === "Rice Bran" ? "grid-cols-5" : "grid-cols-4"}`}>
                 <div>
-                  <Label className="text-[10px] text-slate-400">
+                  <Label className="text-[11px] text-slate-600 dark:text-slate-400">
                     Bags {form.bag_type && bagStock[form.bag_type] !== undefined && (
-                      <span className={`ml-1 font-bold ${(bagStock[form.bag_type] - bagCount) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      <span className={`ml-1 font-bold ${(bagStock[form.bag_type] - bagCount) >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
                         (Stock: {bagStock[form.bag_type] - bagCount})
                       </span>
                     )}
                   </Label>
                   <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
-                    className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-bags" />
+                    className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bags" />
                 </div>
                 <div>
-                  <Label className="text-[10px] text-cyan-300 font-semibold">Bag Type <span className="text-amber-400">*</span></Label>
+                  <Label className="text-[11px] text-cyan-700 dark:text-cyan-300 font-semibold">Bag Type <span className="text-amber-500 dark:text-amber-400">*</span></Label>
                   <Select value={form.bag_type || ""} onValueChange={v => setForm(p => ({ ...p, bag_type: v }))}>
-                    <SelectTrigger className="bg-slate-700 border-cyan-700/50 text-white h-8 text-xs" data-testid="bp-bag-type">
+                    <SelectTrigger className="bg-white dark:bg-slate-700 border-cyan-400/50 dark:border-cyan-700/50 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bag-type">
                       <SelectValue placeholder="Select..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -1065,27 +1065,27 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     </SelectContent>
                   </Select>
                   {bagCount > 0 && form.bag_type && bagStock[form.bag_type] !== undefined && bagCount > bagStock[form.bag_type] && (
-                    <p className="text-red-400 text-[9px] mt-0.5">⚠ {bagCount - bagStock[form.bag_type]} bags short</p>
+                    <p className="text-red-500 dark:text-red-400 text-[10px] mt-0.5">⚠ {bagCount - bagStock[form.bag_type]} bags short</p>
                   )}
                 </div>
                 {product === "Rice Bran" && (
                   <div>
-                    <Label className="text-[10px] text-cyan-300 font-semibold">Bag W.C (g)</Label>
+                    <Label className="text-[11px] text-cyan-700 dark:text-cyan-300 font-semibold">Bag W.C (g)</Label>
                     <Input type="number" value={form.bag_weight_cut_g}
                       onChange={e => setForm(p => ({ ...p, bag_weight_cut_g: e.target.value }))}
-                      placeholder="200" className="bg-slate-700 border-cyan-700/50 text-white h-8 text-xs" data-testid="bp-bag-cut" />
+                      placeholder="200" className="bg-white dark:bg-slate-700 border-cyan-400/50 dark:border-cyan-700/50 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bag-cut" />
                   </div>
                 )}
                 <div>
-                  <Label className="text-[10px] text-emerald-300 font-semibold">Final M.W (Kg)</Label>
-                  <div className="h-8 px-2 rounded bg-slate-900/60 border border-emerald-700/40 flex items-center text-xs text-emerald-300 font-mono font-bold" data-testid="bp-final-mw">
+                  <Label className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold">Final M.W (Kg)</Label>
+                  <div className="h-9 px-2 rounded bg-emerald-50 dark:bg-slate-900/60 border border-emerald-400 dark:border-emerald-700/40 flex items-center text-xs text-emerald-700 dark:text-emerald-300 font-mono font-bold" data-testid="bp-final-mw">
                     {nwKg.toFixed(2)}
-                    {totalCutKg > 0 && <span className="ml-1 text-[9px] text-slate-500">(−{totalCutKg.toFixed(2)})</span>}
+                    {totalCutKg > 0 && <span className="ml-1 text-[10px] text-slate-500">(−{totalCutKg.toFixed(2)})</span>}
                   </div>
                 </div>
                 <div>
-                  <Label className="text-[10px] text-amber-300 font-semibold">Amount</Label>
-                  <div className="h-8 px-2 rounded bg-slate-900/60 border border-amber-700/40 flex items-center text-xs text-amber-300 font-mono font-bold" data-testid="bp-amount">
+                  <Label className="text-[11px] text-amber-700 dark:text-amber-300 font-semibold">Amount</Label>
+                  <div className="h-9 px-2 rounded bg-amber-50 dark:bg-slate-900/60 border border-amber-400 dark:border-amber-700/40 flex items-center text-xs text-amber-700 dark:text-amber-300 font-mono font-bold" data-testid="bp-amount">
                     ₹{amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                   </div>
                 </div>
@@ -1096,9 +1096,9 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             {isSplit && (
               <div className="space-y-2">
                 {/* TOTAL N/W (top of split section) — RST se ya manual fill */}
-                <div className="grid grid-cols-2 gap-3 p-2 rounded bg-blue-900/20 border border-blue-500/30">
+                <div className="grid grid-cols-2 gap-3 p-3 rounded bg-blue-50 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-500/30">
                   <div>
-                    <Label className="text-[10px] text-blue-300 font-bold uppercase tracking-wider">Total N/W (Qtl) {stockInfo && <span className={`font-bold ${(effectiveAvailQtl - totalSplitQtl) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((effectiveAvailQtl - totalSplitQtl) * 100) / 100} Qtl)</span>}</Label>
+                    <Label className="text-[11px] text-blue-700 dark:text-blue-300 font-bold uppercase tracking-wider">Total N/W (Qtl) {stockInfo && <span className={`font-bold ${(effectiveAvailQtl - totalSplitQtl) >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>(Stock: {Math.round((effectiveAvailQtl - totalSplitQtl) * 100) / 100} Qtl)</span>}</Label>
                     <Input type="number" step="0.01"
                       value={form.net_weight_qtl_display ?? (form.net_weight_kg ? String(Math.round((parseFloat(form.net_weight_kg) || 0) / 100 * 100) / 100) : "")}
                       onChange={e => {
@@ -1116,23 +1116,22 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                           kaccha_weight_kg: curPakkaQtl > 0 ? String(Math.round(newKacchaQtl * 100 * 100) / 100) : p.kaccha_weight_kg,
                         }));
                       }}
-                      className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-split-total-qtl" />
+                      className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-split-total-qtl" />
                   </div>
                   <div>
-                    <Label className="text-[10px] text-blue-300 font-bold uppercase tracking-wider">Total N/W (Kg) <span className="text-slate-500 text-[9px]">(auto)</span></Label>
+                    <Label className="text-[11px] text-blue-700 dark:text-blue-300 font-bold uppercase tracking-wider">Total N/W (Kg) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(auto)</span></Label>
                     <Input type="number" step="0.01" value={form.net_weight_kg}
                       readOnly tabIndex={-1}
-                      className="bg-slate-800 border-slate-700 text-slate-300 h-8 text-xs cursor-not-allowed" data-testid="bp-split-total-kg" />
+                      className="bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-300 h-9 text-xs cursor-not-allowed" data-testid="bp-split-total-kg" />
                   </div>
                 </div>
 
                 {/* PAKKA */}
-                <div className="grid grid-cols-4 gap-3 p-2 rounded bg-emerald-900/20 border border-emerald-500/30">
-                  <div className="col-span-4">
-                    <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Pakka (GST Bill)</p>
-                  </div>
+                <div className="p-3 rounded bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-300 dark:border-emerald-500/30 space-y-3">
+                  <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Pakka (GST Bill)</p>
+                  <div className="grid grid-cols-4 gap-3">
                   <div>
-                    <Label className="text-[10px] text-slate-400">Pakka Wt (Qtl)</Label>
+                    <Label className="text-[11px] text-slate-600 dark:text-slate-400">Pakka Wt (Qtl)</Label>
                     <Input type="number" step="0.01"
                       value={form.billed_weight_qtl_display}
                       onChange={e => {
@@ -1149,107 +1148,110 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                           kaccha_weight_kg: totalQtl > 0 ? String(Math.round(kacchaQ * 100 * 100) / 100) : p.kaccha_weight_kg,
                         }));
                       }}
-                      className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-billed-qtl" />
+                      className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-billed-qtl" />
                   </div>
                   <div>
-                    <Label className="text-[10px] text-slate-400">Pakka Wt (Kg) <span className="text-slate-500 text-[9px]">(auto)</span></Label>
+                    <Label className="text-[11px] text-slate-600 dark:text-slate-400">Pakka Wt (Kg) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(auto)</span></Label>
                     <Input type="number" step="0.01" value={form.billed_weight_kg}
                       readOnly tabIndex={-1}
-                      className="bg-slate-800 border-slate-700 text-slate-300 h-8 text-xs cursor-not-allowed" data-testid="bp-billed-kg" />
+                      className="bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-300 h-9 text-xs cursor-not-allowed" data-testid="bp-billed-kg" />
                   </div>
                   <div>
-                    <Label className="text-[10px] text-slate-400">Rate (per Qtl)</Label>
+                    <Label className="text-[11px] text-slate-600 dark:text-slate-400">Rate (per Qtl)</Label>
                     <Input type="number" step="0.01" value={form.rate_per_qtl}
                       onChange={e => setForm(p => ({ ...p, rate_per_qtl: e.target.value }))}
-                      className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-rate" />
+                      className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-rate" />
                   </div>
                   <div>
-                    <Label className="text-[10px] text-slate-400">Pakka Amount</Label>
-                    <div className="h-8 px-2 rounded bg-slate-900/60 border border-slate-700 flex items-center text-xs text-emerald-300 font-mono" data-testid="bp-billed-amount">
+                    <Label className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold">Pakka Amount</Label>
+                    <div className="h-9 px-2 rounded bg-emerald-50 dark:bg-slate-900/60 border border-emerald-400 dark:border-slate-700 flex items-center text-xs text-emerald-700 dark:text-emerald-300 font-mono font-bold" data-testid="bp-billed-amount">
                       ₹{billedAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                     </div>
+                  </div>
                   </div>
                 </div>
 
                 {/* KACCHA */}
-                <div className={`grid gap-3 p-2 rounded bg-amber-900/20 border border-amber-500/30 ${product === "Rice Bran" ? "grid-cols-8" : "grid-cols-7"}`}>
-                  <div className={product === "Rice Bran" ? "col-span-8" : "col-span-7"}>
-                    <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Kaccha (Slip — No GST)</p>
-                  </div>
-                  <div>
-                    <Label className="text-[10px] text-slate-400">Kaccha Wt (Qtl)</Label>
-                    <Input type="number" step="0.01"
-                      value={form.kaccha_weight_qtl_display}
-                      onChange={e => {
-                        const kq = e.target.value;
-                        const kacchaQ = parseFloat(kq) || 0;
-                        const totalQtl = parseFloat(form.net_weight_qtl_display) || (parseFloat(form.net_weight_kg) || 0) / 100;
-                        // Auto-balance: Pakka = Total - Kaccha
-                        const pakkaQ = Math.max(0, Math.round((totalQtl - kacchaQ) * 100) / 100);
-                        setForm(p => ({
-                          ...p,
-                          kaccha_weight_qtl_display: kq,
-                          kaccha_weight_kg: kq === "" ? "" : String(Math.round(kacchaQ * 100 * 100) / 100),
-                          billed_weight_qtl_display: totalQtl > 0 ? String(pakkaQ) : p.billed_weight_qtl_display,
-                          billed_weight_kg: totalQtl > 0 ? String(Math.round(pakkaQ * 100 * 100) / 100) : p.billed_weight_kg,
-                        }));
-                      }}
-                      className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-kaccha-qtl" />
-                  </div>
-                  <div>
-                    <Label className="text-[10px] text-slate-400">Kaccha Wt (Kg) <span className="text-slate-500 text-[9px]">(auto)</span></Label>
-                    <Input type="number" step="0.01" value={form.kaccha_weight_kg}
-                      readOnly tabIndex={-1}
-                      className="bg-slate-800 border-slate-700 text-slate-300 h-8 text-xs cursor-not-allowed" data-testid="bp-kaccha-kg" />
-                  </div>
-                  <div>
-                    <Label className="text-[10px] text-slate-400">Rate (per Qtl)</Label>
-                    <Input type="number" step="0.01" value={form.kaccha_rate_per_qtl}
-                      onChange={e => setForm(p => ({ ...p, kaccha_rate_per_qtl: e.target.value }))}
-                      placeholder={rate ? String(rate) : "Same as Pakka"}
-                      className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-kaccha-rate" />
-                  </div>
-                  {/* v104.44.72 — Bags → Bag Type → Bag W.C → Final M.W → Amount (Kaccha side only in split mode) */}
-                  <div>
-                    <Label className="text-[10px] text-slate-400">Bags (total) <span className="text-slate-500 text-[9px]">(shared)</span></Label>
-                    <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
-                      className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-bags" />
-                  </div>
-                  <div>
-                    <Label className="text-[10px] text-cyan-300 font-semibold">Bag Type <span className="text-amber-400">*</span></Label>
-                    <Select value={form.bag_type || ""} onValueChange={v => setForm(p => ({ ...p, bag_type: v }))}>
-                      <SelectTrigger className="bg-slate-700 border-cyan-700/50 text-white h-8 text-xs" data-testid="bp-bag-type">
-                        <SelectValue placeholder="Select..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="old">Old (Market) — {bagStock.old ?? 0}</SelectItem>
-                        <SelectItem value="bran_plastic">Bran P.Pkt — {bagStock.bran_plastic ?? 0}</SelectItem>
-                        <SelectItem value="broken_plastic">Broken P.Pkt — {bagStock.broken_plastic ?? 0}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {bagCount > 0 && form.bag_type && bagStock[form.bag_type] !== undefined && bagCount > bagStock[form.bag_type] && (
-                      <p className="text-red-400 text-[9px] mt-0.5">⚠ {bagCount - bagStock[form.bag_type]} bags short</p>
-                    )}
-                  </div>
-                  {product === "Rice Bran" && (
+                <div className="p-3 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-500/30 space-y-3">
+                  <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Kaccha (Slip — No GST)</p>
+                  {/* Row 1 — weights + rate + bags */}
+                  <div className="grid grid-cols-4 gap-3">
                     <div>
-                      <Label className="text-[10px] text-cyan-300 font-semibold">Bag W.C (g)</Label>
-                      <Input type="number" value={form.bag_weight_cut_g}
-                        onChange={e => setForm(p => ({ ...p, bag_weight_cut_g: e.target.value }))}
-                        placeholder="200" className="bg-slate-700 border-cyan-700/50 text-white h-8 text-xs" data-testid="bp-bag-cut" />
+                      <Label className="text-[11px] text-slate-600 dark:text-slate-400">Kaccha Wt (Qtl)</Label>
+                      <Input type="number" step="0.01"
+                        value={form.kaccha_weight_qtl_display}
+                        onChange={e => {
+                          const kq = e.target.value;
+                          const kacchaQ = parseFloat(kq) || 0;
+                          const totalQtl = parseFloat(form.net_weight_qtl_display) || (parseFloat(form.net_weight_kg) || 0) / 100;
+                          const pakkaQ = Math.max(0, Math.round((totalQtl - kacchaQ) * 100) / 100);
+                          setForm(p => ({
+                            ...p,
+                            kaccha_weight_qtl_display: kq,
+                            kaccha_weight_kg: kq === "" ? "" : String(Math.round(kacchaQ * 100 * 100) / 100),
+                            billed_weight_qtl_display: totalQtl > 0 ? String(pakkaQ) : p.billed_weight_qtl_display,
+                            billed_weight_kg: totalQtl > 0 ? String(Math.round(pakkaQ * 100 * 100) / 100) : p.billed_weight_kg,
+                          }));
+                        }}
+                        className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-kaccha-qtl" />
                     </div>
-                  )}
-                  <div>
-                    <Label className="text-[10px] text-emerald-300 font-semibold">Final M.W (Kg)</Label>
-                    <div className="h-8 px-2 rounded bg-slate-900/60 border border-emerald-700/40 flex items-center text-xs text-emerald-300 font-mono font-bold" data-testid="bp-kaccha-final-mw">
-                      {finalKacchaKg.toFixed(2)}
-                      {totalCutKg > 0 && <span className="ml-1 text-[9px] text-slate-500">(−{totalCutKg.toFixed(2)})</span>}
+                    <div>
+                      <Label className="text-[11px] text-slate-600 dark:text-slate-400">Kaccha Wt (Kg) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(auto)</span></Label>
+                      <Input type="number" step="0.01" value={form.kaccha_weight_kg}
+                        readOnly tabIndex={-1}
+                        className="bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-300 h-9 text-xs cursor-not-allowed" data-testid="bp-kaccha-kg" />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-slate-600 dark:text-slate-400">Rate (per Qtl)</Label>
+                      <Input type="number" step="0.01" value={form.kaccha_rate_per_qtl}
+                        onChange={e => setForm(p => ({ ...p, kaccha_rate_per_qtl: e.target.value }))}
+                        placeholder={rate ? String(rate) : "Same as Pakka"}
+                        className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-kaccha-rate" />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-slate-600 dark:text-slate-400">Bags (total) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(shared)</span></Label>
+                      <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
+                        className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bags" />
                     </div>
                   </div>
-                  <div>
-                    <Label className="text-[10px] text-slate-400">Kaccha Amount</Label>
-                    <div className="h-8 px-2 rounded bg-slate-900/60 border border-slate-700 flex items-center text-xs text-amber-300 font-mono" data-testid="bp-kaccha-amount">
-                      ₹{kacchaAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  {/* Row 2 — bag type + cut + final M.W + kaccha amount */}
+                  <div className={`grid gap-3 ${product === "Rice Bran" ? "grid-cols-4" : "grid-cols-3"}`}>
+                    <div>
+                      <Label className="text-[11px] text-cyan-700 dark:text-cyan-300 font-semibold">Bag Type <span className="text-amber-500 dark:text-amber-400">*</span></Label>
+                      <Select value={form.bag_type || ""} onValueChange={v => setForm(p => ({ ...p, bag_type: v }))}>
+                        <SelectTrigger className="bg-white dark:bg-slate-700 border-cyan-400/50 dark:border-cyan-700/50 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bag-type">
+                          <SelectValue placeholder="Select..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="old">Old (Market) — {bagStock.old ?? 0}</SelectItem>
+                          <SelectItem value="bran_plastic">Bran P.Pkt — {bagStock.bran_plastic ?? 0}</SelectItem>
+                          <SelectItem value="broken_plastic">Broken P.Pkt — {bagStock.broken_plastic ?? 0}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {bagCount > 0 && form.bag_type && bagStock[form.bag_type] !== undefined && bagCount > bagStock[form.bag_type] && (
+                        <p className="text-red-500 dark:text-red-400 text-[10px] mt-0.5">⚠ {bagCount - bagStock[form.bag_type]} bags short</p>
+                      )}
+                    </div>
+                    {product === "Rice Bran" && (
+                      <div>
+                        <Label className="text-[11px] text-cyan-700 dark:text-cyan-300 font-semibold">Bag W.C (g)</Label>
+                        <Input type="number" value={form.bag_weight_cut_g}
+                          onChange={e => setForm(p => ({ ...p, bag_weight_cut_g: e.target.value }))}
+                          placeholder="200" className="bg-white dark:bg-slate-700 border-cyan-400/50 dark:border-cyan-700/50 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bag-cut" />
+                      </div>
+                    )}
+                    <div>
+                      <Label className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold">Final M.W (Kg)</Label>
+                      <div className="h-9 px-2 rounded bg-emerald-50 dark:bg-slate-900/60 border border-emerald-400 dark:border-emerald-700/40 flex items-center text-xs text-emerald-700 dark:text-emerald-300 font-mono font-bold" data-testid="bp-kaccha-final-mw">
+                        {finalKacchaKg.toFixed(2)}
+                        {totalCutKg > 0 && <span className="ml-1 text-[10px] text-slate-500">(−{totalCutKg.toFixed(2)})</span>}
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-amber-700 dark:text-amber-300 font-semibold">Kaccha Amount</Label>
+                      <div className="h-9 px-2 rounded bg-amber-50 dark:bg-slate-900/60 border border-amber-400 dark:border-slate-700 flex items-center text-xs text-amber-700 dark:text-amber-300 font-mono font-bold" data-testid="bp-kaccha-amount">
+                        ₹{kacchaAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1262,7 +1264,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                 )}
 
                 <div className="flex items-center justify-between px-2 py-1.5 rounded bg-slate-700/50 text-[11px]">
-                  <span className="text-slate-400">Total Physical Dispatch:</span>
+                  <span className="text-slate-600 dark:text-slate-400">Total Physical Dispatch:</span>
                   <span className={`font-bold ${stockInfo && totalSplitQtl > effectiveAvailQtl ? 'text-red-400' : 'text-blue-300'}`}>
                     {totalSplitKg.toFixed(2)} Kg = {totalSplitQtl.toFixed(2)} Qtl
                     {stockInfo && <span className="text-slate-500 ml-2">(Stock: {Math.round((effectiveAvailQtl - totalSplitQtl) * 100) / 100} Qtl remaining)</span>}
@@ -1277,14 +1279,14 @@ export default function ByProductSaleRegister({ filters, user, product }) {
               <div className="bg-slate-700/50 rounded p-2 text-xs space-y-1">
                 {isSplit ? (
                   <>
-                    <div className="flex justify-between"><span className="text-slate-400">Pakka Amount ({billedQtl.toFixed(2)} Q × {rate})</span><span className="text-emerald-400 font-bold">₹{billedAmount.toLocaleString('en-IN')}</span></div>
-                    {taxAmt > 0 && <div className="flex justify-between"><span className="text-slate-400">GST ({gstPct}% on Pakka)</span><span className="text-orange-400">₹{taxAmt.toLocaleString('en-IN')}</span></div>}
-                    <div className="flex justify-between"><span className="text-slate-400">Kaccha Amount ({kacchaQtl.toFixed(2)} Q × {kacchaRate})</span><span className="text-amber-400 font-bold">₹{kacchaAmount.toLocaleString('en-IN')}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-600 dark:text-slate-400">Pakka Amount ({billedQtl.toFixed(2)} Q × {rate})</span><span className="text-emerald-400 font-bold">₹{billedAmount.toLocaleString('en-IN')}</span></div>
+                    {taxAmt > 0 && <div className="flex justify-between"><span className="text-slate-600 dark:text-slate-400">GST ({gstPct}% on Pakka)</span><span className="text-orange-400">₹{taxAmt.toLocaleString('en-IN')}</span></div>}
+                    <div className="flex justify-between"><span className="text-slate-600 dark:text-slate-400">Kaccha Amount ({kacchaQtl.toFixed(2)} Q × {kacchaRate})</span><span className="text-amber-400 font-bold">₹{kacchaAmount.toLocaleString('en-IN')}</span></div>
                   </>
                 ) : (
                   <>
-                    <div className="flex justify-between"><span className="text-slate-400">Amount ({nwQtl.toFixed(2)} Q × {rate})</span><span className="text-emerald-400 font-bold">₹{amount.toLocaleString('en-IN')}</span></div>
-                    {taxAmt > 0 && <div className="flex justify-between"><span className="text-slate-400">Tax ({gstPct}%)</span><span className="text-orange-400">₹{taxAmt.toLocaleString('en-IN')}</span></div>}
+                    <div className="flex justify-between"><span className="text-slate-600 dark:text-slate-400">Amount ({nwQtl.toFixed(2)} Q × {rate})</span><span className="text-emerald-400 font-bold">₹{amount.toLocaleString('en-IN')}</span></div>
+                    {taxAmt > 0 && <div className="flex justify-between"><span className="text-slate-600 dark:text-slate-400">Tax ({gstPct}%)</span><span className="text-orange-400">₹{taxAmt.toLocaleString('en-IN')}</span></div>}
                   </>
                 )}
                 <div className="flex justify-between border-t border-slate-600 pt-1"><span className="text-white font-bold">Total Receivable</span><span className="text-emerald-400 font-bold text-sm">₹{total.toLocaleString('en-IN')}</span></div>
@@ -1294,9 +1296,9 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             {/* GST + Sauda Amount (info-only) */}
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <Label className="text-[10px] text-slate-400">Tax</Label>
+                <Label className="text-[11px] text-slate-600 dark:text-slate-400">Tax</Label>
                 <Select value={form.gst_type} onValueChange={v => setForm(p => ({ ...p, gst_type: v, gst_percent: v === "none" ? "" : "5" }))}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No Tax</SelectItem>
                     <SelectItem value="gst">GST</SelectItem>
@@ -1305,21 +1307,21 @@ export default function ByProductSaleRegister({ filters, user, product }) {
               </div>
               {form.gst_type !== "none" ? (
                 <div>
-                  <Label className="text-[10px] text-slate-400">GST %</Label>
+                  <Label className="text-[11px] text-slate-600 dark:text-slate-400">GST %</Label>
                   <Select value={form.gst_percent || "5"} onValueChange={v => setForm(p => ({ ...p, gst_percent: v }))}>
-                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>{[5, 12, 18, 28].map(g => <SelectItem key={g} value={String(g)}>{g}%</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               ) : <div />}
               <div>
-                <Label className="text-[10px] text-slate-400" title="Sirf jaankari ke liye — kisi calculation mein use nahi hota">
-                  Sauda Amount (per Qtl) <span className="text-slate-500 text-[9px]">(info only)</span>
+                <Label className="text-[11px] text-slate-600 dark:text-slate-400" title="Sirf jaankari ke liye — kisi calculation mein use nahi hota">
+                  Sauda Amount (per Qtl) <span className="text-slate-400 dark:text-slate-500">(info only)</span>
                 </Label>
                 <Input type="number" step="0.01" value={form.sauda_amount}
                   onChange={e => setForm(p => ({ ...p, sauda_amount: e.target.value }))}
                   placeholder="e.g. 3700"
-                  className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-sauda-amount" />
+                  className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-sauda-amount" />
               </div>
             </div>
 
@@ -1332,16 +1334,16 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   <Input type="number" step="0.01" value={form.bhada}
                     onChange={e => setForm(p => ({ ...p, bhada: e.target.value }))}
                     placeholder="Truck bhada (e.g. 4000)"
-                    className="bg-amber-900/20 border-amber-700 text-amber-200 h-8 text-xs font-bold" data-testid="bp-bhada" />
+                    className="bg-amber-900/20 border-amber-700 text-amber-200 h-9 text-xs font-bold" data-testid="bp-bhada" />
                   <p className="text-[9px] text-slate-500 mt-0.5">Truck owner ko diya jaane wala lump-sum freight</p>
                 </div>
                 <div>
                   <Label className="text-[10px] text-sky-400">Advance (Party se)</Label>
                   <Input type="number" value={form.advance} onChange={e => setForm(p => ({ ...p, advance: e.target.value }))}
-                    placeholder="0" className="bg-sky-900/20 border-sky-700 text-sky-300 h-8 text-xs" data-testid="bp-advance" />
+                    placeholder="0" className="bg-sky-900/20 border-sky-700 text-sky-300 h-9 text-xs" data-testid="bp-advance" />
                 </div>
                 <div>
-                  <Label className="text-[10px] text-slate-400">Balance (Party par baki)</Label>
+                  <Label className="text-[11px] text-slate-600 dark:text-slate-400">Balance (Party par baki)</Label>
                   <div className={`h-8 flex items-center px-2 rounded border text-xs font-bold ${balance > 0 ? 'bg-red-900/20 border-red-700 text-red-400' : 'bg-green-900/20 border-green-700 text-green-400'}`}>
                     Rs.{balance.toLocaleString()}
                   </div>
@@ -1350,9 +1352,9 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             </div>
 
             <div>
-              <Label className="text-[10px] text-slate-400">Remark</Label>
+              <Label className="text-[11px] text-slate-600 dark:text-slate-400">Remark</Label>
               <Input value={form.remark} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))}
-                placeholder="Optional" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-remark" />
+                placeholder="Optional" className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-remark" />
             </div>
 
             <div className="flex gap-2 pt-2">
@@ -1377,10 +1379,10 @@ export default function ByProductSaleRegister({ filters, user, product }) {
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label className="text-xs text-slate-400">Party Name</Label>
+              <Label className="text-xs text-slate-600 dark:text-slate-400">Party Name</Label>
               <Input list="stmt-party-list" value={stmtParty} onChange={e => setStmtParty(e.target.value)}
                 placeholder="Type or select party..."
-                className="bg-slate-700 border-slate-600 text-white text-xs h-8 mt-1"
+                className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white text-xs h-8 mt-1"
                 data-testid="bp-stmt-party" />
               <datalist id="stmt-party-list">
                 {partySugg.map(p => <option key={p} value={p} />)}
