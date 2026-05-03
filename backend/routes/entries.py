@@ -823,23 +823,31 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
     await db.gunny_bags.delete_many({"linked_entry_id": entry_id})
     await _create_gunny_entries_for_mill(merged_data | {"id": entry_id}, username)
     
-    # Sync cash/diesel to linked vehicle_weight entry (same RST + kms_year)
+    # Sync cash/diesel + identity fields (TP, vehicle, party, weights) to linked vehicle_weight entry (same RST + kms_year)
+    # v104.44.63 — Earlier only cash/diesel synced — TP edit me VW row stale ho jata tha, fir naya VW with same TP add karne pe duplicate error.
     entry_rst = str(merged_data.get("rst_no", "")).strip()
     entry_kms = merged_data.get("kms_year", "")
     if entry_rst:
         try:
             rst_int = int(entry_rst)
             vw_query = {"rst_no": rst_int, "kms_year": entry_kms}
-            vw_existing = await db["vehicle_weights"].find_one(vw_query, {"_id": 0, "id": 1})
+            vw_existing = await db["vehicle_weights"].find_one(vw_query, {"_id": 0, "id": 1, "cash_paid": 1, "diesel_paid": 1, "tp_no": 1, "vehicle_no": 1, "party_name": 1, "tp_weight": 1, "g_issued": 1, "farmer_name": 1, "date": 1})
             if vw_existing:
                 vw_update_fields = {
                     "cash_paid": float(merged_data.get("cash_paid", 0) or 0),
                     "diesel_paid": float(merged_data.get("diesel_paid", 0) or 0),
+                    "tp_no": (str(merged_data.get("tp_no", "") or "")).strip(),
+                    "vehicle_no": (str(merged_data.get("truck_no", "") or "")).strip().upper(),
+                    "party_name": (str(merged_data.get("agent_name", "") or merged_data.get("party_name", "") or "")).strip(),
+                    "tp_weight": float(merged_data.get("tp_weight", 0) or 0),
+                    "g_issued": float(merged_data.get("g_issued", 0) or 0),
+                    "farmer_name": (str(merged_data.get("farmer_name", "") or "")).strip(),
+                    "date": merged_data.get("date", "") or vw_existing.get("date", ""),
                     "updated_at": datetime.now(timezone.utc).isoformat()
                 }
                 await db["vehicle_weights"].update_one({"id": vw_existing["id"]}, {"$set": vw_update_fields})
                 await log_audit("vehicle_weights", vw_existing["id"], "update", username,
-                    old_data={"cash_paid": vw_existing.get("cash_paid"), "diesel_paid": vw_existing.get("diesel_paid")},
+                    old_data={k: vw_existing.get(k) for k in vw_update_fields.keys() if k != "updated_at"},
                     new_data=vw_update_fields)
         except (ValueError, TypeError):
             pass

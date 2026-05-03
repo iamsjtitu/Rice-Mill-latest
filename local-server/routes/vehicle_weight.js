@@ -1036,13 +1036,25 @@ module.exports = function(database) {
     }
 
     // TP No. duplicate check
+    // v104.44.63 — Auto-heal stale VW TP: cross-check with mill_entries to clear stale rows
     const tpNoRaw = (data.tp_no || '').trim();
     if (tpNoRaw) {
       const allWeights = col('vehicle_weights');
       const tpDup = kmsYear
         ? allWeights.find(w => w.tp_no === tpNoRaw && w.kms_year === kmsYear)
         : allWeights.find(w => w.tp_no === tpNoRaw);
-      if (tpDup) return res.status(400).json({ detail: `TP No. ${tpNoRaw} already RST #${tpDup.rst_no} mein hai! Duplicate TP allowed nahi hai.` });
+      if (tpDup) {
+        const mEntries = col('mill_entries');
+        const linked = mEntries.find(m => String(m.rst_no) === String(tpDup.rst_no) && (m.kms_year || '') === (tpDup.kms_year || ''));
+        if (linked && (String(linked.tp_no || '').trim() !== tpNoRaw)) {
+          // Stale VW row — heal it
+          tpDup.tp_no = String(linked.tp_no || '').trim();
+          tpDup.updated_at = new Date().toISOString();
+          database.write && database.write();
+        } else {
+          return res.status(400).json({ detail: `TP No. ${tpNoRaw} already RST #${tpDup.rst_no} mein hai! Duplicate TP allowed nahi hai.` });
+        }
+      }
     }
 
     const entry = {

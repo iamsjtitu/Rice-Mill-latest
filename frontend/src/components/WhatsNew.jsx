@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.63",
+    date: "Feb 17, 2026",
+    title: "v104.44.63 — 🩹 Mill Entry edit → Vehicle Weight TP auto-sync (stale TP fix)",
+    items: [
+      { type: "fix", text: "🩹 **Stale TP No. bug fix** — Pehle agar Mill Entry me TP edit karte the (e.g. 126 → 122), to linked Vehicle Weight ka TP stale rehta tha (still 126). Fir naye VW me TP 126 dalne pe galat error 'TP 126 already in RST 46' ata tha. Ab Mill Entry update karne pe **VW ka TP, Vehicle, Party, Weights, Cash, Diesel** sab automatic sync hota hai." },
+      { type: "fix", text: "🛡️ **Auto-Heal stale block** — Naye VW add karte time, agar TP duplicate detect ho aur usse linked RST ka mill_entry me alag TP hai (stale data), to system **automatically VW ka TP correct kar deta hai** mill_entry se aur add operation continue karta hai. No manual database fix needed." },
+      { type: "improvement", text: "🌐 **Triple-Backend Parity** — Python FastAPI + Node Desktop + Node LAN — teeno backends me identical sync + auto-heal logic." },
+    ],
+  },
+  {
     version: "104.44.62",
     date: "Feb 17, 2026",
     title: "v104.44.62 — 🔁 Version bump (no functional change)",

@@ -122,6 +122,29 @@ module.exports = function(database) {
     if (entry && entry._conflict) return res.status(409).json({ detail: entry.message });
     if (entry) {
       logAudit('mill_entries', req.params.id, 'update', req.query.username || req.body.username || '', oldCopy, entry);
+      // v104.44.63 — Sync identity fields (TP, vehicle, party, weights, cash, diesel) to linked Vehicle Weight row
+      try {
+        const entryRst = String(entry.rst_no || '').trim();
+        const entryKms = entry.kms_year || '';
+        if (entryRst) {
+          const rstInt = parseInt(entryRst, 10);
+          const vw = (database.data.vehicle_weights || []).find(w =>
+            (w.rst_no === rstInt || String(w.rst_no) === entryRst) && (w.kms_year || '') === entryKms);
+          if (vw) {
+            vw.tp_no = String(entry.tp_no || '').trim();
+            vw.vehicle_no = String(entry.truck_no || '').trim().toUpperCase();
+            vw.party_name = String(entry.agent_name || entry.party_name || '').trim();
+            vw.tp_weight = Number(entry.tp_weight || 0);
+            vw.g_issued = Number(entry.g_issued || 0);
+            vw.farmer_name = String(entry.farmer_name || '').trim();
+            vw.date = entry.date || vw.date || '';
+            vw.cash_paid = Number(entry.cash_paid || 0);
+            vw.diesel_paid = Number(entry.diesel_paid || 0);
+            vw.updated_at = new Date().toISOString();
+            if (database.write) database.write();
+          }
+        }
+      } catch (_) { /* non-fatal */ }
       res.json(entry);
     } else res.status(404).json({ detail: 'Entry not found' });
   }));

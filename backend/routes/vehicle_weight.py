@@ -706,14 +706,31 @@ async def create_weight_entry(data: dict):
             rst_no = await _next_rst(kms_year)
 
     # TP No. duplicate check
+    # v104.44.63 — Auto-heal stale VW TP: if VW had old TP but linked mill_entry now has different TP,
+    # update VW from mill_entry first (clears stale block).
     tp_no_raw = (data.get("tp_no", "") or "").strip()
     if tp_no_raw:
         tp_dup_query = {"tp_no": tp_no_raw}
         if kms_year:
             tp_dup_query["kms_year"] = kms_year
-        tp_existing = await db["vehicle_weights"].find_one(tp_dup_query, {"_id": 0, "rst_no": 1})
+        tp_existing = await db["vehicle_weights"].find_one(tp_dup_query, {"_id": 0, "id": 1, "rst_no": 1, "kms_year": 1})
         if tp_existing:
-            raise HTTPException(status_code=400, detail=f"TP No. {tp_no_raw} already RST #{tp_existing['rst_no']} mein hai! Duplicate TP allowed nahi hai.")
+            # Cross-check: Does mill_entries for same rst_no still have this tp_no?
+            stale_rst = tp_existing.get("rst_no")
+            stale_kms = tp_existing.get("kms_year", "")
+            mill_entry = await db.mill_entries.find_one(
+                {"rst_no": str(stale_rst), "kms_year": stale_kms},
+                {"_id": 0, "tp_no": 1}
+            )
+            if mill_entry and (str(mill_entry.get("tp_no", "")).strip() != tp_no_raw):
+                # Mill entry's TP differs from VW's → VW row is stale. Heal it.
+                await db["vehicle_weights"].update_one(
+                    {"id": tp_existing["id"]},
+                    {"$set": {"tp_no": str(mill_entry.get("tp_no", "")).strip(),
+                              "updated_at": datetime.now(timezone.utc).isoformat()}}
+                )
+            else:
+                raise HTTPException(status_code=400, detail=f"TP No. {tp_no_raw} already RST #{tp_existing['rst_no']} mein hai! Duplicate TP allowed nahi hai.")
 
     entry = {
         "id": str(uuid.uuid4()),
