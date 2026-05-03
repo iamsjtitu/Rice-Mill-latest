@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.62",
+    date: "Feb 17, 2026",
+    title: "v104.44.62 — 🔁 Version bump (no functional change)",
+    items: [
+      { type: "improvement", text: "🔁 Version sync across web frontend + desktop-app + local-server. Sabhi v104.44.56–v104.44.61 features (PKA/KCA split, payment tracking, Party Statement, Auto-Sync, etc.) BP Sale Register ke saare 8 products ke liye live: Pvt Rice / Rice Bran / Mota Kunda / Broken Rice / Rejection Rice / Pin Broken Rice / Poll / Bhusa." },
+    ],
+  },
+  {
     version: "104.44.61",
     date: "Feb 17, 2026",
     title: "v104.44.61 — 🔄 Auto Statement Sync (live polling every 5s)",
