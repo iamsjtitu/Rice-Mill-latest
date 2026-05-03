@@ -217,7 +217,7 @@ async def get_bp_sales(product: str = "", kms_year: str = "", season: str = "",
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     sales = await db.bp_sale_register.find(query, {"_id": 0}).sort("created_at", -1).to_list(10000)
-    # v104.44.42 — PKA / KCA filter (post-query because needs computed billed/kaccha amounts)
+    # v104.44.43 — PKA / KCA filter (KCA = pure kaccha only, no pakka portion)
     if gst_filter == "PKA":
         sales = [s for s in sales if (
             float(s.get("billed_amount") or 0) > 0
@@ -225,8 +225,8 @@ async def get_bp_sales(product: str = "", kms_year: str = "", season: str = "",
         )]
     elif gst_filter == "KCA":
         sales = [s for s in sales if (
-            float(s.get("kaccha_amount") or 0) > 0
-            or (float(s.get("gst_percent") or 0) == 0 and float(s.get("billed_amount") or 0) == 0)
+            float(s.get("billed_amount") or 0) == 0
+            and float(s.get("gst_percent") or 0) == 0
         )]
     return sales
 
@@ -434,11 +434,11 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
         if billing_date_from: query["billing_date"]["$gte"] = billing_date_from
         if billing_date_to: query["billing_date"]["$lte"] = billing_date_to
     sales = await db.bp_sale_register.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
-    # v104.44.42 — PKA / KCA filter
+    # v104.44.43 — PKA / KCA filter (KCA = pure kaccha, no pakka portion)
     if gst_filter == "PKA":
         sales = [s for s in sales if (float(s.get("billed_amount") or 0) > 0 or float(s.get("gst_percent") or 0) > 0)]
     elif gst_filter == "KCA":
-        sales = [s for s in sales if (float(s.get("kaccha_amount") or 0) > 0 or (float(s.get("gst_percent") or 0) == 0 and float(s.get("billed_amount") or 0) == 0))]
+        sales = [s for s in sales if (float(s.get("billed_amount") or 0) == 0 and float(s.get("gst_percent") or 0) == 0)]
 
     # Fetch oil premium data for Rice Bran
     oil_map = {}
@@ -645,11 +645,11 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
         if billing_date_from: query["billing_date"]["$gte"] = billing_date_from
         if billing_date_to: query["billing_date"]["$lte"] = billing_date_to
     sales = await db.bp_sale_register.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
-    # v104.44.42 — PKA / KCA filter
+    # v104.44.43 — PKA / KCA filter (KCA = pure kaccha only)
     if gst_filter == "PKA":
         sales = [s for s in sales if (float(s.get("billed_amount") or 0) > 0 or float(s.get("gst_percent") or 0) > 0)]
     elif gst_filter == "KCA":
-        sales = [s for s in sales if (float(s.get("kaccha_amount") or 0) > 0 or (float(s.get("gst_percent") or 0) == 0 and float(s.get("billed_amount") or 0) == 0))]
+        sales = [s for s in sales if (float(s.get("billed_amount") or 0) == 0 and float(s.get("gst_percent") or 0) == 0)]
 
     # Fetch oil premium data for Rice Bran
     oil_map_pdf = {}

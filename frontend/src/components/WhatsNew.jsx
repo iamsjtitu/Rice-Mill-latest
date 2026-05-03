@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.43",
+    date: "Feb 17, 2026",
+    title: "v104.44.43 — 🎯 KCA Strict: Pure Kaccha Only (No Split)",
+    items: [
+      { type: "fix", text: "🐛 **KCA tab me ab pakka entries nahi aaengi** — Pichla logic split entries dono tabs me dikhata tha. User ne kaha: 'KCA mai pakka ka b show ho raha hai wo nahi hona chahiye'. Ab KCA = **pure kaccha only** (billed_amount=0 AND gst_percent=0). Split entries (jo dono pakka+kaccha portion rakhte hain) ab sirf PKA me dikhte hain." },
+      { type: "improvement", text: "📊 **Live test (Rice Bran)**: ALL=9, PKA=4 (split + full pakka), **KCA=5** (sirf S-001 to S-005, sab bill=0 gst=0). Pehle KCA=8 aata tha (galat). Ab sahi." },
+      { type: "improvement", text: "🎨 **Tooltip text updated** — PKA: 'Pakka GST sales (split entries bhi)', KCA: 'Pure Kaccha sales (split nahi)' — clarity ke liye." },
+    ],
+  },
+  {
     version: "104.44.42",
     date: "Feb 17, 2026",
     title: "v104.44.42 — 🏷️ ALL/PKA/KCA Sub-Tabs in Sale Register",

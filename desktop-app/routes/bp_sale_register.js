@@ -87,11 +87,11 @@ module.exports = function(database) {
     if (product) sales = sales.filter(s => s.product === product);
     if (kms_year) sales = sales.filter(s => s.kms_year === kms_year);
     if (season) sales = sales.filter(s => s.season === season);
-    // v104.44.42 — PKA / KCA filter
+    // v104.44.43 — PKA / KCA filter (KCA = pure kaccha only, no pakka portion)
     if (gst_filter === 'PKA') {
       sales = sales.filter(s => Number(s.billed_amount || 0) > 0 || Number(s.gst_percent || 0) > 0);
     } else if (gst_filter === 'KCA') {
-      sales = sales.filter(s => Number(s.kaccha_amount || 0) > 0 || (Number(s.gst_percent || 0) === 0 && Number(s.billed_amount || 0) === 0));
+      sales = sales.filter(s => Number(s.billed_amount || 0) === 0 && Number(s.gst_percent || 0) === 0);
     }
     sales.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     res.json(sales);
@@ -281,9 +281,9 @@ module.exports = function(database) {
       if (bill_from) sales = sales.filter(s => (s.bill_from||'').toLowerCase().includes(bill_from.toLowerCase()));
       if (party_name) sales = sales.filter(s => (s.party_name||'').toLowerCase().includes(party_name.toLowerCase()));
       if (destination) sales = sales.filter(s => (s.destination||'').toLowerCase().includes(destination.toLowerCase()));
-      // v104.44.42 — PKA / KCA filter
+      // v104.44.43 — PKA / KCA filter (KCA = pure kaccha only)
       if (gst_filter === 'PKA') sales = sales.filter(s => Number(s.billed_amount || 0) > 0 || Number(s.gst_percent || 0) > 0);
-      else if (gst_filter === 'KCA') sales = sales.filter(s => Number(s.kaccha_amount || 0) > 0 || (Number(s.gst_percent || 0) === 0 && Number(s.billed_amount || 0) === 0));
+      else if (gst_filter === 'KCA') sales = sales.filter(s => Number(s.billed_amount || 0) === 0 && Number(s.gst_percent || 0) === 0);
       sales.sort((a,b) => (a.date||'').localeCompare(b.date||''));
 
       // Oil premium map for Rice Bran
@@ -380,9 +380,9 @@ module.exports = function(database) {
       if (bill_from) sales = sales.filter(s => (s.bill_from||'').toLowerCase().includes(bill_from.toLowerCase()));
       if (party_name) sales = sales.filter(s => (s.party_name||'').toLowerCase().includes(party_name.toLowerCase()));
       if (destination) sales = sales.filter(s => (s.destination||'').toLowerCase().includes(destination.toLowerCase()));
-      // v104.44.42 — PKA / KCA filter
+      // v104.44.43 — PKA / KCA filter (KCA = pure kaccha only)
       if (gst_filter === 'PKA') sales = sales.filter(s => Number(s.billed_amount || 0) > 0 || Number(s.gst_percent || 0) > 0);
-      else if (gst_filter === 'KCA') sales = sales.filter(s => Number(s.kaccha_amount || 0) > 0 || (Number(s.gst_percent || 0) === 0 && Number(s.billed_amount || 0) === 0));
+      else if (gst_filter === 'KCA') sales = sales.filter(s => Number(s.billed_amount || 0) === 0 && Number(s.gst_percent || 0) === 0);
       sales.sort((a,b) => (a.date||'').localeCompare(b.date||''));
 
       // Oil premium map for Rice Bran

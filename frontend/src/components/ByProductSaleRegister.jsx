@@ -452,8 +452,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       <div className="flex gap-1 items-center bg-slate-800/40 p-1 rounded-md w-fit border border-slate-700" data-testid="bp-gst-tabs">
         {[
           { key: "ALL", label: "ALL", activeCls: "bg-amber-500 text-slate-900 shadow-sm", desc: "Sab entries" },
-          { key: "PKA", label: "PKA", activeCls: "bg-emerald-500 text-slate-900 shadow-sm", desc: "Pakka GST sales (billed/GST > 0)" },
-          { key: "KCA", label: "KCA", activeCls: "bg-rose-500 text-slate-900 shadow-sm", desc: "Kaccha sales" },
+          { key: "PKA", label: "PKA", activeCls: "bg-emerald-500 text-slate-900 shadow-sm", desc: "Pakka GST sales (split entries bhi)" },
+          { key: "KCA", label: "KCA", activeCls: "bg-rose-500 text-slate-900 shadow-sm", desc: "Pure Kaccha sales (split nahi)" },
         ].map(t => (
           <button key={t.key} onClick={() => setGstFilter(t.key)} title={t.desc}
             className={`px-4 py-1.5 text-xs font-semibold rounded transition-all ${gstFilter === t.key ? t.activeCls : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'}`}
