@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.76",
+    date: "Feb 17, 2026",
+    title: "v104.44.76 — BP Sale form unified flow: Common Bag+Weight block, split restored",
+    items: [
+      { type: "improvement", text: "🧬 **Unified common block** — Form ke top pe ek hi common cyan panel me: Row 1 = `Bag Type | Bags | Bag W.C (fixed)` · Row 2 = `Total N/W (Qtl) | Total N/W (Kg) (auto) | Final M.W (Kg) (after cut)`. Dono modes (split & non-split) me sirf yahi ek bag/weight source." },
+      { type: "improvement", text: "♻️ **Split ab Final M.W se hoti hai** — Cut pehle apply hota hai Total pe → Final M.W pakki. Pakka/Kaccha auto-balance is **Final M.W** (post-cut) se hoti hai — Total se nahi. Ab mismatch warning correct: `Pakka + Kaccha` vs `Final M.W`." },
+      { type: "improvement", text: "🧹 **Kaccha section restored to original** — Sirf `Kaccha Qtl | Kaccha Kg | Rate | Kaccha Amount` (pehle jaisa). Bag fields hata diye — wo common block me hain." },
+      { type: "improvement", text: "🎯 **Non-split simplified** — Sirf `Rate (per Qtl) | Amount (on Final M.W)` — 2-col clean row. N/W / Bags / cut sab common block me hi." },
+      { type: "improvement", text: "🧾 **Gadbad fix** — Ab cut hone ke baad split se figure mismatch nahi hoga kyunki dono Final M.W se split hoti hain." },
+    ],
+  },
+  {
     version: "104.44.75",
     date: "Feb 17, 2026",
     title: "v104.44.75 — Bug: Split mode false mismatch warning fix",

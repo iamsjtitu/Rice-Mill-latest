@@ -217,23 +217,22 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const kacchaRate = form.kaccha_rate_per_qtl !== "" && form.kaccha_rate_per_qtl != null
     ? (parseFloat(form.kaccha_rate_per_qtl) || 0)
     : rate;
-  // In split mode: total N/W is user-supplied (from RST or manual). Pakka+Kaccha are splits of it.
-  // In non-split mode: net_weight_kg is the dispatch weight directly.
-  const totalSplitKg = parseFloat(form.net_weight_kg) || 0;
-  const totalSplitQtl = totalSplitKg / 100;
-  const rawNwKg = isSplit ? totalSplitKg : (parseFloat(form.net_weight_kg) || 0);
-  // v104.44.71 — Bran-only bag weight cut: per-bag gram deduction before billing
+  // v104.44.76 — Unified flow: Total N/W → (minus bag cut) → Final M.W → Split happens from Final M.W
+  const totalNwKg = parseFloat(form.net_weight_kg) || 0;
+  const totalNwQtl = totalNwKg / 100;
+  // Bag cut (Bran only)
   const bagCount = parseInt(form.bags) || 0;
   const bagCutGrams = product === "Rice Bran" ? (parseFloat(form.bag_weight_cut_g) || 0) : 0;
   const totalCutKg = Math.round((bagCount * bagCutGrams / 1000) * 100) / 100;
-  // Final weights after cut (billing basis)
-  const nwKg = Math.max(0, Math.round((rawNwKg - totalCutKg) * 100) / 100);
+  // Final M.W = Total N/W minus total bag cut — this is the BILLING BASIS (single source of truth)
+  const nwKg = Math.max(0, Math.round((totalNwKg - totalCutKg) * 100) / 100);
   const nwQtl = nwKg / 100;
-  // For split: entire cut absorbed by Kaccha side (Pakka bill stays untouched per user spec)
-  const pakkaCutKg = 0;
-  const kacchaCutKg = isSplit ? totalCutKg : 0;
-  const finalBilledKg = Math.max(0, billedKg - pakkaCutKg);
-  const finalKacchaKg = Math.max(0, kacchaKg - kacchaCutKg);
+  // Legacy aliases for stock warnings & split calcs (point to same Final M.W)
+  const totalSplitKg = totalNwKg;
+  const totalSplitQtl = totalNwQtl;
+  // Split: Pakka and Kaccha values are FINAL (post-cut) weights entered/auto-balanced from nwKg
+  const finalBilledKg = billedKg;
+  const finalKacchaKg = kacchaKg;
   const billedQtl = finalBilledKg / 100;
   const kacchaQtl = finalKacchaKg / 100;
   const billedAmount = Math.round(billedQtl * rate * 100) / 100;
@@ -1033,48 +1032,11 @@ export default function ByProductSaleRegister({ filters, user, product }) {
               </div>
             </div>
 
-            {/* Split billing toggle */}
-            <div className="flex items-center justify-between p-3 rounded border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/40">
-              <div className="flex-1">
-                <Label className="text-[12px] text-slate-700 dark:text-slate-200 font-medium flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={!!form.split_billing}
-                    onChange={e => setForm(p => ({ ...p, split_billing: e.target.checked }))}
-                    className="w-4 h-4 accent-amber-500" data-testid="bp-split-toggle" />
-                  Split Billing (Pakka + Kaccha)
-                </Label>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 ml-6">Ek dispatch mein kuch maal bill pe, kuch slip pe — GST sirf billed portion pe lagega</p>
-              </div>
-            </div>
-
-            {!isSplit && (
-              <>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <Label className="text-[11px] text-slate-600 dark:text-slate-400">N/W (Qtl) {stockInfo && <span className={`font-bold ${(effectiveAvailQtl - nwQtl) >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>(Stock: {Math.round((effectiveAvailQtl - nwQtl) * 100) / 100} Qtl)</span>}</Label>
-                  <Input type="number" step="0.01"
-                    value={form.net_weight_qtl_display ?? (form.net_weight_kg ? String(Math.round((parseFloat(form.net_weight_kg) || 0) / 100 * 100) / 100) : "")}
-                    onChange={e => {
-                      const qtl = e.target.value;
-                      setForm(p => ({ ...p, net_weight_qtl_display: qtl, net_weight_kg: qtl === "" ? "" : String(Math.round((parseFloat(qtl) || 0) * 100 * 100) / 100) }));
-                    }}
-                    className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-nw-qtl" />
-                  {stockInfo && nwQtl > effectiveAvailQtl && <p className="text-red-500 dark:text-red-400 text-[10px] mt-0.5">Stock se zyada!</p>}
-                </div>
-                <div>
-                  <Label className="text-[11px] text-slate-600 dark:text-slate-400">N/W (Kg) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(auto)</span></Label>
-                  <Input type="number" step="0.01" value={form.net_weight_kg}
-                    readOnly tabIndex={-1}
-                    className="bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-300 h-9 text-xs cursor-not-allowed" data-testid="bp-nw" />
-                </div>
-                <div>
-                  <Label className="text-[11px] text-slate-600 dark:text-slate-400">Rate (per Qtl)</Label>
-                  <Input type="number" step="0.01" value={form.rate_per_qtl}
-                    onChange={e => setForm(p => ({ ...p, rate_per_qtl: e.target.value }))}
-                    className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-rate" />
-                </div>
-              </div>
-              {/* v104.44.74 — Bag Type → Bags → Bag W.C → Final M.W → Amount (Bag Type pehle) */}
-              <div className={`grid gap-3 ${product === "Rice Bran" ? "grid-cols-5" : "grid-cols-4"}`}>
+            {/* v104.44.76 — COMMON block (shared by split & non-split modes):
+                Row 1: Bag Type | Bags | Bag W.C
+                Row 2: Total N/W (Qtl) | Total N/W (Kg) | Final M.W (Kg) */}
+            <div className="space-y-3 p-3 rounded bg-cyan-50 dark:bg-cyan-900/10 border border-cyan-300 dark:border-cyan-700/30">
+              <div className={`grid gap-3 ${product === "Rice Bran" ? "grid-cols-3" : "grid-cols-2"}`}>
                 <div>
                   <Label className="text-[11px] text-cyan-700 dark:text-cyan-300 font-semibold">Bag Type <span className="text-amber-500 dark:text-amber-400">*</span></Label>
                   <Select value={form.bag_type || ""} onValueChange={v => setForm(p => ({ ...p, bag_type: v }))}>
@@ -1092,13 +1054,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   )}
                 </div>
                 <div>
-                  <Label className="text-[11px] text-slate-600 dark:text-slate-400">
-                    Bags {form.bag_type && bagStock[form.bag_type] !== undefined && (
-                      <span className={`ml-1 font-bold ${(bagStock[form.bag_type] - bagCount) >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                        (Stock: {bagStock[form.bag_type] - bagCount})
-                      </span>
-                    )}
-                  </Label>
+                  <Label className="text-[11px] text-slate-600 dark:text-slate-400">Bags (total) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(shared)</span></Label>
                   <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
                     className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bags" />
                 </div>
@@ -1110,56 +1066,82 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       className="bg-slate-100 dark:bg-slate-800 border-cyan-300 dark:border-cyan-800 text-slate-600 dark:text-slate-300 h-9 text-xs cursor-not-allowed disabled:opacity-100 font-bold" data-testid="bp-bag-cut" />
                   </div>
                 )}
+              </div>
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold">Final M.W (Kg)</Label>
+                  <Label className="text-[11px] text-blue-700 dark:text-blue-300 font-semibold">
+                    Total N/W (Qtl)
+                    {stockInfo && <span className={`ml-1 font-bold ${(effectiveAvailQtl - totalNwQtl) >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>(Stock: {Math.round((effectiveAvailQtl - totalNwQtl) * 100) / 100} Qtl)</span>}
+                  </Label>
+                  <Input type="number" step="0.01"
+                    value={form.net_weight_qtl_display ?? (form.net_weight_kg ? String(Math.round((parseFloat(form.net_weight_kg) || 0) / 100 * 100) / 100) : "")}
+                    onChange={e => {
+                      const qtl = e.target.value;
+                      const newTotalKg = qtl === "" ? "" : String(Math.round((parseFloat(qtl) || 0) * 100 * 100) / 100);
+                      const newTotalQtl = parseFloat(qtl) || 0;
+                      // New Final M.W (after cut) for auto-balance recompute
+                      const newFinalKg = Math.max(0, Math.round((newTotalQtl * 100 - totalCutKg) * 100) / 100);
+                      const newFinalQtl = newFinalKg / 100;
+                      // If Pakka already set, recalc Kaccha from NEW Final M.W
+                      const curPakkaQtl = parseFloat(form.billed_weight_qtl_display) || 0;
+                      const newKacchaQtl = curPakkaQtl > 0 ? Math.max(0, Math.round((newFinalQtl - curPakkaQtl) * 100) / 100) : 0;
+                      setForm(p => ({
+                        ...p,
+                        net_weight_qtl_display: qtl, net_weight_kg: newTotalKg,
+                        kaccha_weight_qtl_display: curPakkaQtl > 0 ? String(newKacchaQtl) : p.kaccha_weight_qtl_display,
+                        kaccha_weight_kg: curPakkaQtl > 0 ? String(Math.round(newKacchaQtl * 100 * 100) / 100) : p.kaccha_weight_kg,
+                      }));
+                    }}
+                    className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-nw-qtl" />
+                </div>
+                <div>
+                  <Label className="text-[11px] text-blue-700 dark:text-blue-300 font-semibold">Total N/W (Kg) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(auto)</span></Label>
+                  <Input type="number" step="0.01" value={form.net_weight_kg}
+                    readOnly tabIndex={-1}
+                    className="bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-300 h-9 text-xs cursor-not-allowed" data-testid="bp-nw" />
+                </div>
+                <div>
+                  <Label className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold">Final M.W (Kg) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(after cut)</span></Label>
                   <div className="h-9 px-2 rounded bg-emerald-50 dark:bg-slate-900/60 border border-emerald-400 dark:border-emerald-700/40 flex items-center text-xs text-emerald-700 dark:text-emerald-300 font-mono font-bold" data-testid="bp-final-mw">
                     {nwKg.toFixed(2)}
                     {totalCutKg > 0 && <span className="ml-1 text-[10px] text-slate-500">(−{totalCutKg.toFixed(2)})</span>}
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Split billing toggle */}
+            <div className="flex items-center justify-between p-3 rounded border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/40">
+              <div className="flex-1">
+                <Label className="text-[12px] text-slate-700 dark:text-slate-200 font-medium flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={!!form.split_billing}
+                    onChange={e => setForm(p => ({ ...p, split_billing: e.target.checked }))}
+                    className="w-4 h-4 accent-amber-500" data-testid="bp-split-toggle" />
+                  Split Billing (Pakka + Kaccha)
+                </Label>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 ml-6">Final M.W ko Pakka (GST) + Kaccha (slip) me baantke bill — GST sirf Pakka portion pe</p>
+              </div>
+            </div>
+
+            {!isSplit && (
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-[11px] text-amber-700 dark:text-amber-300 font-semibold">Amount</Label>
+                  <Label className="text-[11px] text-slate-600 dark:text-slate-400">Rate (per Qtl)</Label>
+                  <Input type="number" step="0.01" value={form.rate_per_qtl}
+                    onChange={e => setForm(p => ({ ...p, rate_per_qtl: e.target.value }))}
+                    className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-rate" />
+                </div>
+                <div>
+                  <Label className="text-[11px] text-amber-700 dark:text-amber-300 font-semibold">Amount (on Final M.W)</Label>
                   <div className="h-9 px-2 rounded bg-amber-50 dark:bg-slate-900/60 border border-amber-400 dark:border-amber-700/40 flex items-center text-xs text-amber-700 dark:text-amber-300 font-mono font-bold" data-testid="bp-amount">
                     ₹{amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                   </div>
                 </div>
               </div>
-              </>
             )}
 
             {isSplit && (
               <div className="space-y-2">
-                {/* TOTAL N/W (top of split section) — RST se ya manual fill */}
-                <div className="grid grid-cols-2 gap-3 p-3 rounded bg-blue-50 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-500/30">
-                  <div>
-                    <Label className="text-[11px] text-blue-700 dark:text-blue-300 font-bold uppercase tracking-wider">Total N/W (Qtl) {stockInfo && <span className={`font-bold ${(effectiveAvailQtl - totalSplitQtl) >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>(Stock: {Math.round((effectiveAvailQtl - totalSplitQtl) * 100) / 100} Qtl)</span>}</Label>
-                    <Input type="number" step="0.01"
-                      value={form.net_weight_qtl_display ?? (form.net_weight_kg ? String(Math.round((parseFloat(form.net_weight_kg) || 0) / 100 * 100) / 100) : "")}
-                      onChange={e => {
-                        const qtl = e.target.value;
-                        const newTotalKg = qtl === "" ? "" : String(Math.round((parseFloat(qtl) || 0) * 100 * 100) / 100);
-                        const newTotalQtl = parseFloat(qtl) || 0;
-                        // If Pakka already set, recalc Kaccha = Total - Pakka. Else keep current.
-                        const curPakkaQtl = parseFloat(form.billed_weight_qtl_display) || 0;
-                        let newKacchaQtl = curPakkaQtl > 0 ? Math.max(0, Math.round((newTotalQtl - curPakkaQtl) * 100) / 100) : 0;
-                        setForm(p => ({
-                          ...p,
-                          net_weight_qtl_display: qtl,
-                          net_weight_kg: newTotalKg,
-                          kaccha_weight_qtl_display: curPakkaQtl > 0 ? String(newKacchaQtl) : p.kaccha_weight_qtl_display,
-                          kaccha_weight_kg: curPakkaQtl > 0 ? String(Math.round(newKacchaQtl * 100 * 100) / 100) : p.kaccha_weight_kg,
-                        }));
-                      }}
-                      className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-split-total-qtl" />
-                  </div>
-                  <div>
-                    <Label className="text-[11px] text-blue-700 dark:text-blue-300 font-bold uppercase tracking-wider">Total N/W (Kg) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(auto)</span></Label>
-                    <Input type="number" step="0.01" value={form.net_weight_kg}
-                      readOnly tabIndex={-1}
-                      className="bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-300 h-9 text-xs cursor-not-allowed" data-testid="bp-split-total-kg" />
-                  </div>
-                </div>
-
                 {/* PAKKA */}
                 <div className="p-3 rounded bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-300 dark:border-emerald-500/30 space-y-3">
                   <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Pakka (GST Bill)</p>
@@ -1171,15 +1153,14 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       onChange={e => {
                         const pq = e.target.value;
                         const pakkaQtl = parseFloat(pq) || 0;
-                        const totalQtl = parseFloat(form.net_weight_qtl_display) || (parseFloat(form.net_weight_kg) || 0) / 100;
-                        // Auto-balance: Kaccha = Total - Pakka
-                        const kacchaQ = Math.max(0, Math.round((totalQtl - pakkaQtl) * 100) / 100);
+                        // Auto-balance FROM Final M.W (nwQtl, post-cut), not Total N/W
+                        const kacchaQ = Math.max(0, Math.round((nwQtl - pakkaQtl) * 100) / 100);
                         setForm(p => ({
                           ...p,
                           billed_weight_qtl_display: pq,
                           billed_weight_kg: pq === "" ? "" : String(Math.round(pakkaQtl * 100 * 100) / 100),
-                          kaccha_weight_qtl_display: totalQtl > 0 ? String(kacchaQ) : p.kaccha_weight_qtl_display,
-                          kaccha_weight_kg: totalQtl > 0 ? String(Math.round(kacchaQ * 100 * 100) / 100) : p.kaccha_weight_kg,
+                          kaccha_weight_qtl_display: nwQtl > 0 ? String(kacchaQ) : p.kaccha_weight_qtl_display,
+                          kaccha_weight_kg: nwQtl > 0 ? String(Math.round(kacchaQ * 100 * 100) / 100) : p.kaccha_weight_kg,
                         }));
                       }}
                       className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-billed-qtl" />
@@ -1205,10 +1186,9 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   </div>
                 </div>
 
-                {/* KACCHA */}
+                {/* KACCHA — simple 1-row: Qtl | Kg | Rate | Amount (NO bag fields, those are in common block) */}
                 <div className="p-3 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-500/30 space-y-3">
                   <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Kaccha (Slip — No GST)</p>
-                  {/* Row 1 — weights + rate + Bag Type (pehle) */}
                   <div className="grid grid-cols-4 gap-3">
                     <div>
                       <Label className="text-[11px] text-slate-600 dark:text-slate-400">Kaccha Wt (Qtl)</Label>
@@ -1217,14 +1197,14 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                         onChange={e => {
                           const kq = e.target.value;
                           const kacchaQ = parseFloat(kq) || 0;
-                          const totalQtl = parseFloat(form.net_weight_qtl_display) || (parseFloat(form.net_weight_kg) || 0) / 100;
-                          const pakkaQ = Math.max(0, Math.round((totalQtl - kacchaQ) * 100) / 100);
+                          // Auto-balance FROM Final M.W (nwQtl), not Total N/W
+                          const pakkaQ = Math.max(0, Math.round((nwQtl - kacchaQ) * 100) / 100);
                           setForm(p => ({
                             ...p,
                             kaccha_weight_qtl_display: kq,
                             kaccha_weight_kg: kq === "" ? "" : String(Math.round(kacchaQ * 100 * 100) / 100),
-                            billed_weight_qtl_display: totalQtl > 0 ? String(pakkaQ) : p.billed_weight_qtl_display,
-                            billed_weight_kg: totalQtl > 0 ? String(Math.round(pakkaQ * 100 * 100) / 100) : p.billed_weight_kg,
+                            billed_weight_qtl_display: nwQtl > 0 ? String(pakkaQ) : p.billed_weight_qtl_display,
+                            billed_weight_kg: nwQtl > 0 ? String(Math.round(pakkaQ * 100 * 100) / 100) : p.billed_weight_kg,
                           }));
                         }}
                         className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-kaccha-qtl" />
@@ -1243,45 +1223,6 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                         className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-kaccha-rate" />
                     </div>
                     <div>
-                      <Label className="text-[11px] text-cyan-700 dark:text-cyan-300 font-semibold">Bag Type <span className="text-amber-500 dark:text-amber-400">*</span></Label>
-                      <Select value={form.bag_type || ""} onValueChange={v => setForm(p => ({ ...p, bag_type: v }))}>
-                        <SelectTrigger className="bg-white dark:bg-slate-700 border-cyan-400/50 dark:border-cyan-700/50 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bag-type">
-                          <SelectValue placeholder="Select..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="old">Old (Market) — {bagStock.old ?? 0}</SelectItem>
-                          <SelectItem value="bran_plastic">Bran P.Pkt — {bagStock.bran_plastic ?? 0}</SelectItem>
-                          <SelectItem value="broken_plastic">Broken P.Pkt — {bagStock.broken_plastic ?? 0}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {bagCount > 0 && form.bag_type && bagStock[form.bag_type] !== undefined && bagCount > bagStock[form.bag_type] && (
-                        <p className="text-red-500 dark:text-red-400 text-[10px] mt-0.5">⚠ {bagCount - bagStock[form.bag_type]} bags short</p>
-                      )}
-                    </div>
-                  </div>
-                  {/* Row 2 — Bags + Bag W.C (locked) + Final M.W + Kaccha Amount */}
-                  <div className={`grid gap-3 ${product === "Rice Bran" ? "grid-cols-4" : "grid-cols-3"}`}>
-                    <div>
-                      <Label className="text-[11px] text-slate-600 dark:text-slate-400">Bags (total) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(shared)</span></Label>
-                      <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
-                        className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white h-9 text-xs" data-testid="bp-bags" />
-                    </div>
-                    {product === "Rice Bran" && (
-                      <div>
-                        <Label className="text-[11px] text-cyan-700 dark:text-cyan-300 font-semibold">Bag W.C (g) <span className="text-slate-400 dark:text-slate-500 text-[10px]">(fixed)</span></Label>
-                        <Input type="number" value={form.bag_weight_cut_g}
-                          readOnly disabled tabIndex={-1}
-                          className="bg-slate-100 dark:bg-slate-800 border-cyan-300 dark:border-cyan-800 text-slate-600 dark:text-slate-300 h-9 text-xs cursor-not-allowed disabled:opacity-100 font-bold" data-testid="bp-bag-cut" />
-                      </div>
-                    )}
-                    <div>
-                      <Label className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold">Final M.W (Kg)</Label>
-                      <div className="h-9 px-2 rounded bg-emerald-50 dark:bg-slate-900/60 border border-emerald-400 dark:border-emerald-700/40 flex items-center text-xs text-emerald-700 dark:text-emerald-300 font-mono font-bold" data-testid="bp-kaccha-final-mw">
-                        {finalKacchaKg.toFixed(2)}
-                        {totalCutKg > 0 && <span className="ml-1 text-[10px] text-slate-500">(−{totalCutKg.toFixed(2)})</span>}
-                      </div>
-                    </div>
-                    <div>
                       <Label className="text-[11px] text-amber-700 dark:text-amber-300 font-semibold">Kaccha Amount</Label>
                       <div className="h-9 px-2 rounded bg-amber-50 dark:bg-slate-900/60 border border-amber-400 dark:border-slate-700 flex items-center text-xs text-amber-700 dark:text-amber-300 font-mono font-bold" data-testid="bp-kaccha-amount">
                         ₹{kacchaAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
@@ -1290,11 +1231,10 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   </div>
                 </div>
 
-                {/* Mismatch warning — compare RAW (pre-cut) Pakka + Kaccha against Total N/W.
-                    Cut is a separate deduction applied AFTER split, so raw sum must match total. */}
-                {totalSplitQtl > 0 && Math.abs(((billedKg + kacchaKg) / 100) - totalSplitQtl) > 0.01 && (
+                {/* Mismatch warning — Pakka + Kaccha must equal Final M.W (post-cut) */}
+                {nwQtl > 0 && Math.abs(((billedKg + kacchaKg) / 100) - nwQtl) > 0.01 && (
                   <p className="text-amber-500 dark:text-amber-400 text-[10px] text-right">
-                    ⚠ Pakka + Kaccha (raw) = {((billedKg + kacchaKg) / 100).toFixed(2)} Q, Total N/W = {totalSplitQtl.toFixed(2)} Q (mismatch)
+                    ⚠ Pakka + Kaccha = {((billedKg + kacchaKg) / 100).toFixed(2)} Q, Final M.W = {nwQtl.toFixed(2)} Q (mismatch)
                   </p>
                 )}
 
