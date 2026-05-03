@@ -288,6 +288,8 @@ export default function HemaliPayment({ filters, user }) {
   const [markPaidPayment, setMarkPaidPayment] = useState(null);
   const [markPaidAmount, setMarkPaidAmount] = useState("");
   const [markPaidRoundOff, setMarkPaidRoundOff] = useState("");
+  // v104.44.66 — Mark-paid payment account selector (cash/bank/owner) state
+  const [markPaidAcct, setMarkPaidAcct] = useState({ account: 'cash', bank_name: '', owner_name: '' });
 
   // Filters
   const [dateFrom, setDateFrom] = useState("");

@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.66",
+    date: "Feb 17, 2026",
+    title: "v104.44.66 — 🩹 Hemali page 'markPaidAcct is not defined' crash fix",
+    items: [
+      { type: "fix", text: "🩹 Hemali Payment page open karte hi 'markPaidAcct is not defined' error aata tha. Missing useState declaration add ki gayi — `markPaidAcct` ({account:'cash', bank_name:'', owner_name:''}). Mark-paid dialog ab properly khulega bina crash ke." },
+    ],
+  },
+  {
     version: "104.44.65",
     date: "Feb 17, 2026",
     title: "v104.44.65 — ⏎ Mill Entry: RST → Enter → first unlocked field auto-focus",
