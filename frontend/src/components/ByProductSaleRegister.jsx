@@ -436,7 +436,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             className="pl-8 bg-slate-800 border-slate-600 text-white h-8 text-xs" data-testid="bp-sale-search" />
         </div>
         <div className="flex gap-2 items-center">
-          <span className="text-xs text-slate-400">{filtered.length} entries | Total: <span className="text-emerald-400 font-bold">{totalAmount.toLocaleString()}</span> | Balance: <span className="text-red-400 font-bold">{totalBalance.toLocaleString()}</span></span>
+          <span className="text-xs text-slate-400">{filtered.length} entries | Total: <span className="text-emerald-400 font-bold">{totalAmount.toLocaleString()}</span>{gstFilter !== "PKA" && <> | Balance: <span className="text-red-400 font-bold">{totalBalance.toLocaleString()}</span></>}</span>
           <Button onClick={async () => { try { const params = buildExportParams(); const { downloadFile } = await import('../utils/download'); const { buildFilename } = await import('../utils/filename-format'); const fname = buildFilename({ base: `${product || 'byproduct'}_sales`, party: filterValues.party_name || filters.party_name, dateFrom: filterValues.date_from || filters.date_from, dateTo: filterValues.date_to || filters.date_to, kmsYear: filters.kms_year, ext: 'xlsx' }); downloadFile(`/api/bp-sale-register/export/excel?${params}`, fname); toast.success("Excel exported!"); } catch(e) { toast.error("Export failed"); }}}
             variant="ghost" size="sm" className="h-8 w-8 p-0 text-green-400 hover:bg-green-900/30 border border-green-600" title="Excel (current filters)" data-testid="bp-export-excel">
             <FileSpreadsheet className="w-4 h-4" />
@@ -556,8 +556,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Amount</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[55px] text-right">Tax</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Total</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Balance</TableHead>
-                  {hasAnyOilPremium && <>
+                  {gstFilter !== "PKA" && <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Balance</TableHead>}
+                  {gstFilter !== "PKA" && hasAnyOilPremium && <>
                     <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px] text-right">Oil%</TableHead>
                     <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px] text-right">Diff%</TableHead>
                     <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Premium</TableHead>
@@ -567,7 +567,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={hasAnyOilPremium ? 20 : 17} className="text-center text-slate-400 py-6">Koi sale nahi</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={gstFilter === "PKA" ? 16 : (hasAnyOilPremium ? 20 : 17)} className="text-center text-slate-400 py-6">Koi sale nahi</TableCell></TableRow>
                 ) : filtered.map(s => (
                   <TableRow key={s.id} className="border-slate-700 hover:bg-slate-700/30">
                     <TableCell className="text-white text-[10px] px-2 whitespace-nowrap">{fmtDate(s.date)}</TableCell>
@@ -611,8 +611,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       {Number(s.tax_amount || 0) > 0 ? <span className="text-amber-700 dark:text-amber-400 font-semibold">{(s.tax_amount || 0).toLocaleString()}</span> : <span className="text-slate-400 dark:text-slate-600">—</span>}
                     </TableCell>
                     <TableCell className="text-emerald-700 dark:text-emerald-400 text-[10px] px-2 text-right font-bold whitespace-nowrap">{(s.total || 0).toLocaleString()}</TableCell>
-                    <TableCell className={`text-[10px] px-2 text-right font-bold whitespace-nowrap ${(s.balance || 0) > 0 ? 'text-red-400' : 'text-green-400'}`}>{(s.balance || 0).toLocaleString()}</TableCell>
-                    {hasAnyOilPremium && (() => {
+                    {gstFilter !== "PKA" && <TableCell className={`text-[10px] px-2 text-right font-bold whitespace-nowrap ${(s.balance || 0) > 0 ? 'text-red-400' : 'text-green-400'}`}>{(s.balance || 0).toLocaleString()}</TableCell>}
+                    {gstFilter !== "PKA" && hasAnyOilPremium && (() => {
                       const op = getOilPremium(s);
                       return <>
                         <TableCell className="text-white text-[10px] px-2 text-right">{op ? `${op.actual_oil_pct}%` : ''}</TableCell>

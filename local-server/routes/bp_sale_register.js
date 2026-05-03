@@ -359,8 +359,11 @@ module.exports = function(database) {
       if (has.cash) cols.push({h:'Cash',k:'cash_paid',w:10});
       if (has.diesel) cols.push({h:'Diesel',k:'diesel_paid',w:10});
       if (has.adv) cols.push({h:'Advance',k:'advance',w:10});
-      cols.push({h:'Balance',k:'balance',w:12});
-      if (hasOil) { cols.push({h:'Oil%',k:'oil_pct',w:8},{h:'Diff%',k:'oil_diff',w:8},{h:'Premium',k:'oil_premium',w:12}); }
+      // v104.44.52 — PKA mode me Balance + Oil hide
+      if (gst_filter !== 'PKA') {
+        cols.push({h:'Balance',k:'balance',w:12});
+        if (hasOil) { cols.push({h:'Oil%',k:'oil_pct',w:8},{h:'Diff%',k:'oil_diff',w:8},{h:'Premium',k:'oil_premium',w:12}); }
+      }
       if (has.remark) cols.push({h:'Remark',k:'remark',w:16});
 
       const ncols = cols.length;
@@ -594,8 +597,11 @@ module.exports = function(database) {
       if (has.cash) pc.push(['Cash',38,'cash_paid']);
       if (has.diesel) pc.push(['Diesel',38,'diesel_paid']);
       if (has.adv) pc.push(['Adv',32,'advance']);
-      pc.push(['Balance',48,'balance']);
-      if (hasOil) { pc.push(['Oil%',30,'oil_pct'],['Diff%',30,'oil_diff'],['Premium',45,'oil_premium']); }
+      // v104.44.52 — PKA mode me Balance + Oil hide
+      if (gst_filter !== 'PKA') {
+        pc.push(['Balance',48,'balance']);
+        if (hasOil) { pc.push(['Oil%',30,'oil_pct'],['Diff%',30,'oil_diff'],['Premium',45,'oil_premium']); }
+      }
 
       const headers = pc.map(c => c[0]);
       let widths = pc.map(c => c[1]);

@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.52",
+    date: "Feb 17, 2026",
+    title: "v104.44.52 — 🧹 PKA Tab: Balance + Oil%/Diff%/Premium Columns Hidden",
+    items: [
+      { type: "improvement", text: "🧹 **PKA tab simplified** — Frontend table + header summary se Balance hata. Oil%, Diff%, Premium bhi sirf ALL/KCA me dikhayenge (PKA me hide). PKA = sirf billed portion, balance/oil-premium relevant nahi." },
+      { type: "improvement", text: "📊 **Excel + PDF exports me bhi same** — `?gst_filter=PKA` se export karne pe Balance + Oil columns automatic hide hote hain. Triple-backend parity (Python, Node Desktop, Node LAN)." },
+    ],
+  },
+  {
     version: "104.44.51",
     date: "Feb 17, 2026",
     title: "v104.44.51 — 📊 BP Sale Register: Professional Excel/PDF with PKA/KCA Breakdown",

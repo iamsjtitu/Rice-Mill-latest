@@ -574,11 +574,13 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
     if has_cash: cols.append(('Cash', 10, 'cash_paid'))
     if has_diesel: cols.append(('Diesel', 10, 'diesel_paid'))
     if has_adv: cols.append(('Advance', 10, 'advance'))
-    cols.append(('Balance', 12, 'balance'))
-    if has_oil:
-        cols.append(('Oil%', 8, 'oil_pct'))
-        cols.append(('Diff%', 8, 'oil_diff'))
-        cols.append(('Premium', 12, 'oil_premium'))
+    # v104.44.52 — PKA mode me Balance + Oil columns hide (not relevant for billed-only view)
+    if gst_filter != "PKA":
+        cols.append(('Balance', 12, 'balance'))
+        if has_oil:
+            cols.append(('Oil%', 8, 'oil_pct'))
+            cols.append(('Diff%', 8, 'oil_diff'))
+            cols.append(('Premium', 12, 'oil_premium'))
     if has_remark: cols.append(('Remark', 16, 'remark'))
 
     headers = [c[0] for c in cols]
@@ -848,11 +850,13 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
     if has_cash: pdf_cols.append(('Cash', 38, 'cash_paid'))
     if has_diesel: pdf_cols.append(('Diesel', 38, 'diesel_paid'))
     if has_adv: pdf_cols.append(('Adv', 32, 'advance'))
-    pdf_cols.append(('Balance', 48, 'balance'))
-    if has_oil_pdf:
-        pdf_cols.append(('Oil%', 30, 'oil_pct'))
-        pdf_cols.append(('Diff%', 30, 'oil_diff'))
-        pdf_cols.append(('Premium', 45, 'oil_premium'))
+    # v104.44.52 — PKA mode me Balance + Oil columns hide
+    if gst_filter != "PKA":
+        pdf_cols.append(('Balance', 48, 'balance'))
+        if has_oil_pdf:
+            pdf_cols.append(('Oil%', 30, 'oil_pct'))
+            pdf_cols.append(('Diff%', 30, 'oil_diff'))
+            pdf_cols.append(('Premium', 45, 'oil_premium'))
 
     headers = [c[0] for c in pdf_cols]
     col_widths = [c[1] for c in pdf_cols]
