@@ -554,6 +554,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[40px] text-right">Bags</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[50px] text-right">Rate/Q</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Amount</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[55px] text-right">Tax</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Total</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Balance</TableHead>
                   {hasAnyOilPremium && <>
@@ -566,7 +567,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={hasAnyOilPremium ? 19 : 16} className="text-center text-slate-400 py-6">Koi sale nahi</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={hasAnyOilPremium ? 20 : 17} className="text-center text-slate-400 py-6">Koi sale nahi</TableCell></TableRow>
                 ) : filtered.map(s => (
                   <TableRow key={s.id} className="border-slate-700 hover:bg-slate-700/30">
                     <TableCell className="text-white text-[10px] px-2 whitespace-nowrap">{fmtDate(s.date)}</TableCell>
@@ -584,24 +585,30 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     <TableCell className="text-blue-300 text-[10px] px-2 text-right">{s.net_weight_kg}</TableCell>
                     <TableCell className="text-slate-300 text-[10px] px-2 text-right">{s.bags}</TableCell>
                     <TableCell className="text-slate-300 text-[10px] px-2 text-right">
-                      {s.split_billing ? (
+                      {s.split_billing && s._view_mode !== "PKA" && s._view_mode !== "KCA" ? (
                         <div className="flex flex-col items-end leading-tight">
                           <span className="text-emerald-400" title="Pakka rate">{s.rate_per_qtl}</span>
                           <span className="text-rose-400" title="Kaccha rate">{s.kaccha_rate_per_qtl || s.rate_per_qtl}</span>
                         </div>
-                      ) : s.rate_per_qtl}
+                      ) : (s._view_mode === "KCA" ? (s.kaccha_rate_per_qtl || s.rate_per_qtl) : s.rate_per_qtl)}
                     </TableCell>
                     <TableCell className="text-[10px] px-2 text-right whitespace-nowrap">
-                      {/* v104.44.48 — ALL view: split me Pakka + Kaccha + Tax breakdown */}
-                      {s.split_billing ? (
-                        <div className="flex flex-col items-end leading-tight" title={`Pakka ₹${(s.billed_amount||0).toLocaleString()} + Kaccha ₹${(s.kaccha_amount||0).toLocaleString()} + Tax ₹${(s.tax_amount||0).toLocaleString()} = ₹${(s.total||0).toLocaleString()}`}>
+                      {/* v104.44.49 — Smart amount cell respects _view_mode */}
+                      {s._view_mode === "PKA" ? (
+                        <span className="text-emerald-400">{(s.billed_amount || 0).toLocaleString()}</span>
+                      ) : s._view_mode === "KCA" ? (
+                        <span className="text-rose-400">{(s.kaccha_amount || 0).toLocaleString()}</span>
+                      ) : s.split_billing ? (
+                        <div className="flex flex-col items-end leading-tight" title={`Pakka ₹${(s.billed_amount||0).toLocaleString()} + Kaccha ₹${(s.kaccha_amount||0).toLocaleString()}`}>
                           <span className="text-emerald-400">{(s.billed_amount || 0).toLocaleString()}</span>
                           <span className="text-rose-400">{(s.kaccha_amount || 0).toLocaleString()}</span>
-                          {Number(s.tax_amount || 0) > 0 && <span className="text-amber-400 text-[9px]">+₹{(s.tax_amount || 0).toLocaleString()} tax</span>}
                         </div>
                       ) : (
                         <span className="text-emerald-400">{(s.amount || 0).toLocaleString()}</span>
                       )}
+                    </TableCell>
+                    <TableCell className="text-amber-400 text-[10px] px-2 text-right whitespace-nowrap">
+                      {Number(s.tax_amount || 0) > 0 ? (s.tax_amount || 0).toLocaleString() : <span className="text-slate-600">—</span>}
                     </TableCell>
                     <TableCell className="text-emerald-400 text-[10px] px-2 text-right font-bold whitespace-nowrap">{(s.total || 0).toLocaleString()}</TableCell>
                     <TableCell className={`text-[10px] px-2 text-right font-bold whitespace-nowrap ${(s.balance || 0) > 0 ? 'text-red-400' : 'text-green-400'}`}>{(s.balance || 0).toLocaleString()}</TableCell>

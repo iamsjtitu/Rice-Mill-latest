@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.49",
+    date: "Feb 17, 2026",
+    title: "v104.44.49 — 💯 Tax Column + Mode-Aware Amount/Rate Display",
+    items: [
+      { type: "feature", text: "💯 **Tax ka separate column** — Aapne kaha 'tax amount ka ek field dalo'. Done — Amount aur Total ke beech me **Tax** column add kiya. Agar tax_amount > 0 hai to amber color me dikhega, warna em-dash (—)." },
+      { type: "fix", text: "🎯 **PKA tab me kaccha 0 nahi dikhega** — Pehle PKA me bhi Amount cell me 0 wala kaccha line dikhata tha. Ab PKA mode me sirf Pakka amount + rate, KCA mode me sirf Kaccha amount + rate. ALL me dono breakdown (split entries ke liye)." },
+      { type: "improvement", text: "🎨 **Rate column same logic** — PKA: pakka rate only, KCA: kaccha rate only, ALL: dono stacked (split entries)." },
+    ],
+  },
+  {
     version: "104.44.48",
     date: "Feb 17, 2026",
     title: "v104.44.48 — 💰 Split Entry Pakka+Kaccha+Tax Breakdown in ALL Tab",
