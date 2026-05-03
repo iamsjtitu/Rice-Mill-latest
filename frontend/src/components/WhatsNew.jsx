@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.67",
+    date: "Feb 17, 2026",
+    title: "v104.44.67 — 💰 Hemali Create dialog: 1-click Round-Off shortcuts",
+    items: [
+      { type: "feature", text: "💰 **Round-Off shortcuts** — 'Nayi Hemali Payment' create dialog me Amount Paid field ke neeche 4 quick buttons add: ≈ near (₹100.50→₹100), ↓ down (₹152.30→₹150), ↑ up (₹152.30→₹160), = exact. Ek click pe round-off applied. Discount/extra preview bhi dikhayega ('Round-Off Discount: Rs.0.50 saved')." },
+      { type: "improvement", text: "🎯 No need to go to 'Mark Paid' separately — directly create dialog se hi round-off apply karke payment save kar sakte hain." },
+    ],
+  },
+  {
     version: "104.44.66",
     date: "Feb 17, 2026",
     title: "v104.44.66 — 🩹 Hemali page 'markPaidAcct is not defined' crash fix",

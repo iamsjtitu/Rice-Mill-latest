@@ -755,6 +755,45 @@ export default function HemaliPayment({ filters, user }) {
                   New Advance: Rs.{(parseFloat(form.amount_paid) - amountPayable).toFixed(2)} (extra paid)
                 </p>
               )}
+              {/* v104.44.67 — Quick Round-Off shortcuts (auto-fill Amount Paid) */}
+              {amountPayable > 0 && (() => {
+                const rd = Math.round(amountPayable);
+                const dn = Math.floor(amountPayable / 10) * 10;
+                const up = Math.ceil(amountPayable / 10) * 10;
+                return (
+                  <div className="flex gap-1.5 mt-2 flex-wrap items-center" data-testid="hemali-roundoff-shortcuts">
+                    <span className="text-[11px] text-slate-500">Round-Off:</span>
+                    {rd !== Math.floor(amountPayable) && (
+                      <Button type="button" variant="outline" size="sm" onClick={() => setForm(p => ({ ...p, amount_paid: String(rd) }))}
+                        className="h-6 px-2 text-[11px] bg-slate-700 border-slate-600 text-amber-300 hover:bg-amber-500/20" data-testid="hemali-round-near">
+                        ≈ Rs.{rd}
+                      </Button>
+                    )}
+                    {dn > 0 && dn !== rd && (
+                      <Button type="button" variant="outline" size="sm" onClick={() => setForm(p => ({ ...p, amount_paid: String(dn) }))}
+                        className="h-6 px-2 text-[11px] bg-slate-700 border-slate-600 text-orange-300 hover:bg-orange-500/20" data-testid="hemali-round-down">
+                        ↓ Rs.{dn}
+                      </Button>
+                    )}
+                    {up !== rd && (
+                      <Button type="button" variant="outline" size="sm" onClick={() => setForm(p => ({ ...p, amount_paid: String(up) }))}
+                        className="h-6 px-2 text-[11px] bg-slate-700 border-slate-600 text-cyan-300 hover:bg-cyan-500/20" data-testid="hemali-round-up">
+                        ↑ Rs.{up}
+                      </Button>
+                    )}
+                    <Button type="button" variant="outline" size="sm" onClick={() => setForm(p => ({ ...p, amount_paid: String(amountPayable) }))}
+                      className="h-6 px-2 text-[11px] bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600" data-testid="hemali-round-exact">
+                      = Rs.{amountPayable.toFixed(2)}
+                    </Button>
+                  </div>
+                );
+              })()}
+              {/* Round-off diff preview */}
+              {form.amount_paid !== '' && parseFloat(form.amount_paid) !== amountPayable && parseFloat(form.amount_paid) > 0 && parseFloat(form.amount_paid) <= amountPayable && (
+                <p className="text-emerald-400 text-xs mt-1" data-testid="hemali-roundoff-diff">
+                  Round-Off Discount: Rs.{(amountPayable - parseFloat(form.amount_paid)).toFixed(2)} (saved)
+                </p>
+              )}
             </div>
 
             <Button onClick={handleCreate} className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold" data-testid="hemali-submit-payment">
