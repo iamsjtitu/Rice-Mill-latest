@@ -1,0 +1,54 @@
+[
+  {
+    "_id": {
+      "$oid": "69e49777fb958ca681a5a25a"
+    },
+    "id": "4441d649-e613-4aae-9ecc-f78c3e971564",
+    "from_date": "2026-04-01",
+    "to_date": "2026-04-19",
+    "kms_year": "2026-2027",
+    "season": "",
+    "variety": "Raw",
+    "last_meter_reading": 0.0,
+    "present_meter_reading": 10392.0,
+    "units_consumed": 10392.0,
+    "units_per_qtl": 6.0,
+    "rice_recovery": 0.67,
+    "paddy_week_total": 0.0,
+    "rice_week_total": 1160.44,
+    "paddy_book_balance": -1732.0,
+    "rice_book_balance": 870.44,
+    "wa_sent": true,
+    "wa_targets": [
+      "group"
+    ],
+    "wa_pdf_url": "https://paddy-ledger-1.preview.emergentagent.com/api/govt-registers/verification-report/pdf?kms_year=2026-2027&from_date=2026-04-01&to_date=2026-04-19&last_meter_reading=0.0&units_per_qtl=6.0&rice_recovery=0.67&variety=Raw&t=1776588662",
+    "saved_at": "2026-04-19T08:51:03.409009+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69e5e0ea3f656b01d8dece2b"
+    },
+    "id": "eac82e33-67b5-4bc4-86cf-88c145820e38",
+    "from_date": "2026-04-01",
+    "to_date": "2026-04-20",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "variety": "Raw",
+    "last_meter_reading": 10392.0,
+    "present_meter_reading": 20784.0,
+    "units_consumed": 10392.0,
+    "units_per_qtl": 6.0,
+    "rice_recovery": 0.67,
+    "paddy_week_total": 0.0,
+    "rice_week_total": 1160.44,
+    "paddy_book_balance": -1732.0,
+    "rice_book_balance": 870.44,
+    "wa_sent": true,
+    "wa_targets": [
+      "group"
+    ],
+    "wa_pdf_url": "https://tmpfiles.org/dl/34403483/verification_report_2026-04-20.pdf",
+    "saved_at": "2026-04-20T08:16:42.790129+00:00"
+  }
+]

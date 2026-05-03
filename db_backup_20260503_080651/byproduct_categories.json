@@ -1,0 +1,72 @@
+[
+  {
+    "_id": {
+      "$oid": "69dd1ed45c8e480259284122"
+    },
+    "id": "bran",
+    "name": "Rice Bran",
+    "name_hi": "",
+    "is_auto": false,
+    "order": 1
+  },
+  {
+    "_id": {
+      "$oid": "69dd1ed45c8e480259284123"
+    },
+    "id": "kunda",
+    "name": "Mota Kunda",
+    "name_hi": "",
+    "is_auto": false,
+    "order": 2
+  },
+  {
+    "_id": {
+      "$oid": "69dd1ed45c8e480259284124"
+    },
+    "id": "broken",
+    "name": "Broken Rice",
+    "name_hi": "",
+    "is_auto": false,
+    "order": 3
+  },
+  {
+    "_id": {
+      "$oid": "69dd1ed45c8e480259284125"
+    },
+    "id": "rejection_rice",
+    "name": "Rejection Rice",
+    "name_hi": "",
+    "is_auto": false,
+    "order": 4
+  },
+  {
+    "_id": {
+      "$oid": "69dd1ed45c8e480259284126"
+    },
+    "id": "pin_broken_rice",
+    "name": "Pin Broken Rice",
+    "name_hi": "",
+    "is_auto": false,
+    "order": 5
+  },
+  {
+    "_id": {
+      "$oid": "69dd1ed45c8e480259284127"
+    },
+    "id": "poll",
+    "name": "Poll",
+    "name_hi": "",
+    "is_auto": false,
+    "order": 6
+  },
+  {
+    "_id": {
+      "$oid": "69dd1ed45c8e480259284128"
+    },
+    "id": "husk",
+    "name": "Bhusa",
+    "name_hi": "",
+    "is_auto": true,
+    "order": 7
+  }
+]

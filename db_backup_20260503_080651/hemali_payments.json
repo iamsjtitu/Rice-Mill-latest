@@ -1,0 +1,130 @@
+[
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b60"
+    },
+    "id": "3ca6fc2c-5890-44dc-9033-755b8457dba5",
+    "sardar_name": "Rajesh",
+    "date": "2026-03-17",
+    "items": [
+      {
+        "item_name": "Paddy Unload",
+        "rate": 3.0,
+        "quantity": 200.0,
+        "amount": 600.0
+      },
+      {
+        "item_name": "Gummy Load",
+        "rate": 2.5,
+        "quantity": 250.0,
+        "amount": 625.0
+      }
+    ],
+    "total": 1225.0,
+    "advance_before": 0.0,
+    "advance_deducted": 0.0,
+    "amount_payable": 1225.0,
+    "amount_paid": 1225.0,
+    "new_advance": 0,
+    "status": "paid",
+    "kms_year": "2025-2026",
+    "season": "",
+    "created_by": "admin",
+    "created_at": "2026-03-17T08:24:56.972290+00:00",
+    "updated_at": "2026-03-17T08:24:57.835592+00:00",
+    "receipt_no": "HEM-2026-0001"
+  },
+  {
+    "_id": {
+      "$oid": "69e5e27b3f656b01d8dece2c"
+    },
+    "id": "889b8cc2-7d29-4607-86d8-ce6432f9028a",
+    "sardar_name": "Vijay",
+    "date": "2026-04-20",
+    "items": [
+      {
+        "item_name": "Paddy Unload",
+        "rate": 3.0,
+        "quantity": 100.0,
+        "amount": 300
+      },
+      {
+        "item_name": "Gummy Load",
+        "rate": 2.5,
+        "quantity": 250.0,
+        "amount": 625
+      }
+    ],
+    "total": 925.0,
+    "advance_before": 0.0,
+    "advance_deducted": 0.0,
+    "amount_payable": 925.0,
+    "amount_paid": 925.0,
+    "new_advance": 0,
+    "status": "unpaid",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "created_by": "admin",
+    "created_at": "2026-04-20T08:23:23.907838+00:00",
+    "updated_at": "2026-04-20T08:23:23.907838+00:00",
+    "receipt_no": "HEM-2026-0002"
+  },
+  {
+    "_id": {
+      "$oid": "69ebbe7000ac8e61be9f058d"
+    },
+    "id": "0912b7d6-a3d5-43d4-b837-65f24aaf1168",
+    "receipt_no": "HEM-2026-0003",
+    "sardar_name": "Test Sardar",
+    "date": "2026-02-15",
+    "items": [
+      {
+        "item_name": "Loading",
+        "rate": 10.0,
+        "quantity": 50.0,
+        "amount": 500
+      }
+    ],
+    "total": 500.0,
+    "advance_before": 0.0,
+    "advance_deducted": 0.0,
+    "amount_payable": 500.0,
+    "amount_paid": 500.0,
+    "new_advance": 0,
+    "status": "unpaid",
+    "kms_year": "2025-2026",
+    "season": "Kharif",
+    "created_by": "",
+    "created_at": "2026-04-24T19:03:12.301801+00:00",
+    "updated_at": "2026-04-24T19:03:12.301801+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ebbe7000ac8e61be9f058f"
+    },
+    "id": "14d7e094-9c89-4211-b9c1-1e6f9b13879b",
+    "receipt_no": "HEM-2026-0004",
+    "sardar_name": "Test Sardar 2",
+    "date": "2026-03-10",
+    "items": [
+      {
+        "item_name": "Loading",
+        "rate": 5.0,
+        "quantity": 20.0,
+        "amount": 100
+      }
+    ],
+    "total": 100.0,
+    "advance_before": 0.0,
+    "advance_deducted": 0.0,
+    "amount_payable": 100.0,
+    "amount_paid": 100.0,
+    "new_advance": 0,
+    "status": "unpaid",
+    "kms_year": "2025-2026",
+    "season": "Kharif",
+    "created_by": "",
+    "created_at": "2026-04-24T19:03:12.499351+00:00",
+    "updated_at": "2026-04-24T19:03:12.499351+00:00"
+  }
+]

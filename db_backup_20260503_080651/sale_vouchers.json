@@ -1,0 +1,89 @@
+[
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b76"
+    },
+    "id": "3ee7b398-0c56-4e4e-a151-00285d1cefe1",
+    "voucher_no": 1,
+    "invoice_no": "",
+    "date": "2026-03-25",
+    "party_name": "TestSaleBuyer",
+    "items": [
+      {
+        "item_name": "Raw Rice",
+        "quantity": 10.0,
+        "rate": 3500.0,
+        "unit": "Qntl",
+        "amount": 35000.0
+      }
+    ],
+    "subtotal": 35000.0,
+    "gst_type": "none",
+    "cgst_percent": 0.0,
+    "sgst_percent": 0.0,
+    "igst_percent": 0.0,
+    "cgst_amount": 0.0,
+    "sgst_amount": 0.0,
+    "igst_amount": 0.0,
+    "total": 35000.0,
+    "truck_no": "",
+    "rst_no": "",
+    "remark": "",
+    "cash_paid": 0.0,
+    "diesel_paid": 0.0,
+    "advance": 0.0,
+    "eway_bill_no": "",
+    "paid_amount": 15000.0,
+    "balance": 20000.0,
+    "kms_year": "2025-26",
+    "season": "",
+    "created_by": "",
+    "created_at": "2026-03-25T09:31:06.430567+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69c92d7f31e8326a413c9f2e"
+    },
+    "id": "2827d469-7907-4cca-9b5a-49e8af594116",
+    "voucher_no": 3,
+    "invoice_no": "INV-2021/123",
+    "date": "2026-03-29",
+    "party_name": "Rajan",
+    "buyer_gstin": "",
+    "buyer_address": "",
+    "items": [
+      {
+        "item_name": "Rice (Raw)",
+        "quantity": 100.0,
+        "rate": 2500.0,
+        "unit": "Qntl",
+        "hsn_code": "1006 30 10",
+        "gst_percent": 5.0,
+        "amount": 250000.0,
+        "gst_amount": 12500.0
+      }
+    ],
+    "subtotal": 250000.0,
+    "gst_type": "cgst_sgst",
+    "cgst_percent": 0.0,
+    "sgst_percent": 0.0,
+    "igst_percent": 0.0,
+    "cgst_amount": 6250.0,
+    "sgst_amount": 6250.0,
+    "igst_amount": 0.0,
+    "total": 262500.0,
+    "truck_no": "OD19E2525",
+    "rst_no": "101",
+    "remark": "",
+    "cash_paid": 0.0,
+    "diesel_paid": 0.0,
+    "advance": 0.0,
+    "eway_bill_no": "",
+    "paid_amount": 0.0,
+    "balance": 262500.0,
+    "kms_year": "2025-2026",
+    "season": "Kharif",
+    "created_by": "admin",
+    "created_at": "2026-03-29T13:47:43.725437+00:00"
+  }
+]

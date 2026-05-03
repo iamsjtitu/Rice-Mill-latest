@@ -1,0 +1,74 @@
+[
+  {
+    "_id": {
+      "$oid": "69dde90c05692d2440e33d89"
+    },
+    "date": "2026-04-13",
+    "voucher_no": "1",
+    "rst_no": "5",
+    "bran_type": "Boiled",
+    "party_name": "Gayatri Agro",
+    "rate": 3040,
+    "qty_qtl": 123.9,
+    "actual_oil_pct": 25.56,
+    "remark": "",
+    "sale_ref_id": "2f89f1aa-18a",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "id": "b7e020ec-922",
+    "created_at": "2026-04-14T07:13:16.498101+00:00",
+    "updated_at": "2026-04-14T07:13:16.498101+00:00",
+    "created_by": "admin",
+    "standard_oil_pct": 25,
+    "difference_pct": 0.56,
+    "premium_amount": 8437.09
+  },
+  {
+    "_id": {
+      "$oid": "69f2287237415c2c7e4a9ce4"
+    },
+    "date": "2026-04-29",
+    "voucher_no": "",
+    "rst_no": "2",
+    "bran_type": "Raw",
+    "party_name": "Cash Test Agent",
+    "rate": 3100,
+    "qty_qtl": 179.99,
+    "actual_oil_pct": 19,
+    "remark": "",
+    "sale_ref_id": "e5bf489e-10b",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "id": "fa0b65e2-3aa",
+    "created_at": "2026-04-29T15:49:06.144460+00:00",
+    "updated_at": "2026-04-29T15:49:06.144460+00:00",
+    "created_by": "admin",
+    "standard_oil_pct": 22,
+    "difference_pct": -3.0,
+    "premium_amount": -76086.68
+  },
+  {
+    "_id": {
+      "$oid": "69f23dd861824084f05f8b53"
+    },
+    "date": "2026-04-29",
+    "voucher_no": "",
+    "rst_no": "7",
+    "bran_type": "Raw",
+    "party_name": "MBOPL",
+    "rate": 3700,
+    "qty_qtl": 150,
+    "actual_oil_pct": 18.94,
+    "remark": "",
+    "sale_ref_id": "e22f4323-dfe",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "id": "8739ab1f-437",
+    "created_at": "2026-04-29T17:20:24.667284+00:00",
+    "updated_at": "2026-04-29T17:20:24.667284+00:00",
+    "created_by": "admin",
+    "standard_oil_pct": 22,
+    "difference_pct": -3.06,
+    "premium_amount": -77195.45
+  }
+]

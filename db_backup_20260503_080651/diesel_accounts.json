@@ -1,0 +1,182 @@
+[
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b4f"
+    },
+    "id": "67327fac-ca3d-4578-bb2e-72e6b703b510",
+    "date": "2026-03-23",
+    "pump_id": "fe783aba-0cd5-4b49-9dce-4d4f4b79839a",
+    "pump_name": "TestPump",
+    "truck_no": "",
+    "agent_name": "",
+    "amount": 5000.0,
+    "txn_type": "payment",
+    "description": "Payment to TestPump - Rs.4500.0 (Round Off: +500.0)",
+    "kms_year": "2025-2026",
+    "season": "All",
+    "created_by": "system",
+    "created_at": "2026-03-23T17:07:22.696429+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b50"
+    },
+    "id": "6a96d2e4-e59f-4c88-bb28-ec34a227178d",
+    "date": "2026-03-24",
+    "pump_id": "b16d4ed7-2346-4db6-8eea-de7089014d75",
+    "pump_name": "TestDieselPump",
+    "truck_no": "",
+    "agent_name": "",
+    "amount": 5000.0,
+    "txn_type": "payment",
+    "description": "Payment: Rs.4500.0 (Round Off: +500.0) - Diesel payment",
+    "kms_year": "2025-2026",
+    "season": "All",
+    "created_by": "system",
+    "source": "cashbook",
+    "linked_cashbook_id": "0fd77c08-3033-4446-9b9d-878990b8161d",
+    "created_at": "2026-03-24T06:53:30.696444+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b51"
+    },
+    "id": "c1a4300c-10b0-4fd6-8e0e-87a1e568bcb8",
+    "date": "2026-03-25",
+    "pump_id": "4d1e7118-db38-443d-8cbb-255cfb941064",
+    "pump_name": "Jain",
+    "truck_no": "MH-12-AB-1234",
+    "agent_name": "TestAgent",
+    "mandi_name": "TestMandi",
+    "amount": 500.0,
+    "txn_type": "debit",
+    "description": "Diesel: Truck MH-12-AB-1234 - Mandi TestMandi",
+    "kms_year": "2025-26",
+    "season": "kharif",
+    "created_by": "system",
+    "linked_entry_id": "9362f0d5-8a47-4728-826d-a82d6a6ad3ac",
+    "created_at": "2026-03-25T09:30:52.079334+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b52"
+    },
+    "id": "5bab9447-8e9a-4f63-9535-3638d09121fb",
+    "date": "2026-03-22",
+    "pump_id": "4d1e7118-db38-443d-8cbb-255cfb941064",
+    "pump_name": "Jain",
+    "truck_no": "OD19F2002",
+    "agent_name": "Gulu",
+    "mandi_name": "Kesinga",
+    "amount": 2500.0,
+    "txn_type": "debit",
+    "description": "Diesel: Truck OD19F2002 - Mandi Kesinga",
+    "kms_year": "2025-2026",
+    "season": "Kharif",
+    "created_by": "admin",
+    "linked_entry_id": "34f64d6a-9f7f-447b-8996-f206ae6a8fc0",
+    "created_at": "2026-03-25T18:41:02.733673+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cae13f662a7152c2ea8bb6"
+    },
+    "id": "c23b865b-50bc-4fa2-b88c-4680ffdc7e69",
+    "date": "2026-03-30",
+    "pump_id": "4d1e7118-db38-443d-8cbb-255cfb941064",
+    "pump_name": "Jain",
+    "truck_no": "MP 09 XY 4444",
+    "agent_name": "Cash Test Agent",
+    "mandi_name": "Kesinga",
+    "amount": 1800.0,
+    "txn_type": "debit",
+    "description": "Diesel: Truck MP 09 XY 4444 - Mandi Kesinga",
+    "kms_year": "2025-2026",
+    "season": "Kharif",
+    "created_by": "admin",
+    "linked_entry_id": "dd5417a5-12dd-4453-9359-8d92294b9533",
+    "created_at": "2026-03-30T20:46:55.812976+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ce53a776786c5c90cf9252"
+    },
+    "id": "12bcd228-92e1-406f-8427-f3d01e3e2b83",
+    "date": "2026-01-15",
+    "pump_id": "4d1e7118-db38-443d-8cbb-255cfb941064",
+    "pump_name": "Jain",
+    "truck_no": "TESTCASH",
+    "agent_name": "",
+    "mandi_name": "TestMandi",
+    "amount": 200.0,
+    "txn_type": "debit",
+    "description": "TEST_CashEntry_157aa17b - TestMandi - 9.9 Qntl @ Rs.2000",
+    "kms_year": "2025-2026",
+    "season": "Kharif",
+    "created_by": "test",
+    "linked_entry_id": "6788eb13-5a4b-4b58-b048-652a8ad76b31",
+    "created_at": "2026-04-02T11:31:51.768724+00:00",
+    "updated_at": "2026-04-02T11:31:51.768728+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ddfae750a99351bba4535e"
+    },
+    "id": "7f32d672-a9ba-4fb1-8eab-2dec2d55e769",
+    "date": "2026-04-14",
+    "pump_id": "4d1e7118-db38-443d-8cbb-255cfb941064",
+    "pump_name": "Jain",
+    "truck_no": "",
+    "agent_name": "",
+    "amount": 1000.0,
+    "txn_type": "payment",
+    "description": "Payment: Rs.1000.0",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "created_by": "admin",
+    "source": "cashbook",
+    "linked_cashbook_id": "7345aa18-5e3a-4a74-abce-993360c428ba",
+    "created_at": "2026-04-14T08:29:27.134384+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ddfbe67edd03406d93a366"
+    },
+    "id": "b75ec0d1-fe59-4fd1-90ed-ca3a4262328e",
+    "date": "2026-04-13",
+    "pump_id": "4d1e7118-db38-443d-8cbb-255cfb941064",
+    "pump_name": "Jain",
+    "truck_no": "OD02AB1234",
+    "agent_name": "Gayatri Agro",
+    "amount": 1000.0,
+    "txn_type": "debit",
+    "description": "Diesel for Rice Bran #1 - Gayatri Agro",
+    "reference": "bp_sale_diesel:2f89f1aa-18a",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "created_by": "admin",
+    "created_at": "2026-04-14T08:33:42.328184+00:00",
+    "updated_at": "2026-04-14T08:33:42.328184+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69e26a38f00efd95688679b9"
+    },
+    "id": "c1fa9c2d-03d8-4caa-a8ea-c9c638434c8c",
+    "date": "2026-02-15",
+    "pump_id": "4d1e7118-db38-443d-8cbb-255cfb941064",
+    "pump_name": "Jain",
+    "truck_no": "OD-15-A-1234 / OD-15-A-5678",
+    "agent_name": "",
+    "mandi_name": "",
+    "amount": 2000,
+    "txn_type": "debit",
+    "description": "DC Delivery Diesel - TEST-TRUCK-MULTI | OD-15-A-1234 / OD-15-A-5678",
+    "linked_entry_id": "e5eb858c-27dc-4960-ab29-b68b3b09250d",
+    "kms_year": "2025-2026",
+    "season": "Kharif",
+    "created_by": "admin",
+    "created_at": "2026-04-17T17:13:28.864411+00:00",
+    "updated_at": "2026-04-17T17:13:28.864411+00:00"
+  }
+]

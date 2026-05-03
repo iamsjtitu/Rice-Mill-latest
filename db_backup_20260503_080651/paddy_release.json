@@ -1,0 +1,35 @@
+[
+  {
+    "_id": {
+      "$oid": "69de1407d5ce0ca0dfbf59c2"
+    },
+    "date": "2026-04-06",
+    "qty_qtl": 10000.0,
+    "ro_number": "RO-001",
+    "source": "CMR",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "id": "c2f0ebf5-455",
+    "created_at": "2026-04-14T10:16:39.732543+00:00",
+    "updated_at": "2026-04-14T12:07:12.116031+00:00",
+    "created_by": "admin",
+    "used_qtl": 0,
+    "updated_by": "admin"
+  },
+  {
+    "_id": {
+      "$oid": "69e5df973f656b01d8dece27"
+    },
+    "date": "2026-04-20",
+    "qty_qtl": 5200.0,
+    "ro_number": "",
+    "agency": "OSCSC_OWN",
+    "kms_year": "2025-2026",
+    "season": "Kharif",
+    "id": "199743cf-338",
+    "created_at": "2026-04-20T08:11:03.736787+00:00",
+    "updated_at": "2026-04-20T08:11:03.736787+00:00",
+    "created_by": "admin",
+    "used_qtl": 0
+  }
+]

@@ -1,0 +1,21 @@
+[
+  {
+    "_id": {
+      "$oid": "69e27ec9a99d8cf957c38756"
+    },
+    "id": "5568a0bd-8b4d-4fd2-b44b-f34244877b72",
+    "stack_id": "3428d54c-b13b-405b-bb59-adbfcd5790c5",
+    "lot_number": 1,
+    "date": "2026-04-17",
+    "agency": "OSCSC LTD",
+    "lot_ack_no": "1",
+    "no_of_trucks": 2,
+    "bags": 580,
+    "nett_weight_qtl": 290.0,
+    "status": "delivered",
+    "linked_delivery_id": "4f2522f0-983b-4efa-bacd-35d16e3c8bef",
+    "created_at": "2026-04-17T18:41:13.361282+00:00",
+    "approval": "approved",
+    "updated_at": "2026-04-18T18:49:59.870822+00:00"
+  }
+]

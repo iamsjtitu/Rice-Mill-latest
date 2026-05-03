@@ -1,0 +1,40 @@
+[
+  {
+    "_id": {
+      "$oid": "69e2573ef4abc3a9ab0c34c0"
+    },
+    "depot_name": "FSD KESINGA",
+    "depot_code": "EE17002",
+    "stack_no": "1/A3",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "delivery_to": "FCI",
+    "rice_type": "raw",
+    "tec": "1698022",
+    "booking_id": "625959",
+    "total_lots": "6",
+    "allotted_date": "2026-04-14",
+    "restricted_transport": false,
+    "id": "3428d54c-b13b-405b-bb59-adbfcd5790c5",
+    "created_at": "2026-04-17T15:52:30.204587+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69e5e04d3f656b01d8dece29"
+    },
+    "depot_name": "FSD",
+    "depot_code": "12345",
+    "stack_no": "5",
+    "kms_year": "2025-2026",
+    "season": "Kharif",
+    "delivery_to": "FCI",
+    "rice_type": "raw",
+    "tec": "1234",
+    "booking_id": "5678",
+    "total_lots": "6",
+    "allotted_date": "2026-04-20",
+    "restricted_transport": false,
+    "id": "420fc039-dba8-4995-8ad8-f3f3d755e628",
+    "created_at": "2026-04-20T08:14:05.249721+00:00"
+  }
+]

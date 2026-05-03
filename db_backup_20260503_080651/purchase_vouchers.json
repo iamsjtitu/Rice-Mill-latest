@@ -1,0 +1,43 @@
+[
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b74"
+    },
+    "id": "e5a62d62-d132-4b82-b90d-462a67003099",
+    "voucher_no": 1,
+    "invoice_no": "",
+    "rst_no": "",
+    "date": "2026-03-25",
+    "party_name": "TestSeller",
+    "items": [
+      {
+        "item_name": "Gunny Bags",
+        "quantity": 100.0,
+        "rate": 50.0,
+        "unit": "Qntl",
+        "amount": 5000.0
+      }
+    ],
+    "subtotal": 5000.0,
+    "gst_type": "none",
+    "cgst_percent": 0.0,
+    "sgst_percent": 0.0,
+    "igst_percent": 0.0,
+    "cgst_amount": 0.0,
+    "sgst_amount": 0.0,
+    "igst_amount": 0.0,
+    "total": 5000.0,
+    "truck_no": "",
+    "cash_paid": 0.0,
+    "diesel_paid": 0.0,
+    "advance": 0.0,
+    "eway_bill_no": "",
+    "paid_amount": 0.0,
+    "balance": 5000.0,
+    "remark": "",
+    "kms_year": "2025-26",
+    "season": "",
+    "created_by": "",
+    "created_at": "2026-03-25T09:31:06.539574+00:00"
+  }
+]

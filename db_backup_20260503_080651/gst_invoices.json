@@ -1,0 +1,80 @@
+[
+  {
+    "_id": {
+      "$oid": "69c9241453a1fe2a958bf318"
+    },
+    "invoice_no": "INV-TEST-001",
+    "date": "2026-03-29",
+    "buyer_name": "Test Buyer",
+    "buyer_gstin": "21ABCDE1234F1Z5",
+    "buyer_address": "",
+    "buyer_phone": "9876543210",
+    "is_igst": false,
+    "items": [
+      {
+        "name": "Rice (Parboiled)",
+        "hsn": "1006 30 20",
+        "qty": 100.0,
+        "unit": "QNTL",
+        "rate": 2200.0,
+        "gst_pct": 5.0
+      }
+    ],
+    "kms_year": "2025-2026",
+    "season": "Kharif",
+    "notes": "",
+    "id": "a5ce4f21-d0fe-4c50-8855-fbb5de874ed4",
+    "created_at": "2026-03-29T13:07:32.836353+00:00",
+    "totals": {
+      "taxable": 220000.0,
+      "gst": 11000.0,
+      "cgst": 5500.0,
+      "sgst": 5500.0,
+      "igst": 0,
+      "total": 231000.0
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69c925ae4e935a92631c859d"
+    },
+    "invoice_no": "INV-2026-002",
+    "date": "2026-03-29",
+    "buyer_name": "Ramesh Trading Co.",
+    "buyer_gstin": "21ABCDE1234F1Z5",
+    "buyer_address": "",
+    "buyer_phone": "9876543210",
+    "is_igst": false,
+    "items": [
+      {
+        "name": "Rice (Parboiled)",
+        "hsn": "1006 30 20",
+        "qty": 50.0,
+        "unit": "QNTL",
+        "rate": 2200.0,
+        "gst_pct": 5.0
+      },
+      {
+        "name": "Bran (Kunda)",
+        "hsn": "2302 40 00",
+        "qty": 20.0,
+        "unit": "QNTL",
+        "rate": 800.0,
+        "gst_pct": 5.0
+      }
+    ],
+    "kms_year": "2025-2026",
+    "season": "Kharif",
+    "notes": "Payment within 30 days",
+    "id": "de7ba80c-45de-465f-9f6c-3142d6cb7edd",
+    "created_at": "2026-03-29T13:14:22.477982+00:00",
+    "totals": {
+      "taxable": 126000.0,
+      "gst": 6300.0,
+      "cgst": 3150.0,
+      "sgst": 3150.0,
+      "igst": 0,
+      "total": 132300.0
+    }
+  }
+]

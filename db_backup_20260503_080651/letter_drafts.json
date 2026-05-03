@@ -1,0 +1,17 @@
+[
+  {
+    "_id": {
+      "$oid": "69ee515c265bfe5fcb42a72f"
+    },
+    "id": "10c2726c-bed5-4b00-a457-a16bd3429382",
+    "title": "Request for Account Statement",
+    "ref_no": "",
+    "date": "26-04-2026",
+    "to_address": "The Branch Manager,\nState Bank of India,\n[Branch Name & Address]",
+    "subject": "Request for Account Statement",
+    "references": "Account No.: __________________\nAccount Holder: M/s [Company Name]",
+    "body": "Respected Sir/Madam,\n\nWe hereby request you to kindly issue us the account statement for our Current Account mentioned above for the period from __/__/____ to __/__/____ for our internal accounting and audit purposes.\n\nWe request you to provide the statement at the earliest. We shall be highly obliged for your kind cooperation.\n\nThanking you.",
+    "created_at": "2026-04-26T17:54:36.388436+00:00",
+    "updated_at": "2026-04-26T17:54:36.388436+00:00"
+  }
+]

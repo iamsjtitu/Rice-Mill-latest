@@ -1,0 +1,13 @@
+[
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b78"
+    },
+    "id": "7e2706d4-c73d-4613-b381-efaecc12e8af",
+    "name": "Test Staff RO",
+    "salary_type": "daily",
+    "salary_amount": 500.0,
+    "active": false,
+    "created_at": "2026-03-22T16:49:25.161966+00:00"
+  }
+]

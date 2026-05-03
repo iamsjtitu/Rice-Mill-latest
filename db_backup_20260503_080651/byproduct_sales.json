@@ -1,0 +1,20 @@
+[
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978afe"
+    },
+    "id": "f1b13ba4-53e5-4b74-a13b-41dbd5ab3254",
+    "date": "2026-03-25",
+    "product": "husk",
+    "quantity_qntl": 20.0,
+    "rate_per_qntl": 800.0,
+    "total_amount": 16000.0,
+    "buyer_name": "TestByProductBuyer",
+    "note": "",
+    "kms_year": "2025-26",
+    "season": "kharif",
+    "created_by": "",
+    "created_at": "2026-03-25T09:31:24.049832+00:00",
+    "updated_at": "2026-03-25T09:31:24.049840+00:00"
+  }
+]

@@ -1,0 +1,513 @@
+[
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b7a"
+    },
+    "username": "admin",
+    "password": "admin123",
+    "role": "admin",
+    "full_name": "Admin",
+    "id": "default_admin",
+    "permissions": {
+      "can_edit": true,
+      "can_delete": true,
+      "can_export": true,
+      "can_see_payments": true,
+      "can_see_cashbook": true,
+      "can_see_reports": true,
+      "can_edit_settings": true,
+      "can_manual_weight": true,
+      "can_edit_rst": true
+    },
+    "updated_at": "2026-04-08T18:54:29.639893+00:00",
+    "display_name": "Admin User",
+    "staff_id": "",
+    "active": true,
+    "recovery_whatsapp": "",
+    "reset_otp_attempts": 0,
+    "reset_otp_expires_at": "2026-04-25T11:06:48.673863+00:00",
+    "reset_otp_hash": "d63e09023b3e68e97ca0bc1a9453344e66098da8980c3273c452649dafa11649",
+    "reset_otp_sent_at": "2026-04-25T10:56:48.673909+00:00",
+    "recovery_code_hash": "0fbc11fd49f9ca31f544e6f161664bf0398c316693397dca0fe9b7ce414d1ee6",
+    "recovery_code_set_at": "2026-04-25T10:58:41.481428+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b7b"
+    },
+    "username": "staff",
+    "password": "staff123",
+    "role": "entry_operator",
+    "id": "default_staff",
+    "display_name": "Staff User",
+    "permissions": {
+      "can_edit": true,
+      "can_delete": false,
+      "can_export": false,
+      "can_see_payments": false,
+      "can_see_cashbook": false,
+      "can_see_reports": false,
+      "can_edit_settings": false,
+      "can_manual_weight": false,
+      "can_edit_rst": true
+    },
+    "updated_at": "2026-04-08T18:54:24.910064+00:00",
+    "staff_id": ""
+  },
+  {
+    "_id": {
+      "$oid": "69cea5cfa1dd49ddfaa62b3e"
+    },
+    "id": "5b5bfe99-b4de-4562-b8ae-5ee13cc14eb6",
+    "username": "test_testram_60cbd1",
+    "password": "test1234",
+    "display_name": "Test Ram",
+    "role": "entry_operator",
+    "permissions": {
+      "can_edit": true,
+      "can_delete": false,
+      "can_export": false,
+      "can_see_payments": false,
+      "can_see_cashbook": false,
+      "can_see_reports": false,
+      "can_edit_settings": false
+    },
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:22:23.162541+00:00",
+    "updated_at": "2026-04-02T17:25:14.311687+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea5cfa1dd49ddfaa62b3f"
+    },
+    "id": "b42d231e-7cc3-4f8d-b618-b3d1f7e701c3",
+    "username": "test_logintest_ed7ab9",
+    "password": "test1234",
+    "display_name": "Login Test User",
+    "role": "entry_operator",
+    "permissions": {},
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:22:23.302024+00:00",
+    "updated_at": "2026-04-02T17:22:23.421195+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea5cfa1dd49ddfaa62b40"
+    },
+    "id": "28caed92-5555-455a-841a-2bc63c2786a2",
+    "username": "test_updatetest_e19d27",
+    "password": "test1234",
+    "display_name": "Updated Name",
+    "role": "accountant",
+    "permissions": {
+      "can_edit": true,
+      "can_delete": true,
+      "can_export": true,
+      "can_see_payments": true,
+      "can_see_cashbook": true,
+      "can_see_reports": true,
+      "can_edit_settings": false
+    },
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:22:23.529548+00:00",
+    "updated_at": "2026-04-02T17:22:23.631019+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea5cfa1dd49ddfaa62b41"
+    },
+    "id": "9790f923-7d70-4145-a214-14b4ac9da257",
+    "username": "test_deltest_2f04fb",
+    "password": "test1234",
+    "display_name": "test_deltest_2f04fb",
+    "role": "viewer",
+    "permissions": {},
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:22:23.754745+00:00",
+    "updated_at": "2026-04-02T17:22:23.811886+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea5d3a1dd49ddfaa62b42"
+    },
+    "id": "c5c555bd-40c6-494c-bd9c-c94cdd3c5a3a",
+    "username": "test_duptest_9e1cac",
+    "password": "test1234",
+    "display_name": "test_duptest_9e1cac",
+    "role": "viewer",
+    "permissions": {},
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:22:27.578470+00:00",
+    "updated_at": "2026-04-02T17:22:27.724205+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea5d4a1dd49ddfaa62b43"
+    },
+    "id": "aa16c805-fdcd-4003-bb13-bccd062f48bf",
+    "username": "test_entry_operator_a153da",
+    "password": "test1234",
+    "display_name": "test_entry_operator_a153da",
+    "role": "entry_operator",
+    "permissions": {},
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:22:28.006420+00:00",
+    "updated_at": "2026-04-02T17:22:28.108224+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea5d4a1dd49ddfaa62b44"
+    },
+    "id": "6952860d-6742-4cc3-9ff3-e0d63e0d0aab",
+    "username": "test_accountant_90bb41",
+    "password": "test1234",
+    "display_name": "test_accountant_90bb41",
+    "role": "accountant",
+    "permissions": {},
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:22:28.208873+00:00",
+    "updated_at": "2026-04-02T17:22:28.313882+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea5d4a1dd49ddfaa62b45"
+    },
+    "id": "4ea38286-1ae0-4469-a499-e00f33fdb6bf",
+    "username": "test_viewer_cf7dd2",
+    "password": "test1234",
+    "display_name": "test_viewer_cf7dd2",
+    "role": "viewer",
+    "permissions": {},
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:22:28.573000+00:00",
+    "updated_at": "2026-04-02T17:22:28.732657+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea5f165f5a24ad8b1fbed"
+    },
+    "id": "5a61d9ea-2653-4583-ab5e-acb780c7b325",
+    "username": "test_testram_2a2695",
+    "password": "test1234",
+    "display_name": "Test Ram",
+    "role": "entry_operator",
+    "permissions": {
+      "can_edit": true,
+      "can_delete": false,
+      "can_export": false,
+      "can_see_payments": false,
+      "can_see_cashbook": false,
+      "can_see_reports": false,
+      "can_edit_settings": false
+    },
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:22:57.303496+00:00",
+    "updated_at": "2026-04-02T17:22:57.356097+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea5f165f5a24ad8b1fbee"
+    },
+    "id": "eae074f2-d932-4be8-a42e-882ee9b82252",
+    "username": "test_logintest_5f93aa",
+    "password": "test1234",
+    "display_name": "Login Test User",
+    "role": "entry_operator",
+    "permissions": {},
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:22:57.471937+00:00",
+    "updated_at": "2026-04-02T17:22:57.584450+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea5f165f5a24ad8b1fbef"
+    },
+    "id": "49f9a98d-3882-4db2-bbd7-df9556863ad3",
+    "username": "test_updatetest_da3242",
+    "password": "test1234",
+    "display_name": "Updated Name",
+    "role": "accountant",
+    "permissions": {
+      "can_edit": true,
+      "can_delete": true,
+      "can_export": true,
+      "can_see_payments": true,
+      "can_see_cashbook": true,
+      "can_see_reports": true,
+      "can_edit_settings": false
+    },
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:22:57.696380+00:00",
+    "updated_at": "2026-04-02T17:22:57.818969+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea5f165f5a24ad8b1fbf0"
+    },
+    "id": "2e98f645-9b01-4149-b26a-643205cc7136",
+    "username": "test_deltest_05f0a1",
+    "password": "test1234",
+    "display_name": "test_deltest_05f0a1",
+    "role": "viewer",
+    "permissions": {},
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:22:57.987853+00:00",
+    "updated_at": "2026-04-02T17:22:58.047659+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea5f265f5a24ad8b1fbf1"
+    },
+    "id": "1d3c5f73-7b4d-46cd-853d-951629fb91bb",
+    "username": "test_duptest_f1260c",
+    "password": "test1234",
+    "display_name": "test_duptest_f1260c",
+    "role": "viewer",
+    "permissions": {},
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:22:58.770073+00:00",
+    "updated_at": "2026-04-02T17:22:58.870192+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea5f365f5a24ad8b1fbf2"
+    },
+    "id": "d4b1694c-3f7f-49bf-a096-effd3fc9ca32",
+    "username": "test_entry_operator_20de7e",
+    "password": "test1234",
+    "display_name": "test_entry_operator_20de7e",
+    "role": "entry_operator",
+    "permissions": {},
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:22:59.071061+00:00",
+    "updated_at": "2026-04-02T17:22:59.165985+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea5f365f5a24ad8b1fbf3"
+    },
+    "id": "ca4208d2-e732-4e8d-a4db-ac7f9234b3d8",
+    "username": "test_accountant_075af3",
+    "password": "test1234",
+    "display_name": "test_accountant_075af3",
+    "role": "accountant",
+    "permissions": {},
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:22:59.272017+00:00",
+    "updated_at": "2026-04-02T17:22:59.381916+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea5f365f5a24ad8b1fbf4"
+    },
+    "id": "5615fc19-d1d4-4dcf-b19d-6638f0818b1f",
+    "username": "test_viewer_681240",
+    "password": "test1234",
+    "display_name": "test_viewer_681240",
+    "role": "viewer",
+    "permissions": {},
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:22:59.508393+00:00",
+    "updated_at": "2026-04-02T17:22:59.628919+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea64265f5a24ad8b1fbf5"
+    },
+    "id": "6563dcc2-ca73-42c5-828d-90ab9064f792",
+    "username": "testram",
+    "password": "test1234",
+    "display_name": "Test Ram",
+    "role": "entry_operator",
+    "permissions": {
+      "can_edit": true,
+      "can_delete": false,
+      "can_export": false,
+      "can_see_payments": false,
+      "can_see_cashbook": false,
+      "can_see_reports": false,
+      "can_edit_settings": false
+    },
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:24:18.120213+00:00",
+    "updated_at": "2026-04-02T17:25:14.428539+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea66a65f5a24ad8b1fbf6"
+    },
+    "id": "fa744821-73e0-4fe2-9284-1b1f8173d42c",
+    "username": "test_testram_9cd4ac",
+    "password": "test1234",
+    "display_name": "Test Ram",
+    "role": "entry_operator",
+    "permissions": {
+      "can_edit": true,
+      "can_delete": false,
+      "can_export": false,
+      "can_see_payments": false,
+      "can_see_cashbook": false,
+      "can_see_reports": false,
+      "can_edit_settings": false
+    },
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:24:58.106501+00:00",
+    "updated_at": "2026-04-02T17:24:58.159594+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea66a65f5a24ad8b1fbf7"
+    },
+    "id": "0b207cdf-3e6c-475b-8307-61e10585e686",
+    "username": "test_logintest_493f29",
+    "password": "test1234",
+    "display_name": "Login Test User",
+    "role": "entry_operator",
+    "permissions": {},
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:24:58.268030+00:00",
+    "updated_at": "2026-04-02T17:24:58.390655+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea66a65f5a24ad8b1fbf8"
+    },
+    "id": "36ee142a-7895-4b3e-b925-477e570467f9",
+    "username": "test_updatetest_8a9ffa",
+    "password": "test1234",
+    "display_name": "Updated Name",
+    "role": "accountant",
+    "permissions": {
+      "can_edit": true,
+      "can_delete": true,
+      "can_export": true,
+      "can_see_payments": true,
+      "can_see_cashbook": true,
+      "can_see_reports": true,
+      "can_edit_settings": false
+    },
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:24:58.531970+00:00",
+    "updated_at": "2026-04-02T17:24:58.688697+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea66a65f5a24ad8b1fbf9"
+    },
+    "id": "c816d33b-c692-457f-8087-bb4b0a6c044d",
+    "username": "test_deltest_aedaf3",
+    "password": "test1234",
+    "display_name": "test_deltest_aedaf3",
+    "role": "viewer",
+    "permissions": {},
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:24:58.796766+00:00",
+    "updated_at": "2026-04-02T17:24:58.842804+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea66b65f5a24ad8b1fbfa"
+    },
+    "id": "0ef89346-cf06-4e20-925a-510b9fbd42b1",
+    "username": "test_duptest_34df01",
+    "password": "test1234",
+    "display_name": "test_duptest_34df01",
+    "role": "viewer",
+    "permissions": {},
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:24:59.485079+00:00",
+    "updated_at": "2026-04-02T17:24:59.606313+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea66b65f5a24ad8b1fbfb"
+    },
+    "id": "bcf0b1f3-1e0b-444f-804b-a57982461231",
+    "username": "test_entry_operator_45b7b5",
+    "password": "test1234",
+    "display_name": "test_entry_operator_45b7b5",
+    "role": "entry_operator",
+    "permissions": {},
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:24:59.854061+00:00",
+    "updated_at": "2026-04-02T17:24:59.984669+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea66c65f5a24ad8b1fbfc"
+    },
+    "id": "ba024641-010e-473a-9e6d-f4afd6883552",
+    "username": "test_accountant_b84e8b",
+    "password": "test1234",
+    "display_name": "test_accountant_b84e8b",
+    "role": "accountant",
+    "permissions": {},
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:25:00.094958+00:00",
+    "updated_at": "2026-04-02T17:25:00.194301+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cea66c65f5a24ad8b1fbfd"
+    },
+    "id": "6238c532-8eae-4ac4-9cee-5df4d9a18d08",
+    "username": "test_viewer_458d55",
+    "password": "test1234",
+    "display_name": "test_viewer_458d55",
+    "role": "viewer",
+    "permissions": {},
+    "staff_id": "",
+    "active": false,
+    "created_by": "admin",
+    "created_at": "2026-04-02T17:25:00.297676+00:00",
+    "updated_at": "2026-04-02T17:25:00.401921+00:00"
+  }
+]

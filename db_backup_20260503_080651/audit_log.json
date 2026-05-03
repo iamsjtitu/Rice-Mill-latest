@@ -1,0 +1,3260 @@
+[
+  {
+    "_id": {
+      "$oid": "69cf9dddfb85e253789ad13c"
+    },
+    "id": "6656c28d-cca5-4f1b-945c-35cc2f2c44fe",
+    "collection": "mill_entries",
+    "record_id": "93d9e28f-2964-4d14-bcd8-11f32e4f0770",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "AUDIT_TEST_TRUCK"
+      },
+      "kg": {
+        "new": 5000.0
+      },
+      "bag": {
+        "new": 50
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-03T11:00:45.733598+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cf9dddfb85e253789ad13e"
+    },
+    "id": "6ed2ab57-f4d2-4019-b819-e374502327af",
+    "collection": "cash_transactions",
+    "record_id": "5ed785d5-d587-4ff1-a50a-809226aef100",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 1584.0
+      },
+      "category": {
+        "new": "AUDIT_TEST_TRUCK"
+      },
+      "description": {
+        "new": "Truck Entry: AUDIT_TEST_TRUCK - 49.5Q @ Rs.32 (Ded: Rs.1500.0)"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-03T11:00:45.735316+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cf9dddfb85e253789ad140"
+    },
+    "id": "1a611a9f-68a6-4638-be63-8fe44f382f6d",
+    "collection": "cash_transactions",
+    "record_id": "6765abe9-8287-4d7a-9fe9-f9bffe1ff4c4",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 500.0
+      },
+      "category": {
+        "new": "AUDIT_TEST_TRUCK"
+      },
+      "description": {
+        "new": "Truck Diesel Advance: AUDIT_TEST_TRUCK - Rs.500.0"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-03T11:00:45.735775+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cf9dddfb85e253789ad142"
+    },
+    "id": "6f7ab553-d6d8-4c08-a90b-6ebfaefe16c3",
+    "collection": "cash_transactions",
+    "record_id": "421c3bd5-5650-4bf4-9180-df54a1824941",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 1000.0
+      },
+      "category": {
+        "new": "AUDIT_TEST_TRUCK"
+      },
+      "description": {
+        "new": "Cash Paid: Truck AUDIT_TEST_TRUCK - Mandi TestMandi - Rs.1000.0"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-03T11:00:45.736180+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cf9dddfb85e253789ad144"
+    },
+    "id": "6936c6c8-6dde-4b22-9b15-e0770162c47c",
+    "collection": "cash_transactions",
+    "record_id": "e39ba38d-55a1-4246-a6fb-833c20f9a1bb",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 1000.0
+      },
+      "category": {
+        "new": "AUDIT_TEST_TRUCK"
+      },
+      "description": {
+        "new": "Truck Cash Advance: AUDIT_TEST_TRUCK - Rs.1000.0"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-03T11:00:45.736770+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cf9dddfb85e253789ad147"
+    },
+    "id": "ad5e73be-79c8-4a71-bd15-4c156db42a58",
+    "collection": "cash_transactions",
+    "record_id": "fbf470b7-fba9-4f87-8180-3a4d8132da46",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 500.0
+      },
+      "category": {
+        "new": "Jain"
+      },
+      "description": {
+        "new": "Diesel Fill: Truck AUDIT_TEST_TRUCK - Jain - Rs.500.0"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-03T11:00:45.742261+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69cf9ddefb85e253789ad149"
+    },
+    "id": "04da878a-ef98-4a45-b384-1147ad4bf930",
+    "collection": "mill_entries",
+    "record_id": "93d9e28f-2964-4d14-bcd8-11f32e4f0770",
+    "action": "delete",
+    "changes": {
+      "truck_no": {
+        "old": "AUDIT_TEST_TRUCK"
+      },
+      "kg": {
+        "old": 5000.0
+      },
+      "bag": {
+        "old": 50
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne record delete kiya",
+    "timestamp": "2026-04-03T11:00:46.038177+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d0b0ed29316471426435c0"
+    },
+    "id": "62582b5f-2e4d-4fab-9e2b-d68844ab8d86",
+    "collection": "mill_entries",
+    "record_id": "15e851d1-68e5-4ab2-ae7d-81c07b430dfb",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "OD19T1234"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-04T06:34:21.803600+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d0c2e76fe17195262a3de5"
+    },
+    "id": "a40173fd-15fb-4b55-a240-171cd650422f",
+    "collection": "mill_entries",
+    "record_id": "1079d67b-0595-4d4c-9176-c079f41ff8b2",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "TEST123"
+      },
+      "bag": {
+        "new": 5
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-04T07:51:03.365283+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d0c2ee6fe17195262a3de7"
+    },
+    "id": "a5870e99-0893-42a6-a34c-3b30b3afca67",
+    "collection": "mill_entries",
+    "record_id": "1079d67b-0595-4d4c-9176-c079f41ff8b2",
+    "action": "delete",
+    "changes": {
+      "truck_no": {
+        "old": "TEST123"
+      },
+      "bag": {
+        "old": 5
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-04T07:51:10.673537+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d0c3536c6d5989371a7d67"
+    },
+    "id": "ca3af707-a80e-4b6d-b2c0-7d4576c4f6f6",
+    "collection": "mill_entries",
+    "record_id": "118b18ee-0f55-489a-a811-da9992c1a741",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "TEST123"
+      },
+      "bag": {
+        "new": 5
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-04T07:52:51.860545+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d0c35a6c6d5989371a7d69"
+    },
+    "id": "3ecd3d08-f913-4127-8fd0-8075cb65ffa0",
+    "collection": "mill_entries",
+    "record_id": "118b18ee-0f55-489a-a811-da9992c1a741",
+    "action": "delete",
+    "changes": {
+      "truck_no": {
+        "old": "TEST123"
+      },
+      "bag": {
+        "old": 5
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-04T07:52:58.873473+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d0c99399b877c49f49b6d3"
+    },
+    "id": "a8c2e05e-8081-49e3-8b7d-062b66ce43fe",
+    "collection": "mill_entries",
+    "record_id": "7411b0aa-c682-44d9-93e8-4649ee4f0912",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "CG 08 TEST"
+      },
+      "bag": {
+        "new": 5
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-04T08:19:31.274109+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d0c9d112957abdf0f69a4d"
+    },
+    "id": "d01dfdb3-2994-4283-ac2d-f3bc752abd95",
+    "collection": "mill_entries",
+    "record_id": "7411b0aa-c682-44d9-93e8-4649ee4f0912",
+    "action": "delete",
+    "changes": {
+      "truck_no": {
+        "old": "CG 08 TEST"
+      },
+      "bag": {
+        "old": 5
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-04T08:20:33.229989+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d0ca5f12957abdf0f69a4f"
+    },
+    "id": "a907be99-f81e-4bc7-9793-b82b775ae081",
+    "collection": "mill_entries",
+    "record_id": "a8727ae4-6711-428d-af79-27b1c97d8466",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "CG 08 TEST"
+      },
+      "bag": {
+        "new": 25
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-04T08:22:55.751342+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d0caad12957abdf0f69a53"
+    },
+    "id": "9b43e042-25fb-450f-bd8a-4ad175e408aa",
+    "collection": "mill_entries",
+    "record_id": "e6949ed6-e411-4813-a622-df7577ad2c5e",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "CG 07 TEST 111"
+      },
+      "kg": {
+        "new": 5000.0
+      },
+      "bag": {
+        "new": 100
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-04T08:24:13.721250+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d0caad12957abdf0f69a55"
+    },
+    "id": "9a2ce38b-e891-4ff6-b455-ecc451863353",
+    "collection": "cash_transactions",
+    "record_id": "e12adac2-bde7-408e-bc3d-a64f1da33aef",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 1568.0
+      },
+      "category": {
+        "new": "CG 07 TEST 111"
+      },
+      "description": {
+        "new": "Truck Entry: CG 07 TEST 111 - 49.0Q @ Rs.32"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-04T08:24:13.732448+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d0cac112957abdf0f69a58"
+    },
+    "id": "297b573d-9efa-47a1-9cc9-74d1beeae1a2",
+    "collection": "mill_entries",
+    "record_id": "31fa5194-819c-4cba-9239-c352beee0ccf",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "CG 08 TEST2"
+      },
+      "bag": {
+        "new": 25
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-04T08:24:33.367490+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d405e47680b264bbbf7db7"
+    },
+    "id": "583a47b4-4497-40f6-a1bb-85540bc8ea1d",
+    "collection": "mill_entries",
+    "record_id": "08b9362c-d04e-4e99-a1d9-cc33e6ee03b3",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "TESTKG01"
+      },
+      "kg": {
+        "new": 1000.0
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-06T19:13:40.770611+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d405e47680b264bbbf7db9"
+    },
+    "id": "779d62fe-8d61-42d1-a7a5-dde153243e7c",
+    "collection": "cash_transactions",
+    "record_id": "df9f2165-e00c-481e-8cfd-21c54d18cb9b",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 320
+      },
+      "category": {
+        "new": "TESTKG01"
+      },
+      "description": {
+        "new": "Truck Entry: TESTKG01 - 10.0Q @ Rs.32"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-06T19:13:40.800704+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d4fe4f2c69d870e8961b65"
+    },
+    "id": "6600ff55-2f42-49a2-ba49-7ffde8d07ebd",
+    "collection": "mill_entries",
+    "record_id": "08b9362c-d04e-4e99-a1d9-cc33e6ee03b3",
+    "action": "update",
+    "changes": {
+      "cutting_qntl": {
+        "old": null,
+        "new": 0.0
+      },
+      "moisture_cut_qntl": {
+        "old": null,
+        "new": 0.0
+      },
+      "cash_paid": {
+        "old": 0.0,
+        "new": 500
+      },
+      "diesel_paid": {
+        "old": 0.0,
+        "new": 200
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne cutting_qntl: None \u2192 0.0, moisture_cut_qntl: None \u2192 0.0, cash_paid: 0.0 \u2192 500 change kiya",
+    "timestamp": "2026-04-07T12:53:35.696504+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d4fe4f2c69d870e8961b67"
+    },
+    "id": "4698bb1a-a999-407e-a047-6e16b85fb95d",
+    "collection": "cash_transactions",
+    "record_id": "4d3d4e5f-a638-4ea4-93d6-18effbd43824",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 320
+      },
+      "category": {
+        "new": "TESTKG01"
+      },
+      "description": {
+        "new": "Truck Entry: TESTKG01 - 10.0Q @ Rs.32 (Ded: Rs.700.0)"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-07T12:53:35.714047+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d4fe4f2c69d870e8961b69"
+    },
+    "id": "7f3692f6-8985-48a0-a2b1-d429cdde8373",
+    "collection": "cash_transactions",
+    "record_id": "9418ecfe-c68e-4f14-8954-bde9dc317335",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 200
+      },
+      "category": {
+        "new": "TESTKG01"
+      },
+      "description": {
+        "new": "Truck Diesel Advance: TESTKG01 - Rs.200.0"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-07T12:53:35.714944+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d4fe4f2c69d870e8961b6b"
+    },
+    "id": "b33f2645-be83-40c1-bb87-37da02e260ab",
+    "collection": "cash_transactions",
+    "record_id": "0b841508-1259-4f78-8a5d-2b8b01ff085f",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 500
+      },
+      "category": {
+        "new": "TESTKG01"
+      },
+      "description": {
+        "new": "Cash Paid: Truck TESTKG01 - Mandi  - Rs.500.0"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-07T12:53:35.715885+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d4fe4f2c69d870e8961b6d"
+    },
+    "id": "24e8a707-aa4a-4a14-b667-cb886cc323ea",
+    "collection": "cash_transactions",
+    "record_id": "ab801df4-2703-440f-894f-e2ba971bd01a",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 500
+      },
+      "category": {
+        "new": "TESTKG01"
+      },
+      "description": {
+        "new": "Truck Cash Advance: TESTKG01 - Rs.500.0"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-07T12:53:35.716672+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d4fe4f2c69d870e8961b70"
+    },
+    "id": "525c8287-ae30-45c5-af9c-041514a0573e",
+    "collection": "cash_transactions",
+    "record_id": "569c4779-bc1f-4572-b138-51488990e36e",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 200
+      },
+      "category": {
+        "new": "Jain"
+      },
+      "description": {
+        "new": "Diesel Fill: Truck TESTKG01 - Jain - Rs.200.0"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-07T12:53:35.723931+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d4fe4f2c69d870e8961b71"
+    },
+    "id": "e5bbeb37-e319-4992-b4ec-5fec32b409fe",
+    "collection": "vehicle_weights",
+    "record_id": "fa8edb95-caf8-41b6-b29c-670ddc7bb82a",
+    "action": "update",
+    "changes": {
+      "cash_paid": {
+        "old": null,
+        "new": 500.0
+      },
+      "diesel_paid": {
+        "old": null,
+        "new": 200.0
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne cash_paid: None \u2192 500.0, diesel_paid: None \u2192 200.0 change kiya",
+    "timestamp": "2026-04-07T12:53:35.725817+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d4fe5c2c69d870e8961b73"
+    },
+    "id": "d50d7f91-9661-4e39-bf72-421cc6089020",
+    "collection": "cash_transactions",
+    "record_id": "6c8d66f9-34a7-41f7-a62d-b32d8ce3db66",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 320
+      },
+      "category": {
+        "new": "TESTKG01"
+      },
+      "description": {
+        "new": "Truck Entry: TESTKG01 - 10.0Q @ Rs.32 (Ded: Rs.700.0)"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-07T12:53:48.203444+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d4fe5c2c69d870e8961b75"
+    },
+    "id": "2b9b893a-a4de-48c9-a128-633a1a892271",
+    "collection": "cash_transactions",
+    "record_id": "d08c62e2-8d47-43b8-952e-f7e45879ef02",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 200
+      },
+      "category": {
+        "new": "TESTKG01"
+      },
+      "description": {
+        "new": "Truck Diesel Advance: TESTKG01 - Rs.200.0"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-07T12:53:48.204050+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d4fe5c2c69d870e8961b77"
+    },
+    "id": "eb2bcc2b-779a-4aea-afd4-c35501f6784f",
+    "collection": "cash_transactions",
+    "record_id": "0dad63e2-290c-4756-885c-f75ba1c20e79",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 500
+      },
+      "category": {
+        "new": "TESTKG01"
+      },
+      "description": {
+        "new": "Cash Paid: Truck TESTKG01 - Mandi  - Rs.500.0"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-07T12:53:48.204628+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d4fe5c2c69d870e8961b79"
+    },
+    "id": "3ea65de1-da42-498e-b76a-f32c8962c04a",
+    "collection": "cash_transactions",
+    "record_id": "86242c7b-e93d-47f8-9ed3-6fe5788de2b5",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 500
+      },
+      "category": {
+        "new": "TESTKG01"
+      },
+      "description": {
+        "new": "Truck Cash Advance: TESTKG01 - Rs.500.0"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-07T12:53:48.205245+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d4fe5c2c69d870e8961b7c"
+    },
+    "id": "1a58e23b-987c-41e3-9e0b-bd484f5de0e1",
+    "collection": "cash_transactions",
+    "record_id": "b3107f6d-af00-442f-bf25-8e2e9710c21e",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 200
+      },
+      "category": {
+        "new": "Jain"
+      },
+      "description": {
+        "new": "Diesel Fill: Truck TESTKG01 - Jain - Rs.200.0"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-07T12:53:48.206894+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d4fe5c2c69d870e8961b7d"
+    },
+    "id": "368840e1-4ce5-4f3e-adf0-ff4598f2f4f3",
+    "collection": "vehicle_weights",
+    "record_id": "fa8edb95-caf8-41b6-b29c-670ddc7bb82a",
+    "action": "update",
+    "changes": {
+      "cash_paid": {
+        "old": null,
+        "new": 500.0
+      },
+      "diesel_paid": {
+        "old": null,
+        "new": 200.0
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne cash_paid: None \u2192 500.0, diesel_paid: None \u2192 200.0 change kiya",
+    "timestamp": "2026-04-07T12:53:48.208573+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d4fe642c69d870e8961b7e"
+    },
+    "id": "f38edd16-a097-42af-8482-4d5b7c25074b",
+    "collection": "mill_entries",
+    "record_id": "08b9362c-d04e-4e99-a1d9-cc33e6ee03b3",
+    "action": "update",
+    "changes": {
+      "cash_paid": {
+        "old": 500,
+        "new": 0
+      },
+      "diesel_paid": {
+        "old": 200,
+        "new": 0
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne cash_paid: 500 \u2192 0, diesel_paid: 200 \u2192 0 change kiya",
+    "timestamp": "2026-04-07T12:53:56.769494+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d4fe642c69d870e8961b80"
+    },
+    "id": "fd55023c-340e-49ba-b530-6737cc59473b",
+    "collection": "cash_transactions",
+    "record_id": "79b883a9-2c53-4c73-930c-17bddf786a1d",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 320
+      },
+      "category": {
+        "new": "TESTKG01"
+      },
+      "description": {
+        "new": "Truck Entry: TESTKG01 - 10.0Q @ Rs.32"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-07T12:53:56.771392+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d4fe642c69d870e8961b81"
+    },
+    "id": "415bf535-7d56-4ce9-a316-b48f98771dd2",
+    "collection": "vehicle_weights",
+    "record_id": "fa8edb95-caf8-41b6-b29c-670ddc7bb82a",
+    "action": "update",
+    "changes": {
+      "cash_paid": {
+        "old": null,
+        "new": 0.0
+      },
+      "diesel_paid": {
+        "old": null,
+        "new": 0.0
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne cash_paid: None \u2192 0.0, diesel_paid: None \u2192 0.0 change kiya",
+    "timestamp": "2026-04-07T12:53:56.773551+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d7464141b783049efc30dd"
+    },
+    "id": "59a2f438-ab8d-4e0c-8302-a10e05dfcd1b",
+    "collection": "mill_entries",
+    "record_id": "c288aa73-e2dc-4c0a-8ec0-a383258d3bab",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "UP-01-1234"
+      },
+      "kg": {
+        "new": 24200.0
+      },
+      "bag": {
+        "new": 375
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-09T06:25:05.682546+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d7464141b783049efc30df"
+    },
+    "id": "94f4db71-7ae0-4416-a697-13cb73944a7d",
+    "collection": "cash_transactions",
+    "record_id": "9f1cc4e5-975f-4b84-a638-3621486d260c",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 7624
+      },
+      "category": {
+        "new": "UP-01-1234"
+      },
+      "description": {
+        "new": "Truck Entry: UP-01-1234 - 238.25Q @ Rs.32"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-09T06:25:05.723607+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d7465341b783049efc30e1"
+    },
+    "id": "0dacbb29-111a-4952-b35f-1df9d6598290",
+    "collection": "mill_entries",
+    "record_id": "c288aa73-e2dc-4c0a-8ec0-a383258d3bab",
+    "action": "delete",
+    "changes": {
+      "truck_no": {
+        "old": "UP-01-1234"
+      },
+      "kg": {
+        "old": 24200.0
+      },
+      "bag": {
+        "old": 375
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne record delete kiya",
+    "timestamp": "2026-04-09T06:25:23.368511+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90dc58c4d207affb83656"
+    },
+    "id": "d66068c4-5a49-45f9-9095-656cb02f3335",
+    "collection": "mill_entries",
+    "record_id": "81f48e62-4b96-445c-b5fc-8107eb693356",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "TEST_OD05IJ7890"
+      },
+      "kg": {
+        "new": 5100.0
+      },
+      "bag": {
+        "new": 100
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-10T14:48:37.504245+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90dc58c4d207affb83658"
+    },
+    "id": "b3fe297e-4929-4b78-bbeb-9da6e35d8602",
+    "collection": "cash_transactions",
+    "record_id": "d9a59108-8591-46aa-a5ee-74d927ab6695",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 1600
+      },
+      "category": {
+        "new": "TEST_OD05IJ7890"
+      },
+      "description": {
+        "new": "Truck Entry: TEST_OD05IJ7890 - 50.0Q @ Rs.32"
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-10T14:48:37.513542+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90dc58c4d207affb8365b"
+    },
+    "id": "10124ff1-e64c-41e6-94b8-9c426b4bd32d",
+    "collection": "mill_entries",
+    "record_id": "4200a15f-93c8-4718-90fd-4ed0dbf2a622",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "TEST_OD06KL1234"
+      },
+      "kg": {
+        "new": 5000.0
+      },
+      "bag": {
+        "new": 100
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-10T14:48:37.738286+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90dc58c4d207affb8365d"
+    },
+    "id": "5ded683e-d08d-4a59-b574-64d9e61b97f3",
+    "collection": "cash_transactions",
+    "record_id": "a072e211-773e-4121-aa8e-b2f6270e1bfe",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 1568
+      },
+      "category": {
+        "new": "TEST_OD06KL1234"
+      },
+      "description": {
+        "new": "Truck Entry: TEST_OD06KL1234 - 49.0Q @ Rs.32"
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-10T14:48:37.739549+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90dc58c4d207affb83660"
+    },
+    "id": "d174081f-ade8-4504-9381-a9bd75351f66",
+    "collection": "mill_entries",
+    "record_id": "d540eb10-5d19-4ef9-9268-bbfca5f8657e",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "TEST_OD07MN5678"
+      },
+      "kg": {
+        "new": 4600.0
+      },
+      "bag": {
+        "new": 90
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-10T14:48:37.949190+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90dc58c4d207affb83662"
+    },
+    "id": "c5fc7244-f504-43cb-b985-fea9f5c2e2a5",
+    "collection": "cash_transactions",
+    "record_id": "c27ab4e6-83e9-49bd-8b9d-62b61caa5f17",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 1443
+      },
+      "category": {
+        "new": "TEST_OD07MN5678"
+      },
+      "description": {
+        "new": "Truck Entry: TEST_OD07MN5678 - 45.1Q @ Rs.32"
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-10T14:48:37.950500+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90de48c4d207affb83665"
+    },
+    "id": "0b3f7088-66d3-49db-9957-a21f28a29ac2",
+    "collection": "mill_entries",
+    "record_id": "1e90a306-92ca-4264-86da-0d3a17bc37ef",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "TEST_CURL_01"
+      },
+      "kg": {
+        "new": 4600.0
+      },
+      "bag": {
+        "new": 90
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-10T14:49:08.310637+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90de48c4d207affb83667"
+    },
+    "id": "633665b0-2266-4e49-9240-493bf0d7905f",
+    "collection": "cash_transactions",
+    "record_id": "783cb8f7-9683-4376-ae2d-9ed26b88fb79",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 1443
+      },
+      "category": {
+        "new": "TEST_CURL_01"
+      },
+      "description": {
+        "new": "Truck Entry: TEST_CURL_01 - 45.1Q @ Rs.32"
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-10T14:49:08.312368+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90de98c4d207affb83669"
+    },
+    "id": "c9d8bc3e-edce-47f0-a1cb-5d4b09830fc9",
+    "collection": "mill_entries",
+    "record_id": "1e90a306-92ca-4264-86da-0d3a17bc37ef",
+    "action": "delete",
+    "changes": {
+      "truck_no": {
+        "old": "TEST_CURL_01"
+      },
+      "kg": {
+        "old": 4600.0
+      },
+      "bag": {
+        "old": 90
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-10T14:49:13.807814+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90ee411b2bc8f07f3a86b"
+    },
+    "id": "a0a2ae67-3597-4b8e-8dc5-56c1ff83596f",
+    "collection": "mill_entries",
+    "record_id": "b8955c10-0a96-43eb-9d89-bac385fdce6e",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "TEST_OD06KL670bc022"
+      },
+      "kg": {
+        "new": 5000.0
+      },
+      "bag": {
+        "new": 100
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-10T14:53:24.675726+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90ee411b2bc8f07f3a86d"
+    },
+    "id": "63f607eb-acfc-4613-a055-3879810bedcd",
+    "collection": "cash_transactions",
+    "record_id": "a4dc5d0d-98e5-417b-a522-d51e8e4deb4a",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 1568
+      },
+      "category": {
+        "new": "TEST_OD06KL670bc022"
+      },
+      "description": {
+        "new": "Truck Entry: TEST_OD06KL670bc022 - 49.0Q @ Rs.32"
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-10T14:53:24.677054+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90ee411b2bc8f07f3a86f"
+    },
+    "id": "1c19e869-5f62-4c93-965e-2237d692ba25",
+    "collection": "mill_entries",
+    "record_id": "b8955c10-0a96-43eb-9d89-bac385fdce6e",
+    "action": "delete",
+    "changes": {
+      "truck_no": {
+        "old": "TEST_OD06KL670bc022"
+      },
+      "kg": {
+        "old": 5000.0
+      },
+      "bag": {
+        "old": 100
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-10T14:53:24.731689+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90ee411b2bc8f07f3a871"
+    },
+    "id": "061306ec-c7f9-42cc-b0f8-f1e0bae8706a",
+    "collection": "mill_entries",
+    "record_id": "990d411f-2ad1-4da2-9477-33dafb0c4a62",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "TEST_OD07MN438ca5b0"
+      },
+      "kg": {
+        "new": 4600.0
+      },
+      "bag": {
+        "new": 90
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-10T14:53:24.930882+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90ee411b2bc8f07f3a873"
+    },
+    "id": "bdf31d44-095f-472b-9d3a-2555488b5997",
+    "collection": "cash_transactions",
+    "record_id": "71ba2d06-81af-4994-83d6-9ab3b2beb378",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 1443
+      },
+      "category": {
+        "new": "TEST_OD07MN438ca5b0"
+      },
+      "description": {
+        "new": "Truck Entry: TEST_OD07MN438ca5b0 - 45.1Q @ Rs.32"
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-10T14:53:24.932588+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90ee411b2bc8f07f3a875"
+    },
+    "id": "496c93bb-8ad0-4312-b5a1-6393c6bed8d9",
+    "collection": "mill_entries",
+    "record_id": "990d411f-2ad1-4da2-9477-33dafb0c4a62",
+    "action": "update",
+    "changes": {
+      "tp_weight": {
+        "old": 4500.0,
+        "new": 4550
+      },
+      "cutting_qntl": {
+        "old": null,
+        "new": 0.0
+      },
+      "moisture_cut_qntl": {
+        "old": null,
+        "new": 0.0
+      }
+    },
+    "username": "system",
+    "summary": " ne tp_weight: 4500.0 \u2192 4550, cutting_qntl: None \u2192 0.0, moisture_cut_qntl: None \u2192 0.0 change kiya",
+    "timestamp": "2026-04-10T14:53:24.990308+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90ee411b2bc8f07f3a877"
+    },
+    "id": "fe95c481-1f14-49ac-8eaa-8fe755989bc6",
+    "collection": "cash_transactions",
+    "record_id": "efef0b63-5dae-4587-bed0-eb2a5848937b",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 1443
+      },
+      "category": {
+        "new": "TEST_OD07MN438ca5b0"
+      },
+      "description": {
+        "new": "Truck Entry: TEST_OD07MN438ca5b0 - 45.1Q @ Rs.32"
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-10T14:53:24.991643+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90ee511b2bc8f07f3a879"
+    },
+    "id": "ce1161b2-ddd7-4dd4-96b5-b3f120d788ab",
+    "collection": "mill_entries",
+    "record_id": "990d411f-2ad1-4da2-9477-33dafb0c4a62",
+    "action": "delete",
+    "changes": {
+      "truck_no": {
+        "old": "TEST_OD07MN438ca5b0"
+      },
+      "kg": {
+        "old": 4600.0
+      },
+      "bag": {
+        "old": 90
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-10T14:53:25.050530+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90eed11b2bc8f07f3a87f"
+    },
+    "id": "f145da68-cb13-42ab-8e63-73d84c7b3721",
+    "collection": "mill_entries",
+    "record_id": "5c883b97-6fe4-43be-a3b5-190282f67732",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "TEST_OD06KL9de4082e"
+      },
+      "kg": {
+        "new": 5000.0
+      },
+      "bag": {
+        "new": 100
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-10T14:53:33.330946+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90eed11b2bc8f07f3a881"
+    },
+    "id": "f2d4c1f0-a8c3-42e0-a5f5-6be0e6d52bc3",
+    "collection": "cash_transactions",
+    "record_id": "185a47d7-a854-4a00-a978-81e06c628e84",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 1568
+      },
+      "category": {
+        "new": "TEST_OD06KL9de4082e"
+      },
+      "description": {
+        "new": "Truck Entry: TEST_OD06KL9de4082e - 49.0Q @ Rs.32"
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-10T14:53:33.332138+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90eed11b2bc8f07f3a883"
+    },
+    "id": "00b4be6f-8482-4886-8ba8-9a6da5616af5",
+    "collection": "mill_entries",
+    "record_id": "5c883b97-6fe4-43be-a3b5-190282f67732",
+    "action": "delete",
+    "changes": {
+      "truck_no": {
+        "old": "TEST_OD06KL9de4082e"
+      },
+      "kg": {
+        "old": 5000.0
+      },
+      "bag": {
+        "old": 100
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-10T14:53:33.380719+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90eed11b2bc8f07f3a885"
+    },
+    "id": "eab0727d-bde0-4c8a-9c98-3c6d4bfea473",
+    "collection": "mill_entries",
+    "record_id": "c51f512c-23f7-4ffe-a4b8-e697d0ad66aa",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "TEST_OD07MNfd9ca867"
+      },
+      "kg": {
+        "new": 4600.0
+      },
+      "bag": {
+        "new": 90
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-10T14:53:33.559083+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90eed11b2bc8f07f3a887"
+    },
+    "id": "0f343ac6-d9b8-4707-a09a-bff982d28906",
+    "collection": "cash_transactions",
+    "record_id": "f0cf3c0c-3cea-4741-b7d5-6604958b6eb3",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 1443
+      },
+      "category": {
+        "new": "TEST_OD07MNfd9ca867"
+      },
+      "description": {
+        "new": "Truck Entry: TEST_OD07MNfd9ca867 - 45.1Q @ Rs.32"
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-10T14:53:33.560224+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90eed11b2bc8f07f3a889"
+    },
+    "id": "c138e3ec-dc21-4dc0-99f4-9752bbec2184",
+    "collection": "mill_entries",
+    "record_id": "c51f512c-23f7-4ffe-a4b8-e697d0ad66aa",
+    "action": "update",
+    "changes": {
+      "tp_weight": {
+        "old": 4500.0,
+        "new": 4550
+      },
+      "cutting_qntl": {
+        "old": null,
+        "new": 0.0
+      },
+      "moisture_cut_qntl": {
+        "old": null,
+        "new": 0.0
+      }
+    },
+    "username": "system",
+    "summary": " ne tp_weight: 4500.0 \u2192 4550, cutting_qntl: None \u2192 0.0, moisture_cut_qntl: None \u2192 0.0 change kiya",
+    "timestamp": "2026-04-10T14:53:33.648282+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90eed11b2bc8f07f3a88b"
+    },
+    "id": "a6c1eeb0-5bbf-49a5-831a-e8a99fb9e9e4",
+    "collection": "cash_transactions",
+    "record_id": "653c3f76-6bee-4066-80d7-5c0f6ac02eca",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 1443
+      },
+      "category": {
+        "new": "TEST_OD07MNfd9ca867"
+      },
+      "description": {
+        "new": "Truck Entry: TEST_OD07MNfd9ca867 - 45.1Q @ Rs.32"
+      }
+    },
+    "username": "system",
+    "summary": " ne naya record banaya",
+    "timestamp": "2026-04-10T14:53:33.649621+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69d90eed11b2bc8f07f3a88d"
+    },
+    "id": "74818dc5-d5fc-4d17-85be-eb9524f1570f",
+    "collection": "mill_entries",
+    "record_id": "c51f512c-23f7-4ffe-a4b8-e697d0ad66aa",
+    "action": "delete",
+    "changes": {
+      "truck_no": {
+        "old": "TEST_OD07MNfd9ca867"
+      },
+      "kg": {
+        "old": 4600.0
+      },
+      "bag": {
+        "old": 90
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-10T14:53:33.709263+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69db365614bc8a52c48ab3c5"
+    },
+    "id": "75e37e77-dd3b-42c4-9090-dff379faa4bb",
+    "collection": "mill_entries",
+    "record_id": "52caa4ef-95e6-409f-b79e-307d5bdede29",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "TEST-BAG"
+      },
+      "kg": {
+        "new": 500.0
+      },
+      "bag": {
+        "new": 10
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-12T06:06:14.447180+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69db365614bc8a52c48ab3c7"
+    },
+    "id": "fb1af8cf-a660-4b68-adc4-dfab1ce3a791",
+    "collection": "cash_transactions",
+    "record_id": "772811c3-0773-46ae-a079-71564e817353",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 157
+      },
+      "category": {
+        "new": "TEST-BAG"
+      },
+      "description": {
+        "new": "Truck Entry: TEST-BAG - 4.9Q @ Rs.32"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-12T06:06:14.475580+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69db365d14bc8a52c48ab3c9"
+    },
+    "id": "dd1f53d8-9fd1-4341-bb78-c69af71b1f25",
+    "collection": "mill_entries",
+    "record_id": "52caa4ef-95e6-409f-b79e-307d5bdede29",
+    "action": "delete",
+    "changes": {
+      "truck_no": {
+        "old": "TEST-BAG"
+      },
+      "kg": {
+        "old": 500.0
+      },
+      "bag": {
+        "old": 10
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne record delete kiya",
+    "timestamp": "2026-04-12T06:06:21.330943+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69dc85afcb768c43149579ce"
+    },
+    "id": "7dbf54e3-8196-4e20-9eaf-ec16afd82c3b",
+    "collection": "cash_transactions",
+    "record_id": "c9f4b311-2d7f-47d1-8ae8-de1356e3d80a",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 500.0
+      },
+      "category": {
+        "new": "Test Party"
+      },
+      "description": {
+        "new": "Test transaction"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-13T05:57:03.277127+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69dc85afcb768c43149579d0"
+    },
+    "id": "5dc69d41-88ef-483c-b987-729a7311b925",
+    "collection": "cash_transactions",
+    "record_id": "c9f4b311-2d7f-47d1-8ae8-de1356e3d80a",
+    "action": "delete",
+    "changes": {
+      "amount": {
+        "old": 500.0
+      },
+      "category": {
+        "old": "Test Party"
+      },
+      "description": {
+        "old": "Test transaction"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne record delete kiya",
+    "timestamp": "2026-04-13T05:57:03.476600+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69dc86134d3e8da6acec97a2"
+    },
+    "id": "901381c5-ddaa-4314-9a2f-ec618a9afeda",
+    "collection": "cash_transactions",
+    "record_id": "ee2519b0-cc2a-411b-8da0-19ab4daed903",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 100.0
+      },
+      "category": {
+        "new": "TEST_PARTY_188"
+      },
+      "description": {
+        "new": "Test transaction for iteration 188"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-13T05:58:43.411532+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69dc86134d3e8da6acec97a4"
+    },
+    "id": "e8c5c331-bb08-4328-9e82-ef55d9b0446c",
+    "collection": "cash_transactions",
+    "record_id": "ee2519b0-cc2a-411b-8da0-19ab4daed903",
+    "action": "delete",
+    "changes": {
+      "amount": {
+        "old": 100.0
+      },
+      "category": {
+        "old": "TEST_PARTY_188"
+      },
+      "description": {
+        "old": "Test transaction for iteration 188"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne record delete kiya",
+    "timestamp": "2026-04-13T05:58:43.519523+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69dc86144d3e8da6acec97a6"
+    },
+    "id": "a5dab42d-65ab-4376-b54a-34ea5138f988",
+    "collection": "cash_transactions",
+    "record_id": "addf4300-38fb-4760-9a76-f24cbaeac6af",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 50.0
+      },
+      "category": {
+        "new": "TEST_AUTO_LEDGER_188"
+      },
+      "description": {
+        "new": "Test auto ledger for iteration 188"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-13T05:58:44.423259+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69dc86144d3e8da6acec97a8"
+    },
+    "id": "8079cf76-2280-4441-9760-8d0a691d5945",
+    "collection": "cash_transactions",
+    "record_id": "addf4300-38fb-4760-9a76-f24cbaeac6af",
+    "action": "delete",
+    "changes": {
+      "amount": {
+        "old": 50.0
+      },
+      "category": {
+        "old": "TEST_AUTO_LEDGER_188"
+      },
+      "description": {
+        "old": "Test auto ledger for iteration 188"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne record delete kiya",
+    "timestamp": "2026-04-13T05:58:44.661575+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69dc967fb6f3c0bb09934ab1"
+    },
+    "id": "9243b5fc-5b75-4d9c-9551-28f03df26c61",
+    "collection": "cash_transactions",
+    "record_id": "5c6a956a-2940-49f1-a24e-3186963bb2bb",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 100.0
+      },
+      "category": {
+        "new": "Test"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-13T07:08:47.029021+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69dc967fb6f3c0bb09934ab3"
+    },
+    "id": "21847d7b-a573-4088-9c5c-cf41927b2788",
+    "collection": "cash_transactions",
+    "record_id": "5c6a956a-2940-49f1-a24e-3186963bb2bb",
+    "action": "delete",
+    "changes": {
+      "amount": {
+        "old": 100.0
+      },
+      "category": {
+        "old": "Test"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne record delete kiya",
+    "timestamp": "2026-04-13T07:08:47.170890+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ddf8bc165e1114a0682395"
+    },
+    "id": "a73ebd2a-f0b7-456d-bf32-2121c6398b94",
+    "collection": "cash_transactions",
+    "record_id": "44faf49c-eead-4dcc-a9ed-6d022c8e5b3a",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 395488.8
+      },
+      "category": {
+        "new": "Gayatri Agro"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-14T08:20:12.191711+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ddfac050a99351bba4535a"
+    },
+    "id": "38cff6f0-0bda-42af-b371-353e192a4d88",
+    "collection": "cash_transactions",
+    "record_id": "44faf49c-eead-4dcc-a9ed-6d022c8e5b3a",
+    "action": "delete",
+    "changes": {
+      "amount": {
+        "old": 395488.8
+      },
+      "category": {
+        "old": "Gayatri Agro"
+      },
+      "description": {
+        "old": "Cash payment to Gayatri Agro"
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-14T08:28:48.715193+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ddfae750a99351bba4535c"
+    },
+    "id": "2a6fa33a-89f6-40b1-bf45-5969b77b47e6",
+    "collection": "cash_transactions",
+    "record_id": "7345aa18-5e3a-4a74-abce-993360c428ba",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 1000.0
+      },
+      "category": {
+        "new": "Jain"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-14T08:29:27.132743+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ddfbd17edd03406d93a364"
+    },
+    "id": "ab3c2b9b-4664-4e72-9caa-fe8a2fadf6c4",
+    "collection": "cash_transactions",
+    "record_id": "34e32910-077f-4055-bf57-2d6a76d6f633",
+    "action": "delete",
+    "changes": {
+      "amount": {
+        "old": 1000.0
+      },
+      "category": {
+        "old": "Jain"
+      },
+      "description": {
+        "old": "Cash payment to Jain"
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-14T08:33:21.300514+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ddfbd97edd03406d93a365"
+    },
+    "id": "5dc4da75-44d9-4e58-ad7f-7016a569965f",
+    "collection": "cash_transactions",
+    "record_id": "c320fdd6-a1d2-4996-a7ed-935c29f272d4",
+    "action": "delete",
+    "changes": {
+      "amount": {
+        "old": 1000.0
+      },
+      "category": {
+        "old": "Jain"
+      },
+      "description": {
+        "old": "Diesel for truck - Rice Bran #1 - Gayatri Agro"
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-14T08:33:29.603009+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ddfbf37edd03406d93a36c"
+    },
+    "id": "3086a4b7-ce16-4515-8439-c4052ee056ff",
+    "collection": "cash_transactions",
+    "record_id": "7345aa18-5e3a-4a74-abce-993360c428ba",
+    "action": "delete",
+    "changes": {
+      "amount": {
+        "old": 1000.0
+      },
+      "category": {
+        "old": "Jain"
+      },
+      "description": {
+        "old": "Cash payment to Jain"
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-14T08:33:55.701094+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ddfd6826b66acd1f530c28"
+    },
+    "id": "b75c60ca-22e7-4933-82c2-6a459279a85a",
+    "collection": "cash_transactions",
+    "record_id": "eac88057-1246-4176-9e41-2ca045e7e603",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 1000.0
+      },
+      "category": {
+        "new": "Tractor [Rakhad Fikai]"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-14T08:40:08.149800+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec757b8695ae9a811458f1"
+    },
+    "id": "328beade-a245-4895-b25e-58c27451dec3",
+    "collection": "mill_entries",
+    "record_id": "965cd337-640f-4536-b9e7-bef5ab7b4c34",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "OD-TEST-AGENT"
+      },
+      "kg": {
+        "new": 29050.0
+      },
+      "bag": {
+        "new": 10
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T08:04:11.050524+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec757b8695ae9a811458f3"
+    },
+    "id": "77d3860b-ad53-4875-b77f-47c0bc431cba",
+    "collection": "cash_transactions",
+    "record_id": "114fd4e9-e311-48ad-9ef3-6f3e449e375d",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 9293
+      },
+      "category": {
+        "new": "OD-TEST-AGENT"
+      },
+      "description": {
+        "new": "Truck Entry: OD-TEST-AGENT - 290.4Q @ Rs.32"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T08:04:11.067299+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec757b8695ae9a811458f5"
+    },
+    "id": "2edd6f71-f84b-4e90-a4e2-0278eafc7c51",
+    "collection": "cash_transactions",
+    "record_id": "15843799-b533-4c58-b61b-e2f2a5d20e03",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 3000
+      },
+      "category": {
+        "new": "TestMandiAgent"
+      },
+      "description": {
+        "new": "Agent Entry: TestMandiAgent - 300.0Q \u00d7 Rs.10.0 = Rs.3000"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T08:04:11.068878+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec75f98695ae9a811458f9"
+    },
+    "id": "2a47d276-f4fe-4f38-ab4e-4f54e75103fa",
+    "collection": "mill_entries",
+    "record_id": "ec76d330-f52d-437d-bf6d-7030506e099c",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "OD-TEST"
+      },
+      "kg": {
+        "new": 29050.0
+      },
+      "bag": {
+        "new": 10
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T08:06:17.795107+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec75f98695ae9a811458fb"
+    },
+    "id": "9511af8f-3317-4b00-8e25-66efd029aa7a",
+    "collection": "cash_transactions",
+    "record_id": "5418e437-c352-4ac7-a7de-d7d2a9b440f4",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 9293
+      },
+      "category": {
+        "new": "OD-TEST"
+      },
+      "description": {
+        "new": "Truck Entry: OD-TEST - 290.4Q @ Rs.32"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T08:06:17.797090+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec75f98695ae9a811458fd"
+    },
+    "id": "3bd30d06-d78f-4377-8c49-a413347d4425",
+    "collection": "cash_transactions",
+    "record_id": "7abed23b-5934-4faa-9106-636012ad7687",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 3000
+      },
+      "category": {
+        "new": "TestMandiAgent"
+      },
+      "description": {
+        "new": "Agent Entry: TestMandiAgent - 300.0Q \u00d7 Rs.10.0 = Rs.3000"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T08:06:17.798036+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec768a3066cba13977154e"
+    },
+    "id": "6438f9b7-ddd8-43c4-922a-631b8b77ea32",
+    "collection": "mill_entries",
+    "record_id": "ec76d330-f52d-437d-bf6d-7030506e099c",
+    "action": "update",
+    "changes": {
+      "tp_weight": {
+        "old": 300.0,
+        "new": 500
+      },
+      "cutting_qntl": {
+        "old": null,
+        "new": 0.0
+      },
+      "moisture_cut_qntl": {
+        "old": null,
+        "new": 0.0
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne tp_weight: 300.0 \u2192 500, cutting_qntl: None \u2192 0.0, moisture_cut_qntl: None \u2192 0.0 change kiya",
+    "timestamp": "2026-04-25T08:08:42.919232+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec768a3066cba139771550"
+    },
+    "id": "47a4e4c9-ae13-4db9-8d4f-aa7d85c080b3",
+    "collection": "cash_transactions",
+    "record_id": "53024480-2b38-405e-9a60-b1a1bc03087f",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 9293
+      },
+      "category": {
+        "new": "OD-TEST"
+      },
+      "description": {
+        "new": "Truck Entry: OD-TEST - 290.4Q @ Rs.32"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T08:08:42.920806+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec768c3066cba139771552"
+    },
+    "id": "cbdd11a5-be17-4adb-bb87-cc63fd8215f7",
+    "collection": "mill_entries",
+    "record_id": "ec76d330-f52d-437d-bf6d-7030506e099c",
+    "action": "delete",
+    "changes": {
+      "truck_no": {
+        "old": "OD-TEST"
+      },
+      "kg": {
+        "old": 29050.0
+      },
+      "bag": {
+        "old": 10
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne record delete kiya",
+    "timestamp": "2026-04-25T08:08:44.752872+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec77153066cba139771555"
+    },
+    "id": "4e59c8b2-6272-4a6c-9c1a-c20c781b9d93",
+    "collection": "mill_entries",
+    "record_id": "6f7fd83a-93ed-41f6-8082-8cfa48834467",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "OD-FULL"
+      },
+      "kg": {
+        "new": 29050.0
+      },
+      "bag": {
+        "new": 10
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T08:11:01.991177+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec77153066cba139771557"
+    },
+    "id": "c604cf1c-c228-467b-8a02-dc501d5f7a52",
+    "collection": "cash_transactions",
+    "record_id": "8dc7034d-e7ad-4b23-a812-359223ebd984",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 9293
+      },
+      "category": {
+        "new": "OD-FULL"
+      },
+      "description": {
+        "new": "Truck Entry: OD-FULL - 290.4Q @ Rs.32"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T08:11:01.992890+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec77153066cba139771559"
+    },
+    "id": "3acbdbd4-e820-439b-a38d-5f289a8e615e",
+    "collection": "cash_transactions",
+    "record_id": "4e40e36e-f2db-43f6-93c9-2e7db3f4d7b2",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 3000
+      },
+      "category": {
+        "new": "TestMandiAgent"
+      },
+      "description": {
+        "new": "Agent Entry: TestMandiAgent - 300.0Q \u00d7 Rs.10.0 = Rs.3000"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T08:11:01.994017+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec77173066cba13977155b"
+    },
+    "id": "5a2b0cd3-5dd1-4bcb-b294-6ef17d36d1a8",
+    "collection": "mill_entries",
+    "record_id": "6f7fd83a-93ed-41f6-8082-8cfa48834467",
+    "action": "update",
+    "changes": {
+      "tp_weight": {
+        "old": 300.0,
+        "new": 500
+      },
+      "cutting_qntl": {
+        "old": null,
+        "new": 0.0
+      },
+      "moisture_cut_qntl": {
+        "old": null,
+        "new": 0.0
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne tp_weight: 300.0 \u2192 500, cutting_qntl: None \u2192 0.0, moisture_cut_qntl: None \u2192 0.0 change kiya",
+    "timestamp": "2026-04-25T08:11:03.791576+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec77173066cba13977155d"
+    },
+    "id": "ce47be6c-c609-46d0-8e52-51af08e5dc06",
+    "collection": "cash_transactions",
+    "record_id": "3434cbc1-548c-461b-8256-01ddb69a8d78",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 9293
+      },
+      "category": {
+        "new": "OD-FULL"
+      },
+      "description": {
+        "new": "Truck Entry: OD-FULL - 290.4Q @ Rs.32"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T08:11:03.792974+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec77173066cba13977155f"
+    },
+    "id": "91feeb5f-e955-49d6-8e58-4b8dc8c05cfe",
+    "collection": "cash_transactions",
+    "record_id": "0fe5380b-e163-41bc-98f6-ca569cbcf700",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 5000
+      },
+      "category": {
+        "new": "TestMandiAgent"
+      },
+      "description": {
+        "new": "Agent Entry: TestMandiAgent - 500.0Q \u00d7 Rs.10.0 = Rs.5000"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T08:11:03.793794+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec77193066cba139771561"
+    },
+    "id": "14005592-325e-4fce-bc75-e8c8aebf453c",
+    "collection": "mill_entries",
+    "record_id": "6f7fd83a-93ed-41f6-8082-8cfa48834467",
+    "action": "delete",
+    "changes": {
+      "truck_no": {
+        "old": "OD-FULL"
+      },
+      "kg": {
+        "old": 29050.0
+      },
+      "bag": {
+        "old": 10
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne record delete kiya",
+    "timestamp": "2026-04-25T08:11:05.599455+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec87d207afce1d61983933"
+    },
+    "id": "befedb54-4e47-4583-b8d2-51ca554b3bf1",
+    "collection": "mill_entries",
+    "record_id": "4e436d7c-9cac-4805-bb41-41ff30ff732b",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "OD-K3"
+      },
+      "kg": {
+        "new": 20000.0
+      },
+      "bag": {
+        "new": 10
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T09:22:26.787399+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec87d207afce1d61983935"
+    },
+    "id": "48fdd29b-78d9-426c-9e3c-51faf51855c3",
+    "collection": "cash_transactions",
+    "record_id": "0c6f585b-dfa0-40ad-b1cf-1fd14ebee1ed",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 6397
+      },
+      "category": {
+        "new": "OD-K3"
+      },
+      "description": {
+        "new": "Truck Entry: OD-K3 - 199.9Q @ Rs.32"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T09:22:26.789041+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec87d407afce1d61983937"
+    },
+    "id": "b7d0fc81-4e17-4985-b629-0b493f9bcc24",
+    "collection": "mill_entries",
+    "record_id": "4e436d7c-9cac-4805-bb41-41ff30ff732b",
+    "action": "update",
+    "changes": {
+      "cutting_qntl": {
+        "old": null,
+        "new": 0.0
+      },
+      "moisture_cut_qntl": {
+        "old": null,
+        "new": 0.0
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne cutting_qntl: None \u2192 0.0, moisture_cut_qntl: None \u2192 0.0 change kiya",
+    "timestamp": "2026-04-25T09:22:28.630772+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec87d407afce1d61983939"
+    },
+    "id": "8e5dadb8-2199-4f6c-b7fd-04a22e22a819",
+    "collection": "cash_transactions",
+    "record_id": "dc224d8f-0991-4974-a698-6b7231de62e2",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 6397
+      },
+      "category": {
+        "new": "OD-K3"
+      },
+      "description": {
+        "new": "Truck Entry: OD-K3 - 199.9Q @ Rs.32"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T09:22:28.632548+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec87d607afce1d6198393b"
+    },
+    "id": "74901ce1-bd0e-421b-925f-128b5c75248c",
+    "collection": "mill_entries",
+    "record_id": "4e436d7c-9cac-4805-bb41-41ff30ff732b",
+    "action": "delete",
+    "changes": {
+      "truck_no": {
+        "old": "OD-K3"
+      },
+      "kg": {
+        "old": 20000.0
+      },
+      "bag": {
+        "old": 10
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne record delete kiya",
+    "timestamp": "2026-04-25T09:22:30.460402+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec880f07afce1d6198393d"
+    },
+    "id": "fcc1dc95-120d-4bd2-9dd0-e5d67a1ddaec",
+    "collection": "mill_entries",
+    "record_id": "a34a9b17-94ad-4712-b880-a40807b292c0",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "OD-K3"
+      },
+      "kg": {
+        "new": 20000.0
+      },
+      "bag": {
+        "new": 10
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T09:23:27.307029+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec880f07afce1d6198393f"
+    },
+    "id": "4a03028c-1437-4c4c-97eb-7ecac2774eaa",
+    "collection": "cash_transactions",
+    "record_id": "bcae64b9-9ab9-477e-b31c-8bf14af762ba",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 6397
+      },
+      "category": {
+        "new": "OD-K3"
+      },
+      "description": {
+        "new": "Truck Entry: OD-K3 - 199.9Q @ Rs.32"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T09:23:27.308409+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec881007afce1d61983941"
+    },
+    "id": "32bf8641-6c5f-4594-9eb6-f8d97fab05c2",
+    "collection": "mill_entries",
+    "record_id": "a34a9b17-94ad-4712-b880-a40807b292c0",
+    "action": "update",
+    "changes": {
+      "cutting_qntl": {
+        "old": null,
+        "new": 0.0
+      },
+      "moisture_cut_qntl": {
+        "old": null,
+        "new": 0.0
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne cutting_qntl: None \u2192 0.0, moisture_cut_qntl: None \u2192 0.0 change kiya",
+    "timestamp": "2026-04-25T09:23:28.115869+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec881007afce1d61983943"
+    },
+    "id": "5cc10e02-18b0-4b77-90ec-9ed8af676e39",
+    "collection": "cash_transactions",
+    "record_id": "e24e5946-bcad-47b8-86f1-1a433b9f215d",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 6397
+      },
+      "category": {
+        "new": "OD-K3"
+      },
+      "description": {
+        "new": "Truck Entry: OD-K3 - 199.9Q @ Rs.32"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T09:23:28.117219+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec881207afce1d61983945"
+    },
+    "id": "3bba4fb8-7e63-4877-baf6-6f12a9bc74db",
+    "collection": "mill_entries",
+    "record_id": "a34a9b17-94ad-4712-b880-a40807b292c0",
+    "action": "delete",
+    "changes": {
+      "truck_no": {
+        "old": "OD-K3"
+      },
+      "kg": {
+        "old": 20000.0
+      },
+      "bag": {
+        "old": 10
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne record delete kiya",
+    "timestamp": "2026-04-25T09:23:30.940439+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec883d07afce1d61983947"
+    },
+    "id": "2b9467a9-7314-46b0-84b4-52eeeeb0c9a9",
+    "collection": "mill_entries",
+    "record_id": "e579f022-3317-40b6-a6d0-1c8f06fadee5",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "OD-K3"
+      },
+      "kg": {
+        "new": 20000.0
+      },
+      "bag": {
+        "new": 10
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T09:24:13.721373+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec883d07afce1d61983949"
+    },
+    "id": "9b62aaac-f016-4a3c-8b81-15ce7a8c9f6b",
+    "collection": "cash_transactions",
+    "record_id": "47126584-e239-4a20-931d-1cbed2022b66",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 6397
+      },
+      "category": {
+        "new": "OD-K3"
+      },
+      "description": {
+        "new": "Truck Entry: OD-K3 - 199.9Q @ Rs.32"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T09:24:13.722727+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec883e07afce1d6198394b"
+    },
+    "id": "00d24a82-374d-441e-b79d-4c59d72f1f49",
+    "collection": "mill_entries",
+    "record_id": "e579f022-3317-40b6-a6d0-1c8f06fadee5",
+    "action": "update",
+    "changes": {
+      "cutting_qntl": {
+        "old": null,
+        "new": 0.0
+      },
+      "qntl": {
+        "old": 200.0,
+        "new": 300.0
+      },
+      "kg": {
+        "old": 20000.0,
+        "new": 30000
+      },
+      "moisture_cut_qntl": {
+        "old": null,
+        "new": 0.0
+      },
+      "mill_w": {
+        "old": 20000.0,
+        "new": 30000.0
+      },
+      "final_w": {
+        "old": 20000.0,
+        "new": 30000.0
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne cutting_qntl: None \u2192 0.0, qntl: 200.0 \u2192 300.0, kg: 20000.0 \u2192 30000 change kiya",
+    "timestamp": "2026-04-25T09:24:14.527182+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec883e07afce1d6198394d"
+    },
+    "id": "dd2c83a2-d722-4de7-aea8-69a1bdcb6fbc",
+    "collection": "cash_transactions",
+    "record_id": "fefe5322-b856-4b9b-90f9-34b353a3bc1e",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 9597
+      },
+      "category": {
+        "new": "OD-K3"
+      },
+      "description": {
+        "new": "Truck Entry: OD-K3 - 299.9Q @ Rs.32"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-25T09:24:14.529077+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ec884007afce1d6198394f"
+    },
+    "id": "78a59850-2717-4796-a1a0-dd3593b857f1",
+    "collection": "mill_entries",
+    "record_id": "e579f022-3317-40b6-a6d0-1c8f06fadee5",
+    "action": "delete",
+    "changes": {
+      "truck_no": {
+        "old": "OD-K3"
+      },
+      "kg": {
+        "old": 30000
+      },
+      "bag": {
+        "old": 10
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne record delete kiya",
+    "timestamp": "2026-04-25T09:24:16.365478+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ede717041810f7f86a27bc"
+    },
+    "id": "7bdc993a-4a26-4d84-ae0f-98931fbd435b",
+    "collection": "mill_entries",
+    "record_id": "917688da-a90f-4bc3-aa98-a77c3b14916d",
+    "action": "create",
+    "changes": {
+      "truck_no": {
+        "new": "CG-99-9999"
+      },
+      "bag": {
+        "new": 100
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-26T10:21:11.020295+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ede717041810f7f86a27be"
+    },
+    "id": "d5024a04-26c4-44b6-ad01-3da2d457aaff",
+    "collection": "cash_transactions",
+    "record_id": "07ba7f51-50a3-4807-a29f-ac7c21be50b7",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 100
+      },
+      "category": {
+        "new": "CG-99-9999"
+      },
+      "description": {
+        "new": "Cash Paid: Truck CG-99-9999 - Mandi TestBhada - Rs.100.0"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-26T10:21:11.033933+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ede717041810f7f86a27c0"
+    },
+    "id": "96749b4d-cb58-4d99-a874-3a3edda1596f",
+    "collection": "cash_transactions",
+    "record_id": "77e6ba8f-e075-494f-b776-acb7effe87f5",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 100
+      },
+      "category": {
+        "new": "CG-99-9999"
+      },
+      "description": {
+        "new": "Truck Cash Advance: CG-99-9999 - Rs.100.0"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-26T10:21:11.034587+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ede717041810f7f86a27c3"
+    },
+    "id": "ce0393c1-5fbb-4f0f-9d4c-44b0a94a4caa",
+    "collection": "cash_transactions",
+    "record_id": "9ab18a7a-1e72-4fa6-b59f-45fd04593dd5",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 50
+      },
+      "category": {
+        "new": "Jain"
+      },
+      "description": {
+        "new": "Diesel Fill: Truck CG-99-9999 - Jain - Rs.50.0"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-26T10:21:11.039007+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ede732041810f7f86a27c5"
+    },
+    "id": "ce39c02c-6624-4400-97c6-e5ab3ad0e483",
+    "collection": "mill_entries",
+    "record_id": "917688da-a90f-4bc3-aa98-a77c3b14916d",
+    "action": "delete",
+    "changes": {
+      "truck_no": {
+        "old": "CG-99-9999"
+      },
+      "bag": {
+        "old": 100
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne record delete kiya",
+    "timestamp": "2026-04-26T10:21:38.222681+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f097dadad388bae52e8729"
+    },
+    "id": "ce668f1d-242a-451d-ad11-16e688dbe660",
+    "collection": "cash_transactions",
+    "record_id": "67f9cfed-e472-4f7e-9224-44e2a2123fb7",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 100000.0
+      },
+      "category": {
+        "new": "Titu"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-28T11:19:54.795929+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f09b2877da6336c1ba6cfa"
+    },
+    "id": "425a31a0-132f-4779-8aba-8abf2a6f4b11",
+    "collection": "cash_transactions",
+    "record_id": "ed179038-3927-4c17-ba38-7546857a28e0",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 5000.0
+      },
+      "category": {
+        "new": "Eshwer"
+      },
+      "description": {
+        "new": "Salary paid by Titu directly"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-28T11:34:00.932885+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f09b2977da6336c1ba6cfb"
+    },
+    "id": "abf9e388-5288-45d5-a4a5-df43fbbac365",
+    "collection": "cash_transactions",
+    "record_id": "ed179038-3927-4c17-ba38-7546857a28e0",
+    "action": "delete",
+    "changes": {
+      "amount": {
+        "old": 5000.0
+      },
+      "category": {
+        "old": "Eshwer"
+      },
+      "description": {
+        "old": "Salary paid by Titu directly"
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-28T11:34:01.023990+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f09d0177da6336c1ba6cfc"
+    },
+    "id": "6f76955b-ee11-4c98-9e30-283549f7a3fc",
+    "collection": "cash_transactions",
+    "record_id": "67f9cfed-e472-4f7e-9224-44e2a2123fb7",
+    "action": "delete",
+    "changes": {
+      "amount": {
+        "old": 100000.0
+      },
+      "category": {
+        "old": "Titu"
+      },
+      "description": {
+        "old": "Cash received from Titu"
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-28T11:41:53.915726+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f09e2377da6336c1ba6cfe"
+    },
+    "id": "30284620-dfcb-491a-92ec-9818b3644b2a",
+    "collection": "cash_transactions",
+    "record_id": "2ce3638d-f8a4-4f3f-95f1-37c143e223d0",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 100000.0
+      },
+      "category": {
+        "new": "Titu"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-28T11:46:43.527281+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f0b2c969eeb942ce6cd213"
+    },
+    "id": "cd0102eb-5c1f-4e74-a145-3ef78f131800",
+    "collection": "cash_transactions",
+    "record_id": "3d045b3a-a380-42ee-87e4-62caa4bd27e5",
+    "action": "delete",
+    "changes": {
+      "amount": {
+        "old": 10000.0
+      },
+      "category": {
+        "old": "Titu"
+      },
+      "description": {
+        "old": "Titu ko diya"
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-28T13:14:49.697209+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f0b2cc69eeb942ce6cd214"
+    },
+    "id": "be0f487d-a5a7-4760-9ef4-fa1bc367c578",
+    "collection": "cash_transactions",
+    "record_id": "830a733e-6160-4c50-bef2-b9646f1c10bd",
+    "action": "delete",
+    "changes": {
+      "amount": {
+        "old": 30000.0
+      },
+      "category": {
+        "old": "Titu"
+      },
+      "description": {
+        "old": "Titu se liya"
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-28T13:14:52.872814+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f0b2cf69eeb942ce6cd215"
+    },
+    "id": "adf99cd2-4bda-4798-873e-73b3f606435b",
+    "collection": "cash_transactions",
+    "record_id": "7fdac961-86c5-48d1-a2b3-c5a616c0c080",
+    "action": "delete",
+    "changes": {
+      "amount": {
+        "old": 50000.0
+      },
+      "category": {
+        "old": "Titu"
+      },
+      "description": {
+        "old": "Titu se liya"
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-28T13:14:55.616058+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f0b33e69eeb942ce6cd218"
+    },
+    "id": "ba46e287-a1e3-47bb-bc58-7689bb373ae9",
+    "collection": "cash_transactions",
+    "record_id": "13224f02-68f1-4b98-b3e2-579c654044df",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 50000.0
+      },
+      "category": {
+        "new": "Titu"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-28T13:16:46.884363+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f0b58569eeb942ce6cd21a"
+    },
+    "id": "d5ae5724-4c9c-4a0a-8fc2-9eecbd83c4ec",
+    "collection": "cash_transactions",
+    "record_id": "13224f02-68f1-4b98-b3e2-579c654044df",
+    "action": "delete",
+    "changes": {
+      "amount": {
+        "old": 50000.0
+      },
+      "category": {
+        "old": "Titu"
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-28T13:26:29.437695+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f0b61669eeb942ce6cd21d"
+    },
+    "id": "83cfc6c0-3ea4-4d3d-98b2-3afce4fb01f2",
+    "collection": "cash_transactions",
+    "record_id": "cb13af7d-0fd6-4207-a2b0-87fa90753d95",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 100000.0
+      },
+      "category": {
+        "new": "Dimpy"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-28T13:28:54.976139+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f0b8e969eeb942ce6cd220"
+    },
+    "id": "49296619-d993-4b3c-aa6e-d1b830579fce",
+    "collection": "cash_transactions",
+    "record_id": "cb13af7d-0fd6-4207-a2b0-87fa90753d95",
+    "action": "delete",
+    "changes": {
+      "amount": {
+        "old": 100000.0
+      },
+      "category": {
+        "old": "Dimpy"
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-28T13:40:57.058627+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f0ba0769eeb942ce6cd222"
+    },
+    "id": "39be2b25-d150-4581-aaca-3e3577398f65",
+    "collection": "cash_transactions",
+    "record_id": "3c505306-6879-47d7-bc3f-40c5298a27d4",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 50000.0
+      },
+      "category": {
+        "new": "Titu"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-28T13:45:43.275650+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f0ba3669eeb942ce6cd225"
+    },
+    "id": "79ba5af1-f402-4593-9689-e17c56950c6a",
+    "collection": "cash_transactions",
+    "record_id": "485d12a0-0de0-4763-a3ba-020fea8e1cdf",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 10000.0
+      },
+      "category": {
+        "new": "CtrlSTestParty"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-28T13:46:30.379646+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f0bc4b8d72d6b0cc8839f6"
+    },
+    "id": "87a543c4-725d-4d04-8b45-f160a1e3f373",
+    "collection": "cash_transactions",
+    "record_id": "758fc697-271e-4ad1-a8d0-e3a091842cdd",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 5000.0
+      },
+      "category": {
+        "new": "CtrlSTestParty"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-28T13:55:23.229680+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f0c1915ec213874a4a1c55"
+    },
+    "id": "7384e053-fcf5-4042-8878-34e6bdb8c1de",
+    "collection": "cash_transactions",
+    "record_id": "be16c2a4-bfd7-436e-b238-6b2a95245a83",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 1500.0
+      },
+      "category": {
+        "new": "DieselTest"
+      },
+      "description": {
+        "new": "Titu paid diesel"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-28T14:17:53.305675+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f23f6308d489f10068bd96"
+    },
+    "id": "f3115010-ac35-4098-ae4b-c3d6b007828d",
+    "collection": "cash_transactions",
+    "record_id": "6d988e3a-8778-4213-a87c-fa1e14a97986",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 315000.0
+      },
+      "category": {
+        "new": "MBOPL (PKA)"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-29T17:26:59.828550+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f24b95c25ad35813c2bc9c"
+    },
+    "id": "aec30ab7-9f92-4c34-a5bc-29798473bf43",
+    "collection": "cash_transactions",
+    "record_id": "915a0071-9b30-4498-a1fa-93857b7b39ed",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 100000.0
+      },
+      "category": {
+        "new": "Titu"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-29T18:19:01.422620+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f24bcac25ad35813c2bc9f"
+    },
+    "id": "16e60ba6-62f9-40cf-98ae-c9bb1bcaec82",
+    "collection": "cash_transactions",
+    "record_id": "74321007-f36e-4218-a97a-6c5e926b57db",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 1000.0
+      },
+      "category": {
+        "new": "Tractor [Rakhad Fikai]"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-29T18:19:54.076639+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f24fccc25ad35813c2bca2"
+    },
+    "id": "96910a0f-1218-45d6-8292-c802ac7fa476",
+    "collection": "cash_transactions",
+    "record_id": "f8a03289-5c67-44dc-9d9a-b6e73be6d072",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 1000.0
+      },
+      "category": {
+        "new": "Rakhad Fikai Test"
+      },
+      "description": {
+        "new": "Test: Titu paid Rakhad Fikai"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-29T18:37:00.960068+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f25472039d31a466399a26"
+    },
+    "id": "d25c6e9c-e428-4998-bb12-2ed33df05597",
+    "collection": "cash_transactions",
+    "record_id": "bc8267ef-31d0-43e0-99fc-694c7abace2e",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 27000.0
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-29T18:56:50.700296+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f2548b039d31a466399a28"
+    },
+    "id": "e608ef86-da91-474d-85c5-d49d6e96d472",
+    "collection": "cash_transactions",
+    "record_id": "3f09ad6f-89b7-44d4-b552-622a613412a6",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 50000.0
+      },
+      "category": {
+        "new": "Titu"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-29T18:57:15.033718+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f254d9d6efb40b69784750"
+    },
+    "id": "b4825e8b-a289-4042-9e35-b9c22a96ca83",
+    "collection": "cash_transactions",
+    "record_id": "ae1b8570-98f2-412b-95b4-402bf60919d9",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 100000.0
+      },
+      "category": {
+        "new": "Titu"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-29T18:58:33.640324+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f2559af3d04050a75fbd8b"
+    },
+    "id": "d5745876-983d-45a7-9e45-c26968974149",
+    "collection": "cash_transactions",
+    "record_id": "9f4be860-c7ac-4e87-864f-cac32a793c26",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 500.0
+      },
+      "category": {
+        "new": "TEST_Vendor_TEST_4a4c10ad"
+      },
+      "description": {
+        "new": "Test expense TEST_4a4c10ad"
+      }
+    },
+    "username": "test",
+    "summary": "test ne naya record banaya",
+    "timestamp": "2026-04-29T19:01:46.420447+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f2559af3d04050a75fbd8d"
+    },
+    "id": "6414cad9-30dd-4fc9-ab76-fb0cf136514c",
+    "collection": "cash_transactions",
+    "record_id": "9f4be860-c7ac-4e87-864f-cac32a793c26",
+    "action": "delete",
+    "changes": {
+      "amount": {
+        "old": 500.0
+      },
+      "category": {
+        "old": "TEST_Vendor_TEST_4a4c10ad"
+      },
+      "description": {
+        "old": "Test expense TEST_4a4c10ad"
+      }
+    },
+    "username": "test",
+    "summary": "test ne record delete kiya",
+    "timestamp": "2026-04-29T19:01:46.549448+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f2561df3d04050a75fbd8f"
+    },
+    "id": "ed55b99e-da58-4e0e-9df1-3adbde6d8a81",
+    "collection": "cash_transactions",
+    "record_id": "89bfbecb-f9ad-4b3e-8a91-ea4534222131",
+    "action": "create",
+    "changes": {
+      "amount": {
+        "new": 27000.0
+      },
+      "category": {
+        "new": "Trahikara"
+      },
+      "description": {
+        "new": "Building"
+      }
+    },
+    "username": "admin",
+    "summary": "admin ne naya record banaya",
+    "timestamp": "2026-04-29T19:03:57.333119+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f25655f3d04050a75fbd91"
+    },
+    "id": "8b0baa15-9329-442d-9f7c-1b906a6c02bb",
+    "collection": "cash_transactions",
+    "record_id": "bc8267ef-31d0-43e0-99fc-694c7abace2e",
+    "action": "delete",
+    "changes": {
+      "amount": {
+        "old": 27000.0
+      },
+      "description": {
+        "old": "Owner payment to "
+      }
+    },
+    "username": "system",
+    "summary": " ne record delete kiya",
+    "timestamp": "2026-04-29T19:04:53.297729+00:00"
+  }
+]

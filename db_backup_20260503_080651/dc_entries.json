@@ -1,0 +1,61 @@
+[
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b4e"
+    },
+    "id": "fe51a22f-fb5f-41ed-995a-f37375ca7320",
+    "dc_number": "DC-TEST-001",
+    "date": "2026-03-25",
+    "quantity_qntl": 50.0,
+    "rice_type": "raw",
+    "godown_name": "",
+    "deadline": "2026-06-30",
+    "notes": "",
+    "kms_year": "2025-26",
+    "season": "kharif",
+    "created_by": "",
+    "created_at": "2026-03-25T09:30:52.202312+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69e2664cf00efd95688679b3"
+    },
+    "id": "89c83346-c319-422a-84d0-0d9fba6c45a0",
+    "dc_number": "DCF150056",
+    "date": "2026-04-13",
+    "quantity_qntl": 1160.0,
+    "rice_type": "raw",
+    "godown_name": "",
+    "depot_name": "FSD KESINGA",
+    "depot_code": "DF150802",
+    "delivery_to": "FCI",
+    "no_of_lots": "4",
+    "deadline": "",
+    "notes": "",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "created_by": "admin",
+    "created_at": "2026-04-17T16:56:44.996432+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69e5e07e3f656b01d8dece2a"
+    },
+    "id": "808257d6-2053-410c-a78c-48e61b97d032",
+    "dc_number": "8789452",
+    "date": "2026-04-20",
+    "quantity_qntl": 1740.0,
+    "rice_type": "raw",
+    "godown_name": "",
+    "depot_name": "FSD",
+    "depot_code": "1234566",
+    "delivery_to": "FCI",
+    "no_of_lots": "6",
+    "deadline": "",
+    "notes": "",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "created_by": "admin",
+    "created_at": "2026-04-20T08:14:54.229154+00:00"
+  }
+]

@@ -1,0 +1,105 @@
+[
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b79"
+    },
+    "entry_id": "34f64d6a-9f7f-447b-8996-f206ae6a8fc0",
+    "paid_amount": 11968.0,
+    "payments_history": [
+      {
+        "amount": 11968.0,
+        "date": "2026-03-22T18:10:15.655441+00:00",
+        "note": "",
+        "by": "admin"
+      }
+    ],
+    "updated_at": "2026-03-22T18:10:15.655473+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ddfbe67edd03406d93a367"
+    },
+    "entry_id": "2f89f1aa-18a",
+    "truck_no": "OD02AB1234",
+    "date": "2026-04-13",
+    "cash_taken": 0,
+    "diesel_taken": 1000.0,
+    "gross_amount": 0,
+    "deductions": 1000.0,
+    "net_amount": 0,
+    "paid_amount": 0,
+    "balance_amount": 0,
+    "status": "pending",
+    "source": "BP Sale",
+    "description": "Rice Bran #1 - Gayatri Agro",
+    "reference": "bp_sale_truck:2f89f1aa-18a",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "created_by": "admin",
+    "created_at": "2026-04-14T08:33:42.328184+00:00",
+    "updated_at": "2026-04-14T08:33:42.328184+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ee0cb032662f5e19786c55"
+    },
+    "entry_id": "08b9362c-d04e-4e99-a1d9-cc33e6ee03b3",
+    "rate_per_qntl": 25.0,
+    "updated_at": "2026-04-30T17:08:55.674939+00:00",
+    "paid_amount": 250.0,
+    "payments_history": [
+      {
+        "amount": 250.0,
+        "date": "2026-04-30T17:08:55.674907+00:00",
+        "note": "Full payment - marked as paid",
+        "by": "admin"
+      }
+    ],
+    "status": "paid"
+  },
+  {
+    "_id": {
+      "$oid": "69ee0cc532662f5e19786c63"
+    },
+    "entry_id": "a8727ae4-6711-428d-af79-27b1c97d8466",
+    "rate_per_qntl": 20.0,
+    "updated_at": "2026-04-26T13:02:10.760947+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ee0ce532662f5e19786c79"
+    },
+    "entry_id": "e6949ed6-e411-4813-a622-df7577ad2c5e",
+    "rate_per_qntl": 0.0,
+    "updated_at": "2026-04-29T08:29:02.084938+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f38c7bc162b44a43d8c4b4"
+    },
+    "entry_id": "15e851d1-68e5-4ab2-ae7d-81c07b430dfb",
+    "paid_amount": 0.0,
+    "payments_history": [
+      {
+        "amount": 0.0,
+        "date": "2026-04-30T17:08:11.085337+00:00",
+        "note": "Full payment - marked as paid",
+        "by": "admin"
+      },
+      {
+        "amount": 0.0,
+        "date": "2026-04-30T17:08:33.003598+00:00",
+        "note": "Full payment - marked as paid",
+        "by": "admin"
+      },
+      {
+        "amount": 0,
+        "date": "2026-04-30T17:08:40.856564+00:00",
+        "note": "Owner Mark Paid (Full)",
+        "by": "admin"
+      }
+    ],
+    "status": "paid",
+    "updated_at": "2026-04-30T17:08:40.856594+00:00"
+  }
+]

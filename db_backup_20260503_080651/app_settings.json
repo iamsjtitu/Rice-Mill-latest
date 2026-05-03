@@ -1,0 +1,78 @@
+[
+  {
+    "_id": {
+      "$oid": "69d94b2e1fd84f8128279efd"
+    },
+    "setting_id": "watermark",
+    "enabled": true,
+    "image_path": "",
+    "opacity": 0.08,
+    "text": "NAVKAR AGRO",
+    "type": "text",
+    "updated_at": "2026-04-14T18:13:40.908665+00:00",
+    "updated_by": "",
+    "font_size": 20,
+    "rotation": 18
+  },
+  {
+    "_id": {
+      "$oid": "69e0a4953a6b14db2d381e2a"
+    },
+    "setting_id": "weighbridge_host",
+    "updated_at": "2026-04-18T18:47:11.016002+00:00",
+    "value": ""
+  },
+  {
+    "_id": {
+      "$oid": "69e134503a6b14db2d385da1"
+    },
+    "setting_id": "govt_links",
+    "updated_at": "2026-04-16T19:11:12.970641+00:00",
+    "value": [
+      {
+        "name": "Food Portal",
+        "url": "https://portal.pdsodisha.gov.in/",
+        "username": "test",
+        "password": "pass123",
+        "id": "c2d42a82-13ac-49a1-b246-8f8a542ea4a8",
+        "order": 0
+      }
+    ]
+  },
+  {
+    "_id": {
+      "$oid": "69e4792fb7d7e7608849b6fe"
+    },
+    "setting_id": "verification_meter",
+    "electricity_kv": 300.0,
+    "electricity_kw": 400.0,
+    "last_meter_reading": 20784.0,
+    "last_verification_date": "2026-04-20",
+    "milling_capacity_mt": 10.0,
+    "rice_recovery": 0.67,
+    "units_per_qtl": 6.0,
+    "updated_at": "2026-04-26T14:21:17.885497+00:00",
+    "variety": "Raw",
+    "whatsapp_group_link": "",
+    "whatsapp_number": ""
+  },
+  {
+    "_id": {
+      "$oid": "69ee3d5432662f5e19789187"
+    },
+    "setting_id": "letter_pad",
+    "signature_designation": "Proprietor",
+    "signature_name": "Aditya Jain",
+    "updated_at": "2026-04-27T08:19:08.299067",
+    "ai_enabled": false,
+    "ai_provider": "gemini",
+    "gemini_key": "AIzaSyAW4a-ZOIf6uxodUCV9_AKLh0P18PZphZ4",
+    "address": "Laitara Road, Jolko , Kesinga - 766012",
+    "email": "navkaragrokes@gmail.com",
+    "gstin": "21AAXFN4703C1ZI",
+    "license_number": "",
+    "phone": "7205930002",
+    "phone_secondary": "9769353159",
+    "header_text": "\u0965 \u0936\u094d\u0930\u0940 \u0965"
+  }
+]

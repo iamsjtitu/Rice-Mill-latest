@@ -1,0 +1,58 @@
+[
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b4d"
+    },
+    "id": "ce32554b-7f98-4be9-b126-6fb95ea5dfb1",
+    "dc_id": "fe51a22f-fb5f-41ed-995a-f37375ca7320",
+    "date": "2026-03-25",
+    "quantity_qntl": 20.0,
+    "vehicle_no": "",
+    "driver_name": "",
+    "slip_no": "",
+    "godown_name": "",
+    "invoice_no": "",
+    "rst_no": "",
+    "bags_used": 0,
+    "cash_paid": 0,
+    "diesel_paid": 0,
+    "eway_bill_no": "",
+    "cgst_amount": 0,
+    "sgst_amount": 0,
+    "notes": "",
+    "kms_year": "2025-26",
+    "season": "kharif",
+    "created_by": "",
+    "created_at": "2026-03-25T09:30:52.330302+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69e27da1f6193a0f4fca67b9"
+    },
+    "id": "4f2522f0-983b-4efa-bacd-35d16e3c8bef",
+    "dc_id": "89c83346-c319-422a-84d0-0d9fba6c45a0",
+    "date": "2026-04-17",
+    "quantity_qntl": 290.0,
+    "vehicle_no": "OD19F29002 / OD19F29003",
+    "driver_name": "JAGA / LAMBU",
+    "slip_no": "10 / 11",
+    "godown_name": "",
+    "invoice_no": "",
+    "rst_no": "10 / 11",
+    "bags_used": 580,
+    "cash_paid": 0.0,
+    "diesel_paid": 0.0,
+    "depot_expenses": 0.0,
+    "contract_no": "02",
+    "fci_lot_no": "1",
+    "party_name": "OSCSC LTD",
+    "eway_bill_no": "",
+    "cgst_amount": 0,
+    "sgst_amount": 0,
+    "notes": "",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "created_by": "admin",
+    "created_at": "2026-04-17T18:36:17.219628+00:00"
+  }
+]

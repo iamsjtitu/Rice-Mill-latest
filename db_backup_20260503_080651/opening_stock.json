@@ -1,0 +1,90 @@
+[
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b6c"
+    },
+    "kms_year": "2025-2026",
+    "financial_year": "2025-2026",
+    "stocks": {
+      "paddy": 1000.0,
+      "rice_usna": 500.0,
+      "rice_raw": 200.0,
+      "bran": 50.0,
+      "kunda": 30.0,
+      "broken": 20.0,
+      "kanki": 10.0,
+      "husk": 100.0,
+      "frk": 25.0
+    },
+    "updated_at": "2026-04-01T15:18:16.262177+00:00",
+    "updated_by": "admin",
+    "auto_carried": true,
+    "carried_from": "2024-2025"
+  },
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b6d"
+    },
+    "kms_year": "2024-2025",
+    "financial_year": "2024-2025",
+    "stocks": {
+      "paddy": 1000.0,
+      "rice_usna": 500.0,
+      "rice_raw": 200.0,
+      "bran": 50.0,
+      "kunda": 30.0,
+      "broken": 20.0,
+      "kanki": 10.0,
+      "husk": 100.0,
+      "frk": 25.0
+    },
+    "updated_at": "2026-04-01T15:18:16.784179+00:00",
+    "updated_by": "admin"
+  },
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b6e"
+    },
+    "kms_year": "2026-2027",
+    "auto_carried": true,
+    "carried_from": "2025-2026",
+    "financial_year": "",
+    "stocks": {
+      "poll": 0,
+      "rice_raw": 0.0,
+      "kanki": 2.0,
+      "rejection_rice": 0,
+      "husk": 0.0,
+      "pin_broken_rice": 0,
+      "broken": 0.0,
+      "kunda": 0.0,
+      "bran": 0.0,
+      "rice_usna": 0.0,
+      "frk": 0.0,
+      "paddy": 28000.0
+    },
+    "updated_at": "2026-04-14T09:53:20.220426+00:00",
+    "updated_by": "admin"
+  },
+  {
+    "_id": {
+      "$oid": "69dc7ae2a148a184fc7bc96f"
+    },
+    "kms_year": "2025-26",
+    "financial_year": "",
+    "stocks": {
+      "broken": 0,
+      "husk": 0,
+      "paddy": 0,
+      "frk": 0,
+      "kanki": 0,
+      "kunda": 0,
+      "rice_raw": 0,
+      "rejection_rice": 0,
+      "bran": 0,
+      "rice_usna": 0
+    },
+    "updated_at": "2026-04-13T05:14:54.533308+00:00",
+    "updated_by": "admin"
+  }
+]

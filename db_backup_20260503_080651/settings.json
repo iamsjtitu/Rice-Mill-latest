@@ -1,0 +1,116 @@
+[
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b77"
+    },
+    "key": "branding",
+    "address": "Test Address",
+    "company_name": "NAVKAR AGRO",
+    "custom_fields": [],
+    "gstin": "12ABCDE3456F",
+    "phone": "9876543210",
+    "tagline": "JOLKO, KESINGA",
+    "mill_code": "M150841"
+  },
+  {
+    "_id": {
+      "$oid": "69c7e5c1e8060260ea4d852e"
+    },
+    "key": "whatsapp",
+    "api_key": "wa9x_l5XeEJrPokgvIAyNeN1tY1Ob1e_PZDme2LTBquzmNRk",
+    "country_code": "91",
+    "enabled": true,
+    "default_numbers": [
+      "7205930002"
+    ],
+    "group_id": "",
+    "default_group_id": "120363424861931093@g.us",
+    "default_group_name": "Navkar Agro",
+    "group_schedule_enabled": false,
+    "group_schedule_time": "",
+    "wa_provider": "wa9x"
+  },
+  {
+    "_id": {
+      "$oid": "69c925ae22f38253f34ce28e"
+    },
+    "key": "gst_company",
+    "address": "Test Address, Odisha",
+    "bank_account": "1234567890",
+    "bank_ifsc": "TEST0001234",
+    "bank_name": "Test Bank",
+    "company_name": "TEST_GST_Company_a42df512",
+    "gstin": "21AAAAA0000A1Z5",
+    "phone": "9876543210",
+    "state_code": "21",
+    "state_name": "Odisha"
+  },
+  {
+    "_id": {
+      "$oid": "69ca6c3870445bedbccd912b"
+    },
+    "key": "auto_vw_messaging",
+    "enabled": true,
+    "tg_chat_ids": [
+      {
+        "name": "Test Owner",
+        "chat_id": "-1001234567890"
+      },
+      {
+        "name": "Test Group",
+        "chat_id": "-1009876543210"
+      }
+    ],
+    "wa_group_id": "120363424861931093@g.us",
+    "wa_group_name": "Navkar Agro"
+  },
+  {
+    "_id": {
+      "$oid": "69cac3161042da1eff4cf45e"
+    },
+    "key": "image_cleanup",
+    "days": 30
+  },
+  {
+    "_id": {
+      "$oid": "69d6739670450650be3a0adc"
+    },
+    "key": "manual_rst_edit",
+    "enabled": true
+  },
+  {
+    "_id": {
+      "$oid": "69d69fbb70450650be3a23a5"
+    },
+    "key": "camera_config",
+    "value": {
+      "frontId": "",
+      "sideId": "/xtpm0T3OR0IdzhPk6TSDAb0v2/BgqmQBAYKyP4lQZQ="
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69d6a06870450650be3a2405"
+    },
+    "key": "mandi_cutting_map",
+    "value": {
+      "balangir": 2.5
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69d7aca6795592f3d987ac6d"
+    },
+    "key": "vw_date_lock",
+    "locked": false
+  },
+  {
+    "_id": {
+      "$oid": "69f1940716a2e9978bde1c32"
+    },
+    "key": "edit_window",
+    "enabled": false,
+    "updated_at": "2026-04-29T14:13:11.300759+00:00",
+    "duration_minutes": 5
+  }
+]

@@ -1,0 +1,13 @@
+[
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978afd"
+    },
+    "company_name": "NAVKAR AGRO",
+    "tagline": "JOLKO, KESINGA",
+    "updated_at": "2026-04-17T18:10:59.430433+00:00",
+    "updated_by": "admin",
+    "custom_fields": [],
+    "mill_code": "M150841"
+  }
+]

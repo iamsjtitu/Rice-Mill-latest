@@ -1,0 +1,19 @@
+[
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b57"
+    },
+    "id": "84c46c73-51eb-4041-a4a0-c8dee40138f5",
+    "date": "2026-03-25",
+    "party_name": "TestFRKSeller",
+    "quantity_qntl": 10.0,
+    "rate_per_qntl": 2800.0,
+    "total_amount": 28000.0,
+    "note": "",
+    "kms_year": "2025-26",
+    "season": "kharif",
+    "created_by": "",
+    "created_at": "2026-03-25T09:31:23.940577+00:00",
+    "updated_at": "2026-03-25T09:31:23.940587+00:00"
+  }
+]

@@ -1,0 +1,21 @@
+[
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b6b"
+    },
+    "id": "40070985-b861-4d19-ac93-4f16349bd085",
+    "date": "2026-03-25",
+    "dc_id": "fe51a22f-fb5f-41ed-995a-f37375ca7320",
+    "amount": 46000.0,
+    "quantity_qntl": 20.0,
+    "rate_per_qntl": 2300.0,
+    "payment_mode": "bank",
+    "reference": "",
+    "bank_name": "SBI",
+    "notes": "",
+    "kms_year": "2025-26",
+    "season": "kharif",
+    "created_by": "",
+    "created_at": "2026-03-25T09:30:52.436303+00:00"
+  }
+]

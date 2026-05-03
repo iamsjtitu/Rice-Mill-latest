@@ -1,0 +1,346 @@
+[
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b61"
+    },
+    "id": "c0d40002-f607-4365-866f-dc1b434bf1d6",
+    "date": "2026-03-17",
+    "party_name": "Hemali Payment",
+    "txn_type": "debit",
+    "amount": 1225.0,
+    "description": "Rajesh - Paddy Unload x200.0, Gummy Load x250.0 | Total: Rs.1225",
+    "reference": "hemali_debit:3ca6fc2c-5890-44dc-9033-755b8457dba5",
+    "source_type": "hemali",
+    "kms_year": "2025-2026",
+    "season": "",
+    "created_by": "admin",
+    "created_at": "2026-03-17T08:24:56.972290+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b62"
+    },
+    "id": "74645737-ef1a-4a77-8807-f941d284cbb6",
+    "date": "2026-03-17",
+    "party_name": "Hemali Payment",
+    "txn_type": "payment",
+    "amount": 1225.0,
+    "description": "Rajesh - Paid Rs.1225",
+    "reference": "hemali_paid:3ca6fc2c-5890-44dc-9033-755b8457dba5",
+    "source_type": "hemali",
+    "kms_year": "2025-2026",
+    "season": "",
+    "created_by": "admin",
+    "created_at": "2026-03-17T08:24:57.836838+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b63"
+    },
+    "id": "27f72533-c479-4621-aaa5-092605b79842",
+    "date": "2026-03-25",
+    "party_name": "TestSaleBuyer",
+    "txn_type": "debit",
+    "amount": 35000.0,
+    "description": "Sale #1 - Raw Rice",
+    "source_type": "sale_voucher",
+    "reference": "sale_voucher:3ee7b398-0c56-4e4e-a151-00285d1cefe1",
+    "kms_year": "2025-26",
+    "season": "",
+    "created_by": "",
+    "created_at": "2026-03-25T09:31:06.433882+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b64"
+    },
+    "id": "8adc8596-8be5-49da-bd1d-7bc4a4a71434",
+    "date": "2026-03-25",
+    "party_name": "TestSeller",
+    "txn_type": "debit",
+    "amount": 5000.0,
+    "description": "Purchase #1 - Gunny Bags",
+    "source_type": "purchase_voucher",
+    "reference": "purchase_voucher:e5a62d62-d132-4b82-b90d-462a67003099",
+    "kms_year": "2025-26",
+    "season": "",
+    "created_by": "",
+    "created_at": "2026-03-25T09:31:06.542455+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b65"
+    },
+    "id": "ffd5970f-e934-43ef-9917-8b3d4c86a463",
+    "date": "2026-03-25",
+    "party_name": "Government Supply",
+    "txn_type": "debit",
+    "amount": 2500.0,
+    "description": "Gunny Bags x100 @ Rs.25.0",
+    "source_type": "gunny_bag",
+    "reference": "gunny_purchase:e7b79ac7-17b4-45e3-8338-a38a831be65b",
+    "kms_year": "2025-26",
+    "season": "kharif",
+    "created_by": "",
+    "created_at": "2026-03-25T09:31:23.731057+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69c7e23b41bebaf5f1978b66"
+    },
+    "id": "1d9b0a18-4fb4-4fc7-874a-3e729ec8b505",
+    "date": "2026-03-25",
+    "party_name": "TestSaleBuyer",
+    "txn_type": "payment",
+    "amount": 15000.0,
+    "description": "Payment received - Sale #1",
+    "source_type": "sale_voucher_payment",
+    "reference": "voucher_payment:2cd121ff-0c0a-4556-b572-32f209992943",
+    "kms_year": "2025-26",
+    "season": "",
+    "created_by": "system",
+    "created_at": "2026-03-25T09:35:56.373738+00:00",
+    "updated_at": "2026-03-25T09:35:56.373738+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69c92d7f31e8326a413c9f30"
+    },
+    "id": "599a9e69-40e9-4fbb-bd99-c70f05122d31",
+    "date": "2026-03-29",
+    "party_name": "Rajan",
+    "txn_type": "debit",
+    "amount": 262500.0,
+    "description": "Sale #3 - Rice (Raw) | Inv:INV-2021/123",
+    "source_type": "sale_voucher",
+    "reference": "sale_voucher:2827d469-7907-4cca-9b5a-49e8af594116",
+    "kms_year": "2025-2026",
+    "season": "Kharif",
+    "created_by": "admin",
+    "created_at": "2026-03-29T13:47:43.726266+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ddfbe67edd03406d93a36b"
+    },
+    "id": "7474a07e-6b2f-4fe2-ac91-6bc5ad104c98",
+    "date": "2026-04-13",
+    "party_name": "Gayatri Agro",
+    "txn_type": "debit",
+    "amount": 395488.8,
+    "description": "Rice Bran Sale #1",
+    "source_type": "bp_sale",
+    "reference": "bp_sale:2f89f1aa-18a",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "created_by": "admin",
+    "created_at": "2026-04-14T08:33:42.328184+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69e5e27b3f656b01d8dece2d"
+    },
+    "id": "60156b08-353b-4a22-834f-c918249d29d1",
+    "date": "2026-04-20",
+    "party_name": "Hemali Payment",
+    "txn_type": "debit",
+    "amount": 925.0,
+    "description": "Vijay - Paddy Unload x100.0, Gummy Load x250.0 | Total: Rs.925",
+    "reference": "hemali_debit:889b8cc2-7d29-4607-86d8-ce6432f9028a",
+    "source_type": "hemali",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "created_by": "admin",
+    "created_at": "2026-04-20T08:23:23.907838+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ebbe7000ac8e61be9f058e"
+    },
+    "id": "ea4a1da7-4840-4024-be98-e0a875272326",
+    "date": "2026-02-15",
+    "party_name": "Hemali Payment",
+    "txn_type": "debit",
+    "amount": 500.0,
+    "description": "Test Sardar - Loading x50.0 | Total: Rs.500",
+    "reference": "hemali_debit:0912b7d6-a3d5-43d4-b837-65f24aaf1168",
+    "source_type": "hemali",
+    "kms_year": "2025-2026",
+    "season": "Kharif",
+    "created_by": "",
+    "created_at": "2026-04-24T19:03:12.301801+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69ebbe7000ac8e61be9f0590"
+    },
+    "id": "f1346426-e898-430e-9adb-666f0cea559d",
+    "date": "2026-03-10",
+    "party_name": "Hemali Payment",
+    "txn_type": "debit",
+    "amount": 100.0,
+    "description": "Test Sardar 2 - Loading x20.0 | Total: Rs.100",
+    "reference": "hemali_debit:14d7e094-9c89-4211-b9c1-1e6f9b13879b",
+    "source_type": "hemali",
+    "kms_year": "2025-2026",
+    "season": "Kharif",
+    "created_by": "",
+    "created_at": "2026-04-24T19:03:12.499351+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f23259a983429567dd57db"
+    },
+    "id": "61575cbb-e8af-4be4-8bfa-dff9f3ab28ec",
+    "date": "2026-04-29",
+    "party_name": "Cash Test Agent (PKA)",
+    "txn_type": "debit",
+    "amount": 325500.0,
+    "description": "Rice Bran Sale # - Pakka (GST Bill)",
+    "source_type": "bp_sale_pka",
+    "reference": "bp_sale_pka:e5bf489e-10b",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "created_by": "admin",
+    "created_at": "2026-04-29T16:31:21.803506+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f23259a983429567dd57dc"
+    },
+    "id": "9dfd9fec-f55b-439f-b670-84f8e4259f60",
+    "date": "2026-04-29",
+    "party_name": "Cash Test Agent (KCA)",
+    "txn_type": "debit",
+    "amount": 295963.0,
+    "description": "Rice Bran Sale # - Kaccha (Slip)",
+    "source_type": "bp_sale_ka",
+    "reference": "bp_sale_ka:e5bf489e-10b",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "created_by": "admin",
+    "created_at": "2026-04-29T16:31:21.803506+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f23fa6f85f6ddc3182953e"
+    },
+    "id": "8e99bd54-0f09-49ad-aa69-a52449708042",
+    "date": "2026-04-13",
+    "party_name": "Gayatri Agro (KCA)",
+    "txn_type": "debit",
+    "amount": 8437.09,
+    "description": "Lab Test Bonus (+0.56%) - Voucher #1",
+    "source_type": "bp_sale_ka_oil_premium",
+    "reference": "oil_premium:b7e020ec-922",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "created_by": "system",
+    "created_at": "2026-04-29T17:28:06.007770+00:00",
+    "updated_at": "2026-04-29T17:28:06.007770+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f23fa6f85f6ddc31829540"
+    },
+    "id": "db6804e8-1197-4974-b8b2-ab2b8820df15",
+    "date": "2026-04-29",
+    "party_name": "Cash Test Agent (KCA)",
+    "txn_type": "payment",
+    "amount": 76086.68,
+    "description": "Lab Test Premium (-3.0%) - Voucher #2",
+    "source_type": "bp_sale_ka_oil_premium",
+    "reference": "oil_premium:fa0b65e2-3aa",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "created_by": "system",
+    "created_at": "2026-04-29T17:28:06.008980+00:00",
+    "updated_at": "2026-04-29T17:28:06.008980+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f23fa6f85f6ddc31829542"
+    },
+    "id": "69730f8d-ba1b-4f18-83bc-98978e2c0291",
+    "date": "2026-04-29",
+    "party_name": "MBOPL (KCA)",
+    "txn_type": "payment",
+    "amount": 77195.45,
+    "description": "Lab Test Premium (-3.06%) - Voucher #7",
+    "source_type": "bp_sale_ka_oil_premium",
+    "reference": "oil_premium:8739ab1f-437",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "created_by": "system",
+    "created_at": "2026-04-29T17:28:06.010024+00:00",
+    "updated_at": "2026-04-29T17:28:06.010024+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f3788eb5631d0525820b9d"
+    },
+    "id": "c8919843-94fa-4f0c-8775-f79b80858f06",
+    "date": "2026-04-29",
+    "party_name": "MBOPL (PKA)",
+    "txn_type": "debit",
+    "amount": 315000.0,
+    "description": "Rice Bran Sale #e22f4323 - Pakka (GST Bill)",
+    "source_type": "bp_sale_pka",
+    "reference": "bp_sale_pka:e22f4323-dfe",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "created_by": "admin",
+    "created_at": "2026-04-30T15:43:10.212176+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f3788eb5631d0525820b9e"
+    },
+    "id": "6bafcb11-2bbb-4707-b52f-1e7c5020f2c9",
+    "date": "2026-04-29",
+    "party_name": "MBOPL (KCA)",
+    "txn_type": "debit",
+    "amount": 185000.0,
+    "description": "Rice Bran Sale #e22f4323 - Kaccha (Slip)",
+    "source_type": "bp_sale_ka",
+    "reference": "bp_sale_ka:e22f4323-dfe",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "created_by": "admin",
+    "created_at": "2026-04-30T15:43:10.212176+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f6ec743f9e209753955549"
+    },
+    "id": "f258dcee-802f-4f7e-90be-da74c8085350",
+    "date": "2026-05-03",
+    "party_name": "MBOPL (PKA)",
+    "txn_type": "debit",
+    "amount": 315000.0,
+    "description": "Rice Bran Sale #S-006 - Pakka (GST Bill)",
+    "source_type": "bp_sale_pka",
+    "reference": "bp_sale_pka:a16a2969-965",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "created_by": "admin",
+    "created_at": "2026-05-03T06:34:28.528996+00:00"
+  },
+  {
+    "_id": {
+      "$oid": "69f6ec743f9e20975395554a"
+    },
+    "id": "4fdd7c7b-5775-4a35-87c4-033b819d2d85",
+    "date": "2026-05-03",
+    "party_name": "MBOPL (KCA)",
+    "txn_type": "debit",
+    "amount": 185000.0,
+    "description": "Rice Bran Sale #S-006 - Kaccha (Slip)",
+    "source_type": "bp_sale_ka",
+    "reference": "bp_sale_ka:a16a2969-965",
+    "kms_year": "2026-2027",
+    "season": "Kharif",
+    "created_by": "admin",
+    "created_at": "2026-05-03T06:34:28.528996+00:00"
+  }
+]
