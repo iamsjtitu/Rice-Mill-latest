@@ -582,35 +582,35 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       {s.split_billing && <span className="ml-1 text-[9px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold" title={`Pakka: ${(s.billed_weight_kg||0)}kg · Kaccha: ${(s.kaccha_weight_kg||0)}kg`}>SPLIT</span>}
                     </TableCell>
                     <TableCell className="text-slate-300 text-[10px] px-2 whitespace-nowrap">{s.destination}</TableCell>
-                    <TableCell className="text-blue-300 text-[10px] px-2 text-right">{s.net_weight_kg}</TableCell>
-                    <TableCell className="text-slate-300 text-[10px] px-2 text-right">{s.bags}</TableCell>
-                    <TableCell className="text-slate-300 text-[10px] px-2 text-right">
+                    <TableCell className="text-blue-700 dark:text-blue-300 text-[10px] px-2 text-right">{s.net_weight_kg}</TableCell>
+                    <TableCell className="text-slate-700 dark:text-slate-300 text-[10px] px-2 text-right">{s.bags}</TableCell>
+                    <TableCell className="text-slate-700 dark:text-slate-300 text-[10px] px-2 text-right">
                       {s.split_billing && s._view_mode !== "PKA" && s._view_mode !== "KCA" ? (
                         <div className="flex flex-col items-end leading-tight">
-                          <span className="text-emerald-400" title="Pakka rate">{s.rate_per_qtl}</span>
-                          <span className="text-rose-400" title="Kaccha rate">{s.kaccha_rate_per_qtl || s.rate_per_qtl}</span>
+                          <span className="text-emerald-700 dark:text-emerald-400" title="Pakka rate">{s.rate_per_qtl}</span>
+                          <span className="text-rose-700 dark:text-rose-400" title="Kaccha rate">{s.kaccha_rate_per_qtl || s.rate_per_qtl}</span>
                         </div>
                       ) : (s._view_mode === "KCA" ? (s.kaccha_rate_per_qtl || s.rate_per_qtl) : s.rate_per_qtl)}
                     </TableCell>
                     <TableCell className="text-[10px] px-2 text-right whitespace-nowrap">
-                      {/* v104.44.49 — Smart amount cell respects _view_mode */}
+                      {/* v104.44.50 — Mode-aware amount + light/dark color contrast */}
                       {s._view_mode === "PKA" ? (
-                        <span className="text-emerald-400">{(s.billed_amount || 0).toLocaleString()}</span>
+                        <span className="text-emerald-700 dark:text-emerald-400 font-semibold">{(s.billed_amount || 0).toLocaleString()}</span>
                       ) : s._view_mode === "KCA" ? (
-                        <span className="text-rose-400">{(s.kaccha_amount || 0).toLocaleString()}</span>
+                        <span className="text-rose-700 dark:text-rose-400 font-semibold">{(s.kaccha_amount || 0).toLocaleString()}</span>
                       ) : s.split_billing ? (
                         <div className="flex flex-col items-end leading-tight" title={`Pakka ₹${(s.billed_amount||0).toLocaleString()} + Kaccha ₹${(s.kaccha_amount||0).toLocaleString()}`}>
-                          <span className="text-emerald-400">{(s.billed_amount || 0).toLocaleString()}</span>
-                          <span className="text-rose-400">{(s.kaccha_amount || 0).toLocaleString()}</span>
+                          <span className="text-emerald-700 dark:text-emerald-400 font-semibold">{(s.billed_amount || 0).toLocaleString()}</span>
+                          <span className="text-rose-700 dark:text-rose-400 font-semibold">{(s.kaccha_amount || 0).toLocaleString()}</span>
                         </div>
                       ) : (
-                        <span className="text-emerald-400">{(s.amount || 0).toLocaleString()}</span>
+                        <span className="text-emerald-700 dark:text-emerald-400 font-semibold">{(s.amount || 0).toLocaleString()}</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-amber-400 text-[10px] px-2 text-right whitespace-nowrap">
-                      {Number(s.tax_amount || 0) > 0 ? (s.tax_amount || 0).toLocaleString() : <span className="text-slate-600">—</span>}
+                    <TableCell className="text-[10px] px-2 text-right whitespace-nowrap">
+                      {Number(s.tax_amount || 0) > 0 ? <span className="text-amber-700 dark:text-amber-400 font-semibold">{(s.tax_amount || 0).toLocaleString()}</span> : <span className="text-slate-400 dark:text-slate-600">—</span>}
                     </TableCell>
-                    <TableCell className="text-emerald-400 text-[10px] px-2 text-right font-bold whitespace-nowrap">{(s.total || 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-emerald-700 dark:text-emerald-400 text-[10px] px-2 text-right font-bold whitespace-nowrap">{(s.total || 0).toLocaleString()}</TableCell>
                     <TableCell className={`text-[10px] px-2 text-right font-bold whitespace-nowrap ${(s.balance || 0) > 0 ? 'text-red-400' : 'text-green-400'}`}>{(s.balance || 0).toLocaleString()}</TableCell>
                     {hasAnyOilPremium && (() => {
                       const op = getOilPremium(s);

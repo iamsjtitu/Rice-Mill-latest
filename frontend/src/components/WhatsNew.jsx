@@ -7,6 +7,19 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.50",
+    date: "Feb 17, 2026",
+    title: "v104.44.50 — 🎨 Light Theme Color Contrast Fix",
+    items: [
+      { type: "fix", text: "🎨 **BP Sale Register me white theme me numbers clear nahi dikhte the** — Pichla code sirf dark mode (text-emerald-400, text-rose-400, text-amber-400) ke liye optimized tha. White theme me ye colors faded look karte the. Ab dark+light dono ke liye separate variants:" },
+      { type: "improvement", text: "  → 🟢 **Pakka amount/rate**: text-emerald-700 (light) / text-emerald-400 (dark)" },
+      { type: "improvement", text: "  → 🔴 **Kaccha amount/rate**: text-rose-700 (light) / text-rose-400 (dark)" },
+      { type: "improvement", text: "  → 🟡 **Tax**: text-amber-700 (light) / text-amber-400 (dark)" },
+      { type: "improvement", text: "  → 🔵 **N/W(kg), Bags, Total**: same dual-tone treatment" },
+      { type: "improvement", text: "✅ **font-semibold** added to amount/tax — readability boost. Total stays font-bold." },
+    ],
+  },
+  {
     version: "104.44.49",
     date: "Feb 17, 2026",
     title: "v104.44.49 — 💯 Tax Column + Mode-Aware Amount/Rate Display",
