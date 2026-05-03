@@ -11,10 +11,13 @@ module.exports = function(database) {
   router.get('/api/sale-book', safeHandler(async (req, res) => {
     ensure();
     let vouchers = [...database.data.sale_vouchers];
-    const { kms_year, season, search, item_category } = req.query;
+    const { kms_year, season, search, item_category, gst_filter } = req.query;
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
     if (season) vouchers = vouchers.filter(v => v.season === season);
     if (item_category) { const cat = item_category.toLowerCase(); vouchers = vouchers.filter(v => (v.items || []).some(i => (i.item_name || '').toLowerCase() === cat)); }
+    // v104.44.42 — PKA / KCA filter
+    if (gst_filter === 'PKA') vouchers = vouchers.filter(v => ['gst', 'cgst_sgst', 'igst'].includes(v.gst_type || ''));
+    else if (gst_filter === 'KCA') vouchers = vouchers.filter(v => (v.gst_type || 'none') === 'none');
     if (search) { const s = search.toLowerCase(); vouchers = vouchers.filter(v => (v.party_name || '').toLowerCase().includes(s) || (v.voucher_no || '').toLowerCase().includes(s) || (v.invoice_no || '').toLowerCase().includes(s) || (v.destination || '').toLowerCase().includes(s) || (v.bill_book || '').toLowerCase().includes(s)); }
     vouchers.sort((a, b) => (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10)));
     res.json(vouchers);
@@ -283,7 +286,7 @@ module.exports = function(database) {
     ensure();
     const { addPdfHeader, addPdfTable, addTotalsRow, fmtAmt, safePdfPipe, fmtDate, drawSummaryBanner, STAT_COLORS, fmtInr, applyConsolidatedExcelPolish} = require('./pdf_helpers');
     let vouchers = [...database.data.sale_vouchers];
-    const { kms_year, season, search, date_from, date_to, item_category, party_name } = req.query;
+    const { kms_year, season, search, date_from, date_to, item_category, party_name, gst_filter } = req.query;
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
     if (season) vouchers = vouchers.filter(v => v.season === season);
     // v104.44.40 — Date range + party + category + search filter for export
@@ -297,6 +300,9 @@ module.exports = function(database) {
       const pL = String(party_name).toLowerCase();
       vouchers = vouchers.filter(v => String(v.party_name || '').toLowerCase().includes(pL));
     }
+    // v104.44.42 — PKA / KCA filter
+    if (gst_filter === 'PKA') vouchers = vouchers.filter(v => ['gst', 'cgst_sgst', 'igst'].includes(v.gst_type || ''));
+    else if (gst_filter === 'KCA') vouchers = vouchers.filter(v => (v.gst_type || 'none') === 'none');
     if (search) {
       const sL = String(search).toLowerCase();
       vouchers = vouchers.filter(v =>

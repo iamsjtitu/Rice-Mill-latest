@@ -197,7 +197,8 @@ async def get_stock_items(kms_year: Optional[str] = None, season: Optional[str] 
 async def get_sale_vouchers(kms_year: Optional[str] = None, season: Optional[str] = None,
                             party_name: Optional[str] = None, invoice_no: Optional[str] = None,
                             rst_no: Optional[str] = None, search: Optional[str] = None,
-                            item_category: Optional[str] = None):
+                            item_category: Optional[str] = None,
+                            gst_filter: Optional[str] = None):
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
@@ -206,6 +207,11 @@ async def get_sale_vouchers(kms_year: Optional[str] = None, season: Optional[str
     if rst_no: query["rst_no"] = {"$regex": rst_no, "$options": "i"}
     if item_category:
         query["items.item_name"] = {"$regex": f"^{item_category}$", "$options": "i"}
+    # v104.44.42 — PKA (gst-applied) / KCA (no gst) filter
+    if gst_filter == "PKA":
+        query["gst_type"] = {"$in": ["gst", "cgst_sgst", "igst"]}
+    elif gst_filter == "KCA":
+        query["gst_type"] = "none"
     if search:
         query["$or"] = [
             {"party_name": {"$regex": search, "$options": "i"}},
@@ -515,7 +521,8 @@ async def update_sale_voucher(voucher_id: str, input: SaleVoucherCreate, usernam
 @router.get("/sale-book/export/pdf")
 async def export_sale_book_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None,
                                 date_from: Optional[str] = None, date_to: Optional[str] = None,
-                                item_category: Optional[str] = None, party_name: Optional[str] = None):
+                                item_category: Optional[str] = None, party_name: Optional[str] = None,
+                                gst_filter: Optional[str] = None):
     from fastapi.responses import Response
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
@@ -539,6 +546,11 @@ async def export_sale_book_pdf(kms_year: Optional[str] = None, season: Optional[
         query["items.item_name"] = {"$regex": f"^{_re.escape(item_category)}$", "$options": "i"}
     if party_name:
         query["party_name"] = {"$regex": party_name, "$options": "i"}
+    # v104.44.42 — PKA / KCA filter
+    if gst_filter == "PKA":
+        query["gst_type"] = {"$in": ["gst", "cgst_sgst", "igst"]}
+    elif gst_filter == "KCA":
+        query["gst_type"] = "none"
     if search:
         query["$or"] = [
             {"party_name": {"$regex": search, "$options": "i"}},
@@ -705,6 +717,11 @@ async def export_sale_book_excel(kms_year: Optional[str] = None, season: Optiona
         query["items.item_name"] = {"$regex": f"^{_re.escape(item_category)}$", "$options": "i"}
     if party_name:
         query["party_name"] = {"$regex": party_name, "$options": "i"}
+    # v104.44.42 — PKA / KCA filter
+    if gst_filter == "PKA":
+        query["gst_type"] = {"$in": ["gst", "cgst_sgst", "igst"]}
+    elif gst_filter == "KCA":
+        query["gst_type"] = "none"
     if search:
         query["$or"] = [
             {"party_name": {"$regex": search, "$options": "i"}},

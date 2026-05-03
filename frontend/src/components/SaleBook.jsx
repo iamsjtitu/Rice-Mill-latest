@@ -55,6 +55,8 @@ export default function SaleBook({ filters, user, category }) {
   const [obForm, setObForm] = useState({ party_name: "", party_type: "Cash Party", amount: "", balance_type: "jama", note: "" });
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
+  // v104.44.42 — Sub-tab filter: ALL | PKA (gst) | KCA (none)
+  const [gstFilter, setGstFilter] = useState("ALL");
   const [payDialog, setPayDialog] = useState(null);
   const [payAmount, setPayAmount] = useState("");
   const [payNotes, setPayNotes] = useState("");
@@ -102,6 +104,8 @@ export default function SaleBook({ filters, user, category }) {
     if (filters.party_name) params.append('party_name', filters.party_name);
     if (category) params.append('item_category', category);
     if (searchQuery) params.append('search', searchQuery);
+    // v104.44.42 — PKA / KCA sub-tab filter (backend supports gst_filter)
+    if (gstFilter && gstFilter !== "ALL") params.append('gst_filter', gstFilter);
     return params;
   };
   const p = `kms_year=${filters.kms_year || ''}`;
@@ -110,8 +114,10 @@ export default function SaleBook({ filters, user, category }) {
     try {
       const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
       const catParam = category ? `&item_category=${encodeURIComponent(category)}` : '';
+      // v104.44.42 — PKA/KCA filter param
+      const gstParam = (gstFilter && gstFilter !== "ALL") ? `&gst_filter=${gstFilter}` : '';
       const [vRes, sRes, obRes, bRes] = await Promise.all([
-        axios.get(`${API}/sale-book?${p}${searchParam}${catParam}`),
+        axios.get(`${API}/sale-book?${p}${searchParam}${catParam}${gstParam}`),
         axios.get(`${API}/sale-book/stock-items?${p}`),
         axios.get(`${API}/opening-balances?kms_year=${filters.kms_year || ''}`),
         axios.get(`${API}/bank-accounts`),
@@ -121,7 +127,7 @@ export default function SaleBook({ filters, user, category }) {
       setObList(obRes.data);
       setBankAccounts(bRes.data || []);
     } catch (e) { logger.error(e); }
-  }, [p, filters.kms_year, searchQuery, category]);
+  }, [p, filters.kms_year, searchQuery, category, gstFilter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -474,6 +480,21 @@ export default function SaleBook({ filters, user, category }) {
             <Plus className="w-4 h-4 mr-1" /> New Sale
           </Button>
         </div>
+      </div>
+
+      {/* v104.44.42 — Sub-tab Filter: ALL | PKA (GST Pakka) | KCA (Kaccha) */}
+      <div className="flex gap-1 items-center bg-slate-800/40 p-1 rounded-md w-fit border border-slate-700" data-testid="sale-book-gst-tabs">
+        {[
+          { key: "ALL", label: "ALL", activeCls: "bg-amber-500 text-slate-900 shadow-sm", desc: "Sab vouchers" },
+          { key: "PKA", label: "PKA", activeCls: "bg-emerald-500 text-slate-900 shadow-sm", desc: "Pakka GST sales" },
+          { key: "KCA", label: "KCA", activeCls: "bg-rose-500 text-slate-900 shadow-sm", desc: "Kaccha sales" },
+        ].map(t => (
+          <button key={t.key} onClick={() => setGstFilter(t.key)} title={t.desc}
+            className={`px-4 py-1.5 text-xs font-semibold rounded transition-all ${gstFilter === t.key ? t.activeCls : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'}`}
+            data-testid={`sale-book-gst-tab-${t.key}`}>
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* Search Filter */}

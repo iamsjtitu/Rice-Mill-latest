@@ -83,10 +83,16 @@ module.exports = function(database) {
   router.get('/api/bp-sale-register', (req, res) => {
     ensure();
     let sales = [...database.data.bp_sale_register];
-    const { product, kms_year, season } = req.query;
+    const { product, kms_year, season, gst_filter } = req.query;
     if (product) sales = sales.filter(s => s.product === product);
     if (kms_year) sales = sales.filter(s => s.kms_year === kms_year);
     if (season) sales = sales.filter(s => s.season === season);
+    // v104.44.42 — PKA / KCA filter
+    if (gst_filter === 'PKA') {
+      sales = sales.filter(s => Number(s.billed_amount || 0) > 0 || Number(s.gst_percent || 0) > 0);
+    } else if (gst_filter === 'KCA') {
+      sales = sales.filter(s => Number(s.kaccha_amount || 0) > 0 || (Number(s.gst_percent || 0) === 0 && Number(s.billed_amount || 0) === 0));
+    }
     sales.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     res.json(sales);
   });
@@ -262,7 +268,7 @@ module.exports = function(database) {
       const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
       const { fmtDate, applyConsolidatedExcelPolish} = require('./pdf_helpers');
       let sales = [...database.data.bp_sale_register];
-      const { product, kms_year, season, date_from, date_to, billing_date_from, billing_date_to, rst_no, vehicle_no, bill_from, party_name, destination } = req.query;
+      const { product, kms_year, season, date_from, date_to, billing_date_from, billing_date_to, rst_no, vehicle_no, bill_from, party_name, destination, gst_filter } = req.query;
       if (product) sales = sales.filter(s => s.product === product);
       if (kms_year) sales = sales.filter(s => s.kms_year === kms_year);
       if (season) sales = sales.filter(s => s.season === season);
@@ -275,6 +281,9 @@ module.exports = function(database) {
       if (bill_from) sales = sales.filter(s => (s.bill_from||'').toLowerCase().includes(bill_from.toLowerCase()));
       if (party_name) sales = sales.filter(s => (s.party_name||'').toLowerCase().includes(party_name.toLowerCase()));
       if (destination) sales = sales.filter(s => (s.destination||'').toLowerCase().includes(destination.toLowerCase()));
+      // v104.44.42 — PKA / KCA filter
+      if (gst_filter === 'PKA') sales = sales.filter(s => Number(s.billed_amount || 0) > 0 || Number(s.gst_percent || 0) > 0);
+      else if (gst_filter === 'KCA') sales = sales.filter(s => Number(s.kaccha_amount || 0) > 0 || (Number(s.gst_percent || 0) === 0 && Number(s.billed_amount || 0) === 0));
       sales.sort((a,b) => (a.date||'').localeCompare(b.date||''));
 
       // Oil premium map for Rice Bran
@@ -358,7 +367,7 @@ module.exports = function(database) {
       const { addPdfHeader: _addPdfHeader, addPdfTable, safePdfPipe, fmtDate } = require('./pdf_helpers');
       const addPdfHeader = (doc, title) => _addPdfHeader(doc, title, database.getBranding ? database.getBranding() : {company_name:'Mill'});
       let sales = [...database.data.bp_sale_register];
-      const { product, kms_year, season, date_from, date_to, billing_date_from, billing_date_to, rst_no, vehicle_no, bill_from, party_name, destination } = req.query;
+      const { product, kms_year, season, date_from, date_to, billing_date_from, billing_date_to, rst_no, vehicle_no, bill_from, party_name, destination, gst_filter } = req.query;
       if (product) sales = sales.filter(s => s.product === product);
       if (kms_year) sales = sales.filter(s => s.kms_year === kms_year);
       if (season) sales = sales.filter(s => s.season === season);
@@ -371,6 +380,9 @@ module.exports = function(database) {
       if (bill_from) sales = sales.filter(s => (s.bill_from||'').toLowerCase().includes(bill_from.toLowerCase()));
       if (party_name) sales = sales.filter(s => (s.party_name||'').toLowerCase().includes(party_name.toLowerCase()));
       if (destination) sales = sales.filter(s => (s.destination||'').toLowerCase().includes(destination.toLowerCase()));
+      // v104.44.42 — PKA / KCA filter
+      if (gst_filter === 'PKA') sales = sales.filter(s => Number(s.billed_amount || 0) > 0 || Number(s.gst_percent || 0) > 0);
+      else if (gst_filter === 'KCA') sales = sales.filter(s => Number(s.kaccha_amount || 0) > 0 || (Number(s.gst_percent || 0) === 0 && Number(s.billed_amount || 0) === 0));
       sales.sort((a,b) => (a.date||'').localeCompare(b.date||''));
 
       // Oil premium map for Rice Bran

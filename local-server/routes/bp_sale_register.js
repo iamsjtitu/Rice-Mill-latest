@@ -83,14 +83,37 @@ module.exports = function(database) {
   router.get('/api/bp-sale-register', (req, res) => {
     ensure();
     let sales = [...database.data.bp_sale_register];
-    const { product, kms_year, season } = req.query;
+    const { product, kms_year, season, gst_filter } = req.query;
     if (product) sales = sales.filter(s => s.product === product);
     if (kms_year) sales = sales.filter(s => s.kms_year === kms_year);
     if (season) sales = sales.filter(s => s.season === season);
+    // v104.44.42 — PKA / KCA filter
+    if (gst_filter === 'PKA') {
+      sales = sales.filter(s => Number(s.billed_amount || 0) > 0 || Number(s.gst_percent || 0) > 0);
+    } else if (gst_filter === 'KCA') {
+      sales = sales.filter(s => Number(s.kaccha_amount || 0) > 0 || (Number(s.gst_percent || 0) === 0 && Number(s.billed_amount || 0) === 0));
+    }
     sales.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     res.json(sales);
   });
 
+  /**
+   * Calculate amount/tax/total based on billing mode.
+   *
+   * REGULAR (data.split_billing !== true):
+   *   amount = net_weight × rate (full weight taxed)
+   *   tax = amount × gst%
+   *   total = amount + tax
+   *
+   * SPLIT BILLING (data.split_billing === true):
+   *   User provides: billed_weight_kg (pakka, GST applies) + kaccha_weight_kg (no GST)
+   *   net_weight_kg = billed + kaccha (physical dispatch total)
+   *   billed_amount = billed_weight × rate   ← only this is GST-taxable
+   *   kaccha_amount = kaccha_weight × rate   ← non-taxable, cash slip
+   *   tax = billed_amount × gst%
+   *   total = billed_amount + tax + kaccha_amount  (full receivable)
+   *   amount field stores billed_amount for GST register compatibility
+   */
   function computeAmountsAndTax(data) {
     const rate = parseFloat(data.rate_per_qtl || 0);
     const kacchaRate = (data.kaccha_rate_per_qtl !== undefined && data.kaccha_rate_per_qtl !== null && data.kaccha_rate_per_qtl !== "" && parseFloat(data.kaccha_rate_per_qtl) > 0)
@@ -105,14 +128,14 @@ module.exports = function(database) {
       const kacchaQtl = +(kacchaKg / 100).toFixed(4);
       const billedAmt = +(billedQtl * rate).toFixed(2);
       const kacchaAmt = +(kacchaQtl * kacchaRate).toFixed(2);
-      data.net_weight_kg = +(billedKg + kacchaKg).toFixed(3);
+      data.net_weight_kg = +(billedKg + kacchaKg).toFixed(3); // sum for physical dispatch
       data.net_weight_qtl = +(billedQtl + kacchaQtl).toFixed(4);
       data.billed_weight_qtl = billedQtl;
       data.kaccha_weight_qtl = kacchaQtl;
       data.billed_amount = billedAmt;
       data.kaccha_amount = kacchaAmt;
       data.kaccha_rate_per_qtl = kacchaRate;
-      data.amount = billedAmt;
+      data.amount = billedAmt; // GST-taxable portion (field kept same name for register compatibility)
       const taxAmt = data.gst_percent ? +(billedAmt * parseFloat(data.gst_percent || 0) / 100).toFixed(2) : 0;
       data.tax_amount = taxAmt;
       data.total = +(billedAmt + taxAmt + kacchaAmt).toFixed(2);
@@ -122,6 +145,7 @@ module.exports = function(database) {
       const amount = +(nwQtl * rate).toFixed(2);
       data.net_weight_qtl = nwQtl;
       data.amount = amount;
+      // Clear split fields if toggled off
       data.billed_weight_kg = 0; data.billed_weight_qtl = 0; data.billed_amount = 0;
       data.kaccha_weight_kg = 0; data.kaccha_weight_qtl = 0; data.kaccha_amount = 0;
       data.kaccha_rate_per_qtl = 0;
@@ -244,7 +268,7 @@ module.exports = function(database) {
       const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
       const { fmtDate, applyConsolidatedExcelPolish} = require('./pdf_helpers');
       let sales = [...database.data.bp_sale_register];
-      const { product, kms_year, season, date_from, date_to, billing_date_from, billing_date_to, rst_no, vehicle_no, bill_from, party_name, destination } = req.query;
+      const { product, kms_year, season, date_from, date_to, billing_date_from, billing_date_to, rst_no, vehicle_no, bill_from, party_name, destination, gst_filter } = req.query;
       if (product) sales = sales.filter(s => s.product === product);
       if (kms_year) sales = sales.filter(s => s.kms_year === kms_year);
       if (season) sales = sales.filter(s => s.season === season);
@@ -257,6 +281,9 @@ module.exports = function(database) {
       if (bill_from) sales = sales.filter(s => (s.bill_from||'').toLowerCase().includes(bill_from.toLowerCase()));
       if (party_name) sales = sales.filter(s => (s.party_name||'').toLowerCase().includes(party_name.toLowerCase()));
       if (destination) sales = sales.filter(s => (s.destination||'').toLowerCase().includes(destination.toLowerCase()));
+      // v104.44.42 — PKA / KCA filter
+      if (gst_filter === 'PKA') sales = sales.filter(s => Number(s.billed_amount || 0) > 0 || Number(s.gst_percent || 0) > 0);
+      else if (gst_filter === 'KCA') sales = sales.filter(s => Number(s.kaccha_amount || 0) > 0 || (Number(s.gst_percent || 0) === 0 && Number(s.billed_amount || 0) === 0));
       sales.sort((a,b) => (a.date||'').localeCompare(b.date||''));
 
       // Oil premium map for Rice Bran
@@ -340,7 +367,7 @@ module.exports = function(database) {
       const { addPdfHeader: _addPdfHeader, addPdfTable, safePdfPipe, fmtDate } = require('./pdf_helpers');
       const addPdfHeader = (doc, title) => _addPdfHeader(doc, title, database.getBranding ? database.getBranding() : {company_name:'Mill'});
       let sales = [...database.data.bp_sale_register];
-      const { product, kms_year, season, date_from, date_to, billing_date_from, billing_date_to, rst_no, vehicle_no, bill_from, party_name, destination } = req.query;
+      const { product, kms_year, season, date_from, date_to, billing_date_from, billing_date_to, rst_no, vehicle_no, bill_from, party_name, destination, gst_filter } = req.query;
       if (product) sales = sales.filter(s => s.product === product);
       if (kms_year) sales = sales.filter(s => s.kms_year === kms_year);
       if (season) sales = sales.filter(s => s.season === season);
@@ -353,6 +380,9 @@ module.exports = function(database) {
       if (bill_from) sales = sales.filter(s => (s.bill_from||'').toLowerCase().includes(bill_from.toLowerCase()));
       if (party_name) sales = sales.filter(s => (s.party_name||'').toLowerCase().includes(party_name.toLowerCase()));
       if (destination) sales = sales.filter(s => (s.destination||'').toLowerCase().includes(destination.toLowerCase()));
+      // v104.44.42 — PKA / KCA filter
+      if (gst_filter === 'PKA') sales = sales.filter(s => Number(s.billed_amount || 0) > 0 || Number(s.gst_percent || 0) > 0);
+      else if (gst_filter === 'KCA') sales = sales.filter(s => Number(s.kaccha_amount || 0) > 0 || (Number(s.gst_percent || 0) === 0 && Number(s.billed_amount || 0) === 0));
       sales.sort((a,b) => (a.date||'').localeCompare(b.date||''));
 
       // Oil premium map for Rice Bran

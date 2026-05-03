@@ -44,6 +44,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [groupText, setGroupText] = useState("");
   const [groupPdfUrl, setGroupPdfUrl] = useState("");
+  // v104.44.42 — Sub-tab filter: ALL | PKA | KCA
+  const [gstFilter, setGstFilter] = useState("ALL");
   const [destSugg, setDestSugg] = useState([]);
   const [rstLoading, setRstLoading] = useState(false);
   const [oilPremiumMap, setOilPremiumMap] = useState({});
@@ -75,6 +77,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       if (product) params.append("product", product);
       if (filters.kms_year) params.append("kms_year", filters.kms_year);
       if (filters.season) params.append("season", filters.season);
+      // v104.44.42 — PKA / KCA filter
+      if (gstFilter && gstFilter !== "ALL") params.append("gst_filter", gstFilter);
       const stockParams = new URLSearchParams();
       if (filters.kms_year) stockParams.append("kms_year", filters.kms_year);
       if (filters.season) stockParams.append("season", filters.season);
@@ -103,7 +107,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
         setOilPremiumMap(map);
       }
     } catch (e) { logger.error(e); }
-  }, [product, productId, filters.kms_year, filters.season]);
+  }, [product, productId, filters.kms_year, filters.season, gstFilter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -325,6 +329,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
     const pName = f.party_name || filters.party_name || '';
     if (pName) params.append('party_name', pName);
     if (f.destination) params.append('destination', f.destination);
+    // v104.44.42 — PKA / KCA filter
+    if (gstFilter && gstFilter !== "ALL") params.append('gst_filter', gstFilter);
     return params;
   };
 
@@ -440,6 +446,21 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             <Plus className="w-4 h-4 mr-1" /> New Sale
           </Button>
         </div>
+      </div>
+
+      {/* v104.44.42 — Sub-tab Filter: ALL | PKA (with GST/Pakka portion) | KCA (Kaccha) */}
+      <div className="flex gap-1 items-center bg-slate-800/40 p-1 rounded-md w-fit border border-slate-700" data-testid="bp-gst-tabs">
+        {[
+          { key: "ALL", label: "ALL", activeCls: "bg-amber-500 text-slate-900 shadow-sm", desc: "Sab entries" },
+          { key: "PKA", label: "PKA", activeCls: "bg-emerald-500 text-slate-900 shadow-sm", desc: "Pakka GST sales (billed/GST > 0)" },
+          { key: "KCA", label: "KCA", activeCls: "bg-rose-500 text-slate-900 shadow-sm", desc: "Kaccha sales" },
+        ].map(t => (
+          <button key={t.key} onClick={() => setGstFilter(t.key)} title={t.desc}
+            className={`px-4 py-1.5 text-xs font-semibold rounded transition-all ${gstFilter === t.key ? t.activeCls : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'}`}
+            data-testid={`bp-gst-tab-${t.key}`}>
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* Filter Bar */}

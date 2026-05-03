@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.42",
+    date: "Feb 17, 2026",
+    title: "v104.44.42 — 🏷️ ALL/PKA/KCA Sub-Tabs in Sale Register",
+    items: [
+      { type: "feature", text: "🏷️ **3 sub-tabs har product me** — Sale Register me Sale Book (Pvt Rice / Govt Rice etc) + BP Sale Register (Rice Bran, Husk, Phak, Awan, Broken etc), sab me ab **ALL | PKA | KCA** sub-tabs aate hain. Default ALL pe khulta hai. Aur PKA pe click karne par sirf Pakka GST sales (gst_type='gst' ya billed_amount>0), KCA pe sirf Kaccha sales dikh jaate hain." },
+      { type: "feature", text: "🔄 **Split entries dono tabs me dikhte hain** — User example: MBOPL ko 150 qntl becha (100 pakka 5% GST + 50 kaccha) — split entry. Ab PKA tab me wo entry pakka portion ke saath dikhega, KCA tab me kaccha portion ke saath. Auto-split per `billed_amount`/`kaccha_amount` field." },
+      { type: "fix", text: "🐛 **Excel/PDF/WhatsApp/Group sub-tab ke hisab se** — Aap PKA tab pe ho aur Excel click karenge to sirf Pakka entries Excel me aayenge. KCA tab → sirf Kaccha. ALL → sab. Backend `gst_filter=PKA|KCA` query param accepts." },
+      { type: "feature", text: "🎨 **Color-coded tabs** — ALL=amber, PKA=emerald (green = GST/pakka), KCA=rose (kaccha). Compact pill design, single-row layout. data-testid: `sale-book-gst-tab-{ALL,PKA,KCA}` aur `bp-gst-tab-{ALL,PKA,KCA}`." },
+      { type: "improvement", text: "🔧 **Triple-backend parity** — Python + Node Desktop + Node LAN, sab me `gst_filter` param consistent (Sale Book + BP Sale Register both)." },
+    ],
+  },
+  {
     version: "104.44.41",
     date: "Feb 17, 2026",
     title: "v104.44.41 — 📤 Purchase + Paddy Register WhatsApp/Group + Filter Sync",
