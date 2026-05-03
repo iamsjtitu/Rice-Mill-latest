@@ -7,6 +7,22 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.85",
+    date: "Feb 17, 2026",
+    title: "v104.44.85 — 📊 Total Sales Register (new tab in Sales Register)",
+    items: [
+      { type: "feature", text: "📊 **Total Sales Register** — Sales Register me naya pehla tab. BP Sale Register + Pvt Rice sales ko consolidated view me dikhta hai. Filters: Search, Party, Product, Source (BP/Pvt), Date from-to, KMS Year/Season." },
+      { type: "feature", text: "🪙 **PKA / KCA separate rows** — Split billing wali entries ab do alag rows me dikhti hain — Pakka (emerald-tinted) + Kaccha (amber-tinted) — voucher ke saath PKA/KCA badge. Amounts/bags/weights proportionally split." },
+      { type: "feature", text: "🏛️ **Grand Total footer** — Table ke end me bold Grand Total row (all sums: N/W, Bags, Amount, Tax, Total, Balance, Received, Pending)." },
+      { type: "feature", text: "📋 **Exact columns**: Date | Voucher | RST | Vehicle | Party | Destination | N/W (Qtl) | Bags | Rate/Q | Amount | Tax | Total | Balance | Received | Pending." },
+      { type: "feature", text: "📑 **Professional Excel export** — Navy/gold theme, freeze panes, merged title, PKA/KCA row colors, grand total highlighted row, auto column widths." },
+      { type: "feature", text: "📄 **Professional PDF export** — Landscape A3 with stats strip (Entries/N/W/Bags/Total/Received/Pending), PKA green / KCA amber rows, grand total in gold band, legend at footer." },
+      { type: "feature", text: "💬 **WhatsApp share** — Select single ya multiple parties; per-party message with total/received/pending auto-sent via wa.me." },
+      { type: "feature", text: "👥 **Party-wise view toggle** — Rows / Party-wise pill. Party-wise me party-aggregated summary + product tags." },
+      { type: "improvement", text: "🔗 **Clarification: No duplicate ledgers** — MBOPL ko Bran + Bhusa + Kunda beche → ek hi party statement me hai sab (party_name ek hi hai). Party Ledger physical entity nahi — on-the-fly aggregate hota hai." },
+    ],
+  },
+  {
     version: "104.44.84",
     date: "Feb 17, 2026",
     title: "v104.44.84 — Pill-tabs for all BP products (Broken/Kanki/Husk/etc.)",

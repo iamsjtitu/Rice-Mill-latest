@@ -1,6 +1,44 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.71
+## Current Version: v104.44.85
+
+## 📊 v104.44.85 — Total Sales Register (unified view across BP + Pvt Rice)
+**Build date:** 2026-02-17
+
+### Feature
+New **"Total Sales Register"** tab as first item in Sales Register — aggregates BP Sale Register + Pvt Rice sales with professional exports.
+
+### Columns (exact user spec)
+`Date | Voucher | RST | Vehicle | Party | Destination | N/W (Qtl) | Bags | Rate/Q | Amount | Tax | Total | Balance | Received | Pending`
+
+### Split Billing Handling
+Split entries expand into **2 separate rows**: PKA (emerald bg, Pakka weight × rate, +GST) and KCA (amber bg, Kaccha weight × rate). Advance/bags pro-rata by weight.
+
+### Exports
+- **Excel** — navy header, alternating soft bg, PKA green / KCA amber rows, Grand Total in gold band with thick border, freeze panes
+- **PDF** — Landscape A3, stats strip (Entries/N/W/Bags/Total/Received/Pending), PKA/KCA colored rows, grand total gold band, legend footer
+- **WhatsApp** — multi-party select dialog → single/group messages with totals/received/pending via wa.me
+- **Party-wise view** — toggle to aggregated per-party summary with product tags
+
+### API Endpoints
+- `GET /api/total-sales-register?kms_year=&season=&date_from=&date_to=&party_name=&product=&source=&search=` → `{ rows, totals, parties }`
+- `GET /api/total-sales-register/export/excel?...` → XLSX
+- `GET /api/total-sales-register/export/pdf?...` → PDF
+
+### Party Ledger Clarification (user Q)
+MBOPL ko Bran + Bhusa + Kunda beche → **ek hi party statement** me sab aa jata hai. Party Ledger as a physical entity does NOT exist — system on-the-fly aggregates `cash_transactions` + BP + payments for given `party_name`. No duplicate ledger ever created.
+
+### Files
+- NEW `/app/backend/routes/total_sales_register.py` (~360 lines) — GET list + Excel + PDF endpoints
+- NEW `/app/frontend/src/components/TotalSalesRegister.jsx` (~340 lines)
+- `/app/backend/server.py` (+2 lines register)
+- `/app/frontend/src/components/Vouchers.jsx` — import + category + router
+
+### Triple-Backend Parity Status
+- ✅ Python FastAPI (primary)
+- ⏳ Node Desktop / LAN — Total Sales Register is a **read-only aggregation** feature. Node parity optional (data source is bp_sale_register + rice_sales which already have Node parity). Recommend adding Node equivalent in next iteration if Desktop users need offline Total Sales.
+
+---
 
 ## 🧺 v104.44.71 — BP Sale: Bag Type Stock Deduct + Bag Weight Cut (Bran)
 **Build date:** 2026-02-17

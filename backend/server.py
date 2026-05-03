@@ -87,6 +87,7 @@ from routes.paddy_release import router as paddy_release_router
 from routes.rst_check import router as rst_check_router
 from routes.license_stub import router as license_stub_router
 from routes.party_weight import router as party_weight_router
+from routes.total_sales_register import router as total_sales_router
 
 api_router.include_router(auth_router)
 api_router.include_router(entries_router)
@@ -124,6 +125,7 @@ api_router.include_router(paddy_release_router)
 api_router.include_router(rst_check_router)
 api_router.include_router(license_stub_router)
 api_router.include_router(party_weight_router)
+api_router.include_router(total_sales_router)
 
 @api_router.post("/delete-all-data")
 async def delete_all_data():
