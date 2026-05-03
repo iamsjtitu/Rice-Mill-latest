@@ -7,6 +7,20 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.48",
+    date: "Feb 17, 2026",
+    title: "v104.44.48 — 💰 Split Entry Pakka+Kaccha+Tax Breakdown in ALL Tab",
+    items: [
+      { type: "fix", text: "💰 **ALL tab me amount breakdown** — Aapne kaha 'sirf pakka ka dikha raha hai ALL mai'. Ab split entries me Amount column 3-line stacked breakdown dikhata hai:" },
+      { type: "improvement", text: "  → 🟢 **Pakka Amount** (green) — billed_amount" },
+      { type: "improvement", text: "  → 🔴 **Kaccha Amount** (rose) — kaccha_amount" },
+      { type: "improvement", text: "  → 🟡 **+ ₹Tax** (amber, small) — tax_amount (sirf agar GST hai)" },
+      { type: "improvement", text: "📊 **Rate column bhi split** — Pakka rate (green) + Kaccha rate (rose) stacked. Hover karne pe Pakka/Kaccha clear ho jaata hai." },
+      { type: "improvement", text: "🔗 **Hover tooltip** — Amount cell pe hover karne pe full breakdown text dikhega: 'Pakka ₹150,000 + Kaccha ₹370,000 + Tax ₹7,500 = ₹527,500'." },
+      { type: "improvement", text: "🎯 **Total column unchanged** — Wahi pura total (Pakka + Kaccha + Tax) bold green me dikhata hai. Single-source-of-truth value." },
+    ],
+  },
+  {
     version: "104.44.47",
     date: "Feb 17, 2026",
     title: "v104.44.47 — 🐛 VW Season Field Fix (Per-Trip Bhada Visibility)",
