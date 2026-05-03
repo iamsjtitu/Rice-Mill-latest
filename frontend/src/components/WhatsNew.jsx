@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.59",
+    date: "Feb 17, 2026",
+    title: "v104.44.59 — 💯 Whole-payment FIFO + PKA payment columns",
+    items: [
+      { type: "fix", text: "💯 **Whole-Payment FIFO** — Pehle ek payment FIFO me split ho jata tha (e.g. ₹1L → ₹1L bucket cap reach hone par next 57.5K dikhata tha). Ab har payment uski **full amount me dikhega** — sahi payment trail. ₹1,00,000 entry ki to ₹1,00,000 hi dikhega, NA 57,500." },
+      { type: "feature", text: "📋 **PKA tab me bhi Last Pmt / Received / Pending columns** — Pehle sirf ALL/KCA me dikhte the. Ab PKA me bhi visible — billed-only payments ka tracker." },
+      { type: "improvement", text: "🔵 **Negative Pending = Overpaid** — Agar party ne extra paisa de diya, Pending column me negative value blue color me dikhayega (e.g. PKA: −42,500 means overpaid). Tooltip 'Overpaid' bata dega." },
+      { type: "improvement", text: "📊 Excel + PDF exports me bhi same — Last Pmt / Received / Pending columns sabhi modes me, whole payments shown. Triple-backend parity (Python + Node Desktop + LAN)." },
+    ],
+  },
+  {
     version: "104.44.58",
     date: "Feb 17, 2026",
     title: "v104.44.58 — 💸 Cash Book payments → BP Sales auto-link",

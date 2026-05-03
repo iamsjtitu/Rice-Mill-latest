@@ -608,11 +608,9 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Premium</TableHead>
                   </>}
                   {gstFilter !== "PKA" && <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[75px] text-right" title="Balance after Premium adjustment">Balance</TableHead>}
-                  {gstFilter !== "PKA" && <>
-                    <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px]" title="Last payment date received">Last Pmt</TableHead>
-                    <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[75px] text-right" title="Total payments received against this sale (FIFO)">Received</TableHead>
-                    <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[80px] text-right" title="Pending after all payments + premium">Pending</TableHead>
-                  </>}
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px]" title="Last payment date received">Last Pmt</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[75px] text-right" title="Total payments received against this sale">Received</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[80px] text-right" title="Pending after all payments + premium (negative = overpaid)">Pending</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[110px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -681,11 +679,9 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       const balFinal = Math.round(((s.balance || 0) + prem) * 100) / 100;
                       return <TableCell className={`text-[10px] px-2 text-right font-bold whitespace-nowrap ${balFinal > 0 ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`} title={`Balance after Premium: ${(s.balance || 0).toLocaleString()} ${prem >= 0 ? '+' : ''}${prem.toLocaleString()}`}>{balFinal.toLocaleString()}</TableCell>;
                     })()}
-                    {gstFilter !== "PKA" && <>
-                      <TableCell className="text-slate-300 text-[10px] px-2 whitespace-nowrap">{s.last_payment_date ? fmtDate(s.last_payment_date) : <span className="text-slate-500">—</span>}</TableCell>
-                      <TableCell className="text-cyan-700 dark:text-cyan-400 text-[10px] px-2 text-right font-bold whitespace-nowrap">{(s.total_received || 0) > 0 ? (s.total_received || 0).toLocaleString() : <span className="text-slate-500 dark:text-slate-600">—</span>}</TableCell>
-                      <TableCell className={`text-[10px] px-2 text-right font-bold whitespace-nowrap ${(s.pending_balance || 0) > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}`}>{(s.pending_balance || 0).toLocaleString()}</TableCell>
-                    </>}
+                    <TableCell className="text-slate-300 text-[10px] px-2 whitespace-nowrap">{s.last_payment_date ? fmtDate(s.last_payment_date) : <span className="text-slate-500">—</span>}</TableCell>
+                    <TableCell className="text-cyan-700 dark:text-cyan-400 text-[10px] px-2 text-right font-bold whitespace-nowrap">{(s.total_received || 0) > 0 ? (s.total_received || 0).toLocaleString() : <span className="text-slate-500 dark:text-slate-600">—</span>}</TableCell>
+                    <TableCell className={`text-[10px] px-2 text-right font-bold whitespace-nowrap ${(s.pending_balance || 0) > 0 ? 'text-orange-600 dark:text-orange-400' : ((s.pending_balance || 0) < 0 ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400')}`} title={(s.pending_balance || 0) < 0 ? 'Overpaid (extra received)' : 'Pending balance'}>{(s.pending_balance || 0).toLocaleString()}</TableCell>
                     <TableCell className="px-1 w-[110px]">
                       <div className="flex gap-0.5 flex-nowrap items-center">
                         {(s.payments_alloc?.length || 0) > 0 && (

@@ -249,14 +249,10 @@ async def _fetch_party_payments(party: str, kms_year: str = "", season: str = ""
 
 
 async def _enrich_sales_with_payments_fifo(sales: list, gst_filter: str = "") -> list:
-    """For each sale, attach FIFO-allocated payments. Mutates and returns sales list.
-    Each sale gets: payments_alloc[], total_received, last_payment_date, final_balance.
-    For split-billing: PKA payments allocated to PKA portion (billed+tax), KCA payments to kaccha portion.
+    """v104.44.59 — Whole-payment FIFO (NO splitting). Each payment assigned fully to oldest unpaid sale.
+    For each sale, attach all assigned payments. Received = sum of full payment amounts allocated.
+    Pending can be negative (overpayment).
     """
-    # Group sales by (party_with_suffix, kms_year, season)
-    # For ALL view: each sale contributes BOTH PKA and KCA debits separately (need 2 buckets)
-    # For PKA/KCA view: only one bucket per sale
-    # We'll iterate per party-bucket and FIFO-allocate payments.
     from collections import defaultdict
     buckets = defaultdict(list)  # key=(party_suffixed, kms, season), val=list of (sale, debit_amount, bucket_type)
 
@@ -284,30 +280,30 @@ async def _enrich_sales_with_payments_fifo(sales: list, gst_filter: str = "") ->
                 if kca_debit > 0:
                     buckets[(f"{party} (KCA)", kms, ssn)].append((s, kca_debit, 'kca'))
             else:
-                # Non-split: party stored without suffix
                 buckets[(party, kms, ssn)].append((s, _safe_num(s.get('total')), 'all'))
 
-    # Allocate payments via FIFO per bucket
+    # Allocate WHOLE payments via FIFO per bucket (no splitting)
     for (party_key, kms, ssn), entries in buckets.items():
-        # Sort entries by sale date (FIFO)
         entries.sort(key=lambda x: (x[0].get('date', '') or '', x[0].get('created_at', '') or ''))
         payments = await _fetch_party_payments(party_key, kms, ssn)
-        # Each payment is allocated to oldest unpaid sale first
-        remaining = [{"sale": s, "debit": debit, "remaining": debit, "btype": bt} for (s, debit, bt) in entries]
+        # Track per-sale received total to know when to move to next sale
+        remaining = [{"sale": s, "debit": debit, "received": 0.0, "btype": bt} for (s, debit, bt) in entries]
+        ptr = 0  # index into remaining (current target sale)
         for p in payments:
             amt = _safe_num(p.get('amount'))
             pdate = p.get('date', '') or ''
             pdesc = p.get('description', '') or ''
-            for r in remaining:
-                if amt <= 0: break
-                if r['remaining'] <= 0: continue
-                take = min(amt, r['remaining'])
-                r['remaining'] = round(r['remaining'] - take, 2)
-                amt = round(amt - take, 2)
-                alloc_entry = {"date": pdate, "amount": take, "description": pdesc, "type": r['btype']}
-                if r['btype'] == 'pka': r['sale']['_pka_alloc'].append(alloc_entry)
-                elif r['btype'] == 'kca': r['sale']['_kca_alloc'].append(alloc_entry)
-                else: r['sale']['payments_alloc'].append(alloc_entry)
+            if amt <= 0: continue
+            # Move ptr forward until we find a sale that's not fully paid yet, or stay on last
+            while ptr < len(remaining) - 1 and remaining[ptr]['received'] >= remaining[ptr]['debit']:
+                ptr += 1
+            if not remaining: continue
+            target = remaining[ptr]
+            target['received'] = round(target['received'] + amt, 2)
+            alloc_entry = {"date": pdate, "amount": amt, "description": pdesc, "type": target['btype']}
+            if target['btype'] == 'pka': target['sale']['_pka_alloc'].append(alloc_entry)
+            elif target['btype'] == 'kca': target['sale']['_kca_alloc'].append(alloc_entry)
+            else: target['sale']['payments_alloc'].append(alloc_entry)
 
     # Aggregate per sale
     for s in sales:
@@ -316,13 +312,9 @@ async def _enrich_sales_with_payments_fifo(sales: list, gst_filter: str = "") ->
         s['payments_alloc'] = all_pmts
         s['total_received'] = round(sum(_safe_num(p.get('amount')) for p in all_pmts), 2)
         s['last_payment_date'] = all_pmts[-1]['date'] if all_pmts else ''
-        # final_balance = total - received - (advance baked into balance already)
-        # Use existing balance field as the source-of-truth opening, then subtract additional received
-        # Actually balance was computed as total - cash_paid - diesel - advance at sale entry time
-        # We'll compute net_pending = max(0, balance - subsequent received)
+        # Pending = Balance − Received (allow negative for overpayment)
         existing_balance = _safe_num(s.get('balance'))
-        net_pending = round(existing_balance - s['total_received'], 2)
-        s['pending_balance'] = max(0, net_pending) if net_pending >= 0 else net_pending  # allow negative (overpayment)
+        s['pending_balance'] = round(existing_balance - s['total_received'], 2)
         s.pop('_pka_alloc', None); s.pop('_kca_alloc', None)
     return sales
 
@@ -786,16 +778,16 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
     if has_adv: cols.append(('Advance', 10, 'advance'))
     # v104.44.52 — PKA mode me Balance + Oil columns hide (not relevant for billed-only view)
     # v104.44.53 — Balance ko Premium ke baad (last) move kiya, premium-adjusted
+    # v104.44.59 — Last Pmt / Received / Pending columns in ALL modes (including PKA)
     if gst_filter != "PKA":
         if has_oil:
             cols.append(('Oil%', 8, 'oil_pct'))
             cols.append(('Diff%', 8, 'oil_diff'))
             cols.append(('Premium', 12, 'oil_premium'))
         cols.append(('Balance', 12, 'balance_final'))
-        # v104.44.58 — Payment columns always shown (even if 0 received) for consistent layout
-        cols.append(('Last Pmt', 10, 'last_payment_date'))
-        cols.append(('Received', 12, 'total_received'))
-        cols.append(('Pending', 12, 'pending_balance'))
+    cols.append(('Last Pmt', 10, 'last_payment_date'))
+    cols.append(('Received', 12, 'total_received'))
+    cols.append(('Pending', 12, 'pending_balance'))
     if has_remark: cols.append(('Remark', 16, 'remark'))
 
     headers = [c[0] for c in cols]
@@ -1097,17 +1089,16 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
     if has_adv: pdf_cols.append(('Adv', 32, 'advance'))
     # v104.44.52 — PKA mode me Balance + Oil columns hide
     # v104.44.53 — Balance ko Premium ke baad (last) move kiya, premium-adjusted
+    # v104.44.59 — Last Pmt / Received / Pending in ALL modes (including PKA)
     if gst_filter != "PKA":
         if has_oil_pdf:
             pdf_cols.append(('Oil%', 30, 'oil_pct'))
             pdf_cols.append(('Diff%', 30, 'oil_diff'))
             pdf_cols.append(('Premium', 45, 'oil_premium'))
         pdf_cols.append(('Balance', 50, 'balance_final'))
-        # v104.44.56 — payment columns
-        if has_payments:
-            pdf_cols.append(('Last Pmt', 42, 'last_payment_date'))
-            pdf_cols.append(('Recvd', 45, 'total_received'))
-            pdf_cols.append(('Pending', 50, 'pending_balance'))
+    pdf_cols.append(('Last Pmt', 42, 'last_payment_date'))
+    pdf_cols.append(('Recvd', 45, 'total_received'))
+    pdf_cols.append(('Pending', 50, 'pending_balance'))
 
     headers = [c[0] for c in pdf_cols]
     col_widths = [c[1] for c in pdf_cols]

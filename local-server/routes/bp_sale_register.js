@@ -184,21 +184,20 @@ module.exports = function(database) {
       const [partyKey, kms, ssn] = bkey.split('|');
       entries.sort((a, b) => ((a.sale.date || '').localeCompare(b.sale.date || '')) || ((a.sale.created_at || '').localeCompare(b.sale.created_at || '')));
       const payments = _fetchPartyPayments(partyKey, kms, ssn);
-      const remaining = entries.map(e => ({ sale: e.sale, btype: e.btype, remaining: e.debit }));
+      // v104.44.59 — Whole-payment FIFO (no splitting). Payment goes fully to current target sale.
+      const remaining = entries.map(e => ({ sale: e.sale, btype: e.btype, debit: e.debit, received: 0 }));
+      let ptr = 0;
       payments.forEach(p => {
-        let amt = _safeNum(p.amount);
-        const pdate = p.date || ''; const pdesc = p.description || '';
-        for (const r of remaining) {
-          if (amt <= 0) break;
-          if (r.remaining <= 0) continue;
-          const take = Math.min(amt, r.remaining);
-          r.remaining = +(r.remaining - take).toFixed(2);
-          amt = +(amt - take).toFixed(2);
-          const entry = { date: pdate, amount: take, description: pdesc, type: r.btype };
-          if (r.btype === 'pka') r.sale._pka_alloc.push(entry);
-          else if (r.btype === 'kca') r.sale._kca_alloc.push(entry);
-          else r.sale.payments_alloc.push(entry);
-        }
+        const amt = _safeNum(p.amount);
+        if (amt <= 0 || remaining.length === 0) return;
+        // Move ptr forward to first unpaid sale (or stay on last)
+        while (ptr < remaining.length - 1 && remaining[ptr].received >= remaining[ptr].debit) ptr++;
+        const target = remaining[ptr];
+        target.received = +(target.received + amt).toFixed(2);
+        const entry = { date: p.date || '', amount: amt, description: p.description || '', type: target.btype };
+        if (target.btype === 'pka') target.sale._pka_alloc.push(entry);
+        else if (target.btype === 'kca') target.sale._kca_alloc.push(entry);
+        else target.sale.payments_alloc.push(entry);
       });
     });
     sales.forEach(s => {
@@ -208,8 +207,8 @@ module.exports = function(database) {
       s.total_received = +all.reduce((sum, p) => sum + _safeNum(p.amount), 0).toFixed(2);
       s.last_payment_date = all.length ? all[all.length - 1].date : '';
       const existingBalance = _safeNum(s.balance);
-      const netPending = +(existingBalance - s.total_received).toFixed(2);
-      s.pending_balance = netPending >= 0 ? netPending : netPending;
+      // v104.44.59 — Allow negative pending (overpayment)
+      s.pending_balance = +(existingBalance - s.total_received).toFixed(2);
       delete s._pka_alloc; delete s._kca_alloc;
     });
     return sales;
@@ -530,13 +529,11 @@ module.exports = function(database) {
       if (gst_filter !== 'PKA') {
         if (hasOil) { cols.push({h:'Oil%',k:'oil_pct',w:8},{h:'Diff%',k:'oil_diff',w:8},{h:'Premium',k:'oil_premium',w:12}); }
         cols.push({h:'Balance',k:'balance_final',w:12});
-        // v104.44.56 — payment columns
-        if (hasPayments) {
-          cols.push({h:'Last Pmt',k:'last_payment_date',w:11});
-          cols.push({h:'Received',k:'total_received',w:12});
-          cols.push({h:'Pending',k:'pending_balance',w:12});
-        }
       }
+      // v104.44.59 — Payment columns visible in ALL modes (incl PKA)
+      cols.push({h:'Last Pmt',k:'last_payment_date',w:11});
+      cols.push({h:'Received',k:'total_received',w:12});
+      cols.push({h:'Pending',k:'pending_balance',w:12});
       if (has.remark) cols.push({h:'Remark',k:'remark',w:16});
 
       const ncols = cols.length;
@@ -800,13 +797,11 @@ module.exports = function(database) {
       if (gst_filter !== 'PKA') {
         if (hasOil) { pc.push(['Oil%',30,'oil_pct'],['Diff%',30,'oil_diff'],['Premium',45,'oil_premium']); }
         pc.push(['Balance',50,'balance_final']);
-        // v104.44.56 — payment columns
-        if (hasPayments) {
-          pc.push(['Last Pmt',42,'last_payment_date']);
-          pc.push(['Recvd',45,'total_received']);
-          pc.push(['Pending',50,'pending_balance']);
-        }
       }
+      // v104.44.59 — payment columns in ALL modes
+      pc.push(['Last Pmt',42,'last_payment_date']);
+      pc.push(['Recvd',45,'total_received']);
+      pc.push(['Pending',50,'pending_balance']);
 
       const headers = pc.map(c => c[0]);
       let widths = pc.map(c => c[1]);
