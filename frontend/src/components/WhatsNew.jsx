@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.54",
+    date: "Feb 17, 2026",
+    title: "v104.44.54 — 🧹 PDF clean-up: Payment Summary line removed",
+    items: [
+      { type: "improvement", text: "🧹 BP Sale Register PDF se 'Payment Summary: Balance: ...' wala footer line hata di — ab table ke baad sirf 'Generated: ...' timestamp dikhega. Cleaner look." },
+    ],
+  },
+  {
     version: "104.44.53",
     date: "Feb 17, 2026",
     title: "v104.44.53 — 💰 Smart Balance: Premium-adjusted + Last Column Position",

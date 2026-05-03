@@ -768,18 +768,9 @@ module.exports = function(database) {
       y += rowH;
       doc.y = y + 8;
 
-      // Payment summary
-      const payParts = [];
-      if (tot.cash > 0) payParts.push(`Cash: ${Math.round(tot.cash).toLocaleString('en-IN')}`);
-      if (tot.diesel > 0) payParts.push(`Diesel: ${Math.round(tot.diesel).toLocaleString('en-IN')}`);
-      if (tot.adv > 0) payParts.push(`Advance: ${Math.round(tot.adv).toLocaleString('en-IN')}`);
-      payParts.push(`Balance: ${Math.round(tot.balFinal).toLocaleString('en-IN')}`);
-      const payText = `Payment Summary:  ${payParts.join('  |  ')}`;
-      doc.fontSize(8).font(autoF(payText, 'bold')).fillColor('#1F4E79')
-        .text(payText, margin, doc.y, { width: doc.page.width - margin * 2 });
+      // v104.44.54 — Payment Summary footer removed (user feedback)
 
       // Generated date footer
-      doc.moveDown(0.4);
       doc.fontSize(7).font(F('normal')).fillColor('#999999')
         .text(`Generated: ${new Date().toLocaleDateString('en-IN')} ${new Date().toLocaleTimeString('en-IN')}`, { align: 'left' });
 

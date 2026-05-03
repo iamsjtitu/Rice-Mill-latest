@@ -1000,17 +1000,7 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
     table.setStyle(TableStyle(style_cmds))
     elements.append(table)
 
-    # Payment summary footer - only show non-zero
-    pay_parts = []
-    if t_cash > 0: pay_parts.append(f"Cash: <font color='green'>{t_cash:,.0f}</font>")
-    if t_diesel > 0: pay_parts.append(f"Diesel: <font color='#FF6600'>{t_diesel:,.0f}</font>")
-    if t_adv > 0: pay_parts.append(f"Advance: <font color='#0066CC'>{t_adv:,.0f}</font>")
-    pay_parts.append(f"<b>Balance: <font color='red'>{t_bal_final:,.0f}</font></b>")
-    if pay_parts:
-        elements.append(Spacer(1, 8))
-        pay_style = ParagraphStyle('PaySummary', parent=styles['Normal'], fontSize=8,
-            textColor=colors.HexColor('#1F4E79'))
-        elements.append(Paragraph(f"<b>Payment Summary:</b>  {'  |  '.join(pay_parts)}", pay_style))
+    # v104.44.54 — Payment Summary footer removed (user feedback: "ganda lag raha hai")
 
     # Generated date
     elements.append(Spacer(1, 4))
