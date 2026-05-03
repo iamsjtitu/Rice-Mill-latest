@@ -7,6 +7,18 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.53",
+    date: "Feb 17, 2026",
+    title: "v104.44.53 — 💰 Smart Balance: Premium-adjusted + Last Column Position",
+    items: [
+      { type: "fix", text: "🎯 **KCA balance bug fix** — Pehle KCA tab me Pakka+Kaccha mila hua balance dikhata tha. Ab sirf **Kaccha portion - Advance** dikhega (advance hamesha kaccha side se kata jata hai). Triple-backend (Python + Node Desktop + LAN)." },
+      { type: "feature", text: "💰 **Balance ab Premium-adjusted** — Balance column ka final value = `Balance + Premium`. Premium negative ho to balance kam, positive ho to badh jata hai. Ye actual pending amount hai jo party par baki hai oil quality test ke baad." },
+      { type: "improvement", text: "📍 **Balance column LAST me move ki gayi** — ab Premium ke baad aati hai, taaki user dekhe: Total → Oil% → Diff% → Premium → Balance (final). Logical flow." },
+      { type: "improvement", text: "🎨 **Tooltip + color** — Cell pe hover se 'Balance after Premium: X + Y = Z' calculation dikhega. Red bold for positive (party owes), green for zero/negative." },
+      { type: "improvement", text: "📊 **Excel + PDF mai bhi same** — All 3 backends me identical column order + premium adjustment + amber background tint for Balance(final) column." },
+    ],
+  },
+  {
     version: "104.44.52",
     date: "Feb 17, 2026",
     title: "v104.44.52 — 🧹 PKA Tab: Balance + Oil%/Diff%/Premium Columns Hidden",

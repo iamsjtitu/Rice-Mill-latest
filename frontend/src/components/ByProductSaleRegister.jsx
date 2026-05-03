@@ -358,6 +358,12 @@ export default function ByProductSaleRegister({ filters, user, product }) {
 
   const totalAmount = filtered.reduce((s, v) => s + (v.total || 0), 0);
   const totalBalance = filtered.reduce((s, v) => s + (v.balance || 0), 0);
+  // v104.44.53 — Balance after premium adjustment (shown in header + table last col)
+  const totalBalanceFinal = filtered.reduce((s, v) => {
+    const op = getOilPremium(v);
+    const prem = op ? Number(op.premium_amount || 0) : 0;
+    return s + (v.balance || 0) + prem;
+  }, 0);
 
   // v104.44.39 — Build WhatsApp summary text for current product+filters
   const _bpSummaryText = () => {
@@ -375,7 +381,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
     lines.push('');
     lines.push(`📊 Total Entries: *${filtered.length}*`);
     lines.push(`💰 Total Amount: *₹${totalAmount.toLocaleString()}*`);
-    lines.push(`📕 Total Balance: *₹${totalBalance.toLocaleString()}*`);
+    lines.push(`📕 Total Balance: *₹${Math.round(totalBalanceFinal).toLocaleString()}*`);
     if (filtered.length > 0 && filtered.length <= 10) {
       lines.push('');
       lines.push('*Entries:*');
@@ -436,7 +442,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             className="pl-8 bg-slate-800 border-slate-600 text-white h-8 text-xs" data-testid="bp-sale-search" />
         </div>
         <div className="flex gap-2 items-center">
-          <span className="text-xs text-slate-400">{filtered.length} entries | Total: <span className="text-emerald-400 font-bold">{totalAmount.toLocaleString()}</span>{gstFilter !== "PKA" && <> | Balance: <span className="text-red-400 font-bold">{totalBalance.toLocaleString()}</span></>}</span>
+          <span className="text-xs text-slate-400">{filtered.length} entries | Total: <span className="text-emerald-400 font-bold">{totalAmount.toLocaleString()}</span>{gstFilter !== "PKA" && <> | Balance: <span className={totalBalanceFinal > 0 ? "text-red-500 font-bold" : "text-green-500 font-bold"}>{Math.round(totalBalanceFinal).toLocaleString()}</span></>}</span>
           <Button onClick={async () => { try { const params = buildExportParams(); const { downloadFile } = await import('../utils/download'); const { buildFilename } = await import('../utils/filename-format'); const fname = buildFilename({ base: `${product || 'byproduct'}_sales`, party: filterValues.party_name || filters.party_name, dateFrom: filterValues.date_from || filters.date_from, dateTo: filterValues.date_to || filters.date_to, kmsYear: filters.kms_year, ext: 'xlsx' }); downloadFile(`/api/bp-sale-register/export/excel?${params}`, fname); toast.success("Excel exported!"); } catch(e) { toast.error("Export failed"); }}}
             variant="ghost" size="sm" className="h-8 w-8 p-0 text-green-400 hover:bg-green-900/30 border border-green-600" title="Excel (current filters)" data-testid="bp-export-excel">
             <FileSpreadsheet className="w-4 h-4" />
@@ -556,12 +562,12 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Amount</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[55px] text-right">Tax</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Total</TableHead>
-                  {gstFilter !== "PKA" && <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Balance</TableHead>}
                   {gstFilter !== "PKA" && hasAnyOilPremium && <>
                     <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px] text-right">Oil%</TableHead>
                     <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[45px] text-right">Diff%</TableHead>
                     <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right">Premium</TableHead>
                   </>}
+                  {gstFilter !== "PKA" && <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[75px] text-right" title="Balance after Premium adjustment">Balance</TableHead>}
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -611,7 +617,6 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       {Number(s.tax_amount || 0) > 0 ? <span className="text-amber-700 dark:text-amber-400 font-semibold">{(s.tax_amount || 0).toLocaleString()}</span> : <span className="text-slate-400 dark:text-slate-600">—</span>}
                     </TableCell>
                     <TableCell className="text-emerald-700 dark:text-emerald-400 text-[10px] px-2 text-right font-bold whitespace-nowrap">{(s.total || 0).toLocaleString()}</TableCell>
-                    {gstFilter !== "PKA" && <TableCell className={`text-[10px] px-2 text-right font-bold whitespace-nowrap ${(s.balance || 0) > 0 ? 'text-red-400' : 'text-green-400'}`}>{(s.balance || 0).toLocaleString()}</TableCell>}
                     {gstFilter !== "PKA" && hasAnyOilPremium && (() => {
                       const op = getOilPremium(s);
                       return <>
@@ -623,6 +628,12 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                           {op ? (op.premium_amount || 0).toLocaleString() : ''}
                         </TableCell>
                       </>;
+                    })()}
+                    {gstFilter !== "PKA" && (() => {
+                      const op = getOilPremium(s);
+                      const prem = op ? Number(op.premium_amount || 0) : 0;
+                      const balFinal = Math.round(((s.balance || 0) + prem) * 100) / 100;
+                      return <TableCell className={`text-[10px] px-2 text-right font-bold whitespace-nowrap ${balFinal > 0 ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`} title={`Balance after Premium: ${(s.balance || 0).toLocaleString()} ${prem >= 0 ? '+' : ''}${prem.toLocaleString()}`}>{balFinal.toLocaleString()}</TableCell>;
                     })()}
                     <TableCell className="px-1">
                       <div className="flex gap-0.5">

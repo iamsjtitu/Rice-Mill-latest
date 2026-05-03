@@ -216,7 +216,8 @@ def _safe_num(v):
 
 def _project_pakka_view(s: dict) -> dict:
     """v104.44.44 — Return a row-level pakka-only projection of entry.
-    Zero out kaccha fields, recompute total = billed + tax."""
+    Zero out kaccha fields, recompute total = billed + tax.
+    v104.44.53 — Balance for PKA view = billed + tax (no advance — advance is kaccha side)."""
     s2 = dict(s)
     billed = _safe_num(s.get("billed_amount"))
     tax = _safe_num(s.get("tax_amount"))
@@ -231,15 +232,19 @@ def _project_pakka_view(s: dict) -> dict:
     s2["net_weight_qtl_display"] = s.get("billed_weight_qtl_display", "")
     s2["amount"] = billed
     s2["total"] = billed + tax
+    s2["balance"] = billed + tax
+    s2["advance"] = 0
     s2["_view_mode"] = "PKA"
     return s2
 
 
 def _project_kaccha_view(s: dict) -> dict:
     """v104.44.44 — Return a row-level kaccha-only projection of entry.
-    Zero out pakka/GST fields, recompute total = kaccha amount."""
+    Zero out pakka/GST fields, recompute total = kaccha amount.
+    v104.44.53 — Balance for KCA view = kaccha - advance (advance always on kaccha side)."""
     s2 = dict(s)
     kac = _safe_num(s.get("kaccha_amount"))
+    adv = _safe_num(s.get("advance"))
     s2["billed_weight_kg"] = 0
     s2["billed_weight_qtl"] = 0
     s2["billed_weight_qtl_display"] = ""
@@ -255,6 +260,7 @@ def _project_kaccha_view(s: dict) -> dict:
     s2["net_weight_qtl_display"] = s.get("kaccha_weight_qtl_display", "")
     s2["amount"] = kac
     s2["total"] = kac
+    s2["balance"] = max(0, kac - adv)
     s2["_view_mode"] = "KCA"
     return s2
 
@@ -575,12 +581,13 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
     if has_diesel: cols.append(('Diesel', 10, 'diesel_paid'))
     if has_adv: cols.append(('Advance', 10, 'advance'))
     # v104.44.52 — PKA mode me Balance + Oil columns hide (not relevant for billed-only view)
+    # v104.44.53 — Balance ko Premium ke baad (last) move kiya, premium-adjusted
     if gst_filter != "PKA":
-        cols.append(('Balance', 12, 'balance'))
         if has_oil:
             cols.append(('Oil%', 8, 'oil_pct'))
             cols.append(('Diff%', 8, 'oil_diff'))
             cols.append(('Premium', 12, 'oil_premium'))
+        cols.append(('Balance', 12, 'balance_final'))
     if has_remark: cols.append(('Remark', 16, 'remark'))
 
     headers = [c[0] for c in cols]
@@ -637,17 +644,21 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
         cell.border = border
 
     # Data rows
-    t_nw = t_bags = t_amount = t_billed = t_kaccha = t_tax = t_total = t_cash = t_diesel = t_adv = t_bal = t_oil_premium = 0
+    t_nw = t_bags = t_amount = t_billed = t_kaccha = t_tax = t_total = t_cash = t_diesel = t_adv = t_bal = t_bal_final = t_oil_premium = 0
     for idx, s in enumerate(sales):
         r = row + 1 + idx
         fill = alt_fill if idx % 2 == 0 else None
+        op = oil_map.get(s.get('voucher_no') or '') or oil_map.get(s.get('rst_no') or '')
+        prem = (op.get('premium_amount', 0) or 0) if op else 0
+        # v104.44.53 — balance_final = balance + premium (premium adjusted balance)
+        bal_final = round((s.get('balance', 0) or 0) + prem, 2)
         t_nw += s.get('net_weight_kg', 0); t_bags += s.get('bags', 0)
         t_amount += s.get('amount', 0); t_billed += s.get('billed_amount', 0); t_kaccha += s.get('kaccha_amount', 0)
         t_tax += s.get('tax_amount', 0); t_total += s.get('total', 0)
         t_cash += s.get('cash_paid', 0); t_diesel += s.get('diesel_paid', 0)
         t_adv += s.get('advance', 0); t_bal += s.get('balance', 0)
-        op = oil_map.get(s.get('voucher_no') or '') or oil_map.get(s.get('rst_no') or '')
-        if op: t_oil_premium += op.get('premium_amount', 0)
+        t_bal_final += bal_final
+        if op: t_oil_premium += prem
         for col_idx, key in enumerate(keys, 1):
             if key == 'voucher_no': val = s.get('voucher_no', '') or ''
             elif key == 'date': val = fmt_date(s.get('date', ''))
@@ -655,7 +666,8 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
             elif key == 'net_weight_qtl': val = round(s.get('net_weight_qtl', 0), 2)
             elif key == 'oil_pct': val = op.get('actual_oil_pct', '') if op else ''
             elif key == 'oil_diff': val = round(op.get('difference_pct', 0), 2) if op else ''
-            elif key == 'oil_premium': val = round(op.get('premium_amount', 0), 2) if op else ''
+            elif key == 'oil_premium': val = round(prem, 2) if op else ''
+            elif key == 'balance_final': val = bal_final
             else: val = s.get(key, 0) if key in ('net_weight_kg','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance') else s.get(key, '')
             cell = ws.cell(row=r, column=col_idx, value=val)
             cell.font = Font(size=9)
@@ -670,11 +682,14 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
                 cell.fill = tax_fill; cell.font = tax_font
             elif key == 'total':
                 cell.font = total_amt_font
-            if key in ('net_weight_kg','net_weight_qtl','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','oil_pct','oil_diff','oil_premium'):
+            elif key == 'balance_final':
+                # red if positive (party owes), green if zero/negative
+                cell.font = Font(size=9, bold=True, color=("C62828" if val > 0 else "1B5E20"))
+            if key in ('net_weight_kg','net_weight_qtl','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','oil_pct','oil_diff','oil_premium'):
                 cell.alignment = Alignment(horizontal='right')
-            if key in ('amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','oil_premium'):
+            if key in ('amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','oil_premium'):
                 cell.number_format = '#,##0.00'
-            if key == 'oil_premium' and op and (op.get('premium_amount', 0) or 0) < 0:
+            if key == 'oil_premium' and op and prem < 0:
                 cell.font = Font(size=9, color="FF0000")
 
     # Total row
@@ -689,12 +704,15 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
         elif key == 'net_weight_qtl': ws.cell(row=tr, column=col_idx, value=round(t_nw/100, 2)).alignment = Alignment(horizontal='right')
         elif key == 'bags': ws.cell(row=tr, column=col_idx, value=t_bags).alignment = Alignment(horizontal='right')
         elif key == 'amount': ws.cell(row=tr, column=col_idx, value=round(t_amount, 2)).alignment = Alignment(horizontal='right')
+        elif key == 'billed_amount': ws.cell(row=tr, column=col_idx, value=round(t_billed, 2)).alignment = Alignment(horizontal='right')
+        elif key == 'kaccha_amount': ws.cell(row=tr, column=col_idx, value=round(t_kaccha, 2)).alignment = Alignment(horizontal='right')
         elif key == 'tax_amount': ws.cell(row=tr, column=col_idx, value=round(t_tax, 2)).alignment = Alignment(horizontal='right')
         elif key == 'total': ws.cell(row=tr, column=col_idx, value=round(t_total, 2)).alignment = Alignment(horizontal='right')
         elif key == 'cash_paid': ws.cell(row=tr, column=col_idx, value=round(t_cash, 2)).alignment = Alignment(horizontal='right')
         elif key == 'diesel_paid': ws.cell(row=tr, column=col_idx, value=round(t_diesel, 2)).alignment = Alignment(horizontal='right')
         elif key == 'advance': ws.cell(row=tr, column=col_idx, value=round(t_adv, 2)).alignment = Alignment(horizontal='right')
         elif key == 'balance': ws.cell(row=tr, column=col_idx, value=round(t_bal, 2)).alignment = Alignment(horizontal='right')
+        elif key == 'balance_final': ws.cell(row=tr, column=col_idx, value=round(t_bal_final, 2)).alignment = Alignment(horizontal='right')
         elif key == 'oil_premium':
             c = ws.cell(row=tr, column=col_idx, value=round(t_oil_premium, 2))
             c.alignment = Alignment(horizontal='right')
@@ -851,12 +869,13 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
     if has_diesel: pdf_cols.append(('Diesel', 38, 'diesel_paid'))
     if has_adv: pdf_cols.append(('Adv', 32, 'advance'))
     # v104.44.52 — PKA mode me Balance + Oil columns hide
+    # v104.44.53 — Balance ko Premium ke baad (last) move kiya, premium-adjusted
     if gst_filter != "PKA":
-        pdf_cols.append(('Balance', 48, 'balance'))
         if has_oil_pdf:
             pdf_cols.append(('Oil%', 30, 'oil_pct'))
             pdf_cols.append(('Diff%', 30, 'oil_diff'))
             pdf_cols.append(('Premium', 45, 'oil_premium'))
+        pdf_cols.append(('Balance', 50, 'balance_final'))
 
     headers = [c[0] for c in pdf_cols]
     col_widths = [c[1] for c in pdf_cols]
@@ -870,15 +889,18 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
         col_widths = [round(w * scale) for w in col_widths]
 
     data = [headers]
-    t_nw = t_bags = t_amt = t_billed = t_kaccha = t_tax = t_total = t_cash = t_diesel = t_adv = t_bal = t_oil_prem_pdf = 0
+    t_nw = t_bags = t_amt = t_billed = t_kaccha = t_tax = t_total = t_cash = t_diesel = t_adv = t_bal = t_bal_final = t_oil_prem_pdf = 0
     for idx, s in enumerate(sales):
+        op = oil_map_pdf.get(s.get('voucher_no') or '') or oil_map_pdf.get(s.get('rst_no') or '')
+        prem = (op.get('premium_amount', 0) or 0) if op else 0
+        bal_final = round((s.get('balance', 0) or 0) + prem, 2)
         t_nw += s.get('net_weight_kg', 0); t_bags += s.get('bags', 0)
         t_amt += s.get('amount', 0); t_billed += s.get('billed_amount', 0); t_kaccha += s.get('kaccha_amount', 0)
         t_tax += s.get('tax_amount', 0); t_total += s.get('total', 0)
         t_cash += s.get('cash_paid', 0); t_diesel += s.get('diesel_paid', 0)
         t_adv += s.get('advance', 0); t_bal += s.get('balance', 0)
-        op = oil_map_pdf.get(s.get('voucher_no') or '') or oil_map_pdf.get(s.get('rst_no') or '')
-        if op: t_oil_prem_pdf += op.get('premium_amount', 0)
+        t_bal_final += bal_final
+        if op: t_oil_prem_pdf += prem
         row_data = []
         for key in col_keys:
             if key == 'voucher_no': row_data.append(s.get('voucher_no', '') or '')
@@ -889,13 +911,15 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
             elif key in ('amount', 'billed_amount', 'kaccha_amount', 'tax_amount', 'total', 'balance'):
                 v = s.get(key, 0) or 0
                 row_data.append(f"{v:,.0f}" if v else '')
+            elif key == 'balance_final':
+                row_data.append(f"{bal_final:,.0f}" if bal_final else '0')
             elif key == 'oil_pct': row_data.append(f"{op.get('actual_oil_pct', '')}%" if op else '')
             elif key == 'oil_diff':
                 if op:
                     d = op.get('difference_pct', 0)
                     row_data.append(f"{'+' if d > 0 else ''}{d:.2f}%")
                 else: row_data.append('')
-            elif key == 'oil_premium': row_data.append(f"{op.get('premium_amount', 0):,.0f}" if op else '')
+            elif key == 'oil_premium': row_data.append(f"{prem:,.0f}" if op else '')
             else: row_data.append(s.get(key, 0) if key in ('net_weight_kg','bags','rate_per_qtl','cash_paid','diesel_paid','advance') else s.get(key, ''))
         data.append(row_data)
 
@@ -914,6 +938,7 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
         elif key == 'diesel_paid': total_row.append(round(t_diesel, 0))
         elif key == 'advance': total_row.append(round(t_adv, 0))
         elif key == 'balance': total_row.append(f"{t_bal:,.0f}")
+        elif key == 'balance_final': total_row.append(f"{t_bal_final:,.0f}")
         elif key == 'oil_premium': total_row.append(f"{t_oil_prem_pdf:,.0f}")
         else: total_row.append('')
     data.append(total_row)
@@ -921,7 +946,7 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
     table = RLTable(data, colWidths=col_widths, repeatRows=1)
 
     # Find first numeric column index for right-align
-    first_num = next((i for i, k in enumerate(col_keys) if k in ('net_weight_kg','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance')), len(col_keys))
+    first_num = next((i for i, k in enumerate(col_keys) if k in ('net_weight_kg','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final')), len(col_keys))
 
     nrows = len(data)
     style_cmds = [
@@ -965,6 +990,13 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
         style_cmds.append(('TEXTCOLOR', (tot_idx, 1), (tot_idx, -2), colors.HexColor('#0D47A1')))
         style_cmds.append(('FONTNAME', (tot_idx, 1), (tot_idx, -2), 'Helvetica-Bold'))
     except ValueError: pass
+    # v104.44.53 — Balance (after premium) styling: red bold for positive, green for zero/negative
+    try:
+        bf_idx = col_keys.index('balance_final')
+        style_cmds.append(('BACKGROUND', (bf_idx, 1), (bf_idx, -2), colors.HexColor('#FFF3E0')))
+        style_cmds.append(('TEXTCOLOR', (bf_idx, 1), (bf_idx, -2), colors.HexColor('#C62828')))
+        style_cmds.append(('FONTNAME', (bf_idx, 1), (bf_idx, -2), 'Helvetica-Bold'))
+    except ValueError: pass
     table.setStyle(TableStyle(style_cmds))
     elements.append(table)
 
@@ -973,7 +1005,7 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
     if t_cash > 0: pay_parts.append(f"Cash: <font color='green'>{t_cash:,.0f}</font>")
     if t_diesel > 0: pay_parts.append(f"Diesel: <font color='#FF6600'>{t_diesel:,.0f}</font>")
     if t_adv > 0: pay_parts.append(f"Advance: <font color='#0066CC'>{t_adv:,.0f}</font>")
-    pay_parts.append(f"<b>Balance: <font color='red'>{t_bal:,.0f}</font></b>")
+    pay_parts.append(f"<b>Balance: <font color='red'>{t_bal_final:,.0f}</font></b>")
     if pay_parts:
         elements.append(Spacer(1, 8))
         pay_style = ParagraphStyle('PaySummary', parent=styles['Normal'], fontSize=8,

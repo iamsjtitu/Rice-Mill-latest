@@ -81,6 +81,7 @@ module.exports = function(database) {
   }
 
   // v104.44.44 — Row-level pakka/kaccha view projections
+  // v104.44.53 — Balance properly projected (PKA: billed+tax, KCA: kaccha-advance)
   function _safeNum(v) { const n = Number(v); return isNaN(n) ? 0 : n; }
   function _projectPakkaView(s) {
     const billed = _safeNum(s.billed_amount);
@@ -91,11 +92,14 @@ module.exports = function(database) {
       net_weight_kg: _safeNum(s.billed_weight_kg),
       net_weight_qtl: _safeNum(s.billed_weight_qtl),
       net_weight_qtl_display: s.billed_weight_qtl_display || '',
-      amount: billed, total: billed + tax, _view_mode: 'PKA'
+      amount: billed, total: billed + tax,
+      balance: billed + tax, advance: 0,
+      _view_mode: 'PKA'
     };
   }
   function _projectKacchaView(s) {
     const kac = _safeNum(s.kaccha_amount);
+    const adv = _safeNum(s.advance);
     const kacRate = _safeNum(s.kaccha_rate_per_qtl);
     return { ...s,
       billed_weight_kg: 0, billed_weight_qtl: 0, billed_weight_qtl_display: '',
@@ -104,7 +108,9 @@ module.exports = function(database) {
       net_weight_kg: _safeNum(s.kaccha_weight_kg),
       net_weight_qtl: _safeNum(s.kaccha_weight_qtl),
       net_weight_qtl_display: s.kaccha_weight_qtl_display || '',
-      amount: kac, total: kac, _view_mode: 'KCA'
+      amount: kac, total: kac,
+      balance: Math.max(0, kac - adv),
+      _view_mode: 'KCA'
     };
   }
 
@@ -360,9 +366,10 @@ module.exports = function(database) {
       if (has.diesel) cols.push({h:'Diesel',k:'diesel_paid',w:10});
       if (has.adv) cols.push({h:'Advance',k:'advance',w:10});
       // v104.44.52 — PKA mode me Balance + Oil hide
+      // v104.44.53 — Balance Premium ke baad (last) move kiya, premium-adjusted
       if (gst_filter !== 'PKA') {
-        cols.push({h:'Balance',k:'balance',w:12});
         if (hasOil) { cols.push({h:'Oil%',k:'oil_pct',w:8},{h:'Diff%',k:'oil_diff',w:8},{h:'Premium',k:'oil_premium',w:12}); }
+        cols.push({h:'Balance',k:'balance_final',w:12});
       }
       if (has.remark) cols.push({h:'Remark',k:'remark',w:16});
 
@@ -437,16 +444,19 @@ module.exports = function(database) {
       });
 
       // Data rows + totals
-      const tot = { nw:0, bags:0, amt:0, billed:0, kaccha:0, tax:0, total:0, cash:0, diesel:0, adv:0, bal:0, oilP:0 };
+      const tot = { nw:0, bags:0, amt:0, billed:0, kaccha:0, tax:0, total:0, cash:0, diesel:0, adv:0, bal:0, balFinal:0, oilP:0 };
       sales.forEach((s, idx) => {
         const r = headerRow + 1 + idx;
         const op = oilMap[s.voucher_no||''] || oilMap[s.rst_no||''];
+        const prem = op ? _safeNum(op.premium_amount) : 0;
+        const balFinal = +(_safeNum(s.balance) + prem).toFixed(2);
         tot.nw += _safeNum(s.net_weight_kg); tot.bags += _safeNum(s.bags);
         tot.amt += _safeNum(s.amount); tot.billed += _safeNum(s.billed_amount); tot.kaccha += _safeNum(s.kaccha_amount);
         tot.tax += _safeNum(s.tax_amount); tot.total += _safeNum(s.total);
         tot.cash += _safeNum(s.cash_paid); tot.diesel += _safeNum(s.diesel_paid);
         tot.adv += _safeNum(s.advance); tot.bal += _safeNum(s.balance);
-        if (op) tot.oilP += _safeNum(op.premium_amount);
+        tot.balFinal += balFinal;
+        if (op) tot.oilP += prem;
 
         cols.forEach((c, i) => {
           const cell = ws.getCell(r, i + 1);
@@ -457,7 +467,8 @@ module.exports = function(database) {
           else if (c.k === 'net_weight_qtl') val = +(((s.net_weight_kg||0)/100).toFixed(2));
           else if (c.k === 'oil_pct') val = op ? op.actual_oil_pct : '';
           else if (c.k === 'oil_diff') val = op ? +((op.difference_pct||0).toFixed(2)) : '';
-          else if (c.k === 'oil_premium') val = op ? +((op.premium_amount||0).toFixed(2)) : '';
+          else if (c.k === 'oil_premium') val = op ? +(prem.toFixed(2)) : '';
+          else if (c.k === 'balance_final') val = balFinal;
           else if (['net_weight_kg','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance'].includes(c.k)) val = _safeNum(s[c.k]);
           else val = s[c.k] || '';
           cell.value = val;
@@ -465,7 +476,7 @@ module.exports = function(database) {
           cell.border = { top:{style:'thin', color:{argb:'FFB0C4DE'}}, bottom:{style:'thin', color:{argb:'FFB0C4DE'}}, left:{style:'thin', color:{argb:'FFB0C4DE'}}, right:{style:'thin', color:{argb:'FFB0C4DE'}} };
           // Alt-row fill
           if (idx % 2 === 0) cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF0F6FC'} };
-          // Color-coded PKA/KCA/Tax/Total cells
+          // Color-coded PKA/KCA/Tax/Total/Balance cells
           if (c.k === 'billed_amount') {
             cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFE8F5E9'} };
             cell.font = { name:'Calibri', size:9, bold:true, color:{argb:'FF2E7D32'} };
@@ -477,14 +488,17 @@ module.exports = function(database) {
             cell.font = { name:'Calibri', size:9, bold:true, color:{argb:'FFEF6C00'} };
           } else if (c.k === 'total') {
             cell.font = { name:'Calibri', size:9, bold:true, color:{argb:'FF1B5E20'} };
+          } else if (c.k === 'balance_final') {
+            cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFFFF3E0'} };
+            cell.font = { name:'Calibri', size:9, bold:true, color:{argb: balFinal > 0 ? 'FFC62828' : 'FF1B5E20' } };
           }
-          if (['net_weight_kg','net_weight_qtl','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','oil_pct','oil_diff','oil_premium'].includes(c.k)) {
+          if (['net_weight_kg','net_weight_qtl','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','oil_pct','oil_diff','oil_premium'].includes(c.k)) {
             cell.alignment = { horizontal:'right' };
           }
-          if (['amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','oil_premium'].includes(c.k)) {
+          if (['amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','oil_premium'].includes(c.k)) {
             cell.numFmt = '#,##0.00';
           }
-          if (c.k === 'oil_premium' && op && _safeNum(op.premium_amount) < 0) {
+          if (c.k === 'oil_premium' && op && prem < 0) {
             cell.font = { name:'Calibri', size:9, color:{argb:'FFFF0000'} };
           }
         });
@@ -511,9 +525,10 @@ module.exports = function(database) {
         else if (c.k === 'diesel_paid') v = +(tot.diesel.toFixed(2));
         else if (c.k === 'advance') v = +(tot.adv.toFixed(2));
         else if (c.k === 'balance') v = +(tot.bal.toFixed(2));
+        else if (c.k === 'balance_final') v = +(tot.balFinal.toFixed(2));
         else if (c.k === 'oil_premium') v = +(tot.oilP.toFixed(2));
         cell.value = v;
-        if (['net_weight_kg','net_weight_qtl','bags','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','oil_premium'].includes(c.k)) {
+        if (['net_weight_kg','net_weight_qtl','bags','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','oil_premium'].includes(c.k)) {
           cell.alignment = { horizontal:'right' };
         }
       });
@@ -598,9 +613,10 @@ module.exports = function(database) {
       if (has.diesel) pc.push(['Diesel',38,'diesel_paid']);
       if (has.adv) pc.push(['Adv',32,'advance']);
       // v104.44.52 — PKA mode me Balance + Oil hide
+      // v104.44.53 — Balance ko Premium ke baad (last) move kiya, premium-adjusted
       if (gst_filter !== 'PKA') {
-        pc.push(['Balance',48,'balance']);
         if (hasOil) { pc.push(['Oil%',30,'oil_pct'],['Diff%',30,'oil_diff'],['Premium',45,'oil_premium']); }
+        pc.push(['Balance',50,'balance_final']);
       }
 
       const headers = pc.map(c => c[0]);
@@ -663,19 +679,22 @@ module.exports = function(database) {
       y += rowH + 2;
 
       // Number column flags
-      const isNumCol = keys.map(k => ['net_weight_kg','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','oil_premium'].includes(k));
+      const isNumCol = keys.map(k => ['net_weight_kg','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','oil_premium'].includes(k));
 
       // Data rows
-      const tot = { nw:0, bags:0, amt:0, billed:0, kaccha:0, tax:0, total:0, cash:0, diesel:0, adv:0, bal:0, oilP:0 };
+      const tot = { nw:0, bags:0, amt:0, billed:0, kaccha:0, tax:0, total:0, cash:0, diesel:0, adv:0, bal:0, balFinal:0, oilP:0 };
       sales.forEach((s, ri) => {
         if (y + rowH > doc.page.height - margin - 30) { doc.addPage(); y = margin; }
         const op = oilMap[s.voucher_no||''] || oilMap[s.rst_no||''];
+        const prem = op ? _safeNum(op.premium_amount) : 0;
+        const balFinal = +(_safeNum(s.balance) + prem).toFixed(2);
         tot.nw += _safeNum(s.net_weight_kg); tot.bags += _safeNum(s.bags);
         tot.amt += _safeNum(s.amount); tot.billed += _safeNum(s.billed_amount); tot.kaccha += _safeNum(s.kaccha_amount);
         tot.tax += _safeNum(s.tax_amount); tot.total += _safeNum(s.total);
         tot.cash += _safeNum(s.cash_paid); tot.diesel += _safeNum(s.diesel_paid);
         tot.adv += _safeNum(s.advance); tot.bal += _safeNum(s.balance);
-        if (op) tot.oilP += _safeNum(op.premium_amount);
+        tot.balFinal += balFinal;
+        if (op) tot.oilP += prem;
 
         const baseBg = ri % 2 === 0 ? '#ffffff' : '#EBF1F8';
         x = startX;
@@ -691,15 +710,18 @@ module.exports = function(database) {
             const v = _safeNum(s[k]);
             cellVal = v ? Math.round(v).toLocaleString('en-IN') : '';
           }
+          else if (k === 'balance_final') {
+            cellVal = balFinal ? Math.round(balFinal).toLocaleString('en-IN') : '0';
+          }
           else if (k === 'oil_pct') cellVal = op ? `${op.actual_oil_pct}%` : '';
           else if (k === 'oil_diff') {
             if (op) { const d = op.difference_pct || 0; cellVal = `${d>0?'+':''}${d.toFixed(2)}%`; }
           }
-          else if (k === 'oil_premium') cellVal = op ? Math.round(op.premium_amount || 0).toLocaleString('en-IN') : '';
+          else if (k === 'oil_premium') cellVal = op ? Math.round(prem).toLocaleString('en-IN') : '';
           else if (['net_weight_kg','bags','rate_per_qtl','cash_paid','diesel_paid','advance'].includes(k)) cellVal = String(_safeNum(s[k]) || '');
           else cellVal = String(s[k] || '');
 
-          // Color overrides for PKA/KCA/Tax/Total
+          // Color overrides for PKA/KCA/Tax/Total/Balance(final)
           let cellBg = baseBg;
           let textColor = '#1F2937';
           let fontWeight = 'normal';
@@ -707,6 +729,7 @@ module.exports = function(database) {
           else if (k === 'kaccha_amount') { cellBg = '#FFD6D6'; textColor = '#B71C1C'; fontWeight = 'bold'; }
           else if (k === 'tax_amount' && cellVal) { cellBg = '#FFE8B0'; textColor = '#E65100'; fontWeight = 'bold'; }
           else if (k === 'total') { textColor = '#0D47A1'; fontWeight = 'bold'; }
+          else if (k === 'balance_final') { cellBg = '#FFF3E0'; textColor = balFinal > 0 ? '#C62828' : '#1B5E20'; fontWeight = 'bold'; }
 
           doc.rect(x, y, widths[ci], rowH).fill(cellBg);
           doc.rect(x, y, widths[ci], rowH).stroke('#CCCCCC');
@@ -735,6 +758,7 @@ module.exports = function(database) {
         else if (k === 'diesel_paid') v = String(Math.round(tot.diesel));
         else if (k === 'advance') v = String(Math.round(tot.adv));
         else if (k === 'balance') v = Math.round(tot.bal).toLocaleString('en-IN');
+        else if (k === 'balance_final') v = Math.round(tot.balFinal).toLocaleString('en-IN');
         else if (k === 'oil_premium') v = Math.round(tot.oilP).toLocaleString('en-IN');
         doc.rect(x, y, widths[ci], rowH).stroke('#1F4E79');
         doc.fillColor('#FFFFFF').font(autoF(v, 'bold')).fontSize(fs)
@@ -749,7 +773,7 @@ module.exports = function(database) {
       if (tot.cash > 0) payParts.push(`Cash: ${Math.round(tot.cash).toLocaleString('en-IN')}`);
       if (tot.diesel > 0) payParts.push(`Diesel: ${Math.round(tot.diesel).toLocaleString('en-IN')}`);
       if (tot.adv > 0) payParts.push(`Advance: ${Math.round(tot.adv).toLocaleString('en-IN')}`);
-      payParts.push(`Balance: ${Math.round(tot.bal).toLocaleString('en-IN')}`);
+      payParts.push(`Balance: ${Math.round(tot.balFinal).toLocaleString('en-IN')}`);
       const payText = `Payment Summary:  ${payParts.join('  |  ')}`;
       doc.fontSize(8).font(autoF(payText, 'bold')).fillColor('#1F4E79')
         .text(payText, margin, doc.y, { width: doc.page.width - margin * 2 });
