@@ -283,9 +283,29 @@ module.exports = function(database) {
     ensure();
     const { addPdfHeader, addPdfTable, addTotalsRow, fmtAmt, safePdfPipe, fmtDate, drawSummaryBanner, STAT_COLORS, fmtInr, applyConsolidatedExcelPolish} = require('./pdf_helpers');
     let vouchers = [...database.data.sale_vouchers];
-    const { kms_year, season } = req.query;
+    const { kms_year, season, search, date_from, date_to, item_category, party_name } = req.query;
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
     if (season) vouchers = vouchers.filter(v => v.season === season);
+    // v104.44.40 — Date range + party + category + search filter for export
+    if (date_from) vouchers = vouchers.filter(v => (v.date || '') >= date_from);
+    if (date_to) vouchers = vouchers.filter(v => (v.date || '') <= date_to);
+    if (item_category) {
+      const catL = String(item_category).toLowerCase();
+      vouchers = vouchers.filter(v => (v.items || []).some(i => String(i.item_name || '').toLowerCase() === catL));
+    }
+    if (party_name) {
+      const pL = String(party_name).toLowerCase();
+      vouchers = vouchers.filter(v => String(v.party_name || '').toLowerCase().includes(pL));
+    }
+    if (search) {
+      const sL = String(search).toLowerCase();
+      vouchers = vouchers.filter(v =>
+        String(v.party_name || '').toLowerCase().includes(sL) ||
+        String(v.invoice_no || '').toLowerCase().includes(sL) ||
+        String(v.rst_no || '').toLowerCase().includes(sL) ||
+        String(v.truck_no || '').toLowerCase().includes(sL)
+      );
+    }
     vouchers.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
 
     const branding = database.getBranding ? database.getBranding() : {};
@@ -352,9 +372,29 @@ module.exports = function(database) {
     const ExcelJS = require('exceljs');
     const { addExcelSummaryBanner, fmtInr } = require('./pdf_helpers');
     let vouchers = [...database.data.sale_vouchers];
-    const { kms_year, season } = req.query;
+    const { kms_year, season, search, date_from, date_to, item_category, party_name } = req.query;
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
     if (season) vouchers = vouchers.filter(v => v.season === season);
+    // v104.44.40 — Date range + party + category + search filter for export
+    if (date_from) vouchers = vouchers.filter(v => (v.date || '') >= date_from);
+    if (date_to) vouchers = vouchers.filter(v => (v.date || '') <= date_to);
+    if (item_category) {
+      const catL = String(item_category).toLowerCase();
+      vouchers = vouchers.filter(v => (v.items || []).some(i => String(i.item_name || '').toLowerCase() === catL));
+    }
+    if (party_name) {
+      const pL = String(party_name).toLowerCase();
+      vouchers = vouchers.filter(v => String(v.party_name || '').toLowerCase().includes(pL));
+    }
+    if (search) {
+      const sL = String(search).toLowerCase();
+      vouchers = vouchers.filter(v =>
+        String(v.party_name || '').toLowerCase().includes(sL) ||
+        String(v.invoice_no || '').toLowerCase().includes(sL) ||
+        String(v.rst_no || '').toLowerCase().includes(sL) ||
+        String(v.truck_no || '').toLowerCase().includes(sL)
+      );
+    }
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Sale Book');
     ws.addRow(['No.', 'Date', 'Inv No.', 'Party', 'Items', 'Truck/RST', 'E-Way Bill', 'Subtotal', 'GST', 'Total', 'Advance', 'Cash', 'Diesel', 'Balance']);
     let gT = 0, gA = 0, gC = 0, gD = 0, gB = 0;

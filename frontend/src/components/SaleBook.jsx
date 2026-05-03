@@ -23,6 +23,12 @@ import { useConfirm } from "./ConfirmProvider";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 import logger from "../utils/logger";
+
+const WhatsAppIcon = ({ className = "w-3.5 h-3.5" }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+    <path d="M20.52 3.48A11.77 11.77 0 0 0 12.02 0C5.46 0 .12 5.33.12 11.9a11.8 11.8 0 0 0 1.6 5.95L0 24l6.3-1.65a11.88 11.88 0 0 0 5.72 1.46h.01c6.56 0 11.9-5.33 11.9-11.9a11.76 11.76 0 0 0-3.41-8.43zM12.03 21.8h-.01a9.88 9.88 0 0 1-5.04-1.38l-.36-.21-3.74.98 1-3.64-.23-.37a9.85 9.85 0 0 1-1.52-5.28c0-5.47 4.45-9.9 9.9-9.9 2.65 0 5.14 1.03 7.01 2.9a9.87 9.87 0 0 1 2.9 7.02c0 5.46-4.45 9.9-9.91 9.9zm5.43-7.41c-.3-.15-1.76-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.76.97-.93 1.17-.17.2-.34.22-.64.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.64-2.05-.17-.3-.02-.47.13-.62.13-.13.3-.34.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51-.17-.01-.37-.01-.57-.01-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.48 0 1.47 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.3 1.26.48 1.69.62.71.22 1.35.19 1.86.12.57-.08 1.76-.72 2-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35z"/>
+  </svg>
+);
 const HSN_MAP = {
   "Rice (Usna)": "1006 30 20", "Rice (Raw)": "1006 30 10",
   "Broken Rice": "1006 40 00", "Rejection Rice": "1006 40 00", "Pin Broken Rice": "1006 40 00",
@@ -86,6 +92,18 @@ export default function SaleBook({ filters, user, category }) {
     kms_year: filters.kms_year || "", season: filters.season || "",
   });
 
+  // v104.44.40 — Build full filter param string for fetch + export
+  const buildFilterParams = () => {
+    const params = new URLSearchParams();
+    if (filters.kms_year) params.append('kms_year', filters.kms_year);
+    if (filters.season) params.append('season', filters.season);
+    if (filters.date_from) params.append('date_from', filters.date_from);
+    if (filters.date_to) params.append('date_to', filters.date_to);
+    if (filters.party_name) params.append('party_name', filters.party_name);
+    if (category) params.append('item_category', category);
+    if (searchQuery) params.append('search', searchQuery);
+    return params;
+  };
   const p = `kms_year=${filters.kms_year || ''}`;
 
   const fetchData = useCallback(async () => {
@@ -242,32 +260,85 @@ export default function SaleBook({ filters, user, category }) {
   const toggleSelectAll = () => setSelectedIds(prev => prev.length === vouchers.length ? [] : vouchers.map(v => v.id));
 
   const handleExportPDF = async () => {
-    const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
+    const params = buildFilterParams();
     const { downloadFile } = await import('../utils/download');
     const { buildFilename } = await import('../utils/filename-format');
     const fname = buildFilename({
       base: 'sale_book',
-      party: searchQuery,
+      party: filters.party_name || searchQuery,
+      dateFrom: filters.date_from,
+      dateTo: filters.date_to,
       kmsYear: filters.kms_year,
       ext: 'pdf',
     });
-    downloadFile(`/api/sale-book/export/pdf?${p}${searchParam}`, fname);
+    downloadFile(`/api/sale-book/export/pdf?${params}`, fname);
   };
 
   const handleExportExcel = async () => {
     try {
-      const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
+      const params = buildFilterParams();
       const { downloadFile } = await import('../utils/download');
       const { buildFilename } = await import('../utils/filename-format');
       const fname = buildFilename({
         base: 'sale_book',
-        party: searchQuery,
+        party: filters.party_name || searchQuery,
+        dateFrom: filters.date_from,
+        dateTo: filters.date_to,
         kmsYear: filters.kms_year,
         ext: 'xlsx',
       });
-      downloadFile(`/api/sale-book/export/excel?${p}${searchParam}`, fname);
+      downloadFile(`/api/sale-book/export/excel?${params}`, fname);
       toast.success("Excel export ho gaya!");
     } catch (e) { logger.error(e); toast.error("Excel export failed"); }
+  };
+
+  // v104.44.40 — Header-level WhatsApp summary + Group share for all filtered vouchers
+  const _saleBookSummaryText = () => {
+    const flt = [];
+    if (filters.kms_year) flt.push(`KMS: ${filters.kms_year}`);
+    if (filters.season) flt.push(`Season: ${filters.season}`);
+    if (filters.party_name) flt.push(`Party: ${filters.party_name}`);
+    if (filters.date_from) flt.push(`From: ${filters.date_from}`);
+    if (filters.date_to) flt.push(`To: ${filters.date_to}`);
+    if (category) flt.push(`Item: ${category}`);
+    if (searchQuery) flt.push(`Search: ${searchQuery}`);
+    const totalAmt = vouchers.reduce((s, v) => s + (v.total || 0), 0);
+    const totalBal = vouchers.reduce((s, v) => s + (v.balance || 0), 0);
+    const totalAdv = vouchers.reduce((s, v) => s + (v.advance || 0), 0);
+    const lines = [];
+    lines.push(`*📋 Sale Book Summary${category ? ' — ' + category : ''}*`);
+    if (flt.length) { lines.push(''); lines.push(`_${flt.join(' · ')}_`); }
+    lines.push('');
+    lines.push(`📊 Total Vouchers: *${vouchers.length}*`);
+    lines.push(`💰 Gross Sale: *₹${totalAmt.toLocaleString()}*`);
+    lines.push(`💵 Advance: *₹${totalAdv.toLocaleString()}*`);
+    lines.push(`📕 Balance: *₹${totalBal.toLocaleString()}*`);
+    if (vouchers.length > 0 && vouchers.length <= 10) {
+      lines.push('');
+      lines.push('*Vouchers:*');
+      vouchers.slice(0, 10).forEach(v => {
+        lines.push(`• ${formatSaleVoucher(v) || v.voucher_no || '-'} · ${fmtDate(v.date)} · ${v.party_name || '-'} · ₹${(v.total || 0).toLocaleString()}`);
+      });
+    }
+    return lines.join('\n');
+  };
+
+  const handleHeaderWhatsApp = async () => {
+    if (vouchers.length === 0) { toast.error("Koi sale vouchers nahi"); return; }
+    const text = _saleBookSummaryText();
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Summary copy ho gayi — WhatsApp chat me paste karein", { duration: 4000 });
+    } catch {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    }
+  };
+
+  const handleHeaderGroupSummary = () => {
+    if (vouchers.length === 0) { toast.error("Koi sale vouchers nahi"); return; }
+    setGroupText(_saleBookSummaryText());
+    setGroupPdfUrl(`${API}/sale-book/export/pdf?${buildFilterParams()}`);
+    setGroupDialogOpen(true);
   };
 
   const handlePayment = async () => {
@@ -385,21 +456,20 @@ export default function SaleBook({ filters, user, category }) {
           <FileText className="w-5 h-5" /> Sale Book (बिक्री खाता)
         </h2>
         <div className="flex gap-2 flex-wrap">
-          <Button onClick={handleExportPDF} variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-900/30 h-9 w-9 p-0" title="PDF" data-testid="sale-book-pdf-btn">
-            <Download className="w-4 h-4" />
+          <Button onClick={handleExportPDF} variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-900/30 h-9 w-9 p-0" title="PDF (current filters)" data-testid="sale-book-pdf-btn">
+            <FileText className="w-4 h-4" />
           </Button>
-          <Button onClick={handleExportExcel} variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-900/30 h-9 w-9 p-0" title="Excel" data-testid="sale-book-excel-btn">
+          <Button onClick={handleExportExcel} variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-900/30 h-9 w-9 p-0" title="Excel (current filters)" data-testid="sale-book-excel-btn">
             <FileSpreadsheet className="w-4 h-4" />
           </Button>
-          <ShareFileViaWhatsApp
-            getFile={async () => {
-              const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
-              return await fetchAsBlob(`/api/sale-book/export/pdf?${p}${searchParam}`, `sale_book_${new Date().toISOString().split('T')[0]}.pdf`);
-            }}
-            caption="Sale Book Report"
-            title="Sale Book WhatsApp pe bhejein (PDF)"
-            testId="sale-book-share-whatsapp"
-          />
+          <Button onClick={handleHeaderWhatsApp} variant="outline" size="sm"
+            className="h-9 w-9 p-0 text-[#25D366] hover:bg-green-900/30 border border-green-600" title="WhatsApp (summary text)" data-testid="sale-book-whatsapp-btn">
+            <WhatsAppIcon className="w-4 h-4" />
+          </Button>
+          <Button onClick={handleHeaderGroupSummary} variant="outline" size="sm"
+            className="h-9 w-9 p-0 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600" title="Send to Group (summary + PDF)" data-testid="sale-book-group-btn">
+            <Users className="w-4 h-4" />
+          </Button>
           <Button onClick={openNewForm} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold" data-testid="sale-book-add-btn">
             <Plus className="w-4 h-4 mr-1" /> New Sale
           </Button>

@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.40",
+    date: "Feb 17, 2026",
+    title: "v104.44.40 — 📤 Sale Book WhatsApp/Group + Filter-Aware Export",
+    items: [
+      { type: "feature", text: "📤 **Sale Book me 4-icon export pattern** — Pakka Govt Rice / Pvt Rice (Sale Voucher tab) me ab Excel + PDF + WhatsApp + Group icons. WhatsApp icon: filtered vouchers ka summary text clipboard pe copy (Total Vouchers, Gross Sale, Advance, Balance + top-10 list). Group icon: SendToGroupDialog + filtered PDF attach for WhatsApp groups." },
+      { type: "fix", text: "🐛 **Sale Book Excel/PDF filter sync** — Pehle export sirf `kms_year` + `search` query param leta tha. Ab pure top-bar filters (date_from, date_to, party_name, season) + category + searchQuery sab merge hote hain. Aap top-bar me 'date 1-15 May' aur 'party MBOPL' aur category 'Govt Rice / DC' set karenge → Excel/PDF unhi entries ka aayega." },
+      { type: "feature", text: "🔧 **Backend filter support extended** — `/api/sale-book/export/excel` aur `/pdf` endpoints me 4 naye query params: date_from, date_to, item_category, party_name. Triple-backend parity: Python + Node Desktop + Node LAN." },
+      { type: "improvement", text: "🎨 **Icon-only consistency restored** — Old generic 'Share via WhatsApp' button hata diya — replace ki with summary-style WhatsApp + Group icons (matches Transit Pass + Payments + BP Sale tabs)." },
+    ],
+  },
+  {
     version: "104.44.39",
     date: "Feb 17, 2026",
     title: "v104.44.39 — 🐛 BP Sale Register Filter Fix + WhatsApp/Group Icons",

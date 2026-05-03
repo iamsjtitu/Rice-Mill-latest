@@ -513,7 +513,9 @@ async def update_sale_voucher(voucher_id: str, input: SaleVoucherCreate, usernam
 # ============ SALE BOOK PDF EXPORT (A4 Fit, Professional) ============
 
 @router.get("/sale-book/export/pdf")
-async def export_sale_book_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None):
+async def export_sale_book_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None,
+                                date_from: Optional[str] = None, date_to: Optional[str] = None,
+                                item_category: Optional[str] = None, party_name: Optional[str] = None):
     from fastapi.responses import Response
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
@@ -526,6 +528,17 @@ async def export_sale_book_pdf(kms_year: Optional[str] = None, season: Optional[
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
+    # v104.44.40 — Date range + party + category filter support for export
+    if date_from or date_to:
+        query["date"] = {}
+        if date_from: query["date"]["$gte"] = date_from
+        if date_to: query["date"]["$lte"] = date_to
+    if item_category:
+        # v104.44.40 — escape regex special chars (parens like "Rice (Raw)")
+        import re as _re
+        query["items.item_name"] = {"$regex": f"^{_re.escape(item_category)}$", "$options": "i"}
+    if party_name:
+        query["party_name"] = {"$regex": party_name, "$options": "i"}
     if search:
         query["$or"] = [
             {"party_name": {"$regex": search, "$options": "i"}},
@@ -667,7 +680,9 @@ async def export_sale_book_pdf(kms_year: Optional[str] = None, season: Optional[
 # ============ SALE BOOK EXCEL EXPORT ============
 
 @router.get("/sale-book/export/excel")
-async def export_sale_book_excel(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None):
+async def export_sale_book_excel(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None,
+                                  date_from: Optional[str] = None, date_to: Optional[str] = None,
+                                  item_category: Optional[str] = None, party_name: Optional[str] = None):
     from fastapi.responses import Response
     import io
     try:
@@ -679,6 +694,17 @@ async def export_sale_book_excel(kms_year: Optional[str] = None, season: Optiona
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
+    # v104.44.40 — Date range + party + category filter support for export
+    if date_from or date_to:
+        query["date"] = {}
+        if date_from: query["date"]["$gte"] = date_from
+        if date_to: query["date"]["$lte"] = date_to
+    if item_category:
+        # v104.44.40 — escape regex special chars (parens like "Rice (Raw)")
+        import re as _re
+        query["items.item_name"] = {"$regex": f"^{_re.escape(item_category)}$", "$options": "i"}
+    if party_name:
+        query["party_name"] = {"$regex": party_name, "$options": "i"}
     if search:
         query["$or"] = [
             {"party_name": {"$regex": search, "$options": "i"}},
