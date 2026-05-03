@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.58",
+    date: "Feb 17, 2026",
+    title: "v104.44.58 — 💸 Cash Book payments → BP Sales auto-link",
+    items: [
+      { type: "fix", text: "💸 **Major fix** — Cash Book me jo party payments record karte hain (txn_type=jama with party category), wo ab automatically BP Sale Register me Last Pmt / Received / Pending columns me reflect honge. Pehle sirf local_party_accounts payment txns count hote the." },
+      { type: "improvement", text: "👀 **3 payment columns ab hamesha visible** (PKA mode chhod ke). Even if no payment, '—' aur '0' dikhayega — predictable layout. Excel + PDF me bhi same." },
+      { type: "improvement", text: "📋 **Party Statement** ab Cash Book payments + premium credit + sale debits sab ek hi ledger me dikhayega. Smart filter: Lab Test Premium / Sale Bhada / Sale entries skip honge taaki double-count na ho." },
+      { type: "fix", text: "🔧 Triple-Backend Parity (Python + Node Desktop + LAN) — teeno backends me cash_transactions integration." },
+    ],
+  },
+  {
     version: "104.44.57",
     date: "Feb 17, 2026",
     title: "v104.44.57 — 🧹 Payment columns + Layout cleanup",

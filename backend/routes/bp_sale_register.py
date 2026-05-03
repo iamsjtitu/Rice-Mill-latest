@@ -216,12 +216,35 @@ def _safe_num(v):
 
 # v104.44.56 — Payment fetching + FIFO allocation per sale (Option A + B)
 async def _fetch_party_payments(party: str, kms_year: str = "", season: str = "") -> list:
-    """Fetch all 'payment' txns for a party (PKA/KCA aware). Returns chronological list."""
+    """Fetch all payment txns for a party from BOTH local_party_accounts AND cash_transactions.
+    v104.44.58 — User records payments via Cash Book (cash_transactions, txn_type='jama').
+    Returns chronological list. Excludes premium adjustments (already in Balance) + sale debits."""
     if not party: return []
-    q = {"party_name": party, "txn_type": "payment"}
-    if kms_year: q["kms_year"] = kms_year
-    if season: q["season"] = season
-    items = await db.local_party_accounts.find(q, {"_id": 0}).sort("date", 1).to_list(10000)
+    items = []
+    # 1. Payments recorded directly in local_party_accounts
+    q1 = {"party_name": party, "txn_type": "payment"}
+    if kms_year: q1["kms_year"] = kms_year
+    if season: q1["season"] = season
+    items.extend(await db.local_party_accounts.find(q1, {"_id": 0}).to_list(10000))
+    # 2. Payments recorded via Cash Book (txn_type='jama' with category=party)
+    q2 = {"category": party, "txn_type": "jama"}
+    if kms_year: q2["kms_year"] = kms_year
+    if season: q2["season"] = season
+    cash_items = await db.cash_transactions.find(q2, {"_id": 0}).to_list(10000)
+    for c in cash_items:
+        # Map cash_transactions entry to a payment-like shape
+        items.append({
+            "date": c.get('date', ''),
+            "party_name": c.get('category', ''),
+            "amount": c.get('amount', 0),
+            "description": c.get('description', '') or '',
+            "txn_type": "payment",
+            "reference": c.get('id', ''),
+        })
+    # Filter: skip premium (already in Balance) + skip self-sale-debit entries (rare in jama, but safe)
+    skip_keywords = ('lab test premium', 'oil premium', 'sale bhada', 'rice bran sale', 'rice sale', 'paddy sale', 'sale #', 'sale-')
+    items = [p for p in items if not any(k in (p.get('description', '') or '').lower() for k in skip_keywords)]
+    items.sort(key=lambda x: (x.get('date', '') or '', x.get('created_at', '') or ''))
     return items
 
 
@@ -269,9 +292,6 @@ async def _enrich_sales_with_payments_fifo(sales: list, gst_filter: str = "") ->
         # Sort entries by sale date (FIFO)
         entries.sort(key=lambda x: (x[0].get('date', '') or '', x[0].get('created_at', '') or ''))
         payments = await _fetch_party_payments(party_key, kms, ssn)
-        # v104.44.57 — Skip premium-related ledger entries from Received calculation
-        # (premium is already adjusted via Balance column; don't double-count)
-        payments = [p for p in payments if not any(k in (p.get('description', '') or '').lower() for k in ('lab test premium', 'oil premium'))]
         # Each payment is allocated to oldest unpaid sale first
         remaining = [{"sale": s, "debit": debit, "remaining": debit, "btype": bt} for (s, debit, bt) in entries]
         for p in payments:
@@ -410,6 +430,24 @@ async def get_bp_party_statement(party: str, kms_year: str = "", season: str = "
     if kms_year: q["kms_year"] = kms_year
     if season: q["season"] = season
     raw = await db.local_party_accounts.find(q, {"_id": 0}).to_list(20000)
+    # v104.44.58 — Also pull payments from cash_transactions (jama with category=party)
+    qc = {"category": {"$in": party_keys}, "txn_type": "jama"}
+    if kms_year: qc["kms_year"] = kms_year
+    if season: qc["season"] = season
+    cash_items = await db.cash_transactions.find(qc, {"_id": 0}).to_list(20000)
+    skip_kw = ('lab test premium', 'oil premium', 'sale bhada', 'rice bran sale', 'rice sale', 'paddy sale', 'sale #', 'sale-')
+    for c in cash_items:
+        desc = (c.get('description', '') or '')
+        if any(k in desc.lower() for k in skip_kw): continue
+        raw.append({
+            "date": c.get('date', '') or '',
+            "party_name": c.get('category', '') or '',
+            "txn_type": "payment",
+            "amount": c.get('amount', 0) or 0,
+            "description": desc,
+            "reference": c.get('id', '') or '',
+            "created_at": c.get('created_at', '') or '',
+        })
     raw.sort(key=lambda x: (x.get('date', '') or '', x.get('created_at', '') or ''))
     # Note: Oil premium adjustments are already auto-created as payment entries in
     # local_party_accounts by the oil_premium flow (description "Lab Test Premium..."),
@@ -754,11 +792,10 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
             cols.append(('Diff%', 8, 'oil_diff'))
             cols.append(('Premium', 12, 'oil_premium'))
         cols.append(('Balance', 12, 'balance_final'))
-        # v104.44.56 — Payment summary columns (only when at least one sale has received payments)
-        if has_payments:
-            cols.append(('Last Pmt', 10, 'last_payment_date'))
-            cols.append(('Received', 12, 'total_received'))
-            cols.append(('Pending', 12, 'pending_balance'))
+        # v104.44.58 — Payment columns always shown (even if 0 received) for consistent layout
+        cols.append(('Last Pmt', 10, 'last_payment_date'))
+        cols.append(('Received', 12, 'total_received'))
+        cols.append(('Pending', 12, 'pending_balance'))
     if has_remark: cols.append(('Remark', 16, 'remark'))
 
     headers = [c[0] for c in cols]

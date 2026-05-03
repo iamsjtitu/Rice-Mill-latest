@@ -132,13 +132,28 @@ module.exports = function(database) {
   });
 
   // v104.44.56 — FIFO payment allocation helpers (Option A + B + C)
+  // v104.44.58 — Pull payments from BOTH local_party_accounts AND cash_transactions (jama txns)
   function _fetchPartyPayments(partyKey, kmsYear, season) {
-    if (!database.data.local_party_accounts) return [];
-    return database.data.local_party_accounts
+    const items = [];
+    const lpa = (database.data.local_party_accounts || [])
       .filter(p => p.party_name === partyKey && p.txn_type === 'payment'
         && (!kmsYear || p.kms_year === kmsYear)
-        && (!season || p.season === season))
-      .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        && (!season || p.season === season));
+    items.push(...lpa);
+    const ct = (database.data.cash_transactions || [])
+      .filter(c => c.category === partyKey && c.txn_type === 'jama'
+        && (!kmsYear || c.kms_year === kmsYear)
+        && (!season || c.season === season));
+    ct.forEach(c => items.push({
+      date: c.date || '', party_name: c.category || '', txn_type: 'payment',
+      amount: c.amount || 0, description: c.description || '', reference: c.id || '',
+      created_at: c.created_at || ''
+    }));
+    const skip = ['lab test premium', 'oil premium', 'sale bhada', 'rice bran sale', 'rice sale', 'paddy sale', 'sale #', 'sale-'];
+    return items.filter(p => {
+      const d = (p.description || '').toLowerCase();
+      return !skip.some(k => d.includes(k));
+    }).sort((a, b) => ((a.date || '').localeCompare(b.date || '')) || ((a.created_at || '').localeCompare(b.created_at || '')));
   }
   function _enrichSalesWithPaymentsFifo(sales) {
     // Group by (party_key, kms, season)
@@ -168,12 +183,7 @@ module.exports = function(database) {
     Object.entries(buckets).forEach(([bkey, entries]) => {
       const [partyKey, kms, ssn] = bkey.split('|');
       entries.sort((a, b) => ((a.sale.date || '').localeCompare(b.sale.date || '')) || ((a.sale.created_at || '').localeCompare(b.sale.created_at || '')));
-      // v104.44.57 — Skip premium-related payments (Lab Test Premium / Oil Premium adjustments)
-      // Premium is already deducted via the Balance column → don't re-count in 'Received'
-      const payments = _fetchPartyPayments(partyKey, kms, ssn).filter(p => {
-        const d = (p.description || '').toLowerCase();
-        return !d.includes('lab test premium') && !d.includes('oil premium');
-      });
+      const payments = _fetchPartyPayments(partyKey, kms, ssn);
       const remaining = entries.map(e => ({ sale: e.sale, btype: e.btype, remaining: e.debit }));
       payments.forEach(p => {
         let amt = _safeNum(p.amount);
@@ -229,9 +239,24 @@ module.exports = function(database) {
     if (gst_filter === 'PKA') partyKeys = [`${party} (PKA)`];
     else if (gst_filter === 'KCA') partyKeys = [`${party} (KCA)`];
     else partyKeys = [`${party} (PKA)`, `${party} (KCA)`, party];
-    let raw = database.data.local_party_accounts.filter(p => partyKeys.includes(p.party_name));
+    let raw = (database.data.local_party_accounts || []).filter(p => partyKeys.includes(p.party_name));
     if (kms_year) raw = raw.filter(p => p.kms_year === kms_year);
     if (season) raw = raw.filter(p => p.season === season);
+    // v104.44.58 — Also pull payments from cash_transactions (jama with category=party)
+    const cashItems = (database.data.cash_transactions || []).filter(c =>
+      partyKeys.includes(c.category) && c.txn_type === 'jama'
+      && (!kms_year || c.kms_year === kms_year)
+      && (!season || c.season === season));
+    const skipKw = ['lab test premium', 'oil premium', 'sale bhada', 'rice bran sale', 'rice sale', 'paddy sale', 'sale #', 'sale-'];
+    cashItems.forEach(c => {
+      const desc = c.description || '';
+      if (skipKw.some(k => desc.toLowerCase().includes(k))) return;
+      raw.push({
+        date: c.date || '', party_name: c.category || '', txn_type: 'payment',
+        amount: c.amount || 0, description: desc, reference: c.id || '',
+        created_at: c.created_at || ''
+      });
+    });
     raw.sort((a, b) => ((a.date || '').localeCompare(b.date || '')) || ((a.created_at || '').localeCompare(b.created_at || '')));
     let balance = 0;
     const entries = raw.map(r => {
@@ -968,6 +993,16 @@ module.exports = function(database) {
       let raw = (database.data.local_party_accounts || []).filter(p => partyKeys.includes(p.party_name));
       if (kms_year) raw = raw.filter(p => p.kms_year === kms_year);
       if (season) raw = raw.filter(p => p.season === season);
+      // v104.44.58 — Also pull payments from cash_transactions
+      const _cashItemsX = (database.data.cash_transactions || []).filter(c =>
+        partyKeys.includes(c.category) && c.txn_type === 'jama'
+        && (!kms_year || c.kms_year === kms_year)
+        && (!season || c.season === season));
+      const _skipKwX = ['lab test premium', 'oil premium', 'sale bhada', 'rice bran sale', 'rice sale', 'paddy sale', 'sale #', 'sale-'];
+      _cashItemsX.forEach(c => {
+        const d = c.description || ''; if (_skipKwX.some(k => d.toLowerCase().includes(k))) return;
+        raw.push({ date: c.date||'', party_name: c.category||'', txn_type: 'payment', amount: c.amount||0, description: d, reference: c.id||'', created_at: c.created_at||'' });
+      });
       raw.sort((a, b) => ((a.date || '').localeCompare(b.date || '')) || ((a.created_at || '').localeCompare(b.created_at || '')));
       let balance = 0;
       const entries = raw.map(r => {
