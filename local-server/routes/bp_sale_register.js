@@ -80,6 +80,50 @@ module.exports = function(database) {
     database.data.local_party_accounts = database.data.local_party_accounts.filter(t => !(t.reference && t.reference.includes(`bp_sale`) && t.reference.includes(docId)));
   }
 
+  // v104.44.71 — Bag Stock Sync (BP Sale → gunny_bags 'out')
+  function ensureGb() { if (!database.data.gunny_bags) database.data.gunny_bags = []; }
+  function syncBpSaleBagOut(saleId, bpEntry, username) {
+    ensureGb();
+    const ref = `bp_sale_bag:${saleId}`;
+    const bagType = (bpEntry.bag_type || '').trim();
+    const qty = parseInt(bpEntry.bags || 0) || 0;
+    const gb = database.data.gunny_bags;
+    if (!(bagType && qty > 0)) {
+      for (let i = gb.length - 1; i >= 0; i--) { if (gb[i].reference === ref) gb.splice(i, 1); }
+      return;
+    }
+    const now = new Date().toISOString();
+    const fields = {
+      date: bpEntry.date || '',
+      bag_type: bagType,
+      txn_type: 'out',
+      quantity: qty,
+      source: (bpEntry.party_name || 'BP Sale').trim(),
+      rate: 0,
+      amount: 0,
+      notes: `Auto from BP Sale #${bpEntry.voucher_no || saleId.substring(0,8)} (${bpEntry.product || ''})`,
+      kms_year: bpEntry.kms_year || '',
+      season: bpEntry.season || 'Kharif',
+      created_by: username || 'system',
+      linked_entry_id: saleId,
+      reference: ref,
+      rst_no: String(bpEntry.rst_no || ''),
+      truck_no: bpEntry.vehicle_no || '',
+      updated_at: now,
+    };
+    const idx = gb.findIndex(g => g.reference === ref);
+    if (idx >= 0) {
+      gb[idx] = { ...gb[idx], ...fields };
+    } else {
+      gb.push({ id: uuid(), created_at: now, ...fields });
+    }
+  }
+  function deleteBpSaleBagOut(saleId) {
+    ensureGb();
+    const ref = `bp_sale_bag:${saleId}`;
+    database.data.gunny_bags = database.data.gunny_bags.filter(g => g.reference !== ref);
+  }
+
   // v104.44.44 — Row-level pakka/kaccha view projections
   // v104.44.53 — Balance properly projected (PKA: billed+tax, KCA: kaccha-advance)
   function _safeNum(v) { const n = Number(v); return isNaN(n) ? 0 : n; }
@@ -425,6 +469,7 @@ module.exports = function(database) {
     database.data.bp_sale_register.push(data);
     database.save();
     createBpLedgerEntries(data, data.id, req.query.username || '');
+    syncBpSaleBagOut(data.id, data, req.query.username || '');
     database.save();
     res.json(data);
   });
@@ -454,6 +499,7 @@ module.exports = function(database) {
     database.data.bp_sale_register[idx] = data;
     deleteBpLedgerEntries(req.params.id);
     createBpLedgerEntries(data, req.params.id, req.query.username || '');
+    syncBpSaleBagOut(req.params.id, data, req.query.username || '');
     database.save();
     res.json({ success: true });
   });
@@ -464,6 +510,7 @@ module.exports = function(database) {
     database.data.bp_sale_register = database.data.bp_sale_register.filter(s => s.id !== req.params.id);
     if (database.data.bp_sale_register.length < len) {
       deleteBpLedgerEntries(req.params.id);
+      deleteBpSaleBagOut(req.params.id);
       database.save();
       return res.json({ success: true });
     }

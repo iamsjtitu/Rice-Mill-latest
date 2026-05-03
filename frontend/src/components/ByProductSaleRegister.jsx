@@ -59,6 +59,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
     net_weight_kg: "", net_weight_qtl_display: "", bags: "", rate_per_qtl: "",
     sauda_amount: "",
     gst_type: "none", gst_percent: "",
+    // v104.44.71 — Bag type (stock deduct) + Bran-only weight cut per bag
+    bag_type: "", bag_weight_cut_g: product === "Rice Bran" ? "200" : "0",
     // Split billing (Pakka + Kaccha single dispatch)
     split_billing: false, billed_weight_kg: "", kaccha_weight_kg: "", kaccha_rate_per_qtl: "",
     // Helper Qtl displays for split mode (auto-synced with kg)
@@ -68,6 +70,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   };
   const [form, setForm] = useState(blankForm);
   const [stockInfo, setStockInfo] = useState(null);
+  // v104.44.71 — Bag stock aggregated per bag_type (from gunny_bags collection)
+  const [bagStock, setBagStock] = useState({ old: 0, bran_plastic: 0, broken_plastic: 0 });
 
   // Product ID mapping for stock API
   const productIdMap = {"Rice Bran":"bran","Mota Kunda":"kunda","Broken Rice":"broken","Rejection Rice":"rejection_rice","Pin Broken Rice":"pin_broken_rice","Poll":"poll","Bhusa":"husk"};
@@ -112,6 +116,25 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   }, [product, productId, filters.kms_year, filters.season, gstFilter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // v104.44.71 — Bag stock (from gunny_bags collection; same as VW uses)
+  const fetchBagStock = useCallback(async () => {
+    try {
+      const r = await axios.get(`${API}/gunny-bags`, { params: { kms_year: filters.kms_year || "" } });
+      const items = Array.isArray(r.data) ? r.data : (r.data?.entries || []);
+      const totals = { old: 0, bran_plastic: 0, broken_plastic: 0 };
+      for (const e of items) {
+        const bt = e.bag_type || 'old';
+        if (bt === 'new') continue;  // exclude Govt bags
+        if (!(bt in totals)) totals[bt] = 0;
+        const q = parseInt(e.quantity || 0) || 0;
+        if (e.txn_type === 'in') totals[bt] += q;
+        else if (e.txn_type === 'out') totals[bt] -= q;
+      }
+      setBagStock(totals);
+    } catch (e) { /* silent */ }
+  }, [filters.kms_year]);
+  useEffect(() => { fetchBagStock(); }, [fetchBagStock]);
 
   // v104.44.61 — Auto-refresh: poll payments-etag every 5s, refetch when changed
   const lastEtagRef = React.useRef('');
@@ -162,6 +185,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             net_weight_kg: nw != null ? String(nw) : p.net_weight_kg,
             net_weight_qtl_display: nwQtl != null ? String(nwQtl) : p.net_weight_qtl_display,
             bags: e.tot_pkts ? String(e.tot_pkts) : p.bags,
+            // v104.44.71 — Auto-fetch bag_type from VW (exclude Govt 'new' — we only BP-sell private bags)
+            bag_type: (e.bag_type && e.bag_type !== 'new') ? e.bag_type : p.bag_type,
             billed_weight_kg: pakkaKgDefault,
             billed_weight_qtl_display: pakkaQtlDefault,
             kaccha_weight_kg: kacchaKgDefault,
@@ -196,10 +221,22 @@ export default function ByProductSaleRegister({ filters, user, product }) {
   // In non-split mode: net_weight_kg is the dispatch weight directly.
   const totalSplitKg = parseFloat(form.net_weight_kg) || 0;
   const totalSplitQtl = totalSplitKg / 100;
-  const nwKg = isSplit ? totalSplitKg : (parseFloat(form.net_weight_kg) || 0);
+  const rawNwKg = isSplit ? totalSplitKg : (parseFloat(form.net_weight_kg) || 0);
+  // v104.44.71 — Bran-only bag weight cut: per-bag gram deduction before billing
+  const bagCount = parseInt(form.bags) || 0;
+  const bagCutGrams = product === "Rice Bran" ? (parseFloat(form.bag_weight_cut_g) || 0) : 0;
+  const totalCutKg = Math.round((bagCount * bagCutGrams / 1000) * 100) / 100;
+  // Final weights after cut (billing basis)
+  const nwKg = Math.max(0, Math.round((rawNwKg - totalCutKg) * 100) / 100);
   const nwQtl = nwKg / 100;
-  const billedQtl = billedKg / 100;
-  const kacchaQtl = kacchaKg / 100;
+  // For split: pro-rate the cut between PKA and KCA by their gross weights
+  const splitRawSum = billedKg + kacchaKg;
+  const pakkaCutKg = (isSplit && splitRawSum > 0) ? Math.round((totalCutKg * billedKg / splitRawSum) * 100) / 100 : 0;
+  const kacchaCutKg = isSplit ? Math.round((totalCutKg - pakkaCutKg) * 100) / 100 : 0;
+  const finalBilledKg = Math.max(0, billedKg - pakkaCutKg);
+  const finalKacchaKg = Math.max(0, kacchaKg - kacchaCutKg);
+  const billedQtl = finalBilledKg / 100;
+  const kacchaQtl = finalKacchaKg / 100;
   const billedAmount = Math.round(billedQtl * rate * 100) / 100;
   const kacchaAmount = Math.round(kacchaQtl * kacchaRate * 100) / 100;
   const amount = isSplit ? billedAmount : Math.round(nwQtl * rate * 100) / 100; // GST-taxable portion
@@ -242,6 +279,8 @@ export default function ByProductSaleRegister({ filters, user, product }) {
       net_weight_kg: s.net_weight_kg ? String(s.net_weight_kg) : "",
       net_weight_qtl_display: s.net_weight_kg ? String(Math.round(s.net_weight_kg / 100 * 100) / 100) : "",
       bags: s.bags ? String(s.bags) : "", rate_per_qtl: s.rate_per_qtl ? String(s.rate_per_qtl) : "",
+      bag_type: s.bag_type || "",
+      bag_weight_cut_g: s.bag_weight_cut_g != null ? String(s.bag_weight_cut_g) : (s.product === "Rice Bran" ? "200" : "0"),
       gst_type: s.gst_type || "none", gst_percent: s.gst_percent ? String(s.gst_percent) : "",
       split_billing: !!s.split_billing,
       billed_weight_kg: s.billed_weight_kg ? String(s.billed_weight_kg) : "",
@@ -279,17 +318,19 @@ export default function ByProductSaleRegister({ filters, user, product }) {
     try {
       const payload = {
         ...form,
-        net_weight_kg: nwKg,
+        net_weight_kg: nwKg,  // final weight (post bag-cut) — used for billing
         rate_per_qtl: rate,
         bags: parseInt(form.bags) || 0,
+        bag_type: form.bag_type || "",
+        bag_weight_cut_g: product === "Rice Bran" ? (parseFloat(form.bag_weight_cut_g) || 0) : 0,
         // v104.44.68 — Auto round-off payment fields globally
         cash_paid: commercialRound(parseFloat(form.cash_paid) || 0),
         diesel_paid: commercialRound(parseFloat(form.diesel_paid) || 0),
         bhada: commercialRound(parseFloat(form.bhada) || 0),
         advance: commercialRound(parseFloat(form.advance) || 0),
         split_billing: !!form.split_billing,
-        billed_weight_kg: form.split_billing ? billedKg : 0,
-        kaccha_weight_kg: form.split_billing ? kacchaKg : 0,
+        billed_weight_kg: form.split_billing ? finalBilledKg : 0,
+        kaccha_weight_kg: form.split_billing ? finalKacchaKg : 0,
         kaccha_rate_per_qtl: form.split_billing ? kacchaRate : 0,
       };
       if (editingId) {
@@ -319,13 +360,13 @@ export default function ByProductSaleRegister({ filters, user, product }) {
           toast.warning(`Bhada save hua par truck owner ledger me sync nahi hua (${r.message || "unknown"}).`, { duration: 6000 });
         }
       }
-      setIsFormOpen(false); fetchData();
+      setIsFormOpen(false); fetchData(); fetchBagStock();
     } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
   };
 
   const handleDelete = async (id) => {
     if (!await showConfirm("Delete", "Delete karna chahte hain?")) return;
-    try { await axios.delete(`${API}/bp-sale-register/${id}`); toast.success("Deleted!"); fetchData(); } catch (e) { toast.error("Error"); }
+    try { await axios.delete(`${API}/bp-sale-register/${id}`); toast.success("Deleted!"); fetchData(); fetchBagStock(); } catch (e) { toast.error("Error"); }
   };
 
   const filtered = sales.filter(s => {
@@ -973,6 +1014,7 @@ export default function ByProductSaleRegister({ filters, user, product }) {
             </div>
 
             {!isSplit && (
+              <>
               <div className="grid grid-cols-4 gap-3">
                 <div>
                   <Label className="text-[10px] text-slate-400">N/W (Qtl) {stockInfo && <span className={`font-bold ${(effectiveAvailQtl - nwQtl) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((effectiveAvailQtl - nwQtl) * 100) / 100} Qtl)</span>}</Label>
@@ -992,7 +1034,14 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     className="bg-slate-800 border-slate-700 text-slate-300 h-8 text-xs cursor-not-allowed" data-testid="bp-nw" />
                 </div>
                 <div>
-                  <Label className="text-[10px] text-slate-400">Bags</Label>
+                  <Label className="text-[10px] text-slate-400">
+                    Bags
+                    {form.bag_type && bagStock[form.bag_type] !== undefined && (
+                      <span className={`ml-1 font-bold ${(bagStock[form.bag_type] - bagCount) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        (Stock: {bagStock[form.bag_type] - bagCount})
+                      </span>
+                    )}
+                  </Label>
                   <Input type="number" value={form.bags} onChange={e => setForm(p => ({ ...p, bags: e.target.value }))}
                     className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-bags" />
                 </div>
@@ -1003,6 +1052,39 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                     className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="bp-rate" />
                 </div>
               </div>
+              {/* v104.44.71 — Bag Type (stock deduct) + Bag Weight Cut (Bran only) */}
+              <div className={`grid gap-3 ${product === "Rice Bran" ? "grid-cols-2" : "grid-cols-1"} p-2 rounded bg-cyan-900/10 border border-cyan-700/30`}>
+                <div>
+                  <Label className="text-[10px] text-cyan-300 font-semibold uppercase tracking-wider">Bag Type <span className="text-amber-400">*</span> <span className="text-slate-500 text-[9px]">(stock se ghatega)</span></Label>
+                  <Select value={form.bag_type || ""} onValueChange={v => setForm(p => ({ ...p, bag_type: v }))}>
+                    <SelectTrigger className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="bp-bag-type">
+                      <SelectValue placeholder="Select bag type..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="old">Old (Market) — Stock: {bagStock.old ?? 0}</SelectItem>
+                      <SelectItem value="bran_plastic">Bran P.Pkt — Stock: {bagStock.bran_plastic ?? 0}</SelectItem>
+                      <SelectItem value="broken_plastic">Broken P.Pkt — Stock: {bagStock.broken_plastic ?? 0}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {bagCount > 0 && form.bag_type && bagStock[form.bag_type] !== undefined && bagCount > bagStock[form.bag_type] && (
+                    <p className="text-red-400 text-[10px] mt-0.5">⚠ Bag stock se zyada use ho raha hai ({bagCount - bagStock[form.bag_type]} bags short)</p>
+                  )}
+                </div>
+                {product === "Rice Bran" && (
+                  <div>
+                    <Label className="text-[10px] text-cyan-300 font-semibold uppercase tracking-wider">Bag Weight Cut (g/bag) <span className="text-slate-500 text-[9px]">(Bran only)</span></Label>
+                    <div className="flex gap-2 items-center">
+                      <Input type="number" value={form.bag_weight_cut_g}
+                        onChange={e => setForm(p => ({ ...p, bag_weight_cut_g: e.target.value }))}
+                        placeholder="200" className="bg-slate-700 border-slate-500 text-white h-8 text-xs w-24" data-testid="bp-bag-cut" />
+                      <span className="text-[10px] text-slate-400">
+                        Cut: <span className="text-amber-400 font-bold">{totalCutKg.toFixed(2)} Kg</span> · Final: <span className="text-emerald-400 font-bold">{nwKg.toFixed(2)} Kg</span>
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+              </>
             )}
 
             {isSplit && (
@@ -1036,6 +1118,44 @@ export default function ByProductSaleRegister({ filters, user, product }) {
                       readOnly tabIndex={-1}
                       className="bg-slate-800 border-slate-700 text-slate-300 h-8 text-xs cursor-not-allowed" data-testid="bp-split-total-kg" />
                   </div>
+                </div>
+
+                {/* v104.44.71 — Bag Type + Cut (split mode: shared — ek bar hi stock se ghatega) */}
+                <div className={`grid gap-3 ${product === "Rice Bran" ? "grid-cols-2" : "grid-cols-1"} p-2 rounded bg-cyan-900/10 border border-cyan-700/30`}>
+                  <div>
+                    <Label className="text-[10px] text-cyan-300 font-semibold uppercase tracking-wider">Bag Type <span className="text-amber-400">*</span> <span className="text-slate-500 text-[9px]">(stock se 1 baar ghatega — shared)</span></Label>
+                    <Select value={form.bag_type || ""} onValueChange={v => setForm(p => ({ ...p, bag_type: v }))}>
+                      <SelectTrigger className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="bp-split-bag-type">
+                        <SelectValue placeholder="Select bag type..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="old">Old (Market) — Stock: {bagStock.old ?? 0}</SelectItem>
+                        <SelectItem value="bran_plastic">Bran P.Pkt — Stock: {bagStock.bran_plastic ?? 0}</SelectItem>
+                        <SelectItem value="broken_plastic">Broken P.Pkt — Stock: {bagStock.broken_plastic ?? 0}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {bagCount > 0 && form.bag_type && bagStock[form.bag_type] !== undefined && bagCount > bagStock[form.bag_type] && (
+                      <p className="text-red-400 text-[10px] mt-0.5">⚠ Bag stock se zyada use ho raha hai ({bagCount - bagStock[form.bag_type]} bags short)</p>
+                    )}
+                  </div>
+                  {product === "Rice Bran" && (
+                    <div>
+                      <Label className="text-[10px] text-cyan-300 font-semibold uppercase tracking-wider">Bag Weight Cut (g/bag) <span className="text-slate-500 text-[9px]">(Bran only · pro-rata)</span></Label>
+                      <div className="flex gap-2 items-center">
+                        <Input type="number" value={form.bag_weight_cut_g}
+                          onChange={e => setForm(p => ({ ...p, bag_weight_cut_g: e.target.value }))}
+                          placeholder="200" className="bg-slate-700 border-slate-500 text-white h-8 text-xs w-24" data-testid="bp-split-bag-cut" />
+                        <span className="text-[10px] text-slate-400">
+                          Total Cut: <span className="text-amber-400 font-bold">{totalCutKg.toFixed(2)} Kg</span>
+                        </span>
+                      </div>
+                      {totalCutKg > 0 && (
+                        <p className="text-[10px] text-cyan-400 mt-0.5">
+                          Final PKA: <span className="font-bold text-emerald-400">{finalBilledKg.toFixed(2)} Kg</span> · Final KCA: <span className="font-bold text-amber-400">{finalKacchaKg.toFixed(2)} Kg</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* PAKKA */}

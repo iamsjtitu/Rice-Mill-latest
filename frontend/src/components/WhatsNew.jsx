@@ -7,6 +7,20 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.71",
+    date: "Feb 17, 2026",
+    title: "v104.44.71 — 🧺 BP Sale: Bag Type Stock Deduct + Bag Weight Cut (Bran)",
+    items: [
+      { type: "feature", text: "🧺 **Bag Type dropdown** — BP Sale form me ab 'Bag Type' ka dropdown aa gaya (Old/Bran P.Pkt/Broken P.Pkt) stock ke saath. 'New (Govt)' option nahi aayega kyunki humne Govt ko by-product nahi bechna." },
+      { type: "feature", text: "📉 **Auto stock deduction** — Jo bag use hota hai wo `gunny_bags` se auto deduct ho jata hai (reference: `bp_sale_bag:{id}`). Stock dropdown me live update. Edit/Delete pe sync wapas ho jata hai." },
+      { type: "feature", text: "⚖️ **Bag Weight Cut (Bran only)** — Rice Bran form me 'Bag Weight Cut (g/bag)' naya field (default 200g). Cut hone ke baad Final Weight auto-calculate + billing usi par hota hai. Split mode me PKA/KCA me pro-rata cut distribute hota hai." },
+      { type: "feature", text: "🔁 **RST se auto-fetch** — Vehicle Weight me jo bag_type save hai wo BP Sale form me RST fetch pe auto-fill ho jata hai (Govt 'new' excluded — BP Sale me kaam nahi aata)." },
+      { type: "improvement", text: "🔗 **Split mode: shared bag deduction** — Split Billing (PKA+KCA) me bags field shared rehta hai (ek hi entry — 150 bags dispatch = 150 bags stock se minus, 300 nahi)." },
+      { type: "improvement", text: "⚠️ **Stock < qty warning** — Agar bag qty stock se zyada hai, red warning inline show hoti hai (kitne bags short hain wo bhi)." },
+      { type: "improvement", text: "🌐 **Triple-Backend Parity** — Python FastAPI + Node Desktop + Node LAN — teeno backends me identical `_sync_bp_sale_bag_out` helper + POST/PUT/DELETE hooks." },
+    ],
+  },
+  {
     version: "104.44.70",
     date: "Feb 17, 2026",
     title: "v104.44.70 — ⚖️ Party Weight Register (By-Product Sale sub-tab)",

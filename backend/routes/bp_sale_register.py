@@ -209,6 +209,51 @@ async def _delete_bp_ledger_entries(doc_id):
     await db.local_party_accounts.delete_many({"reference": {"$regex": f"bp_sale_adv:{doc_id}"}})
 
 
+# v104.44.71 — Bag Stock Sync (BP Sale → gunny_bags 'out')
+async def _sync_bp_sale_bag_out(sale_id: str, bp_entry: dict, username: str = "system"):
+    """Sync linked gunny_bags 'out' entry for BP sale bag deduction.
+
+    Creates / updates / deletes the bag-stock-out entry based on:
+        bag_type set (non-empty) AND bags > 0
+    Reference key: `bp_sale_bag:{sale_id}` (idempotent, 1 entry per BP sale).
+    PKA/KCA split stores 1 entry (shared bag count, not doubled).
+    """
+    ref = f"bp_sale_bag:{sale_id}"
+    bag_type = (bp_entry.get("bag_type") or "").strip()
+    qty = int(bp_entry.get("bags", 0) or 0)
+
+    if not (bag_type and qty > 0):
+        await db.gunny_bags.delete_many({"reference": ref})
+        return
+
+    existing = await db.gunny_bags.find_one({"reference": ref}, {"_id": 0})
+    now = datetime.now(timezone.utc).isoformat()
+    fields = {
+        "date": bp_entry.get("date", ""),
+        "bag_type": bag_type,
+        "txn_type": "out",
+        "quantity": qty,
+        "source": (bp_entry.get("party_name") or "BP Sale").strip(),
+        "rate": 0,
+        "amount": 0,
+        "notes": f"Auto from BP Sale #{bp_entry.get('voucher_no') or sale_id[:8]} ({bp_entry.get('product','')})",
+        "kms_year": bp_entry.get("kms_year", ""),
+        "season": bp_entry.get("season", "Kharif"),
+        "created_by": username or "system",
+        "linked_entry_id": sale_id,
+        "reference": ref,
+        "rst_no": str(bp_entry.get("rst_no", "") or ""),
+        "truck_no": bp_entry.get("vehicle_no", ""),
+        "updated_at": now,
+    }
+    if existing:
+        await db.gunny_bags.update_one({"reference": ref}, {"$set": fields})
+    else:
+        fields["id"] = str(uuid.uuid4())
+        fields["created_at"] = now
+        await db.gunny_bags.insert_one(fields)
+
+
 def _safe_num(v):
     try: return float(v or 0)
     except (ValueError, TypeError): return 0.0
@@ -605,6 +650,8 @@ async def create_bp_sale(data: dict, username: str = "", role: str = ""):
     await db.bp_sale_register.insert_one({**data})
     data.pop("_id", None)
     await _create_bp_ledger_entries(data, data["id"], username)
+    # v104.44.71 — Sync bag stock-out (deduct from gunny_bags)
+    await _sync_bp_sale_bag_out(data["id"], data, username)
     return data
 
 
@@ -639,6 +686,8 @@ async def update_bp_sale(sale_id: str, data: dict, username: str = "", role: str
     await _delete_bp_ledger_entries(sale_id)
     data["id"] = sale_id
     await _create_bp_ledger_entries(data, sale_id, username)
+    # v104.44.71 — Re-sync bag stock-out (in case bag_type / bags edited)
+    await _sync_bp_sale_bag_out(sale_id, data, username)
     return {"success": True}
 
 
@@ -653,6 +702,8 @@ async def delete_bp_sale(sale_id: str, username: str = "", role: str = ""):
         raise HTTPException(status_code=403, detail=message)
     await db.bp_sale_register.delete_one({"id": sale_id})
     await _delete_bp_ledger_entries(sale_id)
+    # v104.44.71 — Remove linked gunny_bags 'out' entry (reclaims stock)
+    await db.gunny_bags.delete_many({"reference": f"bp_sale_bag:{sale_id}"})
     return {"success": True}
 
 

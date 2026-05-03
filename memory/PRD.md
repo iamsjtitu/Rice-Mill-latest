@@ -1,6 +1,52 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.70
+## Current Version: v104.44.71
+
+## 🧺 v104.44.71 — BP Sale: Bag Type Stock Deduct + Bag Weight Cut (Bran)
+**Build date:** 2026-02-17
+
+### Feature
+BP Sale form me **Bag Type dropdown** (from Gunny Bag Register stock) + **auto stock deduction** + **Bag Weight Cut (Bran only)** for accurate billing weight.
+
+### Flow
+1. Form loads → fetch `gunny_bags` aggregated per `bag_type` (excluding 'new' Govt).
+2. Bag Type dropdown shows 3 options with live stock: `Old (Market) — Stock: N`, `Bran P.Pkt — Stock: N`, `Broken P.Pkt — Stock: N`.
+3. RST auto-fetch also auto-fills `bag_type` from VW entry (if VW has non-'new' type).
+4. **Bran only**: additional "Bag Weight Cut (g/bag)" field (default 200g). Cut = `bags × cut_g / 1000` → subtracted from raw N/W → final N/W shown live → bill on final.
+5. Split mode: PKA/KCA bags shared (1 deduction), cut pro-rated by weight.
+6. Save → auto-creates `gunny_bags` 'out' entry (reference: `bp_sale_bag:{id}`) → stock drops.
+7. Edit → entry updated in-place (same reference). Delete → entry removed (stock reclaimed).
+
+### Bag Type Codes
+- `old` — Old Market bag
+- `bran_plastic` — Bran Plastic Packet  
+- `broken_plastic` — Broken Plastic Packet
+- ~~`new`~~ — EXCLUDED (Govt bags reserved for CMR, not BP Sale)
+
+### New BP Sale Fields
+- `bag_type` (string) — one of above codes, empty allowed
+- `bag_weight_cut_g` (number) — grams per bag, 0 for non-Bran products, 200 default for Bran
+
+### Triple-Backend Parity
+- ✅ Python: `_sync_bp_sale_bag_out(sale_id, bp_entry, username)` helper in `/app/backend/routes/bp_sale_register.py`, called from POST/PUT; DELETE removes via `db.gunny_bags.delete_many({"reference": f"bp_sale_bag:{id}"})`
+- ✅ Node Desktop: `syncBpSaleBagOut()` + `deleteBpSaleBagOut()` in `/app/desktop-app/routes/bp_sale_register.js`, hooked into POST/PUT/DELETE
+- ✅ Node LAN: copy of Desktop in `/app/local-server/routes/bp_sale_register.js`
+
+### Verification
+- **Python curl**: Full CRUD cycle on Rice Bran with bag_type='old' bags=10, then bags=15 / type=bran_plastic → 1 linked entry updated in-place ✅. Delete → stock reclaimed ✅.
+- **Node in-process harness**: **14/14 PASS** (7 tests × 2 backends) — covers create/update (both qty and bag_type change)/bags=0-removes-entry/bags>0-recreates/delete.
+- **Frontend UI screenshot**: Dialog confirms Bag Type dropdown with 3 non-Govt options + stock display, Bag Weight Cut (Bran) live compute (150 bags × 200g = 30.00 Kg cut) ✅.
+
+### Files Modified
+- `/app/backend/routes/bp_sale_register.py` (+55 lines: helper + POST/PUT/DELETE hooks)
+- `/app/desktop-app/routes/bp_sale_register.js` (+55 lines: same helpers + hooks)
+- `/app/local-server/routes/bp_sale_register.js` (copy of Desktop)
+- `/app/frontend/src/components/ByProductSaleRegister.jsx` (+~120 lines: Bag Type block, Bag Cut field, stock fetch, RST auto-fill)
+- `/app/frontend/src/components/WhatsNew.jsx` (+v104.44.71 entry)
+- `/app/frontend/src/utils/constants-version.js` → `104.44.71`
+- `/app/desktop-app/package.json` + `/app/local-server/package.json` → `104.44.71`
+
+---
 
 ## ⚖️ v104.44.70 — Party Weight Register (By-Product Sale sub-tab)
 **Build date:** 2026-02-17
