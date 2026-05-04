@@ -31,7 +31,7 @@ export default function OilPremiumRegister({ filters, user }) {
 
   const blankForm = {
     date: new Date().toISOString().split("T")[0],
-    voucher_no: "", rst_no: "", bran_type: "Boiled",
+    voucher_no: "", rst_no: "", bran_type: "Raw",
     party_name: "", rate: "", qty_qtl: "",
     party_w_qtl: "",
     actual_oil_pct: "", remark: "",
