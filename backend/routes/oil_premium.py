@@ -153,7 +153,10 @@ async def delete_oil_premium(item_id: str, username: str = "", role: str = ""):
 
 @router.get("/oil-premium/lookup-sale")
 async def lookup_sale(voucher_no: str = "", rst_no: str = "", kms_year: str = ""):
-    """Lookup a Rice Bran sale by voucher_no or rst_no to auto-fill Oil Premium form."""
+    """Lookup a Rice Bran sale by voucher_no or rst_no to auto-fill Oil Premium form.
+    v104.44.95 — Also returns party_weight_qtl (total from party_weights register) so
+    the Oil Premium form can use party weight instead of our scale weight.
+    """
     if not voucher_no and not rst_no:
         raise HTTPException(status_code=400, detail="voucher_no or rst_no required")
 
@@ -168,7 +171,14 @@ async def lookup_sale(voucher_no: str = "", rst_no: str = "", kms_year: str = ""
     sale = await db.bp_sale_register.find_one(query, {"_id": 0})
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
-    # Add sauda_amount as effective rate fallback if rate is missing
+
+    # v104.44.95 — Merge total party_weight (Qtl) for this voucher (Rice Bran)
+    pw_query = {"product": "Rice Bran", "voucher_no": sale.get("voucher_no", "")}
+    if kms_year: pw_query["kms_year"] = kms_year
+    pw_entries = await db.party_weights.find(pw_query, {"_id": 0}).to_list(100)
+    total_party_kg = sum(float(p.get("party_net_weight_kg", 0) or 0) for p in pw_entries)
+    sale["party_weight_qtl"] = round(total_party_kg / 100.0, 2) if total_party_kg else 0
+    sale["party_weight_exists"] = bool(pw_entries) and total_party_kg > 0
     return sale
 
 

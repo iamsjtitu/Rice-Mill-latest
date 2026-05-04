@@ -1,6 +1,50 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.94
+## Current Version: v104.44.95
+
+## 🔧 v104.44.95 — New Oil Premium: Party Weight Integration
+**Build date:** 2026-02-04
+
+### User Request
+- In New Oil Premium form: **swap field order** → RST No first, then Voucher No
+- Add new **"Party W (Qtl)"** input field
+- **Qty (Qtl) auto-populate** from Party Weight Register (if voucher has entry)
+- **Premium calculation based on Party Weight** instead of mill scale weight
+- Fallback to `our_net_weight` when no Party Weight entry exists
+
+### Implementation
+1. **Backend `/api/oil-premium/lookup-sale`**
+   - After finding sale, also queries `party_weights` collection (same voucher_no + Rice Bran + kms_year)
+   - Sums `party_net_weight_kg` and converts to Qtl
+   - Returns new fields: `party_weight_qtl` (float) and `party_weight_exists` (bool)
+
+2. **Frontend `OilPremiumRegister.jsx`**
+   - Lookup section: **RST No → Voucher No** (order swapped)
+   - Label updated: *"Sale Lookup - RST ya Voucher se auto-fill (+ Party Weight)"*
+   - New grid: `Sauda Amt | Party W (Qtl) | Qty (Qtl) | Actual Oil%` (4 columns)
+   - On lookup success:
+     - If `party_weight_qtl > 0`: `party_w_qtl = qty_qtl = party_weight_qtl`
+     - Else: `qty_qtl = net_weight_qtl` (current behavior), `party_w_qtl` stays empty
+   - Manual Party W entry auto-syncs Qty field
+   - Toast: *"Sale + Party W ({qtl} Qtl) fetch ho gaye!"* when Party Weight present
+   - `party_w_qtl` persisted on save (loaded on edit)
+
+3. **Triple Backend Parity**
+   - ✅ Python: `/app/backend/routes/oil_premium.py`
+   - ✅ Desktop: `/app/desktop-app/routes/oil_premium.js`
+   - ✅ Local-server: `/app/local-server/routes/oil_premium.js`
+
+### E2E Verified (pytest + curl + screenshot)
+| Check | Result |
+|---|---|
+| Lookup S-002 (has PW 14500kg) → `party_weight_qtl: 145.0, party_weight_exists: True` | ✅ |
+| Lookup S-001 (no PW) → `party_weight_qtl: 0, party_weight_exists: False` | ✅ |
+| Lookup by `rst_no=6` → S-002, PW = 145 | ✅ |
+| UI: RST first, Voucher second | ✅ |
+| UI: Party W field populated (145), Qty synced (145) | ✅ |
+| Pytest: 4/4 tests pass in `test_oil_premium_party_weight_merge.py` | ✅ |
+
+---
 
 ## 🔧 v104.44.94 — Total Sales Register: Qtl + Cash Ledger Sync + Lab Test Auto-Adjust
 **Build date:** 2026-02-22

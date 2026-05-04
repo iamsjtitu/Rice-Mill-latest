@@ -33,6 +33,7 @@ export default function OilPremiumRegister({ filters, user }) {
     date: new Date().toISOString().split("T")[0],
     voucher_no: "", rst_no: "", bran_type: "Boiled",
     party_name: "", rate: "", qty_qtl: "",
+    party_w_qtl: "",
     actual_oil_pct: "", remark: "",
     sale_ref_id: "",
     kms_year: filters.kms_year || "", season: filters.season || "",
@@ -61,6 +62,10 @@ export default function OilPremiumRegister({ filters, user }) {
       const res = await axios.get(`${API}/oil-premium/lookup-sale?${params}`);
       if (res.data) {
         const s = res.data;
+        // v104.44.95 — If Party Weight register has entry for this voucher, prefer it as Qty
+        const partyWQtl = parseFloat(s.party_weight_qtl || 0) || 0;
+        const ourNetQtl = s.net_weight_qtl ? parseFloat(s.net_weight_qtl) : 0;
+        const finalQty = partyWQtl > 0 ? partyWQtl : ourNetQtl;
         setForm(p => ({
           ...p,
           sale_ref_id: s.id || "",
@@ -68,10 +73,15 @@ export default function OilPremiumRegister({ filters, user }) {
           rst_no: s.rst_no || p.rst_no,
           party_name: s.party_name || "",
           rate: (s.sauda_amount != null && s.sauda_amount !== '') ? String(s.sauda_amount) : (s.rate_per_qtl ? String(s.rate_per_qtl) : ""),
-          qty_qtl: s.net_weight_qtl ? String(s.net_weight_qtl) : "",
+          party_w_qtl: partyWQtl > 0 ? String(partyWQtl) : "",
+          qty_qtl: finalQty ? String(finalQty) : "",
           date: s.date || p.date,
         }));
-        toast.success("Sale details fetch ho gaye!");
+        if (partyWQtl > 0) {
+          toast.success(`Sale + Party W (${partyWQtl} Qtl) fetch ho gaye!`);
+        } else {
+          toast.success("Sale details fetch ho gaye!");
+        }
       }
     } catch (e) {
       // v104.44.36 — Silent on 404 (manual entry, no existing sale to lookup)
@@ -100,6 +110,7 @@ export default function OilPremiumRegister({ filters, user }) {
       date: item.date || "", voucher_no: item.voucher_no || "", rst_no: item.rst_no || "",
       bran_type: item.bran_type || "Boiled", party_name: item.party_name || "",
       rate: item.rate ? String(item.rate) : "", qty_qtl: item.qty_qtl ? String(item.qty_qtl) : "",
+      party_w_qtl: item.party_w_qtl ? String(item.party_w_qtl) : "",
       actual_oil_pct: item.actual_oil_pct ? String(item.actual_oil_pct) : "",
       remark: item.remark || "", sale_ref_id: item.sale_ref_id || "",
       kms_year: item.kms_year || "", season: item.season || "",
@@ -112,7 +123,7 @@ export default function OilPremiumRegister({ filters, user }) {
     if (!form.party_name?.trim()) { toast.error("Party Name daalen"); return; }
     if (!actual) { toast.error("Actual Oil % daalen"); return; }
     try {
-      const payload = { ...form, rate, qty_qtl: qty, actual_oil_pct: actual };
+      const payload = { ...form, rate, qty_qtl: qty, actual_oil_pct: actual, party_w_qtl: parseFloat(form.party_w_qtl) || 0 };
       if (editingId) {
         await axios.put(`${API}/oil-premium/${editingId}?username=${user.username}&role=${user.role}`, payload);
         toast.success("Updated!");
@@ -347,21 +358,21 @@ export default function OilPremiumRegister({ filters, user }) {
             <DialogTitle className="text-amber-400">{editingId ? "Edit" : "New"} Oil Premium</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-3">
-            {/* Lookup Section */}
+            {/* Lookup Section — v104.44.95: RST No first, then Voucher No */}
             <div className="bg-slate-700/40 rounded p-3 space-y-2">
-              <p className="text-[10px] text-amber-400 font-medium">Sale Lookup - Voucher ya RST se auto-fill</p>
+              <p className="text-[10px] text-amber-400 font-medium">Sale Lookup - RST ya Voucher se auto-fill (+ Party Weight)</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-[10px] text-slate-400">Voucher No {lookupLoading && <span className="text-amber-400">(loading...)</span>}</Label>
-                  <Input value={form.voucher_no} onChange={e => setForm(p => ({ ...p, voucher_no: e.target.value }))}
-                    onBlur={() => { if (form.voucher_no && !form.sale_ref_id) lookupSale("voucher_no", form.voucher_no); }}
-                    placeholder="Voucher No daalen" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="oil-voucher-no" />
-                </div>
-                <div>
-                  <Label className="text-[10px] text-slate-400">RST No</Label>
+                  <Label className="text-[10px] text-slate-400">RST No {lookupLoading && <span className="text-amber-400">(loading...)</span>}</Label>
                   <Input value={form.rst_no} onChange={e => setForm(p => ({ ...p, rst_no: e.target.value }))}
                     onBlur={() => { if (form.rst_no && !form.sale_ref_id) lookupSale("rst_no", form.rst_no); }}
                     placeholder="RST No daalen" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="oil-rst-no" />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-slate-400">Voucher No</Label>
+                  <Input value={form.voucher_no} onChange={e => setForm(p => ({ ...p, voucher_no: e.target.value }))}
+                    onBlur={() => { if (form.voucher_no && !form.sale_ref_id) lookupSale("voucher_no", form.voucher_no); }}
+                    placeholder="Voucher No daalen" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="oil-voucher-no" />
                 </div>
               </div>
             </div>
@@ -389,12 +400,23 @@ export default function OilPremiumRegister({ filters, user }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-4 gap-3">
               <div>
                 <Label className="text-[10px] text-slate-400">Sauda Amount (per Qtl)</Label>
                 <Input type="number" step="0.01" value={form.rate}
                   onChange={e => setForm(p => ({ ...p, rate: e.target.value }))}
                   className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="oil-rate" />
+              </div>
+              <div>
+                <Label className="text-[10px] text-amber-400">Party W (Qtl)</Label>
+                <Input type="number" step="0.01" value={form.party_w_qtl}
+                  onChange={e => {
+                    const v = e.target.value;
+                    // v104.44.95 — Manual Party W entry auto-syncs Qty (Qtl)
+                    setForm(p => ({ ...p, party_w_qtl: v, qty_qtl: v }));
+                  }}
+                  placeholder="Party scale"
+                  className="bg-slate-700 border-amber-600/50 text-amber-100 h-8 text-xs" data-testid="oil-party-w" />
               </div>
               <div>
                 <Label className="text-[10px] text-slate-400">Qty (Qtl)</Label>

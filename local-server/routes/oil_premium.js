@@ -78,7 +78,9 @@ module.exports = function(database) {
   });
 
   router.get('/api/oil-premium/lookup-sale', (req, res) => {
+    // v104.44.95 — Also return party_weight_qtl from party_weights register
     if (!database.data.bp_sale_register) database.data.bp_sale_register = [];
+    if (!database.data.party_weights) database.data.party_weights = [];
     const { voucher_no, rst_no, kms_year } = req.query;
     if (!voucher_no && !rst_no) return res.status(400).json({ detail: 'voucher_no or rst_no required' });
 
@@ -90,7 +92,18 @@ module.exports = function(database) {
       sale = sales.find(s => s.rst_no === rst_no && (!kms_year || s.kms_year === kms_year));
     }
     if (!sale) return res.status(404).json({ detail: 'Sale not found' });
-    res.json(sale);
+
+    // Merge total party_weight (Qtl) for this voucher (Rice Bran)
+    const pwEntries = (database.data.party_weights || []).filter(p =>
+      p.product === 'Rice Bran' &&
+      p.voucher_no === sale.voucher_no &&
+      (!kms_year || p.kms_year === kms_year)
+    );
+    const totalPartyKg = pwEntries.reduce((s, p) => s + (parseFloat(p.party_net_weight_kg) || 0), 0);
+    const out = { ...sale };
+    out.party_weight_qtl = totalPartyKg ? Math.round((totalPartyKg / 100) * 100) / 100 : 0;
+    out.party_weight_exists = pwEntries.length > 0 && totalPartyKg > 0;
+    res.json(out);
   });
 
   // ---- EXCEL EXPORT ----
