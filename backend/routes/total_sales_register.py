@@ -23,16 +23,16 @@ def _safe_num(v):
 
 
 async def _fetch_party_received(party: str, kms_year: str = "", season: str = "") -> float:
-    """Total payments received for a party from cash_transactions (txn_type='jama').
-    Matches the logic in bp_sale_register._fetch_party_payments.
+    """Total payments + ledger adjustments for a party from cash_transactions (txn_type='jama').
+    v104.44.89 — Includes Lab Test Premium / Oil Premium discounts (negative premiums create JAMA
+    entries that effectively reduce party's outstanding balance). Bhada/sale-debit keywords still
+    skipped as those don't apply to party ledger queries (Bhada = truck owner ledger).
     """
     if not party: return 0.0
     q = {"category": party, "txn_type": "jama"}
     if kms_year: q["kms_year"] = kms_year
     if season: q["season"] = season
     raws = await db.cash_transactions.find(q, {"_id": 0}).to_list(10000)
-    skip_keywords = ('lab test premium', 'oil premium', 'sale bhada')
-    raws = [r for r in raws if not any(k in (r.get('description', '') or '').lower() for k in skip_keywords)]
     # Dedupe by (date, description) — prefer auto_ledger mirror
     grouped = {}
     for r in raws:

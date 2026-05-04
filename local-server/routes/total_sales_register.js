@@ -18,14 +18,14 @@ module.exports = function(database) {
   }
 
   function fetchPartyReceived(partyKey, kmsYear, season) {
+    // v104.44.89 — Includes Lab Test Premium / Oil Premium discounts (negative premiums create JAMA
+    // entries that effectively reduce party's outstanding balance).
     if (!partyKey) return 0;
     const txns = (database.data.cash_transactions || []).filter(t => {
       if (t.category !== partyKey) return false;
       if (t.txn_type !== 'jama') return false;
       if (kmsYear && t.kms_year !== kmsYear) return false;
       if (season && t.season !== season) return false;
-      const d = (t.description || '').toLowerCase();
-      if (d.includes('lab test premium') || d.includes('oil premium') || d.includes('sale bhada')) return false;
       return true;
     });
     // Dedupe by (date, description), prefer auto_ledger reference
