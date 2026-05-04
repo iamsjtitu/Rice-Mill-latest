@@ -8,12 +8,29 @@ import uuid
 
 router = APIRouter()
 
+# v104.44.98 — Source types that do NOT belong to Local Party tab.
+# BP Sale Register, Oil Premium (Lab Test), and Party Weight create their own
+# ledger entries with bp_sale_* source_types — those parties belong to the
+# BP Sale Register / Cash Book Party Ledgers view, NOT the Local Party tab.
+BP_SOURCE_TYPES = [
+    "bp_sale", "bp_sale_pka", "bp_sale_ka",
+    "bp_sale_ka_oil_premium",
+    "bp_sale_pka_party_weight", "bp_sale_ka_party_weight",
+    "bp_sale_advance",
+]
+
+
+def _local_only_filter():
+    """Returns a Mongo filter clause that excludes BP Sale-derived entries."""
+    return {"source_type": {"$nin": BP_SOURCE_TYPES}}
+
+
 # ============ LOCAL PARTY ACCOUNTS ============
 
 @router.get("/local-party/summary")
 async def get_local_party_summary(kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None):
     """Party-wise summary: total debit, total paid, balance with FY carry-forward"""
-    query = {}
+    query = {**_local_only_filter()}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     if date_from or date_to:
@@ -30,7 +47,7 @@ async def get_local_party_summary(kms_year: Optional[str] = None, season: Option
         if len(fy_parts) == 2:
             try:
                 prev_fy = f"{int(fy_parts[0])-1}-{int(fy_parts[1])-1}"
-                prev_query = {"kms_year": prev_fy}
+                prev_query = {"kms_year": prev_fy, **_local_only_filter()}
                 if season: prev_query["season"] = season
                 prev_txns = await db.local_party_accounts.find(prev_query, {"_id": 0}).to_list(10000)
                 for t in prev_txns:
@@ -104,7 +121,7 @@ async def get_local_party_summary(kms_year: Optional[str] = None, season: Option
 @router.get("/local-party/transactions")
 async def get_local_party_transactions(party_name: Optional[str] = None, kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None):
     """Get all transactions, optionally filtered by party. Includes manual cashbook payments."""
-    query = {}
+    query = {**_local_only_filter()}
     if party_name: query["party_name"] = {"$regex": f"^{party_name}$", "$options": "i"}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
@@ -171,7 +188,7 @@ async def get_local_party_transactions(party_name: Optional[str] = None, kms_yea
 @router.get("/local-party/report/{party_name}")
 async def get_party_report(party_name: str, kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None):
     """Detailed party-wise report with running balance for printing"""
-    query = {"party_name": {"$regex": f"^{party_name}$", "$options": "i"}}
+    query = {"party_name": {"$regex": f"^{party_name}$", "$options": "i"}, **_local_only_filter()}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     if date_from or date_to:
@@ -414,7 +431,7 @@ async def export_local_party_excel(kms_year: Optional[str] = None, season: Optio
     from io import BytesIO
 
     summary = await get_local_party_summary(kms_year=kms_year, season=season)
-    query = {}
+    query = {**_local_only_filter()}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     if party_name: query["party_name"] = party_name
@@ -518,7 +535,7 @@ async def export_local_party_pdf(kms_year: Optional[str] = None, season: Optiona
     from io import BytesIO
 
     summary = await get_local_party_summary(kms_year=kms_year, season=season)
-    query = {}
+    query = {**_local_only_filter()}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     if party_name: query["party_name"] = party_name

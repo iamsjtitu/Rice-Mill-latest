@@ -3,6 +3,19 @@ const { safeAsync, safeSync, roundAmount } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 
+// v104.44.98 — Source types that do NOT belong to Local Party tab.
+// BP Sale Register, Oil Premium (Lab Test), and Party Weight create their own
+// ledger entries with bp_sale_* source_types — those parties belong to the
+// BP Sale Register / Cash Book Party Ledgers view, NOT the Local Party tab.
+const BP_SOURCE_TYPES = new Set([
+  'bp_sale', 'bp_sale_pka', 'bp_sale_ka',
+  'bp_sale_ka_oil_premium',
+  'bp_sale_pka_party_weight', 'bp_sale_ka_party_weight',
+  'bp_sale_advance',
+]);
+
+const isLocalOnly = (t) => !BP_SOURCE_TYPES.has(t.source_type || '');
+
 module.exports = function(database) {
 
 function ensureCollection(name) {
@@ -12,7 +25,7 @@ function ensureCollection(name) {
 // ============ LOCAL PARTY SUMMARY ============
 router.get('/api/local-party/summary', safeSync(async (req, res) => {
   ensureCollection('local_party_accounts');
-  let txns = [...database.data.local_party_accounts];
+  let txns = database.data.local_party_accounts.filter(isLocalOnly);
   if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
   if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
   if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
@@ -24,7 +37,7 @@ router.get('/api/local-party/summary', safeSync(async (req, res) => {
     const fyParts = req.query.kms_year.split('-');
     if (fyParts.length === 2) {
       const prevFy = `${parseInt(fyParts[0])-1}-${parseInt(fyParts[1])-1}`;
-      let prevTxns = [...database.data.local_party_accounts].filter(t => t.kms_year === prevFy);
+      let prevTxns = database.data.local_party_accounts.filter(t => isLocalOnly(t) && t.kms_year === prevFy);
       if (req.query.season) prevTxns = prevTxns.filter(t => t.season === req.query.season);
       for (const t of prevTxns) {
         const pn = (t.party_name || '').trim();
@@ -93,7 +106,7 @@ router.get('/api/local-party/summary', safeSync(async (req, res) => {
 // ============ LOCAL PARTY TRANSACTIONS ============
 router.get('/api/local-party/transactions', safeSync(async (req, res) => {
   ensureCollection('local_party_accounts');
-  let txns = [...database.data.local_party_accounts];
+  let txns = database.data.local_party_accounts.filter(isLocalOnly);
   if (req.query.party_name) {
     const pn = req.query.party_name.toLowerCase();
     txns = txns.filter(t => (t.party_name || '').toLowerCase() === pn);
@@ -111,7 +124,7 @@ router.get('/api/local-party/report/:partyName', safeSync(async (req, res) => {
   ensureCollection('local_party_accounts');
   ensureCollection('cash_transactions');
   const pn = req.params.partyName.toLowerCase();
-  let txns = database.data.local_party_accounts.filter(t => (t.party_name || '').toLowerCase() === pn);
+  let txns = database.data.local_party_accounts.filter(t => isLocalOnly(t) && (t.party_name || '').toLowerCase() === pn);
   if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
   if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
   if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
@@ -268,7 +281,7 @@ router.delete('/api/local-party/:id', safeSync(async (req, res) => {
 router.get('/api/local-party/excel', safeAsync(async (req, res) => {
   const ExcelJS = require('exceljs');
   ensureCollection('local_party_accounts');
-  let txns = [...database.data.local_party_accounts];
+  let txns = database.data.local_party_accounts.filter(isLocalOnly);
   if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
   if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
   if (req.query.party_name) txns = txns.filter(t => t.party_name === req.query.party_name);
@@ -325,7 +338,7 @@ router.get('/api/local-party/pdf', safeSync(async (req, res) => {
   const PDFDocument = require('pdfkit');
   const { addPdfHeader, addPdfTable, addTotalsRow, safePdfPipe, fmtDate, applyConsolidatedExcelPolish} = require('./pdf_helpers');
   ensureCollection('local_party_accounts');
-  let txns = [...database.data.local_party_accounts];
+  let txns = database.data.local_party_accounts.filter(isLocalOnly);
   if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
   if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
   if (req.query.party_name) txns = txns.filter(t => t.party_name === req.query.party_name);
