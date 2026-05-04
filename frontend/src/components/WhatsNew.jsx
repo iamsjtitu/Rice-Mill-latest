@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.100",
+    date: "Feb 04, 2026",
+    title: "v104.44.100 — Auto Parity Guarantee 🛡️",
+    items: [
+      { type: "feature", text: "🛡️ **Pre-Push Parity Hook activated** — Ab har 'Save to Github' / git push se PEHLE automatic triple-backend parity check chalega. Agar Python mein koi route hai jo Desktop ya Local-Server Node mein missing hai → push BLOCK ho jayega aur exact fix instructions dikhenge. Desktop pe har feature guaranteed milega, warna push hi nahi hoga." },
+      { type: "improvement", text: "🔍 **Parity Audit Cleanup** — `/app/scripts/check-parity.py` mein web-only routes (govt portal scraping, HTTP weighbridge) ko skip patterns mein add kiya — ab false positives nahi aayenge. Auto-sync run kiya — 2 missing routes Local JS mein automatically sync ho gaye. Final state: 'ALL CLEAR — No parity gaps!'" },
+      { type: "improvement", text: "🔁 **Auto-Sync Script** — `bash /app/scripts/sync-js-routes.sh` Desktop Node se Local-Server Node mein 12 files automatic copy karta hai (auth, bp_sale_register, payments, oil_premium, local_party, etc.). LAN-server desktop ke saath always in sync rahega." },
+    ],
+  },
+  {
     version: "104.44.99",
     date: "Feb 04, 2026",
     title: "v104.44.99 — Local Party Tab Cleanup",
