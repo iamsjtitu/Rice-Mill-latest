@@ -2,6 +2,73 @@ const { v4: uuid } = require('uuid');
 
 const STANDARD_OIL = { Raw: 22, Boiled: 25 };
 
+// v104.44.97 — Commercial rounding (49.49→49, 49.50→50)
+function commercialRound(x) {
+  if (x === null || x === undefined || x === '') return 0;
+  const n = parseFloat(x);
+  if (isNaN(n)) return 0;
+  return n >= 0 ? Math.floor(n + 0.5) : -Math.floor(Math.abs(n) + 0.5);
+}
+
+// v104.44.97 — Sync Lab Test Premium → cash_transactions + local_party_accounts
+// Mirrors Python `_sync_oil_premium_ledger` for triple-backend parity.
+function syncOilPremiumLedger(database, op, username) {
+  if (!database.data.cash_transactions) database.data.cash_transactions = [];
+  if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
+  const opId = op.id;
+  if (!opId) return;
+  const ref = `oil_premium:${opId}`;
+  const party = (op.party_name || '').trim();
+  const premium = parseFloat(op.premium_amount || 0);
+  const voucherNo = op.voucher_no || op.rst_no || '';
+
+  // Always remove existing first (idempotent), then add fresh if non-zero
+  database.data.cash_transactions = database.data.cash_transactions.filter(t => t.reference !== ref);
+  database.data.local_party_accounts = database.data.local_party_accounts.filter(t => t.reference !== ref);
+
+  if (!party || premium === 0) return;
+
+  const nowIso = new Date().toISOString();
+  let txnTypeLp, cbTxnType, desc, amount;
+  if (premium > 0) {
+    txnTypeLp = 'debit';
+    cbTxnType = 'nikasi';
+    desc = `Lab Test Bonus (+${op.difference_pct || 0}%) - Voucher #${voucherNo}`;
+    amount = commercialRound(premium);
+  } else {
+    txnTypeLp = 'payment';
+    cbTxnType = 'jama';
+    desc = `Lab Test Premium (${op.difference_pct || 0}%) - Voucher #${voucherNo}`;
+    amount = commercialRound(Math.abs(premium));
+  }
+
+  const base = {
+    kms_year: op.kms_year || '', season: op.season || '',
+    created_by: username || 'system',
+    created_at: nowIso, updated_at: nowIso,
+  };
+
+  database.data.local_party_accounts.push({
+    id: uuid(),
+    date: op.date || nowIso.split('T')[0],
+    party_name: `${party} (KCA)`,
+    txn_type: txnTypeLp, amount,
+    description: desc,
+    source_type: 'bp_sale_ka_oil_premium',
+    reference: ref, ...base,
+  });
+  database.data.cash_transactions.push({
+    id: uuid(),
+    date: op.date || nowIso.split('T')[0],
+    account: 'ledger',
+    txn_type: cbTxnType, amount,
+    category: `${party} (KCA)`,
+    party_type: 'BP Sale',
+    description: desc,
+    reference: ref, ...base,
+  });
+}
+
 module.exports = function(database) {
   const express = require('express');
   const router = express.Router();
@@ -39,6 +106,7 @@ module.exports = function(database) {
     data.premium_amount = standard ? +(rate * (actual - standard) * qty / standard).toFixed(2) : 0;
 
     database.data.oil_premium.push(data);
+    syncOilPremiumLedger(database, data, req.query.username);  // v104.44.97
     database.save();
     res.json(data);
   });
@@ -67,6 +135,7 @@ module.exports = function(database) {
     data.created_at = database.data.oil_premium[idx].created_at;
     data.created_by = database.data.oil_premium[idx].created_by;
     database.data.oil_premium[idx] = data;
+    syncOilPremiumLedger(database, data, req.query.username);  // v104.44.97
     database.save();
     res.json({ success: true });
   });
@@ -75,7 +144,13 @@ module.exports = function(database) {
     ensure();
     const len = database.data.oil_premium.length;
     database.data.oil_premium = database.data.oil_premium.filter(i => i.id !== req.params.id);
-    if (database.data.oil_premium.length < len) { database.save(); return res.json({ success: true }); }
+    if (database.data.oil_premium.length < len) {
+      // v104.44.97 — Cascade delete linked cash/lp ledger entries
+      const ref = `oil_premium:${req.params.id}`;
+      if (database.data.cash_transactions) database.data.cash_transactions = database.data.cash_transactions.filter(t => t.reference !== ref);
+      if (database.data.local_party_accounts) database.data.local_party_accounts = database.data.local_party_accounts.filter(t => t.reference !== ref);
+      database.save(); return res.json({ success: true });
+    }
     res.status(404).json({ detail: 'Not found' });
   });
 

@@ -65,9 +65,25 @@ module.exports = function(database) {
       partyType = autoDetectPartyType(database, category);
       retroFixPartyType(database, category, partyType);
     }
-    
+
+    // v104.44.97 — Generate default description BEFORE insert so auto_ledger
+    // mirror entry uses the same description (prevents BP Sale "with-payments"
+    // dedup mismatch which causes "double amount briefly visible until refresh").
+    let description = d.description || '';
+    if (!description && category) {
+      const acct = d.account || 'cash';
+      const ttype = d.txn_type || 'jama';
+      if (acct === 'owner') {
+        const owner = d.owner_name || 'Owner';
+        description = ttype === 'jama' ? `${owner} received from ${category}` : `${owner} paid to ${category}`;
+      } else {
+        const acctTitle = acct.charAt(0).toUpperCase() + acct.slice(1);
+        description = ttype === 'jama' ? `${acctTitle} received from ${category}` : `${acctTitle} payment to ${category}`;
+      }
+    }
+
     const txn = { id: uuidv4(), date: d.date, account: d.account || 'cash', txn_type: d.txn_type || 'jama',
-      category: category, party_type: partyType, description: d.description || '', amount: +(d.amount || 0),
+      category: category, party_type: partyType, description: description, amount: +(d.amount || 0),
       reference: d.reference || '', bank_name: d.bank_name || '', owner_name: d.owner_name || '', kms_year: d.kms_year || '', season: d.season || '',
       _v: 1, created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     database.data.cash_transactions.push(txn);
