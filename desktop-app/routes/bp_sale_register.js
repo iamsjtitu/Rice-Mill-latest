@@ -512,15 +512,58 @@ module.exports = function(database) {
 
   router.delete('/api/bp-sale-register/:id', (req, res) => {
     ensure();
-    const len = database.data.bp_sale_register.length;
+    const sale = database.data.bp_sale_register.find(s => s.id === req.params.id);
+    if (!sale) return res.status(404).json({ detail: 'Not found' });
+
+    const voucherNo = sale.voucher_no || '';
+    const rstNo = sale.rst_no || '';
+    const product = sale.product || '';
+    const kmsYear = sale.kms_year || '';
+    const cascade = { oil_premium_deleted: 0, party_weights_deleted: 0, lab_test_ledger_deleted: 0, party_weight_ledger_deleted: 0 };
+
     database.data.bp_sale_register = database.data.bp_sale_register.filter(s => s.id !== req.params.id);
-    if (database.data.bp_sale_register.length < len) {
-      deleteBpLedgerEntries(req.params.id);
-      deleteBpSaleBagOut(req.params.id);
-      database.save();
-      return res.json({ success: true });
-    }
-    res.status(404).json({ detail: 'Not found' });
+    deleteBpLedgerEntries(req.params.id);
+    deleteBpSaleBagOut(req.params.id);
+
+    // v104.44.97 — Cascade delete: oil_premium + party_weights linked to this voucher
+    if (!database.data.oil_premium) database.data.oil_premium = [];
+    if (!database.data.party_weights) database.data.party_weights = [];
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
+
+    const matchVoucher = (it) => (
+      (voucherNo && it.voucher_no === voucherNo) ||
+      (rstNo && it.rst_no === rstNo)
+    ) && (!kmsYear || it.kms_year === kmsYear);
+
+    const ops = database.data.oil_premium.filter(matchVoucher);
+    ops.forEach(op => {
+      const ref = `oil_premium:${op.id}`;
+      const c1 = database.data.cash_transactions.length;
+      database.data.cash_transactions = database.data.cash_transactions.filter(t => t.reference !== ref);
+      const c2 = database.data.local_party_accounts.length;
+      database.data.local_party_accounts = database.data.local_party_accounts.filter(t => t.reference !== ref);
+      cascade.lab_test_ledger_deleted += (c1 - database.data.cash_transactions.length) + (c2 - database.data.local_party_accounts.length);
+    });
+    database.data.oil_premium = database.data.oil_premium.filter(op => !ops.some(x => x.id === op.id));
+    cascade.oil_premium_deleted = ops.length;
+
+    const pws = database.data.party_weights.filter(p => matchVoucher(p) && (!product || p.product === product));
+    pws.forEach(pw => {
+      ['party_weight:', 'party_w_short:', 'party_w_excess:'].forEach(prefix => {
+        const ref = prefix + pw.id;
+        const c1 = database.data.cash_transactions.length;
+        database.data.cash_transactions = database.data.cash_transactions.filter(t => t.reference !== ref);
+        const c2 = database.data.local_party_accounts.length;
+        database.data.local_party_accounts = database.data.local_party_accounts.filter(t => t.reference !== ref);
+        cascade.party_weight_ledger_deleted += (c1 - database.data.cash_transactions.length) + (c2 - database.data.local_party_accounts.length);
+      });
+    });
+    database.data.party_weights = database.data.party_weights.filter(pw => !pws.some(x => x.id === pw.id));
+    cascade.party_weights_deleted = pws.length;
+
+    database.save();
+    return res.json({ success: true, cascade });
   });
 
   router.get('/api/bp-sale-register/suggestions/bill-from', (req, res) => {

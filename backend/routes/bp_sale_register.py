@@ -706,11 +706,57 @@ async def delete_bp_sale(sale_id: str, username: str = "", role: str = ""):
     can_edit, message = await check_edit_lock(existing, username, role)
     if not can_edit:
         raise HTTPException(status_code=403, detail=message)
+    voucher_no = existing.get("voucher_no", "")
+    rst_no = existing.get("rst_no", "")
+    product = existing.get("product", "")
+    kms_year = existing.get("kms_year", "")
+    season = existing.get("season", "")
+
     await db.bp_sale_register.delete_one({"id": sale_id})
     await _delete_bp_ledger_entries(sale_id)
     # v104.44.71 — Remove linked gunny_bags 'out' entry (reclaims stock)
     await db.gunny_bags.delete_many({"reference": f"bp_sale_bag:{sale_id}"})
-    return {"success": True}
+
+    # v104.44.97 — Cascade delete: oil_premium (Lab Test) + party_weights linked to this voucher
+    cascade_summary = {"oil_premium_deleted": 0, "party_weights_deleted": 0,
+                       "lab_test_ledger_deleted": 0, "party_weight_ledger_deleted": 0}
+    if voucher_no or rst_no:
+        # Find linked oil_premium records (match by voucher_no OR rst_no within same kms_year)
+        op_query = {"$or": []}
+        if voucher_no: op_query["$or"].append({"voucher_no": voucher_no})
+        if rst_no: op_query["$or"].append({"rst_no": rst_no})
+        if kms_year: op_query["kms_year"] = kms_year
+        op_records = await db.oil_premium.find(op_query, {"_id": 0, "id": 1}).to_list(100)
+        for op in op_records:
+            op_id = op.get("id")
+            if op_id:
+                # Delete the oil_premium record itself + its ledger sync entries
+                await db.oil_premium.delete_one({"id": op_id})
+                ref = f"oil_premium:{op_id}"
+                r1 = await db.cash_transactions.delete_many({"reference": ref})
+                r2 = await db.local_party_accounts.delete_many({"reference": ref})
+                cascade_summary["lab_test_ledger_deleted"] += (r1.deleted_count + r2.deleted_count)
+        cascade_summary["oil_premium_deleted"] = len(op_records)
+
+        # Find linked party_weights records (match by voucher_no OR rst_no for same product)
+        pw_query = {"$or": []}
+        if voucher_no: pw_query["$or"].append({"voucher_no": voucher_no})
+        if rst_no: pw_query["$or"].append({"rst_no": rst_no})
+        if product: pw_query["product"] = product
+        if kms_year: pw_query["kms_year"] = kms_year
+        pw_records = await db.party_weights.find(pw_query, {"_id": 0, "id": 1}).to_list(100)
+        for pw in pw_records:
+            pw_id = pw.get("id")
+            if pw_id:
+                await db.party_weights.delete_one({"id": pw_id})
+                # Party Weight may have its own ledger ref — clean both `party_weight:` and `party_w_short:` prefixes
+                for ref_pattern in (f"party_weight:{pw_id}", f"party_w_short:{pw_id}", f"party_w_excess:{pw_id}"):
+                    r1 = await db.cash_transactions.delete_many({"reference": ref_pattern})
+                    r2 = await db.local_party_accounts.delete_many({"reference": ref_pattern})
+                    cascade_summary["party_weight_ledger_deleted"] += (r1.deleted_count + r2.deleted_count)
+        cascade_summary["party_weights_deleted"] = len(pw_records)
+
+    return {"success": True, "cascade": cascade_summary}
 
 
 @router.get("/bp-sale-register/suggestions/bill-from")

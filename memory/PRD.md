@@ -1,6 +1,56 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.96
+## Current Version: v104.44.97
+
+## 🔧 v104.44.97 — Global Auto Round-Off + Cascade Delete + Double-Amount Fix
+**Build date:** 2026-02-04
+
+### User Reported Issues
+1. **Lab Test Premium ₹50,118.18** in cashbook (paise dikh raha tha) — auto round-off promised but not happening
+2. **Sale Ledger delete** ke baad linked Lab Test + Party Weight records leftover reh jate the
+3. **Double Amount Bug** — cash receive save karne par jama mein 2 entries dikhte the briefly, refresh par hatt jate the
+
+### 🎯 Solution
+
+**1. Global Auto Round-Off (Backend)**
+- Naya utility `/app/backend/utils/rounding.py` with `commercial_round()`:
+  - 49.49 → 49 ✅
+  - 49.50 → 50 ✅ (NOT 49 like Python's banker's round)
+  - -100.75 → -101 ✅
+- DB wrapper `/app/backend/database.py` — intercepts `insert_one` / `insert_many` / `update_one` / `replace_one` / `find_one_and_update` for amount-bearing collections:
+  - cash_transactions, local_party_accounts, truck_payments, agent_payments, staff_payments, owner_payments, hemali_payments, diesel_accounts, msp_payments, leased_truck_payments, voucher_payments
+  - **Other collections unchanged** (bp_sale_register etc keep their precision)
+
+**2. Cascade Delete on BP Sale Delete**
+- `DELETE /api/bp-sale-register/{id}` ab cascade karta hai:
+  - Linked `oil_premium` records (matched by voucher_no/rst_no + kms_year)
+  - Linked `oil_premium` ke ledger entries (`oil_premium:{id}` references)
+  - Linked `party_weights` records (matched by voucher_no/rst_no + product + kms_year)
+  - Linked `party_weight` ledger entries (`party_weight:`, `party_w_short:`, `party_w_excess:` references)
+- Returns `cascade` summary with counts
+- Triple parity: Python + Desktop Node + Local-Server Node
+
+**3. Double-Amount Bug Fix**
+- Root cause: `create_auto_ledger_entry` set generated description (`"Cash received from X"`) ONLY when original was empty → original had blank desc, auto_ledger had generated desc → BP Sale Register's "with-payments" dedup (by date+description) missed → both entries shown briefly until refresh
+- Fix: Generate default description on POST handler BEFORE insert, so original entry AND auto_ledger entry both have same description → dedup works correctly first render onward
+
+### Verified
+| Test | Result |
+|---|---|
+| commercial_round(49.50) → 50 | ✅ |
+| commercial_round(49.49) → 49 | ✅ |
+| commercial_round(-100.75) → -101 | ✅ |
+| LP/cash_txns auto-rounded on insert | ✅ |
+| bp_sale_register collection unchanged | ✅ |
+| BP Sale delete → oil_premium + party_weights + ledgers cascade | ✅ |
+| Cashbook POST paise → DB stores int + auto_ledger desc matches | ✅ |
+| `Cash received from TEST_GLOBAL` description on both entries | ✅ |
+
+### Migration
+- One-shot resync ran on existing 2 oil_premium records → ₹50,118.18 → ₹50,118 ✅
+- Cleaned 2 orphan stale ledger entries
+
+---
 
 ## 🔧 v104.44.96 — Sales Register: M/W + P/W Columns (ALL mode only)
 **Build date:** 2026-02-04

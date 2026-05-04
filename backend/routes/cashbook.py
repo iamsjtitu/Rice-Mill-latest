@@ -198,6 +198,24 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
     txn_dict['created_by'] = username
     txn_dict['amount'] = round(txn_dict['amount'], 2)
     category = txn_dict.get('category', '').strip()
+
+    # v104.44.97 — Generate default description BEFORE insert so auto_ledger
+    # mirror entry uses the same description (prevents BP Sale "with-payments"
+    # dedup mismatch which causes "double amount briefly visible until refresh").
+    if not txn_dict.get('description') and category:
+        acct = txn_dict.get('account', 'cash')
+        ttype = txn_dict.get('txn_type', '')
+        if acct == 'owner':
+            owner = txn_dict.get('owner_name', 'Owner')
+            txn_dict['description'] = (
+                f"{owner} received from {category}" if ttype == 'jama'
+                else f"{owner} paid to {category}"
+            )
+        else:
+            txn_dict['description'] = (
+                f"{acct.capitalize()} received from {category}" if ttype == 'jama'
+                else f"{acct.capitalize()} payment to {category}"
+            )
     
     # Auto-detect party_type if not provided
     if not txn_dict.get('party_type') and category:
