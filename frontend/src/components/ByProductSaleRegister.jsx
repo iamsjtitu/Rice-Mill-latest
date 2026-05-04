@@ -51,6 +51,7 @@ export default function ByProductSaleRegister({ filters, user, product, showPart
   const [destSugg, setDestSugg] = useState([]);
   const [rstLoading, setRstLoading] = useState(false);
   const [oilPremiumMap, setOilPremiumMap] = useState({});
+  const [partyWeightMap, setPartyWeightMap] = useState({});
 
   const blankForm = {
     bill_number: "", billing_date: new Date().toISOString().split("T")[0],
@@ -94,6 +95,7 @@ export default function ByProductSaleRegister({ filters, user, product, showPart
         axios.get(`${API}/bp-sale-register/suggestions/party-name`),
         axios.get(`${API}/bp-sale-register/suggestions/destination`),
         axios.get(`${API}/byproduct-stock?${stockParams}`),
+        axios.get(`${API}/party-weight`, { params: { product, kms_year: filters.kms_year || "", season: filters.season || "" } }),
       ];
       if (product === "Rice Bran") {
         fetches.push(axios.get(`${API}/oil-premium?${stockParams}`));
@@ -104,9 +106,16 @@ export default function ByProductSaleRegister({ filters, user, product, showPart
       setPartySugg(results[2].data || []);
       setDestSugg(results[3].data || []);
       setStockInfo(results[4].data?.[productId] || null);
-      if (product === "Rice Bran" && results[5]) {
+      // v104.44.96 — Party Weight map (by voucher_no / rst_no)
+      const pwMap = {};
+      (results[5]?.data || []).forEach(p => {
+        if (p.voucher_no) pwMap[p.voucher_no] = p;
+        if (p.rst_no && !pwMap[p.rst_no]) pwMap[p.rst_no] = p;
+      });
+      setPartyWeightMap(pwMap);
+      if (product === "Rice Bran" && results[6]) {
         const map = {};
-        (results[5].data || []).forEach(op => {
+        (results[6].data || []).forEach(op => {
           const key = op.voucher_no || op.rst_no || '';
           if (key) map[key] = op;
         });
@@ -439,6 +448,10 @@ export default function ByProductSaleRegister({ filters, user, product, showPart
     if (product !== "Rice Bran") return null;
     return oilPremiumMap[sale.voucher_no] || oilPremiumMap[sale.rst_no] || null;
   };
+  // v104.44.96 — Party Weight for a sale entry (any product)
+  const getPartyWeight = (sale) => {
+    return partyWeightMap[sale.voucher_no] || partyWeightMap[sale.rst_no] || null;
+  };
   const isRiceBran = product === "Rice Bran";
   const hasAnyOilPremium = isRiceBran && filtered.some(s => getOilPremium(s));
   // v104.44.56 — Payment columns visible only if at least one sale has received payments
@@ -708,7 +721,8 @@ export default function ByProductSaleRegister({ filters, user, product, showPart
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[90px] whitespace-nowrap">Bill From</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[100px] whitespace-nowrap">Party</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[75px] whitespace-nowrap">Destination</TableHead>
-                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px] text-right whitespace-nowrap">N/W (Qtl)</TableHead>
+                  <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px] text-right whitespace-nowrap">M/W (Qtl)</TableHead>
+                  {gstFilter === "ALL" && <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[70px] text-right whitespace-nowrap" title="Party Weight — from Party Weight Register">P/W (Qtl)</TableHead>}
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[50px] text-right whitespace-nowrap">Bags</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[60px] text-right whitespace-nowrap">Rate/Q</TableHead>
                   <TableHead className="text-slate-300 text-[10px] py-2 px-2 w-[65px] text-right whitespace-nowrap">Amount</TableHead>
@@ -728,7 +742,7 @@ export default function ByProductSaleRegister({ filters, user, product, showPart
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={gstFilter === "PKA" ? 16 : (hasAnyOilPremium ? 20 : 17)} className="text-center text-slate-600 dark:text-slate-400 py-6">Koi sale nahi</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={gstFilter === "PKA" ? 16 : (gstFilter === "KCA" ? 17 : (hasAnyOilPremium ? 21 : 18))} className="text-center text-slate-600 dark:text-slate-400 py-6">Koi sale nahi</TableCell></TableRow>
                 ) : filtered.map(s => (
                   <React.Fragment key={s.id}>
                   <TableRow className="border-slate-700 hover:bg-slate-700/30">
@@ -745,6 +759,15 @@ export default function ByProductSaleRegister({ filters, user, product, showPart
                     </TableCell>
                     <TableCell className="text-slate-300 text-[10px] px-2 whitespace-nowrap">{s.destination}</TableCell>
                     <TableCell className="text-blue-700 dark:text-blue-300 text-[10px] px-2 text-right whitespace-nowrap">{((s.net_weight_kg || 0) / 100).toFixed(2)}</TableCell>
+                    {gstFilter === "ALL" && (() => {
+                      const pw = getPartyWeight(s);
+                      const pwQtl = pw ? ((pw.party_net_weight_kg || 0) / 100) : 0;
+                      return (
+                        <TableCell className={`text-[10px] px-2 text-right whitespace-nowrap ${pwQtl > 0 ? 'text-indigo-700 dark:text-indigo-400 font-semibold' : 'text-slate-500 dark:text-slate-600'}`} title={pw ? `Party Weight · Shortage: ${((pw.shortage_kg||0)/100).toFixed(2)} Qtl · Excess: ${((pw.excess_kg||0)/100).toFixed(2)} Qtl` : 'No Party Weight entry'}>
+                          {pwQtl > 0 ? pwQtl.toFixed(2) : '—'}
+                        </TableCell>
+                      );
+                    })()}
                     <TableCell className="text-slate-700 dark:text-slate-300 text-[10px] px-2 text-right">{s.bags}</TableCell>
                     <TableCell className="text-slate-700 dark:text-slate-300 text-[10px] px-2 text-right">
                       {s.split_billing && s._view_mode !== "PKA" && s._view_mode !== "KCA" ? (

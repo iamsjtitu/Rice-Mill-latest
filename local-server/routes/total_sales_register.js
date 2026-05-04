@@ -359,7 +359,7 @@ module.exports = function(database) {
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet('Total Sales');
       const headers = ['Date', 'Voucher', 'Bill No', 'RST', 'Vehicle', 'Bill From', 'Party', 'Destination',
-                       'M/W (Qtl)', 'P/W (Qtl)', 'Short (Qtl)', 'Bags', 'Rate/Q', 'Amount', 'Tax', 'Total',
+                       'N/W (Qtl)', 'Party W (Qtl)', 'Short (Qtl)', 'Bags', 'Rate/Q', 'Amount', 'Tax', 'Total',
                        'Received(T)', 'Balance(T)'];
       const lastCol = String.fromCharCode(64 + headers.length);
       ws.mergeCells(`A1:${lastCol}1`);
@@ -454,12 +454,12 @@ module.exports = function(database) {
 
       // Stats strip
       doc.fontSize(9).fillColor('#1E3A8A').font('Helvetica-Bold')
-        .text(`Entries: ${totals.rows_count}  |  M/W: ${totals.net_weight_qtl.toFixed(2)} Qtl  |  Bags: ${totals.bags}  |  Total: ₹${totals.total.toLocaleString('en-IN')}  |  Received(T): ₹${totals.received.toLocaleString('en-IN')}  |  Balance(T): ₹${totals.balance.toLocaleString('en-IN')}`,
+        .text(`Entries: ${totals.rows_count}  |  N/W: ${totals.net_weight_qtl.toFixed(2)} Qtl  |  Bags: ${totals.bags}  |  Total: ₹${totals.total.toLocaleString('en-IN')}  |  Received(T): ₹${totals.received.toLocaleString('en-IN')}  |  Balance(T): ₹${totals.balance.toLocaleString('en-IN')}`,
           { align: 'center' });
       doc.moveDown(0.5);
 
       // Table layout (manual grid)
-      const headers = ['Date', 'Voucher', 'Bill No', 'RST', 'Vehicle', 'BillFrom', 'Party', 'Dest', 'M/W', 'P/W', 'Short', 'Bags', 'Rate', 'Amount', 'Tax', 'Total', 'Recv(T)', 'Bal(T)'];
+      const headers = ['Date', 'Voucher', 'Bill No', 'RST', 'Vehicle', 'BillFrom', 'Party', 'Dest', 'N/W', 'PartyW', 'Short', 'Bags', 'Rate', 'Amount', 'Tax', 'Total', 'Recv(T)', 'Bal(T)'];
       const widths = [42, 60, 50, 28, 55, 55, 100, 48, 45, 50, 45, 25, 40, 60, 38, 60, 60, 60];
       const totalW = widths.reduce((a, b) => a + b, 0);
       const startX = (doc.page.width - totalW) / 2;

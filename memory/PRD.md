@@ -2,34 +2,41 @@
 
 ## Current Version: v104.44.96
 
-## 🔧 v104.44.96 — Total Sales Register: Column Rename (M/W + P/W)
+## 🔧 v104.44.96 — Sales Register: M/W + P/W Columns (ALL mode only)
 **Build date:** 2026-02-04
 
 ### User Request
-- Rename **"N/W (Qtl)"** → **"M/W (Qtl)"** (Mill Weight)
-- Rename **"Party W (Qtl)"** → **"P/W (Qtl)"** for consistency with M/W
+- In **Sales Register** (Rice Bran / BP products), rename existing **"N/W (Qtl)"** → **"M/W (Qtl)"** (Mill Weight)
+- Add new **"P/W (Qtl)"** column (Party Weight) right after M/W
+- P/W column should appear **ONLY in ALL mode** — hide in PKA and KCA filters
 
 ### Implementation
-- Frontend `TotalSalesRegister.jsx`:
-  - Stat card header: `N/W (Qtl)` → `M/W (Qtl)`
-  - Main table column: `N/W (Qtl)` → `M/W (Qtl)`, `Party W (Qtl)` → `P/W (Qtl)`
-  - Group-by-party view header: `N/W (Qtl)` → `M/W (Qtl)`
-- Backend Python exports (`total_sales_register.py`): Excel + PDF headers + PDF summary banner updated
-- Desktop Node + Local-Server Node: Excel + PDF headers + PDF text summary updated
+1. **Frontend `ByProductSaleRegister.jsx`**
+   - Added `partyWeightMap` state + `/api/party-weight` fetch alongside existing oil_premium fetch
+   - Helper `getPartyWeight(sale)` resolves by voucher_no → rst_no
+   - Table header: `N/W (Qtl)` → `M/W (Qtl)`; new `P/W (Qtl)` header (conditional on `gstFilter === "ALL"`)
+   - Table cell: P/W cell shows `(party_net_weight_kg / 100).toFixed(2)` in indigo (or `—` when absent); tooltip shows shortage/excess
+   - Empty-state colspan updated per mode (PKA: 16, KCA: 17, ALL: 18/21)
 
-### Triple Backend Parity
-- ✅ Python: `/app/backend/routes/total_sales_register.py`
-- ✅ Desktop: `/app/desktop-app/routes/total_sales_register.js`
-- ✅ Local-server: `/app/local-server/routes/total_sales_register.js`
+2. **Backend Python `bp_sale_register.py`**
+   - Excel export: fetch `party_weights` map; conditionally add `P/W (Qtl)` column when `has_pw and gst_filter not in ("PKA","KCA")`
+   - PDF export: mirrors same logic with `P/W(Qtl)` header
+   - Both row-writing + totals handle `party_net_weight_qtl` key cleanly
 
-### E2E Verified (Playwright text count)
-| Check | Result |
-|---|---|
-| `M/W (Qtl)` present: 2 (stat card + table) | ✅ |
-| `P/W (Qtl)` present: 1 (table) | ✅ |
-| Old `N/W (Qtl)` removed: 0 | ✅ |
-| Old `Party W (Qtl)` removed: 0 | ✅ |
-| Data column (P/W): showing 99.00, 145.00, 244.00 Qtl | ✅ |
+3. **Desktop Node + Local-Server Node `bp_sale_register.js`** — full parity
+   - Same fetch/map/column-conditional/row-value/PDF-handler in both Excel and PDF branches
+
+### E2E Verified (Playwright DOM count)
+| Mode | M/W (Qtl) | P/W (Qtl) |
+|---|---|---|
+| ALL | ✅ 1 | ✅ 1 |
+| PKA | ✅ 1 | ✅ 0 (hidden) |
+| KCA | ✅ 1 | ✅ 0 (hidden) |
+| Old `N/W (Qtl)` removed | ✅ 0 | — |
+| S-003 → P/W 99.00 Qtl, S-002 → 145.00, S-001 → — (no entry) | ✅ | |
+
+### NOTE
+- **Total Sales Register unchanged** — earlier accidental rename was fully reverted to `N/W (Qtl)` + `Party W (Qtl)` as before.
 
 ---
 

@@ -810,6 +810,18 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
             if key: oil_map[key] = op
     has_oil = bool(oil_map) and any(oil_map.get(s.get('voucher_no') or '') or oil_map.get(s.get('rst_no') or '') for s in sales)
 
+    # v104.44.96 — Fetch Party Weight map (by voucher_no / rst_no)
+    pw_query = {}
+    if product: pw_query["product"] = product
+    if kms_year: pw_query["kms_year"] = kms_year
+    if season: pw_query["season"] = season
+    pw_items = await db.party_weights.find(pw_query, {"_id": 0}).to_list(10000)
+    pw_map = {}
+    for pw in pw_items:
+        if pw.get("voucher_no"): pw_map[pw["voucher_no"]] = pw
+        if pw.get("rst_no") and pw["rst_no"] not in pw_map: pw_map[pw["rst_no"]] = pw
+    has_pw = bool(pw_map) and any(pw_map.get(s.get('voucher_no') or '') or pw_map.get(s.get('rst_no') or '') for s in sales)
+
     # Branding
     branding = await db.branding.find_one({}, {"_id": 0}) or {}
     company = branding.get("company_name", "Rice Mill")
@@ -863,7 +875,8 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
     if has_bill_from: cols.append(('Bill From', 14, 'bill_from'))
     cols.append(('Party Name', 16, 'party_name'))
     if has_dest: cols.append(('Destination', 14, 'destination'))
-    cols.append(('N/W (Qtl)', 9, 'net_weight_qtl'))
+    cols.append(('M/W (Qtl)', 9, 'net_weight_qtl'))
+    if has_pw and gst_filter not in ("PKA", "KCA"): cols.append(('P/W (Qtl)', 9, 'party_net_weight_qtl'))
     if has_bags: cols.append(('Bags', 7, 'bags'))
     cols.append(('Rate/Qtl', 9, 'rate_per_qtl'))
     if show_pakka_col: cols.append(('PKA Amt', 12, 'billed_amount'))
@@ -997,7 +1010,7 @@ async def export_bp_sales_excel(product: str = "", kms_year: str = "", season: s
             elif key == 'pending_balance':
                 cell.fill = PatternFill(start_color="FFF3E0", end_color="FFF3E0", fill_type="solid")
                 cell.font = Font(size=9, bold=True, color=("E65100" if val > 0 else "1B5E20"))
-            if key in ('net_weight_kg','net_weight_qtl','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','total_received','pending_balance','oil_pct','oil_diff','oil_premium'):
+            if key in ('net_weight_kg','net_weight_qtl','party_net_weight_qtl','bags','rate_per_qtl','amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','total_received','pending_balance','oil_pct','oil_diff','oil_premium'):
                 cell.alignment = Alignment(horizontal='right')
             if key in ('amount','billed_amount','kaccha_amount','tax_amount','total','cash_paid','diesel_paid','advance','balance','balance_final','total_received','pending_balance','oil_premium'):
                 cell.number_format = '#,##0.00'
@@ -1105,6 +1118,17 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
             if key: oil_map_pdf[key] = op
     has_oil_pdf = bool(oil_map_pdf) and any(oil_map_pdf.get(s.get('voucher_no') or '') or oil_map_pdf.get(s.get('rst_no') or '') for s in sales)
 
+    # v104.44.96 — Party Weight map for PDF
+    pw_map_pdf = {}
+    pw_q = {}
+    if product: pw_q["product"] = product
+    if kms_year: pw_q["kms_year"] = kms_year
+    if season: pw_q["season"] = season
+    for pw in await db.party_weights.find(pw_q, {"_id": 0}).to_list(10000):
+        if pw.get("voucher_no"): pw_map_pdf[pw["voucher_no"]] = pw
+        if pw.get("rst_no") and pw["rst_no"] not in pw_map_pdf: pw_map_pdf[pw["rst_no"]] = pw
+    has_pw_pdf = bool(pw_map_pdf) and any(pw_map_pdf.get(s.get('voucher_no') or '') or pw_map_pdf.get(s.get('rst_no') or '') for s in sales)
+
     branding = await db.branding.find_one({}, {"_id": 0}) or {}
 
     buffer = BytesIO()
@@ -1174,7 +1198,8 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
     if has_bill_from: pdf_cols.append(('Bill From', 55, 'bill_from'))
     pdf_cols.append(('Party', 65, 'party_name'))
     if has_dest: pdf_cols.append(('Destination', 50, 'destination'))
-    pdf_cols.append(('N/W(Qtl)', 40, 'net_weight_qtl'))
+    pdf_cols.append(('M/W(Qtl)', 40, 'net_weight_qtl'))
+    if has_pw_pdf and gst_filter not in ("PKA", "KCA"): pdf_cols.append(('P/W(Qtl)', 40, 'party_net_weight_qtl'))
     if has_bags: pdf_cols.append(('Bags', 28, 'bags'))
     pdf_cols.append(('Rate/Q', 38, 'rate_per_qtl'))
     if show_pakka_col: pdf_cols.append(('PKA', 50, 'billed_amount'))
@@ -1254,6 +1279,10 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
             elif key == 'net_weight_qtl':
                 qtl = s.get('net_weight_qtl', 0) or (s.get('net_weight_kg', 0) or 0) / 100
                 row_data.append(f"{qtl:,.2f}")
+            elif key == 'party_net_weight_qtl':
+                pw_entry = pw_map_pdf.get(s.get('voucher_no') or '') or pw_map_pdf.get(s.get('rst_no') or '')
+                pw_qtl = (pw_entry.get('party_net_weight_kg', 0) or 0) / 100 if pw_entry else 0
+                row_data.append(f"{pw_qtl:,.2f}" if pw_qtl > 0 else '—')
             else: row_data.append(s.get(key, 0) if key in ('net_weight_kg','bags','rate_per_qtl','cash_paid','diesel_paid','advance') else s.get(key, ''))
         data.append(row_data)
 
@@ -1263,6 +1292,7 @@ async def export_bp_sales_pdf(product: str = "", kms_year: str = "", season: str
         if key == 'date': total_row.append('TOTAL')
         elif key == 'net_weight_kg': total_row.append(round(t_nw, 0))
         elif key == 'net_weight_qtl': total_row.append(round(t_nw / 100, 2))
+        elif key == 'party_net_weight_qtl': total_row.append('')
         elif key == 'bags': total_row.append(t_bags)
         elif key == 'amount': total_row.append(f"{t_amt:,.0f}")
         elif key == 'billed_amount': total_row.append(f"{t_billed:,.0f}" if t_billed else '')

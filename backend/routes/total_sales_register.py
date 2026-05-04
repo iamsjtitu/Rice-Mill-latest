@@ -500,7 +500,7 @@ async def export_total_sales_excel(
     border_thin = Border(left=thin, right=thin, top=thin, bottom=thin)
 
     headers = ["Date", "Voucher", "Bill No", "RST", "Vehicle", "Bill From", "Party", "Destination",
-               "M/W (Qtl)", "P/W (Qtl)", "Short (Qtl)", "Bags", "Rate/Q", "Amount", "Tax", "Total",
+               "N/W (Qtl)", "Party W (Qtl)", "Short (Qtl)", "Bags", "Rate/Q", "Amount", "Tax", "Total",
                "Received(T)", "Balance(T)"]
 
     # Title area (rows 1-3)
@@ -678,7 +678,7 @@ async def export_total_sales_pdf(
     # Quick stats strip — Pending == Balance, use Balance only
     stats_data = [[
         Paragraph(f"<b>Entries</b><br/><font size=13 color='#1E3A8A'>{totals['rows_count']}</font>", meta_style),
-        Paragraph(f"<b>M/W (Qtl)</b><br/><font size=13 color='#1E3A8A'>{totals['net_weight_qtl']:,.2f}</font>", meta_style),
+        Paragraph(f"<b>N/W (Qtl)</b><br/><font size=13 color='#1E3A8A'>{totals['net_weight_qtl']:,.2f}</font>", meta_style),
         Paragraph(f"<b>Bags</b><br/><font size=13 color='#1E3A8A'>{totals['bags']:,}</font>", meta_style),
         Paragraph(f"<b>Total Bill</b><br/><font size=13 color='#059669'>₹ {totals['total']:,.2f}</font>", meta_style),
         Paragraph(f"<b>Received(T)</b><br/><font size=13 color='#0891B2'>₹ {totals['received']:,.2f}</font>", meta_style),
@@ -698,7 +698,7 @@ async def export_total_sales_pdf(
 
     # Data table
     headers = ["Date", "Voucher", "Bill No", "RST", "Vehicle", "Bill From", "Party", "Destination",
-               "M/W (Qtl)", "P/W (Qtl)", "Short (Qtl)", "Bags", "Rate/Q", "Amount", "Tax", "Total",
+               "N/W (Qtl)", "Party W (Qtl)", "Short (Qtl)", "Bags", "Rate/Q", "Amount", "Tax", "Total",
                "Received(T)", "Balance(T)"]
     table_data = [headers]
     split_bg_rows = []  # (row_index, is_pka)

@@ -586,6 +586,19 @@ module.exports = function(database) {
       }
       const hasOil = Object.keys(oilMap).length > 0 && sales.some(s => oilMap[s.voucher_no||''] || oilMap[s.rst_no||'']);
 
+      // v104.44.96 — Party Weight map (Excel export)
+      if (!database.data.party_weights) database.data.party_weights = [];
+      let pwItems = [...database.data.party_weights];
+      if (product) pwItems = pwItems.filter(i => i.product === product);
+      if (kms_year) pwItems = pwItems.filter(i => i.kms_year === kms_year);
+      if (season) pwItems = pwItems.filter(i => i.season === season);
+      const pwMap = {};
+      pwItems.forEach(pw => {
+        if (pw.voucher_no) pwMap[pw.voucher_no] = pw;
+        if (pw.rst_no && !pwMap[pw.rst_no]) pwMap[pw.rst_no] = pw;
+      });
+      const hasPw = Object.keys(pwMap).length > 0 && sales.some(s => pwMap[s.voucher_no||''] || pwMap[s.rst_no||'']);
+
       // Detect optional columns
       const has = {
         bill: sales.some(s => s.bill_number), billing_date: sales.some(s => s.billing_date),
@@ -605,7 +618,8 @@ module.exports = function(database) {
       if (has.billfrom) cols.push({h:'Bill From',k:'bill_from',w:14});
       cols.push({h:'Party Name',k:'party_name',w:16});
       if (has.dest) cols.push({h:'Destination',k:'destination',w:14});
-      cols.push({h:'N/W (Qtl)',k:'net_weight_qtl',w:10});
+      cols.push({h:'M/W (Qtl)',k:'net_weight_qtl',w:10});
+      if (hasPw && gst_filter !== 'PKA' && gst_filter !== 'KCA') cols.push({h:'P/W (Qtl)',k:'party_net_weight_qtl',w:10});
       if (has.bags) cols.push({h:'Bags',k:'bags',w:7});
       cols.push({h:'Rate/Qtl',k:'rate_per_qtl',w:9});
       if (showPkaCol) cols.push({h:'PKA Amt',k:'billed_amount',w:12});
@@ -722,6 +736,10 @@ module.exports = function(database) {
           else if (c.k === 'date') val = fmtDate(s.date);
           else if (c.k === 'billing_date') val = fmtDate(s.billing_date);
           else if (c.k === 'net_weight_qtl') val = +(((s.net_weight_kg||0)/100).toFixed(2));
+          else if (c.k === 'party_net_weight_qtl') {
+            const pw = pwMap[s.voucher_no||''] || pwMap[s.rst_no||''];
+            val = pw ? +(((pw.party_net_weight_kg||0)/100).toFixed(2)) : '';
+          }
           else if (c.k === 'oil_pct') val = op ? op.actual_oil_pct : '';
           else if (c.k === 'oil_diff') val = op ? +((op.difference_pct||0).toFixed(2)) : '';
           else if (c.k === 'oil_premium') val = op ? +(prem.toFixed(2)) : '';
@@ -857,6 +875,19 @@ module.exports = function(database) {
       }
       const hasOil = Object.keys(oilMap).length > 0 && sales.some(s => oilMap[s.voucher_no||''] || oilMap[s.rst_no||'']);
 
+      // v104.44.96 — Party Weight map (PDF export)
+      if (!database.data.party_weights) database.data.party_weights = [];
+      let pwList = [...database.data.party_weights];
+      if (product) pwList = pwList.filter(i => i.product === product);
+      if (kms_year) pwList = pwList.filter(i => i.kms_year === kms_year);
+      if (season) pwList = pwList.filter(i => i.season === season);
+      const pwMap = {};
+      pwList.forEach(pw => {
+        if (pw.voucher_no) pwMap[pw.voucher_no] = pw;
+        if (pw.rst_no && !pwMap[pw.rst_no]) pwMap[pw.rst_no] = pw;
+      });
+      const hasPw = Object.keys(pwMap).length > 0 && sales.some(s => pwMap[s.voucher_no||''] || pwMap[s.rst_no||'']);
+
       const has = {
         bill: sales.some(s => s.bill_number), rst: sales.some(s => s.rst_no),
         vehicle: sales.some(s => s.vehicle_no), billfrom: sales.some(s => s.bill_from),
@@ -873,7 +904,8 @@ module.exports = function(database) {
       if (has.billfrom) pc.push(['BillFrom',55,'bill_from']);
       pc.push(['Party',65,'party_name']);
       if (has.dest) pc.push(['Destination',50,'destination']);
-      pc.push(['NW(Qtl)',40,'net_weight_qtl']);
+      pc.push(['MW(Qtl)',40,'net_weight_qtl']);
+      if (hasPw && gst_filter !== 'PKA' && gst_filter !== 'KCA') pc.push(['PW(Qtl)',40,'party_net_weight_qtl']);
       if (has.bags) pc.push(['Bags',28,'bags']);
       pc.push(['Rate/Q',38,'rate_per_qtl']);
       if (showPkaCol) pc.push(['PKA',50,'billed_amount']);
@@ -999,6 +1031,11 @@ module.exports = function(database) {
             if (op) { const d = op.difference_pct || 0; cellVal = `${d>0?'+':''}${d.toFixed(2)}%`; }
           }
           else if (k === 'oil_premium') cellVal = op ? Math.round(prem).toLocaleString('en-IN') : '';
+          else if (k === 'party_net_weight_qtl') {
+            const pw = pwMap[s.voucher_no||''] || pwMap[s.rst_no||''];
+            const q = pw ? +(((pw.party_net_weight_kg||0)/100).toFixed(2)) : 0;
+            cellVal = q > 0 ? q.toFixed(2) : '—';
+          }
           else if (['net_weight_kg','bags','rate_per_qtl','cash_paid','diesel_paid','advance'].includes(k)) cellVal = String(_safeNum(s[k]) || '');
           else cellVal = String(s[k] || '');
 
