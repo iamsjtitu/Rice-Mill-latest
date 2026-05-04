@@ -1,6 +1,37 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.95
+## Current Version: v104.44.96
+
+## 🔧 v104.44.96 — Total Sales Register: Column Rename (M/W + P/W)
+**Build date:** 2026-02-04
+
+### User Request
+- Rename **"N/W (Qtl)"** → **"M/W (Qtl)"** (Mill Weight)
+- Rename **"Party W (Qtl)"** → **"P/W (Qtl)"** for consistency with M/W
+
+### Implementation
+- Frontend `TotalSalesRegister.jsx`:
+  - Stat card header: `N/W (Qtl)` → `M/W (Qtl)`
+  - Main table column: `N/W (Qtl)` → `M/W (Qtl)`, `Party W (Qtl)` → `P/W (Qtl)`
+  - Group-by-party view header: `N/W (Qtl)` → `M/W (Qtl)`
+- Backend Python exports (`total_sales_register.py`): Excel + PDF headers + PDF summary banner updated
+- Desktop Node + Local-Server Node: Excel + PDF headers + PDF text summary updated
+
+### Triple Backend Parity
+- ✅ Python: `/app/backend/routes/total_sales_register.py`
+- ✅ Desktop: `/app/desktop-app/routes/total_sales_register.js`
+- ✅ Local-server: `/app/local-server/routes/total_sales_register.js`
+
+### E2E Verified (Playwright text count)
+| Check | Result |
+|---|---|
+| `M/W (Qtl)` present: 2 (stat card + table) | ✅ |
+| `P/W (Qtl)` present: 1 (table) | ✅ |
+| Old `N/W (Qtl)` removed: 0 | ✅ |
+| Old `Party W (Qtl)` removed: 0 | ✅ |
+| Data column (P/W): showing 99.00, 145.00, 244.00 Qtl | ✅ |
+
+---
 
 ## 🔧 v104.44.95 — New Oil Premium: Party Weight Integration
 **Build date:** 2026-02-04

@@ -253,7 +253,7 @@ export default function TotalSalesRegister({ filters, user }) {
             <p className="text-sm font-bold text-slate-900 dark:text-white">{totals.rows_count}</p>
           </div>
           <div className="p-2 rounded bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700">
-            <p className="text-[9px] text-blue-600 dark:text-blue-400 uppercase">N/W (Qtl)</p>
+            <p className="text-[9px] text-blue-600 dark:text-blue-400 uppercase">M/W (Qtl)</p>
             <p className="text-sm font-bold text-blue-700 dark:text-blue-300">{fmtNum(totals.net_weight_qtl)}</p>
           </div>
           <div className="p-2 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
@@ -326,8 +326,8 @@ export default function TotalSalesRegister({ filters, user }) {
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[85px] whitespace-nowrap">Bill From</TableHead>
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[150px] whitespace-nowrap">Party</TableHead>
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[90px] whitespace-nowrap">Destination</TableHead>
-                <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[80px] text-right whitespace-nowrap">N/W (Qtl)</TableHead>
-                <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[80px] text-right whitespace-nowrap">Party W (Qtl)</TableHead>
+                <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[80px] text-right whitespace-nowrap">M/W (Qtl)</TableHead>
+                <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[80px] text-right whitespace-nowrap">P/W (Qtl)</TableHead>
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[75px] text-right whitespace-nowrap">Short (Qtl)</TableHead>
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[55px] text-right whitespace-nowrap">Bags</TableHead>
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[65px] text-right whitespace-nowrap">Rate/Q</TableHead>
@@ -413,7 +413,7 @@ export default function TotalSalesRegister({ filters, user }) {
                 <TableHead className="text-slate-600 dark:text-slate-300 text-[11px] py-2 px-3 whitespace-nowrap">Party</TableHead>
                 <TableHead className="text-slate-600 dark:text-slate-300 text-[11px] py-2 px-3 whitespace-nowrap">Products</TableHead>
                 <TableHead className="text-slate-600 dark:text-slate-300 text-[11px] py-2 px-3 text-right whitespace-nowrap">Entries</TableHead>
-                <TableHead className="text-slate-600 dark:text-slate-300 text-[11px] py-2 px-3 text-right whitespace-nowrap">N/W (Qtl)</TableHead>
+                <TableHead className="text-slate-600 dark:text-slate-300 text-[11px] py-2 px-3 text-right whitespace-nowrap">M/W (Qtl)</TableHead>
                 <TableHead className="text-slate-600 dark:text-slate-300 text-[11px] py-2 px-3 text-right whitespace-nowrap">Bags</TableHead>
                 <TableHead className="text-slate-600 dark:text-slate-300 text-[11px] py-2 px-3 text-right whitespace-nowrap">Total</TableHead>
                 <TableHead className="text-slate-600 dark:text-slate-300 text-[11px] py-2 px-3 text-right whitespace-nowrap">Received</TableHead>
