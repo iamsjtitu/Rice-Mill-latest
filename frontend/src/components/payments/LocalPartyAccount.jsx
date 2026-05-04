@@ -166,6 +166,8 @@ const LocalPartyAccount = ({ filters, user }) => {
   };
 
   // ── Header WhatsApp + Group handlers ──
+  const partyInfo = summary?.parties?.find(p => p.party_name === selectedParty);
+
   const _localPartySummaryText = () => {
     if (!summary) return "";
     const lines = [];
@@ -263,7 +265,6 @@ const LocalPartyAccount = ({ filters, user }) => {
     await safePrintHTML(html);
   };
 
-  const partyInfo = summary?.parties?.find(p => p.party_name === selectedParty);
   const filteredParties = summary?.parties?.filter(p =>
     !searchTerm || p.party_name.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];

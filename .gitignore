@@ -542,3 +542,4 @@ credentials.json
 *.key
 .credentials
 frontend/node_modules/.cache/default-development/266.pack
+frontend/node_modules/.cache/default-development/267.pack
