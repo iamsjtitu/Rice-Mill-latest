@@ -2,10 +2,23 @@ from fastapi import APIRouter, HTTPException
 from datetime import datetime, timezone
 from database import db
 import uuid
+import math
 
 router = APIRouter()
 
 STANDARD_OIL = {"Raw": 22, "Boiled": 25}
+
+
+def _commercial_round(x: float) -> int:
+    """Commercial rounding (half-up): 49.49 → 49, 49.50 → 50.
+
+    Note: Python's built-in round() uses banker's rounding (50.5 → 50, NOT 51).
+    This helper does standard commercial rounding for ledger amounts.
+    """
+    if x is None:
+        return 0
+    x = float(x)
+    return math.floor(x + 0.5) if x >= 0 else -math.floor(abs(x) + 0.5)
 
 
 async def _sync_oil_premium_ledger(op: dict, username: str = "system"):
@@ -38,13 +51,13 @@ async def _sync_oil_premium_ledger(op: dict, username: str = "system"):
         txn_type_lp = "debit"
         cb_txn_type = "nikasi"  # Increases what party owes us
         desc = f"Lab Test Bonus (+{op.get('difference_pct', 0)}%) - Voucher #{voucher_no}"
-        amount = round(premium, 2)
+        amount = _commercial_round(premium)  # v104.44.97 — commercial round (no paise)
     else:
         # Penalty due to lower quality → party owes less (Kaccha JAMA reduces what they owe)
         txn_type_lp = "payment"
         cb_txn_type = "jama"  # Reduces what party owes us
         desc = f"Lab Test Premium ({op.get('difference_pct', 0)}%) - Voucher #{voucher_no}"
-        amount = round(abs(premium), 2)
+        amount = _commercial_round(abs(premium))  # v104.44.97 — commercial round (no paise)
 
     base = {
         "kms_year": op.get("kms_year", ""), "season": op.get("season", ""),
