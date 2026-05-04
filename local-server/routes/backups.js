@@ -113,20 +113,59 @@ module.exports = function(database, { getBackupsList, createBackup, restoreBacku
   }));
 
   // Auto-delete settings (toggle + days)
-  // Backup encryption — STUB for LAN local-server (no real license available)
-  // Real encryption only works in Desktop App where license-manager has the customer key.
+  // Backup encryption settings + status (AES-256-GCM with license-key-derived key)
   router.get('/api/backups/encryption', safeSync(async (req, res) => {
+    const s = database.data?.settings || {};
+    let licensePresent = false;
+    try {
+      const licenseManager = require('../license-manager');
+      licensePresent = !!(licenseManager.getLicenseKey && licenseManager.getLicenseKey());
+    } catch (_) { licensePresent = false; }
+    // Count backups encrypted in current backup dir for status display
+    const backupCrypto = (() => { try { return require('../utils/backup-crypto'); } catch (_) { return null; } })();
+    let encryptedCount = 0;
+    let plainCount = 0;
+    if (backupCrypto) {
+      try {
+        const list = getBackupsList();
+        for (const b of list) {
+          try {
+            const folder = b.source === 'custom' ? b.custom_dir : getBackupDir();
+            const fp = path.join(folder, b.filename);
+            const buf = fs.readFileSync(fp, 'utf8');
+            if (backupCrypto.isEncrypted(buf)) encryptedCount++;
+            else plainCount++;
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
     res.json({
-      enabled: false,
-      can_enable: false,
-      license_present: false,
-      encrypted_count: 0,
-      plain_count: 0,
-      reason: 'LAN local-server has no real license — backup encryption only works in Desktop App. Use OS-level disk encryption (BitLocker) for the LAN host.',
+      enabled: s.backup_encryption_enabled === true,
+      can_enable: licensePresent,
+      license_present: licensePresent,
+      encrypted_count: encryptedCount,
+      plain_count: plainCount,
     });
   }));
+
   router.put('/api/backups/encryption', safeSync(async (req, res) => {
-    res.status(400).json({ detail: 'Backup encryption sirf Desktop App mein available hai (LAN host pe license nahi hota).' });
+    if (!database.data.settings) database.data.settings = {};
+    if (typeof req.body.enabled === 'boolean') {
+      if (req.body.enabled) {
+        // Enabling requires a license to be activated, otherwise encrypt would fail-soft to plain.
+        let licensePresent = false;
+        try {
+          const licenseManager = require('../license-manager');
+          licensePresent = !!(licenseManager.getLicenseKey && licenseManager.getLicenseKey());
+        } catch (_) {}
+        if (!licensePresent) {
+          return res.status(400).json({ detail: 'License activate karein pehle — encryption ke liye license key chahiye.' });
+        }
+      }
+      database.data.settings.backup_encryption_enabled = req.body.enabled;
+      database.save();
+    }
+    res.json({ enabled: database.data.settings.backup_encryption_enabled === true });
   }));
 
   router.get('/api/backups/auto-delete', safeSync(async (req, res) => {
@@ -147,12 +186,12 @@ module.exports = function(database, { getBackupsList, createBackup, restoreBacku
     });
   }));
 
-  // Backup schedule (hour-of-day for daily auto-backup) — parity with desktop-app
+  // Backup schedule (hour-of-day for daily auto-backup)
   router.get('/api/backups/schedule', safeSync(async (req, res) => {
     const s = database.data?.settings || {};
     res.json({
       hour: Number.isInteger(s.backup_schedule_hour) ? s.backup_schedule_hour : 0,
-      enabled: s.backup_schedule_enabled !== false,
+      enabled: s.backup_schedule_enabled !== false, // default true
     });
   }));
   router.put('/api/backups/schedule', safeSync(async (req, res) => {

@@ -178,6 +178,7 @@ module.exports = function(database) {
       if (!tp.rate_per_qntl || tp.rate_per_qntl <= 0) continue;
       tp.rate_per_qntl = 0;
       resetCount++;
+      // Remove the corresponding truck_entry ledger
       const before2 = (database.data.cash_transactions || []).length;
       database.data.cash_transactions = (database.data.cash_transactions || [])
         .filter(t => !(t.linked_entry_id === tp.entry_id && (t.reference || '').startsWith('truck_entry:')));

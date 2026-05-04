@@ -99,6 +99,7 @@ function getDailyReportData(database, query) {
   }));
 
   // ══ v104.44.18 — P0 NEW SECTIONS ══
+  // Vehicle Weight (Auto) — Sale + Purchase trips with Bag Type + Bhada
   const vwEntries = col('vehicle_weights').filter(v => v.date === date);
   const isSale = (v) => ['dispatch','dispatch(sale)','sale'].includes((v.trans_type||'').toLowerCase());
   const isPurchase = (v) => ['receive','receive(purchase)','purchase'].includes((v.trans_type||'').toLowerCase());
@@ -111,6 +112,7 @@ function getDailyReportData(database, query) {
   const vwPurchaseBags = vwPurchase.reduce((s,v) => s + (parseInt(v.bags||0)||0), 0);
   const vwPurchaseNet = vwPurchase.reduce((s,v) => s + (parseFloat(v.net_weight||0)||0), 0);
 
+  // Per-Trip Bhada — aggregate today's VW trips by vehicle_no with bhada > 0
   const pertripByTruck = {};
   for (const v of vwEntries) {
     const vn = (v.vehicle_no||'').trim().toUpperCase();
@@ -125,6 +127,7 @@ function getDailyReportData(database, query) {
   const perTripTrucksList = Object.values(pertripByTruck).sort((a,b) => b.bhada - a.bhada);
   const perTripBhadaTotal = perTripTrucksList.reduce((s,x) => s + x.bhada, 0);
 
+  // Party-type payment summaries (Truck / Agent / LocalParty) derived from cash_txns
   function partyTxnSummary(typeLabel) {
     const t = typeLabel.toLowerCase();
     const filt = cashTxns.filter(x => (x.party_type||'').toLowerCase() === t);

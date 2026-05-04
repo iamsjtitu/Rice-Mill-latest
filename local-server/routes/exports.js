@@ -110,7 +110,8 @@ module.exports = function(database) {
         addTotalsRow(doc, ['TOTAL','','','',tTpWt > 0 ? tTpWt.toFixed(2) : '-','',`${entries.length} entries`,tQntl.toFixed(2),tBag,tGDep,tGbw.toFixed(2),tPPkt,tPCut.toFixed(2),tMillW.toFixed(2),'',tMCut.toFixed(2),'','',tFinalW.toFixed(2),tGIss], w);
         // Light-themed summary banner
         const tableW = w.reduce((a, b) => a + b, 0);
-        if (doc.y + 30 > doc.page.height - doc.page.margins.bottom) doc.addPage();
+        const banY = doc.y + 6;
+        if (banY + 30 > doc.page.height - doc.page.margins.bottom) doc.addPage();
         drawSummaryBanner(doc, [
           { lbl: 'TOTAL ENTRIES', val: String(entries.length), color: STAT_COLORS.primary },
           { lbl: 'QNTL', val: tQntl.toFixed(2), color: STAT_COLORS.gold },
@@ -139,7 +140,8 @@ module.exports = function(database) {
       addExcelTitle(ws, 'Truck Payments', 13, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       // Light-themed summary banner
       if (entries.length > 0) {
-        addExcelSummaryBanner(ws, ws.lastRow.number + 2, 13, [
+        const lastRow = ws.lastRow.number;
+        addExcelSummaryBanner(ws, lastRow + 2, 13, [
           { lbl: 'Total Trucks', val: String(entries.length) },
           { lbl: 'Paid', val: String(paidCnt) },
           { lbl: 'Partial', val: String(partCnt) },

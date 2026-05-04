@@ -1,34 +1,100 @@
 /**
- * License info stub for LAN Local-Server (Node.js Express).
- *
- * The real license enforcement runs inside the Electron Desktop App. When a
- * customer installs the MillEntry on the mill-PC in "LAN mode" (this
- * local-server), there is no per-client license check; the whole LAN shares
- * the master's activation. Here we just expose a lightweight stub so the
- * frontend's Settings → License tab doesn't crash on LAN deployments.
+ * License info API — exposed to frontend so Settings > License tab can show current status.
+ * Reads from license-manager (encrypted cache).
  */
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const licenseManager = require('../license-manager');
 
-module.exports = (/* database */) => {
+module.exports = (database) => {
   const router = express.Router();
 
+  // GET /api/license/info — full license status (for Settings page)
   router.get('/api/license/info', (req, res) => {
-    res.json({
-      activated: true,
-      key: 'LAN-DEPLOYMENT',
-      customer_name: 'LAN Deployment',
-      mill_name: 'Local Network (Mill PC)',
-      plan: 'lifetime',
-      expires_at: null,
-      is_master: true,
-      last_validated_at: new Date().toISOString(),
-      machine_fingerprint: 'lan-stub',
-      pc_info: { hostname: 'mill-pc', platform: 'lan', app_version: 'lan' },
-    });
+    try {
+      const status = licenseManager.getStatus();
+      if (status.activated) {
+        return res.json({
+          ...status,
+          machine_fingerprint: licenseManager.getMachineFingerprint(),
+          pc_info: licenseManager.getPcInfo(),
+        });
+      }
+      // Not activated — include debug info so admin can diagnose
+      let cachePath = '', cacheExists = false, cacheSize = 0;
+      try {
+        const { app } = require('electron');
+        cachePath = path.join(app.getPath('userData'), 'license.enc');
+        cacheExists = fs.existsSync(cachePath);
+        if (cacheExists) cacheSize = fs.statSync(cachePath).size;
+      } catch { /* non-electron context */ }
+
+      // Surface the specific reason ('decrypt_failed' is the silent-killer case
+      // that previously appeared as "Cache not found" to the user).
+      const decryptFailed = !!status.decrypt_failed;
+      res.json({
+        activated: false,
+        decrypt_failed: decryptFailed,
+        load_reason: status.load_reason || 'unknown',
+        // User-facing helpful message
+        diagnostic: decryptFailed
+          ? 'Cache file is present but cannot be decrypted (machine fingerprint shifted - common after USB / Hyper-V / VPN / Bluetooth changes). Click Repair to re-sync with server.'
+          : (cacheExists
+            ? 'Cache file exists but contains no valid activation. Click Repair to re-sync with server.'
+            : 'No activation cache found. Use Activate License to set up.'),
+        debug: {
+          cache_path: cachePath,
+          cache_file_exists: cacheExists,
+          cache_file_size: cacheSize,
+          machine_fingerprint: licenseManager.getMachineFingerprint(),
+        },
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message, stack: (e.stack || '').split('\n').slice(0, 5).join('\n') });
+    }
   });
 
-  router.post('/api/license/heartbeat', (req, res) => {
-    res.json({ active: true, note: 'lan_deployment' });
+  // POST /api/license/heartbeat — manual verify (button in Settings)
+  router.post('/api/license/heartbeat', async (req, res) => {
+    try {
+      const result = await licenseManager.sendHeartbeat();
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // POST /api/license/repair — re-run activation sync with server using existing key
+  // Useful when cache got corrupted/deleted post-update but license is still valid on server
+  router.post('/api/license/repair', async (req, res) => {
+    try {
+      const { key } = req.body || {};
+      if (!key) return res.status(400).json({ error: 'key required' });
+      const result = await licenseManager.activateLicense(key);
+      res.json({ success: true, ...result });
+    } catch (e) {
+      res.status(400).json({ success: false, error: e.message });
+    }
+  });
+
+  // POST /api/license/auto-recover — attempt automatic recovery WITHOUT user re-entering key.
+  // Server is asked: "do any of my candidate fingerprints match an existing activation?"
+  // If yes, server returns the key and we silently re-activate. No license key re-entry needed.
+  // Returns: { success: true, ...cache } on success, { success: false, error } on failure
+  router.post('/api/license/auto-recover', async (req, res) => {
+    try {
+      const cache = await licenseManager.attemptAutoRecoverFromServer();
+      if (!cache) {
+        return res.status(404).json({
+          success: false,
+          error: 'No matching activation found on server. Use the Repair button (license key required) instead.'
+        });
+      }
+      res.json({ success: true, ...cache });
+    } catch (e) {
+      res.status(500).json({ success: false, error: e.message });
+    }
   });
 
   return router;

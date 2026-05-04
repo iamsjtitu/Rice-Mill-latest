@@ -629,19 +629,6 @@ module.exports = function(database) {
       }
       const hasOil = Object.keys(oilMap).length > 0 && sales.some(s => oilMap[s.voucher_no||''] || oilMap[s.rst_no||'']);
 
-      // v104.44.96 — Party Weight map (Excel export)
-      if (!database.data.party_weights) database.data.party_weights = [];
-      let pwItems = [...database.data.party_weights];
-      if (product) pwItems = pwItems.filter(i => i.product === product);
-      if (kms_year) pwItems = pwItems.filter(i => i.kms_year === kms_year);
-      if (season) pwItems = pwItems.filter(i => i.season === season);
-      const pwMap = {};
-      pwItems.forEach(pw => {
-        if (pw.voucher_no) pwMap[pw.voucher_no] = pw;
-        if (pw.rst_no && !pwMap[pw.rst_no]) pwMap[pw.rst_no] = pw;
-      });
-      const hasPw = Object.keys(pwMap).length > 0 && sales.some(s => pwMap[s.voucher_no||''] || pwMap[s.rst_no||'']);
-
       // Detect optional columns
       const has = {
         bill: sales.some(s => s.bill_number), billing_date: sales.some(s => s.billing_date),

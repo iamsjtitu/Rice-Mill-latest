@@ -721,11 +721,14 @@ module.exports = (database) => {
     if (y > 540) { doc.addPage(); y = 30; }
     const tableW = colWidths.reduce((a, b) => a + b, 0);
     const summaryH = 30;
+    // Light cream background
     doc.rect(startX, y, tableW, summaryH).fill('#FFFBEB');
+    // Gold accent stripe at top + lighter gold below
     doc.rect(startX, y, tableW, 2).fill('#F59E0B');
     doc.rect(startX, y + 2, tableW, 1).fill('#FCD34D');
 
     const fmtRs = (n) => `Rs.${(n || 0).toFixed(2)}`;
+    // LIGHT-theme color palette (darker shades visible on cream bg)
     const stats = [
       { lbl: 'TOTAL ENTRIES', val: String(payments.length), color: '#1E293B' },
       { lbl: 'PAID', val: String(paidCount), color: '#047857' },
@@ -740,8 +743,11 @@ module.exports = (database) => {
     const cellW = tableW / stats.length;
     stats.forEach((s, i) => {
       const cx = startX + i * cellW;
+      // Hairline divider
       if (i > 0) doc.moveTo(cx, y + 8).lineTo(cx, y + summaryH - 4).strokeColor('#E5E7EB').lineWidth(0.5).stroke();
+      // Label (slate-500 muted)
       doc.fontSize(6).fillColor('#64748B').text(s.lbl, cx + 4, y + 7, { width: cellW - 8, align: 'center', characterSpacing: 0.4 });
+      // Value (vibrant darker shade)
       doc.fontSize(9).fillColor(s.color).text(s.val, cx + 4, y + 16, { width: cellW - 8, align: 'center' });
     });
     y += summaryH;
@@ -767,6 +773,7 @@ module.exports = (database) => {
     wb.created = new Date();
     const ws = wb.addWorksheet('Hemali Payments', { views: [{ state: 'frozen', ySplit: 6 }] });
 
+    // ===== ROW 1: Company name banner =====
     ws.mergeCells('A1:K1');
     const c1 = ws.getCell('A1');
     c1.value = companyName;
@@ -775,6 +782,7 @@ module.exports = (database) => {
     c1.alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getRow(1).height = 28;
 
+    // ===== ROW 2: Address / location =====
     ws.mergeCells('A2:K2');
     const c2 = ws.getCell('A2');
     c2.value = companyAddr || 'Hemali Payment Report';
@@ -783,6 +791,7 @@ module.exports = (database) => {
     c2.alignment = { horizontal: 'center' };
     ws.getRow(2).height = 16;
 
+    // ===== ROW 3: Title bar =====
     ws.mergeCells('A3:K3');
     const c3 = ws.getCell('A3');
     c3.value = 'HEMALI PAYMENT REPORT';
@@ -791,6 +800,7 @@ module.exports = (database) => {
     c3.alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getRow(3).height = 22;
 
+    // ===== ROW 4: Filter info =====
     ws.mergeCells('A4:K4');
     const filters = [];
     if (kms_year) filters.push(`FY: ${kms_year}`);
@@ -803,6 +813,7 @@ module.exports = (database) => {
     c4.alignment = { horizontal: 'center' };
     c4.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
 
+    // ===== ROW 5: Generated info (right-aligned in last cells) =====
     ws.mergeCells('A5:K5');
     const c5 = ws.getCell('A5');
     c5.value = `Generated: ${new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}    |    Total Records: ${payments.length}`;
@@ -810,8 +821,9 @@ module.exports = (database) => {
     c5.alignment = { horizontal: 'center' };
     c5.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
 
+    // ===== ROW 6: Table headers =====
     const headers = ['#', 'Receipt No.', 'Date', 'Sardar', 'Items', 'Total', 'Adv Deducted', 'Payable', 'Paid', 'New Advance', 'Status'];
-    const headerRow = ws.addRow(headers);
+    const headerRow = ws.addRow(headers); // becomes row 6
     headerRow.height = 22;
     headerRow.eachCell((cell) => {
       cell.font = { name: 'Inter', bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
@@ -820,6 +832,7 @@ module.exports = (database) => {
       cell.border = { top: { style: 'thin', color: { argb: 'FF334155' } }, bottom: { style: 'medium', color: { argb: 'FFF59E0B' } } };
     });
 
+    // ===== Data rows =====
     let grandTotal = 0, grandPaid = 0, grandPayable = 0, grandAdvDed = 0, grandNewAdv = 0;
     let paidCount = 0, unpaidCount = 0;
     payments.forEach((p, idx) => {
@@ -852,6 +865,7 @@ module.exports = (database) => {
       if (isPaid) { grandPaid += p.amount_paid || 0; paidCount++; } else { unpaidCount++; }
     });
 
+    // ===== Totals row =====
     const totalRow = ws.addRow(['', '', '', '', 'TOTAL', grandTotal, grandAdvDed, grandPayable, grandPaid, grandNewAdv, `${paidCount} Paid / ${unpaidCount} Unpaid`]);
     totalRow.height = 24;
     totalRow.eachCell((cell, colNum) => {
@@ -863,6 +877,7 @@ module.exports = (database) => {
       if (colNum === 11) cell.font = { name: 'Inter', bold: true, color: { argb: 'FFF59E0B' }, size: 10 };
     });
 
+    // ===== Beautiful single-line summary banner (LIGHT theme - below totals) =====
     const sumRowIdx = totalRow.number + 2;
     ws.mergeCells(sumRowIdx, 1, sumRowIdx, 11);
     const sumCell = ws.getCell(sumRowIdx, 1);
@@ -878,6 +893,7 @@ module.exports = (database) => {
     };
     ws.getRow(sumRowIdx).height = 28;
 
+    // Column widths
     [5, 14, 12, 16, 38, 13, 14, 13, 13, 13, 12].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
     // 🎯 v104.44.9 — Apply consolidated multi-record polish (auto-filter + freeze + no gridlines)

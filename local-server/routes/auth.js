@@ -149,6 +149,7 @@ module.exports = function(database) {
     req2.end();
   });
 
+  // Generate recovery code (admin-only, requires current password)
   router.post('/api/auth/recovery-code/generate', safeSync(async (req, res) => {
     const { username, current_password } = req.body || {};
     if (!username || !current_password) return res.status(400).json({ detail: 'Username aur current password zaruri hai' });
@@ -202,10 +203,12 @@ module.exports = function(database) {
     if (!user || !user.recovery_whatsapp) {
       return res.status(404).json({ detail: 'Is account ke liye recovery WhatsApp set nahi hai. Pehle Settings → Account Recovery se number add karein.' });
     }
+    // 60-sec rate limit
     if (user.reset_otp_sent_at) {
       const elapsed = (Date.now() - new Date(user.reset_otp_sent_at).getTime()) / 1000;
       if (elapsed < 60) return res.status(429).json({ detail: `Thoda ruko - ${Math.ceil(60 - elapsed)}s baad dobara try karein` });
     }
+
     const otp = _genOtp();
     user.reset_otp_hash = _hashSecret(otp);
     user.reset_otp_expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString();
@@ -244,6 +247,7 @@ module.exports = function(database) {
       database.save();
       return res.status(401).json({ detail: `OTP galat hai. ${4 - attempts} attempts bache hain.` });
     }
+    // Success
     user.password = String(new_password);
     delete user.reset_otp_hash; delete user.reset_otp_expires_at; delete user.reset_otp_attempts; delete user.reset_otp_sent_at;
     if (database.saveImmediate) database.saveImmediate(); else database.save();

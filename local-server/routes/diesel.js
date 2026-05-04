@@ -241,13 +241,12 @@ module.exports = function(database) {
 
     // Light-themed summary banner
     if (txns.length > 0) {
+      const { drawSummaryBanner, STAT_COLORS, fmtInr } = require('./pdf_helpers');
       const totalDiesel = pumps.reduce((sum, p) => {
-        const pt = txns.filter(t => t.pump_id === p.id);
-        return sum + pt.filter(t => t.txn_type === 'debit').reduce((s, t) => s + (t.amount || 0), 0);
+        return sum + txns.filter(t => t.pump_id === p.id && t.txn_type === 'debit').reduce((s, t) => s + t.amount, 0);
       }, 0);
       const totalPaid = pumps.reduce((sum, p) => {
-        const pt = txns.filter(t => t.pump_id === p.id);
-        return sum + pt.filter(t => t.txn_type === 'payment').reduce((s, t) => s + (t.amount || 0), 0);
+        return sum + allCashTxns.filter(t => t.account === 'ledger' && t.txn_type === 'nikasi' && t.category === p.name).reduce((s, t) => s + (t.amount || 0), 0);
       }, 0);
       const tableW = 480;
       if (doc.y + 30 > doc.page.height - doc.page.margins.bottom) doc.addPage();

@@ -4,6 +4,9 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 
 // v104.44.98 — Source types that do NOT belong to Local Party tab.
+// BP Sale Register, Oil Premium (Lab Test), and Party Weight create their own
+// ledger entries with bp_sale_* source_types — those parties belong to the
+// BP Sale Register / Cash Book Party Ledgers view, NOT the Local Party tab.
 const BP_SOURCE_TYPES = new Set([
   'bp_sale', 'bp_sale_pka', 'bp_sale_ka',
   'bp_sale_ka_oil_premium',
@@ -342,11 +345,11 @@ router.get('/api/local-party/pdf', safeSync(async (req, res) => {
   txns.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
 
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
-    res.setHeader('Content-Type', 'application/pdf');
-    // 🎯 v104.44.12 — filename reflects selected party (if filtered)
-    const _safePN = String(req.query.party_name || '').replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/\s+/g, '_').toLowerCase();
-    const _fnamePdf = _safePN ? `${_safePN}.pdf` : `local_party_account.pdf`;
-    res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `${_fnamePdf}`}`);
+  res.setHeader('Content-Type', 'application/pdf');
+  // 🎯 v104.44.12 — filename reflects selected party (if filtered)
+  const _safePN = String(req.query.party_name || '').replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/\s+/g, '_').toLowerCase();
+  const _fnamePdf = _safePN ? `${_safePN}.pdf` : `local_party_account.pdf`;
+  res.setHeader('Content-Disposition', `attachment; filename=${req.query.filename || `${_fnamePdf}`}`);
   // PDF will be sent via safePdfPipe
 
   const branding = database.getBranding ? database.getBranding() : {};

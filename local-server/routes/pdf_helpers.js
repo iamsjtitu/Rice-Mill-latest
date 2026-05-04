@@ -627,6 +627,20 @@ function ensureSpace(doc, needed) {
 // 🎯 v104.44.9 — CONSOLIDATED EXCEL POLISH (auto-filter + freeze + no gridlines)
 // Mirrors Python utils.export_helpers.apply_consolidated_excel_polish()
 // ════════════════════════════════════════════════════════════════════════════
+/**
+ * Apply standard "consolidated multi-record" Excel polish to an exceljs worksheet.
+ *
+ * Adds 3 things that make Excel reports usable across the entire app:
+ *   1. Auto-filter dropdowns on the header row (sort/filter per column)
+ *   2. Freeze panes below the header row (header sticks while scrolling)
+ *   3. Gridlines disabled (cleaner look — borders provide structure instead)
+ *
+ * @param {ExcelJS.Worksheet} ws
+ * @param {Object} opts
+ * @param {number} [opts.headerRow] - 1-indexed header row. If omitted, auto-detected.
+ * @param {number} [opts.nCols] - Total cols. If omitted, ws.actualColumnCount used.
+ * @param {number} [opts.lastDataRow] - Last data row. If omitted, ws.actualRowCount used.
+ */
 function applyConsolidatedExcelPolish(ws, opts = {}) {
   if (!ws) return;
   let { headerRow, nCols, lastDataRow } = opts;
@@ -704,10 +718,12 @@ function applyConsolidatedExcelPolish(ws, opts = {}) {
   if (!nCols) nCols = ws.actualColumnCount || ws.columnCount || 1;
   if (!lastDataRow) lastDataRow = Math.max(ws.actualRowCount || ws.rowCount || headerRow, headerRow);
 
+  // 1. Disable gridlines
   try {
     ws.views = [{ ...(ws.views?.[0] || {}), showGridLines: false, state: 'frozen', ySplit: headerRow }];
   } catch (_) { /* best-effort */ }
 
+  // 2. Auto-filter on header → last data row
   if (nCols > 0 && lastDataRow >= headerRow) {
     try {
       ws.autoFilter = { from: { row: headerRow, column: 1 }, to: { row: lastDataRow, column: nCols } };

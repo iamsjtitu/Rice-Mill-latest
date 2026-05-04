@@ -195,7 +195,10 @@ def main():
         '/fix-old', '/fix-empty', '/fix-cash', '/migrate-',
         '/whatsapp/', '/telegram/send-custom',
         '/weighbridge/', '/settings/storage-engine',
-        '/sale-book/:id/whatsapp'
+        '/sale-book/:id/whatsapp',
+        # v104.44.99 — Web-only routes that have no desktop equivalent:
+        '/govt-registers/verification-report',  # Govt portal scraping (web-only)
+        '/settings/weighbridge-host',           # HTTP weighbridge (desktop uses serial port)
     ]
     # Also exclude exact root path (Python health check)
     python_only = {r for r in missing_in_dt if any(p in r[1] for p in python_only_patterns) or r[1] == '/'}
