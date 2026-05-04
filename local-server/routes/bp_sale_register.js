@@ -451,6 +451,9 @@ module.exports = function(database) {
     data.updated_at = data.created_at;
     data.created_by = req.query.username || '';
 
+    // v104.44.88 — Normalize party_name to prevent duplicate ledgers from case/space differences
+    data.party_name = (data.party_name || '').trim().toUpperCase();
+
     // Auto-generate voucher_no if blank (format: S-001, S-002 ...). User-entered values preserved.
     if (!String(data.voucher_no || '').trim()) {
       data.voucher_no = nextBpVoucherNo();
@@ -482,6 +485,9 @@ module.exports = function(database) {
     const data = { ...req.body };
     data.updated_at = new Date().toISOString();
     data.updated_by = req.query.username || '';
+
+    // v104.44.88 — Normalize party_name to prevent duplicate ledgers from case/space differences
+    data.party_name = (data.party_name || '').trim().toUpperCase();
 
     computeAmountsAndTax(data);
 

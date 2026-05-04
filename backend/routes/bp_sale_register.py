@@ -623,6 +623,9 @@ async def create_bp_sale(data: dict, username: str = "", role: str = ""):
     data["updated_at"] = data["created_at"]
     data["created_by"] = username
 
+    # v104.44.88 — Normalize party_name to prevent duplicate ledgers from case/space differences
+    data["party_name"] = (data.get("party_name") or "").strip().upper()
+
     # Auto-generate voucher_no if empty (format: S-001, S-002, ...).
     # User-entered voucher_no preserved as-is.
     if not (data.get("voucher_no") or "").strip():
@@ -668,6 +671,9 @@ async def update_bp_sale(sale_id: str, data: dict, username: str = "", role: str
 
     data["updated_at"] = datetime.now(timezone.utc).isoformat()
     data["updated_by"] = username
+
+    # v104.44.88 — Normalize party_name to prevent duplicate ledgers from case/space differences
+    data["party_name"] = (data.get("party_name") or "").strip().upper()
 
     _compute_amounts_and_tax(data)
 
