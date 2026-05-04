@@ -491,6 +491,58 @@ async def update_party_weight(entry_id: str, data: dict, username: str = "", rol
     return merged
 
 
+@router.post("/party-weight/resync-ledger")
+async def resync_ledger(username: str = "", role: str = ""):
+    """v104.44.94 — One-shot backfill: sync cash_transactions, local_party_accounts,
+    truck_payments, and oil_premium for all BP sales that were auto-adjusted via Party Weight
+    (before v104.44.94 fix). Safe to run multiple times (idempotent — updates to current values)."""
+    fixed_bp = 0
+    fixed_txn = 0
+    fixed_lpa = 0
+    fixed_tp = 0
+    fixed_op = 0
+    bps = await db.bp_sale_register.find({"auto_adjust_party_weight_id": {"$exists": True, "$ne": None}}, {"_id": 0}).to_list(20000)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    for bp in bps:
+        doc_id = bp.get("id", "")
+        if not doc_id:
+            continue
+        new_kaccha_amt = float(bp.get("kaccha_amount", 0) or 0)
+        new_total = float(bp.get("total", 0) or 0)
+        # Sync KCA ledger
+        r1 = await db.cash_transactions.update_many(
+            {"reference": f"bp_sale_ka:{doc_id}"},
+            {"$set": {"amount": new_kaccha_amt, "updated_at": now_iso}}
+        )
+        fixed_txn += r1.modified_count
+        r2 = await db.local_party_accounts.update_many(
+            {"reference": f"bp_sale_ka:{doc_id}"},
+            {"$set": {"amount": new_kaccha_amt, "updated_at": now_iso}}
+        )
+        fixed_lpa += r2.modified_count
+        r3 = await db.truck_payments.update_many(
+            {"reference": f"bp_sale_truck:{doc_id}"},
+            {"$set": {"net_amount": new_total, "updated_at": now_iso}}
+        )
+        fixed_tp += r3.modified_count
+        # Sync oil_premium for the voucher using new kaccha weight
+        voucher = bp.get("voucher_no", "")
+        if voucher:
+            new_qty = (float(bp.get("kaccha_weight_kg", 0) or 0)) / 100.0
+            pw_id = bp.get("auto_adjust_party_weight_id", "")
+            await _resync_oil_premium_for_voucher(voucher, pw_id, new_qty)
+            fixed_op += 1
+        fixed_bp += 1
+    return {
+        "success": True,
+        "bp_sales_checked": fixed_bp,
+        "cash_transactions_synced": fixed_txn,
+        "local_party_accounts_synced": fixed_lpa,
+        "truck_payments_synced": fixed_tp,
+        "oil_premium_resynced": fixed_op,
+    }
+
+
 @router.delete("/party-weight/{entry_id}")
 async def delete_party_weight(entry_id: str, username: str = "", role: str = ""):
     # v104.44.93 — Reverse any auto-adjust before deletion

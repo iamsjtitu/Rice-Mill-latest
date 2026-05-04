@@ -407,6 +407,51 @@ module.exports = function(database) {
     res.json(merged);
   });
 
+  // v104.44.94 — One-shot backfill endpoint: sync all BP sales that were auto-adjusted via PW
+  router.post('/api/party-weight/resync-ledger', (req, res) => {
+    ensure();
+    let fixedBp = 0, fixedTxn = 0, fixedLpa = 0, fixedTp = 0, fixedOp = 0;
+    const nowIso = new Date().toISOString();
+    for (const bp of (database.data.bp_sale_register || [])) {
+      if (!bp.auto_adjust_party_weight_id) continue;
+      const docId = bp.id;
+      if (!docId) continue;
+      const newKacchaAmt = parseFloat(bp.kaccha_amount || 0);
+      const newTotal = parseFloat(bp.total || 0);
+      if (database.data.cash_transactions) {
+        for (const t of database.data.cash_transactions) {
+          if ((t.reference || '') === `bp_sale_ka:${docId}`) { t.amount = newKacchaAmt; t.updated_at = nowIso; fixedTxn++; }
+        }
+      }
+      if (database.data.local_party_accounts) {
+        for (const t of database.data.local_party_accounts) {
+          if ((t.reference || '') === `bp_sale_ka:${docId}`) { t.amount = newKacchaAmt; t.updated_at = nowIso; fixedLpa++; }
+        }
+      }
+      if (database.data.truck_payments) {
+        for (const t of database.data.truck_payments) {
+          if ((t.reference || '') === `bp_sale_truck:${docId}`) { t.net_amount = newTotal; t.updated_at = nowIso; fixedTp++; }
+        }
+      }
+      const voucher = bp.voucher_no || '';
+      if (voucher) {
+        const newQty = parseFloat(bp.kaccha_weight_kg || 0) / 100;
+        resyncOilPremiumForVoucher(voucher, bp.auto_adjust_party_weight_id, newQty);
+        fixedOp++;
+      }
+      fixedBp++;
+    }
+    database.save();
+    res.json({
+      success: true,
+      bp_sales_checked: fixedBp,
+      cash_transactions_synced: fixedTxn,
+      local_party_accounts_synced: fixedLpa,
+      truck_payments_synced: fixedTp,
+      oil_premium_resynced: fixedOp,
+    });
+  });
+
   // DELETE /api/party-weight/:id
   router.delete('/api/party-weight/:id', (req, res) => {
     ensure();
