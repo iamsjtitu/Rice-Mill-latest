@@ -58,6 +58,79 @@ def _compute_diff(our_kg: float, party_kg: float) -> dict:
     }
 
 
+async def _resync_oil_premium_for_voucher(voucher_no: str, party_weight_id: str, new_qty_qtl: float):
+    """v104.44.94 — When auto-adjust modifies the actual delivered weight, recompute the
+    Lab Test / Oil Premium for the same voucher so the premium tracks the *real* qty.
+
+    Stores `original_qty_qtl_pre_adjust` on first call so we can revert later.
+    Formula matches oil_premium.py: premium = rate * (actual - standard) * qty / standard.
+    """
+    op = await db.oil_premium.find_one({"voucher_no": voucher_no}, {"_id": 0})
+    if not op:
+        return
+    backup_set = {}
+    if "original_qty_qtl_pre_adjust" not in op:
+        backup_set["original_qty_qtl_pre_adjust"] = float(op.get("qty_qtl", 0) or 0)
+    rate = float(op.get("rate", 0) or 0)
+    standard = float(op.get("standard_oil_pct", 0) or 0)
+    actual = float(op.get("actual_oil_pct", 0) or 0)
+    new_qty = round(new_qty_qtl, 2)
+    new_premium = round(rate * (actual - standard) * new_qty / standard, 2) if standard else 0
+    update = {
+        "qty_qtl": new_qty,
+        "premium_amount": new_premium,
+        "auto_adjust_party_weight_id": party_weight_id,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        **backup_set,
+    }
+    await db.oil_premium.update_one({"id": op["id"]}, {"$set": update})
+
+    # Also update mirrored cash_transactions entry if exists
+    op_id = op.get("id", "")
+    if op_id:
+        premium_txns = await db.cash_transactions.find(
+            {"$or": [
+                {"reference": {"$regex": f"^oil_premium:{op_id[:8]}"}},
+                {"reference": f"oil_premium:{op_id}"},
+            ]},
+            {"_id": 0, "id": 1}
+        ).to_list(20)
+        for t in premium_txns:
+            await db.cash_transactions.update_one(
+                {"id": t["id"]},
+                {"$set": {"amount": abs(new_premium), "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+
+
+async def _revert_oil_premium_for_voucher(voucher_no: str):
+    """Revert oil_premium qty/amount to the original (pre-adjust) values."""
+    op = await db.oil_premium.find_one({"voucher_no": voucher_no}, {"_id": 0})
+    if not op or "original_qty_qtl_pre_adjust" not in op:
+        return
+    orig_qty = float(op["original_qty_qtl_pre_adjust"])
+    rate = float(op.get("rate", 0) or 0)
+    standard = float(op.get("standard_oil_pct", 0) or 0)
+    actual = float(op.get("actual_oil_pct", 0) or 0)
+    orig_premium = round(rate * (actual - standard) * orig_qty / standard, 2) if standard else 0
+    await db.oil_premium.update_one(
+        {"id": op["id"]},
+        {"$set": {"qty_qtl": orig_qty, "premium_amount": orig_premium,
+                   "updated_at": datetime.now(timezone.utc).isoformat()},
+         "$unset": {"auto_adjust_party_weight_id": "", "original_qty_qtl_pre_adjust": ""}}
+    )
+    op_id = op.get("id", "")
+    if op_id:
+        premium_txns = await db.cash_transactions.find(
+            {"$or": [{"reference": {"$regex": f"^oil_premium:{op_id[:8]}"}}, {"reference": f"oil_premium:{op_id}"}]},
+            {"_id": 0, "id": 1}
+        ).to_list(20)
+        for t in premium_txns:
+            await db.cash_transactions.update_one(
+                {"id": t["id"]},
+                {"$set": {"amount": abs(orig_premium), "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+
+
 # ============================================================
 # v104.44.93 — Auto-Adjust to BP Sale Bill
 # ============================================================
@@ -111,6 +184,23 @@ async def _apply_auto_adjust(party_weight_id: str, product: str, voucher_no: str
                 "auto_adjust_party_weight_id": party_weight_id,
             }}
         )
+        # v104.44.94 — Also sync the related KCA ledger entries so cash book + party ledger reflect new amount
+        doc_id = bp.get("id", "")
+        if doc_id:
+            await db.cash_transactions.update_many(
+                {"reference": f"bp_sale_ka:{doc_id}"},
+                {"$set": {"amount": new_kaccha_amount, "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+            await db.local_party_accounts.update_many(
+                {"reference": f"bp_sale_ka:{doc_id}"},
+                {"$set": {"amount": new_kaccha_amount, "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+            await db.truck_payments.update_many(
+                {"reference": f"bp_sale_truck:{doc_id}"},
+                {"$set": {"net_amount": new_total, "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+        # v104.44.94 — Also auto-update Lab Test (oil_premium) qty if exists for this voucher
+        await _resync_oil_premium_for_voucher(voucher_no, party_weight_id, new_kaccha_kg / 100.0)
         return {
             "mode": "split",
             "amount": round((delta_kg / 100.0) * kaccha_rate, 2),
@@ -155,11 +245,11 @@ async def _apply_auto_adjust(party_weight_id: str, product: str, voucher_no: str
 async def _reverse_auto_adjust(party_weight_id: str):
     """Reverse a previously applied auto-adjust (for update/delete flows).
 
-    For solo_pka mode: deletes the cash_transactions entry tagged with reference.
-    For split mode: restores kaccha_weight_kg to its original value (best-effort —
-      we re-fetch shortage_kg from existing party_weight record before mutation).
+    Restores: bp_sale_register kaccha + cash_transactions ledger + local_party_accounts ledger
+    + truck_payments + oil_premium.
+    Plus deletes any standalone JAMA/NIKASI cash_transactions tied to this party_weight (solo PKA mode).
     """
-    # Drop any cash_transactions entry tied to this party_weight
+    # Drop any standalone cash_transactions entry tied to this party_weight (solo PKA mode)
     await db.cash_transactions.delete_many({"reference": f"party_weight:{party_weight_id}"})
     # Re-find any BP sale that was auto-adjusted by this entry; revert by adding back the delta
     pw = await db.party_weights.find_one({"id": party_weight_id}, {"_id": 0})
@@ -185,6 +275,23 @@ async def _reverse_auto_adjust(party_weight_id: str):
                    "updated_at": datetime.now(timezone.utc).isoformat()},
          "$unset": {"auto_adjust_party_weight_id": ""}}
     )
+    # v104.44.94 — Sync KCA ledger entries back to original
+    doc_id = bp.get("id", "")
+    if doc_id:
+        await db.cash_transactions.update_many(
+            {"reference": f"bp_sale_ka:{doc_id}"},
+            {"$set": {"amount": new_kaccha_amount, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        await db.local_party_accounts.update_many(
+            {"reference": f"bp_sale_ka:{doc_id}"},
+            {"$set": {"amount": new_kaccha_amount, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        await db.truck_payments.update_many(
+            {"reference": f"bp_sale_truck:{doc_id}"},
+            {"$set": {"net_amount": new_total, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+    # v104.44.94 — Revert oil_premium for this voucher
+    await _revert_oil_premium_for_voucher(bp.get("voucher_no", ""))
 
 
 async def _fetch_sale_info(product: str, voucher_no: str, kms_year: str = "") -> Optional[dict]:

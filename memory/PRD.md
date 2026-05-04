@@ -1,6 +1,33 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.93
+## Current Version: v104.44.94
+
+## 🔧 v104.44.94 — Total Sales Register: Qtl + Cash Ledger Sync + Lab Test Auto-Adjust
+**Build date:** 2026-02-22
+
+### Fixes
+1. **TSR Shortage in Qtl** — `Shortage(Kg)` column → `Short (Qtl)` (divided by 100)
+2. **Party W column** — New 10th col `Party W (Qtl)` between N/W and Short. Order: `N/W (Qtl) | Party W (Qtl) | Short (Qtl) | Bags | Rate | Amount...`
+3. **Cash book / Party ledger sync** — On split-mode auto-adjust, the existing `cash_transactions` + `local_party_accounts` entries with `reference="bp_sale_ka:{id}"` are now automatically updated to the new kaccha_amount. Cash book + Party Statement now reflect the shortage immediately. Reverted on PW delete.
+4. **Bran Sale (BP register) updated** — kaccha_weight_kg + kaccha_amount + total + balance + truck_payments.net_amount all sync. Already worked but now verified.
+5. **Lab Test (oil_premium) auto-adjust** — When BP sale weight reduces due to shortage, `oil_premium.qty_qtl` and `premium_amount` auto-recompute (using formula `rate × (actual - standard) × qty / standard`). Original `qty_qtl` backed up in `original_qty_qtl_pre_adjust`. Reverted on PW delete. Mirrored cash_transactions premium amount also synced.
+
+### Triple Parity
+- ✅ Python (`/app/backend/routes/party_weight.py`, `/app/backend/routes/total_sales_register.py`)
+- ✅ Desktop (`/app/desktop-app/routes/party_weight.js`, `/app/desktop-app/routes/total_sales_register.js`)
+- ✅ Local-server (synced from desktop)
+
+### E2E Verified
+| Check | Result |
+|---|---|
+| BP Sale kaccha 3000→2950Kg, ₹90K→₹88.5K | ✅ |
+| Cash book NIKASI synced to ₹88.5K | ✅ |
+| Lab Test 30Q@1% premium ₹4090.91 → 29.5Q ₹4022.73 | ✅ |
+| TSR: NW 29.5Q | PartyW 49.5Q | Short 0.5Q | Balance ₹155,522.73 | ✅ |
+| Excel cols 9-11: `N/W (Qtl) | Party W (Qtl) | Short (Qtl)` | ✅ |
+| Delete PW → all reverts (BP, cash, premium) | ✅ |
+
+---
 
 ## 🔧 v104.44.93 — Party Weight Register: Major Upgrade
 **Build date:** 2026-02-22

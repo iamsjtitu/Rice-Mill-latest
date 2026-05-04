@@ -274,23 +274,32 @@ module.exports = function(database) {
         (r.bill_number || '').toLowerCase().includes(q));
     }
 
-    // v104.44.93 — Enrich rows with party_weight shortage/excess (matched by voucher_no)
+    // v104.44.93/.94 — Enrich rows with party_weight shortage/excess + party_net_weight (Qtl)
     const pwMap = {};
     for (const pw of (database.data.party_weights || [])) {
       const v = String(pw.voucher_no || '').trim();
       if (!v) continue;
-      const e = pwMap[v] || (pwMap[v] = { shortage_kg: 0, excess_kg: 0 });
+      const e = pwMap[v] || (pwMap[v] = { shortage_kg: 0, excess_kg: 0, party_net_weight_kg: 0 });
       e.shortage_kg += parseFloat(pw.shortage_kg || 0) || 0;
       e.excess_kg += parseFloat(pw.excess_kg || 0) || 0;
+      e.party_net_weight_kg += parseFloat(pw.party_net_weight_kg || 0) || 0;
     }
     for (const r of rows) {
       const v = String(r.voucher_no || '').trim();
       const pw = v ? pwMap[v] : null;
       if (r.split_type === 'PKA') {
         r.shortage_kg = 0; r.excess_kg = 0;
+        r.shortage_qtl = 0; r.excess_qtl = 0;
+        r.party_net_weight_qtl = 0;
       } else {
-        r.shortage_kg = pw ? Math.round(pw.shortage_kg * 100) / 100 : 0;
-        r.excess_kg = pw ? Math.round(pw.excess_kg * 100) / 100 : 0;
+        const sk = pw ? pw.shortage_kg : 0;
+        const ek = pw ? pw.excess_kg : 0;
+        const pk = pw ? pw.party_net_weight_kg : 0;
+        r.shortage_kg = Math.round(sk * 100) / 100;
+        r.excess_kg = Math.round(ek * 100) / 100;
+        r.shortage_qtl = Math.round((sk / 100) * 100) / 100;
+        r.excess_qtl = Math.round((ek / 100) * 100) / 100;
+        r.party_net_weight_qtl = Math.round((pk / 100) * 100) / 100;
       }
     }
 
@@ -307,6 +316,9 @@ module.exports = function(database) {
       received: round2(rows.reduce((s, r) => s + r.advance, 0)),
       shortage_kg: round2(rows.reduce((s, r) => s + (r.shortage_kg || 0), 0)),
       excess_kg: round2(rows.reduce((s, r) => s + (r.excess_kg || 0), 0)),
+      shortage_qtl: round2(rows.reduce((s, r) => s + (r.shortage_qtl || 0), 0)),
+      excess_qtl: round2(rows.reduce((s, r) => s + (r.excess_qtl || 0), 0)),
+      party_net_weight_qtl: round2(rows.reduce((s, r) => s + (r.party_net_weight_qtl || 0), 0)),
     };
 
     const parties = {};
@@ -347,8 +359,8 @@ module.exports = function(database) {
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet('Total Sales');
       const headers = ['Date', 'Voucher', 'Bill No', 'RST', 'Vehicle', 'Bill From', 'Party', 'Destination',
-                       'N/W (Qtl)', 'Bags', 'Rate/Q', 'Amount', 'Tax', 'Total',
-                       'Received(T)', 'Balance(T)', 'Shortage(Kg)'];
+                       'N/W (Qtl)', 'Party W (Qtl)', 'Short (Qtl)', 'Bags', 'Rate/Q', 'Amount', 'Tax', 'Total',
+                       'Received(T)', 'Balance(T)'];
       const lastCol = String.fromCharCode(64 + headers.length);
       ws.mergeCells(`A1:${lastCol}1`);
       ws.getCell('A1').value = 'TOTAL SALES REGISTER';
@@ -375,9 +387,11 @@ module.exports = function(database) {
         const voucherDisp = (r.voucher_no || '-') + (r.split_type ? ` · ${r.split_type}` : '');
         const row = ws.addRow([r.date || '', voucherDisp, r.bill_number || '', r.rst_no || '',
           r.vehicle_no || '', r.bill_from || '', r.party_name || '', r.destination || '',
-          r.net_weight_qtl, r.bags, r.rate_per_qtl,
-          r.amount, r.tax, r.total, r.advance, r.balance,
-          Math.round((r.shortage_kg || 0) * 100) / 100]);
+          r.net_weight_qtl,
+          Math.round((r.party_net_weight_qtl || 0) * 100) / 100,
+          Math.round((r.shortage_qtl || 0) * 100) / 100,
+          r.bags, r.rate_per_qtl,
+          r.amount, r.tax, r.total, r.advance, r.balance]);
         row.height = 18;
         const fillColor = r.split_type === 'PKA' ? 'FFD1FAE5' : r.split_type === 'KCA' ? 'FFFEF3C7' : (idx % 2 ? 'FFF8FAFC' : 'FFFFFFFF');
         row.eachCell((c, cn) => {
@@ -386,15 +400,18 @@ module.exports = function(database) {
           c.border = { top: { style: 'thin', color: { argb: 'FFCBD5E1' } }, bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } }, left: { style: 'thin', color: { argb: 'FFCBD5E1' } }, right: { style: 'thin', color: { argb: 'FFCBD5E1' } } };
           if (cn >= 9) {
             c.alignment = { horizontal: 'right', vertical: 'middle' };
-            if (cn === 10) c.numFmt = '#,##0';
+            if (cn === 12) c.numFmt = '#,##0';
             else c.numFmt = '#,##0.00';
           } else c.alignment = { horizontal: 'left', vertical: 'middle' };
         });
       });
 
-      const trow = ws.addRow(['TOTALS', '', '', '', '', '', '', '', totals.net_weight_qtl, totals.bags, '',
-        totals.amount, totals.tax, totals.total, totals.received, totals.balance,
-        totals.shortage_kg || 0]);
+      const trow = ws.addRow(['TOTALS', '', '', '', '', '', '', '',
+        totals.net_weight_qtl,
+        totals.party_net_weight_qtl || 0,
+        totals.shortage_qtl || 0,
+        totals.bags, '',
+        totals.amount, totals.tax, totals.total, totals.received, totals.balance]);
       trow.height = 22;
       trow.eachCell((c, cn) => {
         c.font = { bold: true, size: 11, color: { argb: 'FF1E3A8A' } };
@@ -402,12 +419,12 @@ module.exports = function(database) {
         c.border = { top: { style: 'medium', color: { argb: 'FF1E3A8A' } }, bottom: { style: 'medium', color: { argb: 'FF1E3A8A' } }, left: { style: 'thin' }, right: { style: 'thin' } };
         if (cn >= 9) {
           c.alignment = { horizontal: 'right', vertical: 'middle' };
-          if (cn === 10) c.numFmt = '#,##0';
+          if (cn === 12) c.numFmt = '#,##0';
           else c.numFmt = '#,##0.00';
         } else c.alignment = { horizontal: 'left', vertical: 'middle' };
       });
 
-      const widths = [11, 14, 11, 7, 13, 13, 22, 14, 11, 7, 10, 13, 10, 13, 14, 14, 12];
+      const widths = [11, 14, 11, 7, 13, 13, 22, 14, 11, 11, 10, 7, 10, 13, 10, 13, 14, 14];
       widths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
       ws.views = [{ state: 'frozen', ySplit: 4 }];
 
@@ -442,8 +459,8 @@ module.exports = function(database) {
       doc.moveDown(0.5);
 
       // Table layout (manual grid)
-      const headers = ['Date', 'Voucher', 'Bill No', 'RST', 'Vehicle', 'BillFrom', 'Party', 'Dest', 'N/W', 'Bags', 'Rate', 'Amount', 'Tax', 'Total', 'Recv(T)', 'Bal(T)', 'Short(Kg)'];
-      const widths = [42, 60, 50, 28, 55, 55, 100, 48, 45, 25, 40, 60, 38, 60, 60, 60, 50];
+      const headers = ['Date', 'Voucher', 'Bill No', 'RST', 'Vehicle', 'BillFrom', 'Party', 'Dest', 'N/W', 'PartyW', 'Short', 'Bags', 'Rate', 'Amount', 'Tax', 'Total', 'Recv(T)', 'Bal(T)'];
+      const widths = [42, 60, 50, 28, 55, 55, 100, 48, 45, 50, 45, 25, 40, 60, 38, 60, 60, 60];
       const totalW = widths.reduce((a, b) => a + b, 0);
       const startX = (doc.page.width - totalW) / 2;
       let y = doc.y;
@@ -473,10 +490,12 @@ module.exports = function(database) {
           (r.bill_number || '').slice(0, 10), r.rst_no || '',
           (r.vehicle_no || '').slice(0, 12), (r.bill_from || '').slice(0, 10),
           (r.party_name || '').slice(0, 18),
-          (r.destination || '').slice(0, 12), r.net_weight_qtl.toFixed(2), String(r.bags),
+          (r.destination || '').slice(0, 12), r.net_weight_qtl.toFixed(2),
+          (r.party_net_weight_qtl || 0) > 0 ? r.party_net_weight_qtl.toFixed(2) : '—',
+          (r.shortage_qtl || 0) > 0 ? r.shortage_qtl.toFixed(2) : '—',
+          String(r.bags),
           String(Math.round(r.rate_per_qtl)), r.amount.toFixed(2), r.tax.toFixed(2),
-          r.total.toFixed(2), r.advance.toFixed(2), r.balance.toFixed(2),
-          (r.shortage_kg || 0) > 0 ? r.shortage_kg.toFixed(2) : '—'];
+          r.total.toFixed(2), r.advance.toFixed(2), r.balance.toFixed(2)];
         doc.fillColor('#0F172A').font('Helvetica').fontSize(7);
         x = startX;
         vals.forEach((v, i) => {
@@ -493,10 +512,12 @@ module.exports = function(database) {
       if (y + rowHeight > doc.page.height - 60) { doc.addPage(); y = 40; }
       doc.rect(startX, y, totalW, rowHeight + 4).fill('#FEF3C7');
       doc.fillColor('#1E3A8A').font('Helvetica-Bold').fontSize(9);
-      const tvals = ['TOTALS', '', '', '', '', '', '', '', totals.net_weight_qtl.toFixed(2), String(totals.bags), '',
+      const tvals = ['TOTALS', '', '', '', '', '', '', '', totals.net_weight_qtl.toFixed(2),
+        (totals.party_net_weight_qtl || 0).toFixed(2),
+        (totals.shortage_qtl || 0).toFixed(2),
+        String(totals.bags), '',
         totals.amount.toFixed(2), totals.tax.toFixed(2), totals.total.toFixed(2),
-        totals.received.toFixed(2), totals.balance.toFixed(2),
-        (totals.shortage_kg || 0).toFixed(2)];
+        totals.received.toFixed(2), totals.balance.toFixed(2)];
       x = startX;
       tvals.forEach((v, i) => {
         const align = i >= 8 ? 'right' : 'left';

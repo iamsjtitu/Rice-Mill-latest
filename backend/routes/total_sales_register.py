@@ -49,8 +49,8 @@ async def _fetch_party_received(party: str, kms_year: str = "", season: str = ""
 
 async def _build_party_weight_map(bp_items: list, rs_items: list = None, sv_items: list = None) -> dict:
     """v104.44.93 — Fetch party_weights for all vouchers in given sales.
-    Returns map: voucher_no -> {shortage_kg, excess_kg}.
-    Uses voucher_no as primary key (same voucher across products gets bucketed)."""
+    Returns map: voucher_no -> {shortage_kg, excess_kg, party_net_weight_kg}.
+    v104.44.94 — Also tracks party_net_weight_kg for "Party W (Qtl)" column."""
     voucher_set = set()
     for s in bp_items or []:
         v = (s.get('voucher_no') or '').strip()
@@ -63,16 +63,20 @@ async def _build_party_weight_map(bp_items: list, rs_items: list = None, sv_item
         if v: voucher_set.add(v)
     if not voucher_set:
         return {}
-    items = await db.party_weights.find({"voucher_no": {"$in": list(voucher_set)}},
-                                          {"_id": 0, "voucher_no": 1, "shortage_kg": 1, "excess_kg": 1}).to_list(20000)
+    items = await db.party_weights.find(
+        {"voucher_no": {"$in": list(voucher_set)}},
+        {"_id": 0, "voucher_no": 1, "shortage_kg": 1, "excess_kg": 1, "party_net_weight_kg": 1}
+    ).to_list(20000)
     pmap = {}
     for it in items:
         v = (it.get('voucher_no') or '').strip()
         s = float(it.get('shortage_kg', 0) or 0)
         e = float(it.get('excess_kg', 0) or 0)
-        rec = pmap.setdefault(v, {"shortage_kg": 0.0, "excess_kg": 0.0})
+        p = float(it.get('party_net_weight_kg', 0) or 0)
+        rec = pmap.setdefault(v, {"shortage_kg": 0.0, "excess_kg": 0.0, "party_net_weight_kg": 0.0})
         rec["shortage_kg"] += s
         rec["excess_kg"] += e
+        rec["party_net_weight_kg"] += p
     return pmap
 
 
@@ -359,17 +363,27 @@ async def get_total_sales(
             rows.append(row)
 
     # v104.44.93 — Enrich rows with party_weight shortage/excess (matched by voucher_no)
+    # v104.44.94 — Also expose party_net_weight_qtl + shortage_qtl/excess_qtl for new columns
     pw_map = await _build_party_weight_map(bp_items, rs_items, sv_items)
     for r in rows:
         v = (r.get("voucher_no") or "").strip()
         pw = pw_map.get(v) if v else None
-        # For split rows: only KCA carries the shortage/excess (mirrors auto-adjust target)
+        # For split rows: only KCA carries the shortage/excess + party weight (mirrors auto-adjust target)
         if r.get("split_type") == "PKA":
             r["shortage_kg"] = 0.0
             r["excess_kg"] = 0.0
+            r["shortage_qtl"] = 0.0
+            r["excess_qtl"] = 0.0
+            r["party_net_weight_qtl"] = 0.0
         else:
-            r["shortage_kg"] = round(pw.get("shortage_kg", 0.0), 2) if pw else 0.0
-            r["excess_kg"] = round(pw.get("excess_kg", 0.0), 2) if pw else 0.0
+            sk = pw.get("shortage_kg", 0.0) if pw else 0.0
+            ek = pw.get("excess_kg", 0.0) if pw else 0.0
+            pk = pw.get("party_net_weight_kg", 0.0) if pw else 0.0
+            r["shortage_kg"] = round(sk, 2)
+            r["excess_kg"] = round(ek, 2)
+            r["shortage_qtl"] = round(sk / 100.0, 2)
+            r["excess_qtl"] = round(ek / 100.0, 2)
+            r["party_net_weight_qtl"] = round(pk / 100.0, 2)
 
     # v104.44.87 — Allocate payments from cash_transactions per party (FIFO by date).
     # BP split rows use suffixed party_name: "PartyName (PKA)" / "PartyName (KCA)".
@@ -426,6 +440,9 @@ async def get_total_sales(
         "received": round(sum(r["advance"] for r in rows), 2),
         "shortage_kg": round(sum(r.get("shortage_kg", 0) or 0 for r in rows), 2),
         "excess_kg": round(sum(r.get("excess_kg", 0) or 0 for r in rows), 2),
+        "shortage_qtl": round(sum(r.get("shortage_qtl", 0) or 0 for r in rows), 2),
+        "excess_qtl": round(sum(r.get("excess_qtl", 0) or 0 for r in rows), 2),
+        "party_net_weight_qtl": round(sum(r.get("party_net_weight_qtl", 0) or 0 for r in rows), 2),
     }
 
     # Party grouping
@@ -483,8 +500,8 @@ async def export_total_sales_excel(
     border_thin = Border(left=thin, right=thin, top=thin, bottom=thin)
 
     headers = ["Date", "Voucher", "Bill No", "RST", "Vehicle", "Bill From", "Party", "Destination",
-               "N/W (Qtl)", "Bags", "Rate/Q", "Amount", "Tax", "Total",
-               "Received(T)", "Balance(T)", "Shortage(Kg)"]
+               "N/W (Qtl)", "Party W (Qtl)", "Short (Qtl)", "Bags", "Rate/Q", "Amount", "Tax", "Total",
+               "Received(T)", "Balance(T)"]
 
     # Title area (rows 1-3)
     last_col = get_column_letter(len(headers))
@@ -525,10 +542,12 @@ async def export_total_sales_excel(
             r.get("date", ""), voucher_display, r.get("bill_number", ""),
             r.get("rst_no", ""), r.get("vehicle_no", ""), r.get("bill_from", ""),
             r.get("party_name", ""), r.get("destination", ""),
-            r.get("net_weight_qtl", 0), r.get("bags", 0), r.get("rate_per_qtl", 0),
+            r.get("net_weight_qtl", 0),
+            round(float(r.get("party_net_weight_qtl", 0) or 0), 2),
+            round(float(r.get("shortage_qtl", 0) or 0), 2),
+            r.get("bags", 0), r.get("rate_per_qtl", 0),
             r.get("amount", 0), r.get("tax", 0), r.get("total", 0),
             r.get("advance", 0), r.get("balance", 0),
-            round(float(r.get("shortage_kg", 0) or 0), 2),
         ]
         # Row color based on split_type
         row_fill = None
@@ -545,10 +564,10 @@ async def export_total_sales_excel(
             cell.font = Font(size=9)
             if row_fill:
                 cell.fill = row_fill
-            # right-align numeric columns (9..17)
+            # right-align numeric columns (9..18) — Bags col 12 = integer
             if c >= 9:
                 cell.alignment = Alignment(horizontal="right", vertical="center")
-                if c == 10:
+                if c == 12:
                     cell.number_format = '#,##0'
                 else:
                     cell.number_format = '#,##0.00'
@@ -556,14 +575,15 @@ async def export_total_sales_excel(
                 cell.alignment = Alignment(horizontal="left", vertical="center")
         ws.row_dimensions[i].height = 18
 
-    # Grand totals row
-    # Grand totals row — Date, Voucher, BillNo, RST, Vehicle, BillFrom, Party, Destination, NW, Bags, Rate, Amount, Tax, Total, Received(T), Balance(T)
+    # Grand totals row — cols: Date,Voucher,BillNo,RST,Vehicle,BillFrom,Party,Destination,NW,PartyW,Short,Bags,Rate,Amount,Tax,Total,Recv(T),Bal(T)
     tr = len(rows) + 5
     total_vals = ["TOTALS", "", "", "", "", "", "", "",
-                  totals["net_weight_qtl"], totals["bags"], "",
+                  totals["net_weight_qtl"],
+                  totals.get("party_net_weight_qtl", 0),
+                  totals.get("shortage_qtl", 0),
+                  totals["bags"], "",
                   totals["amount"], totals["tax"], totals["total"],
-                  totals["received"], totals["balance"],
-                  totals.get("shortage_kg", 0)]
+                  totals["received"], totals["balance"]]
     for c, v in enumerate(total_vals, 1):
         cell = ws.cell(row=tr, column=c, value=v)
         cell.font = Font(bold=True, size=11, color=navy)
@@ -571,7 +591,7 @@ async def export_total_sales_excel(
         cell.border = Border(left=thin, right=thin, top=thick, bottom=thick)
         if c >= 9:
             cell.alignment = Alignment(horizontal="right", vertical="center")
-            if c == 10:
+            if c == 12:
                 cell.number_format = '#,##0'
             else:
                 cell.number_format = '#,##0.00'
@@ -583,8 +603,8 @@ async def export_total_sales_excel(
     ws.cell(row=tr + 2, column=1, value=f"Generated: {datetime.now(timezone.utc).strftime('%d-%m-%Y %H:%M')} UTC  •  Rows: {len(rows)}").font = Font(size=8, italic=True, color="64748B")
     ws.merge_cells(f"A{tr + 2}:{last_col}{tr + 2}")
 
-    # Column widths — Date, Voucher, BillNo, RST, Vehicle, BillFrom, Party, Destination, NW, Bags, Rate, Amount, Tax, Total, Received(T), Balance(T), Shortage
-    widths = [11, 14, 11, 7, 13, 13, 22, 14, 11, 7, 10, 13, 10, 13, 14, 14, 12]
+    # Column widths — Date, Voucher, BillNo, RST, Vehicle, BillFrom, Party, Destination, NW, PartyW, Short, Bags, Rate, Amount, Tax, Total, Received(T), Balance(T)
+    widths = [11, 14, 11, 7, 13, 13, 22, 14, 11, 11, 10, 7, 10, 13, 10, 13, 14, 14]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
@@ -678,8 +698,8 @@ async def export_total_sales_pdf(
 
     # Data table
     headers = ["Date", "Voucher", "Bill No", "RST", "Vehicle", "Bill From", "Party", "Destination",
-               "N/W (Qtl)", "Bags", "Rate/Q", "Amount", "Tax", "Total",
-               "Received(T)", "Balance(T)", "Shortage(Kg)"]
+               "N/W (Qtl)", "Party W (Qtl)", "Short (Qtl)", "Bags", "Rate/Q", "Amount", "Tax", "Total",
+               "Received(T)", "Balance(T)"]
     table_data = [headers]
     split_bg_rows = []  # (row_index, is_pka)
     for r in rows:
@@ -696,6 +716,8 @@ async def export_total_sales_pdf(
             (r.get("party_name", "") or "")[:22],
             (r.get("destination", "") or "")[:13],
             f"{r.get('net_weight_qtl', 0):,.2f}",
+            f"{float(r.get('party_net_weight_qtl', 0) or 0):,.2f}" if (r.get('party_net_weight_qtl') or 0) > 0 else "—",
+            f"{float(r.get('shortage_qtl', 0) or 0):,.2f}" if (r.get('shortage_qtl') or 0) > 0 else "—",
             f"{r.get('bags', 0):,}",
             f"{r.get('rate_per_qtl', 0):,.0f}",
             f"{r.get('amount', 0):,.2f}",
@@ -703,7 +725,6 @@ async def export_total_sales_pdf(
             f"{r.get('total', 0):,.2f}",
             f"{r.get('advance', 0):,.2f}",
             f"{r.get('balance', 0):,.2f}",
-            f"{float(r.get('shortage_kg', 0) or 0):,.2f}" if (r.get('shortage_kg') or 0) > 0 else "—",
         ])
         if r.get("split_type") == "PKA":
             split_bg_rows.append((len(table_data) - 1, True))
@@ -713,14 +734,16 @@ async def export_total_sales_pdf(
     # Totals row
     table_data.append([
         "TOTALS", "", "", "", "", "", "", "",
-        f"{totals['net_weight_qtl']:,.2f}", f"{totals['bags']:,}", "",
+        f"{totals['net_weight_qtl']:,.2f}",
+        f"{totals.get('party_net_weight_qtl', 0):,.2f}",
+        f"{totals.get('shortage_qtl', 0):,.2f}",
+        f"{totals['bags']:,}", "",
         f"{totals['amount']:,.2f}", f"{totals['tax']:,.2f}", f"{totals['total']:,.2f}",
         f"{totals['received']:,.2f}", f"{totals['balance']:,.2f}",
-        f"{totals.get('shortage_kg', 0):,.2f}",
     ])
 
-    # Column widths (cm) — Date,Voucher,BillNo,RST,Vehicle,BillFrom,Party,Destination,NW,Bags,Rate,Amount,Tax,Total,Recv(T),Bal(T),Shortage
-    col_widths_cm = [1.5, 1.9, 1.5, 0.9, 1.7, 1.6, 3.6, 1.8, 1.6, 0.9, 1.3, 1.9, 1.3, 1.9, 1.9, 1.9, 1.6]
+    # Column widths (cm) — Date,Voucher,BillNo,RST,Vehicle,BillFrom,Party,Destination,NW,PartyW,Short,Bags,Rate,Amount,Tax,Total,Recv(T),Bal(T)
+    col_widths_cm = [1.5, 1.9, 1.4, 0.9, 1.6, 1.5, 3.4, 1.6, 1.5, 1.5, 1.4, 0.9, 1.2, 1.8, 1.2, 1.8, 1.8, 1.8]
     col_widths = [w * cm for w in col_widths_cm]
 
     style_cmds = [

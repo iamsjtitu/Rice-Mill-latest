@@ -19,6 +19,60 @@ module.exports = function(database) {
     };
   }
 
+  // v104.44.94 — Sync Lab Test (oil_premium) qty when shortage adjusts BP weight
+  function resyncOilPremiumForVoucher(voucherNo, pwId, newQtyQtl) {
+    if (!database.data.oil_premium) return;
+    const op = database.data.oil_premium.find(o => (o.voucher_no || '') === voucherNo);
+    if (!op) return;
+    if (op.original_qty_qtl_pre_adjust == null) {
+      op.original_qty_qtl_pre_adjust = parseFloat(op.qty_qtl || 0);
+    }
+    const rate = parseFloat(op.rate || 0);
+    const standard = parseFloat(op.standard_oil_pct || 0);
+    const actual = parseFloat(op.actual_oil_pct || 0);
+    const newQty = Math.round(newQtyQtl * 100) / 100;
+    const newPrem = standard ? Math.round(rate * (actual - standard) * newQty / standard * 100) / 100 : 0;
+    op.qty_qtl = newQty;
+    op.premium_amount = newPrem;
+    op.auto_adjust_party_weight_id = pwId;
+    op.updated_at = new Date().toISOString();
+    // Update mirrored cash_transactions
+    if (database.data.cash_transactions) {
+      for (const t of database.data.cash_transactions) {
+        const ref = t.reference || '';
+        if (ref === `oil_premium:${op.id}` || ref.startsWith(`oil_premium:${(op.id || '').slice(0, 8)}`)) {
+          t.amount = Math.abs(newPrem);
+          t.updated_at = op.updated_at;
+        }
+      }
+    }
+  }
+
+  function revertOilPremiumForVoucher(voucherNo) {
+    if (!database.data.oil_premium) return;
+    const op = database.data.oil_premium.find(o => (o.voucher_no || '') === voucherNo);
+    if (!op || op.original_qty_qtl_pre_adjust == null) return;
+    const origQty = parseFloat(op.original_qty_qtl_pre_adjust);
+    const rate = parseFloat(op.rate || 0);
+    const standard = parseFloat(op.standard_oil_pct || 0);
+    const actual = parseFloat(op.actual_oil_pct || 0);
+    const origPrem = standard ? Math.round(rate * (actual - standard) * origQty / standard * 100) / 100 : 0;
+    op.qty_qtl = origQty;
+    op.premium_amount = origPrem;
+    delete op.auto_adjust_party_weight_id;
+    delete op.original_qty_qtl_pre_adjust;
+    op.updated_at = new Date().toISOString();
+    if (database.data.cash_transactions) {
+      for (const t of database.data.cash_transactions) {
+        const ref = t.reference || '';
+        if (ref === `oil_premium:${op.id}` || ref.startsWith(`oil_premium:${(op.id || '').slice(0, 8)}`)) {
+          t.amount = Math.abs(origPrem);
+          t.updated_at = op.updated_at;
+        }
+      }
+    }
+  }
+
   // v104.44.93 — Auto-adjust BP sale on party-weight save
   function applyAutoAdjust(pwId, product, voucherNo, kmsYear, partyName, dateStr, shortageKg, excessKg, season, username) {
     if (shortageKg <= 0 && excessKg <= 0) return { mode: 'skipped', amount: 0, message: 'No diff' };
@@ -47,6 +101,26 @@ module.exports = function(database) {
         updated_at: new Date().toISOString(),
         auto_adjust_party_weight_id: pwId,
       };
+      // v104.44.94 — Sync KCA ledger entries so cash book + party ledger reflect new amount
+      const docId = bp.id;
+      const nowIso = new Date().toISOString();
+      if (database.data.cash_transactions) {
+        for (const t of database.data.cash_transactions) {
+          if ((t.reference || '') === `bp_sale_ka:${docId}`) { t.amount = newKacchaAmt; t.updated_at = nowIso; }
+        }
+      }
+      if (database.data.local_party_accounts) {
+        for (const t of database.data.local_party_accounts) {
+          if ((t.reference || '') === `bp_sale_ka:${docId}`) { t.amount = newKacchaAmt; t.updated_at = nowIso; }
+        }
+      }
+      if (database.data.truck_payments) {
+        for (const t of database.data.truck_payments) {
+          if ((t.reference || '') === `bp_sale_truck:${docId}`) { t.net_amount = newTotal; t.updated_at = nowIso; }
+        }
+      }
+      // v104.44.94 — Auto-resync Lab Test (oil_premium) qty
+      resyncOilPremiumForVoucher(voucherNo, pwId, newKaccha / 100);
       database.save();
       return { mode: 'split', amount: Math.round((deltaKg / 100) * kacchaRate * 100) / 100,
                message: `KCA weight adjusted by ${deltaKg.toFixed(2)} Kg → new KCA amt ₹${newKacchaAmt.toLocaleString('en-IN')}` };
@@ -111,6 +185,26 @@ module.exports = function(database) {
       balance: newBalance,
       updated_at: new Date().toISOString(),
     };
+    // v104.44.94 — Sync KCA ledger entries back
+    const docId = bp.id;
+    const nowIso = new Date().toISOString();
+    if (database.data.cash_transactions) {
+      for (const t of database.data.cash_transactions) {
+        if ((t.reference || '') === `bp_sale_ka:${docId}`) { t.amount = newKacchaAmt; t.updated_at = nowIso; }
+      }
+    }
+    if (database.data.local_party_accounts) {
+      for (const t of database.data.local_party_accounts) {
+        if ((t.reference || '') === `bp_sale_ka:${docId}`) { t.amount = newKacchaAmt; t.updated_at = nowIso; }
+      }
+    }
+    if (database.data.truck_payments) {
+      for (const t of database.data.truck_payments) {
+        if ((t.reference || '') === `bp_sale_truck:${docId}`) { t.net_amount = newTotal; t.updated_at = nowIso; }
+      }
+    }
+    // v104.44.94 — Revert oil_premium for this voucher
+    revertOilPremiumForVoucher(bp.voucher_no || '');
     database.save();
   }
 
