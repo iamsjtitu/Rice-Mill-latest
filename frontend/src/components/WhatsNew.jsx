@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.99",
+    date: "Feb 04, 2026",
+    title: "v104.44.99 — Local Party Tab Cleanup",
+    items: [
+      { type: "fix", text: "🧹 **Local Party tab leakage fix** — BP Sale Register ke parties (MBOPL/MRSRM ke PKA/KCA) Local Party tab mein dikh rahe the. Ab sirf actual local parties (Mill Parts, Gunny Bags, manual purchases) hi dikhenge. BP Sale-related entries Cash Book Party Ledgers mein hi rahenge jaise pehle." },
+      { type: "improvement", text: "⚖️ **Triple parity** — Filter Python + Desktop Node + Local-Server Node teeno backend mein apply. Excel + PDF exports bhi clean rahenge." },
+    ],
+  },
+  {
     version: "104.44.98",
     date: "Feb 04, 2026",
     title: "v104.44.98 — Triple Backend Parity Complete + Round-Off Suite",

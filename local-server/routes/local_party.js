@@ -121,7 +121,7 @@ router.get('/api/local-party/report/:partyName', safeSync(async (req, res) => {
   ensureCollection('local_party_accounts');
   ensureCollection('cash_transactions');
   const pn = req.params.partyName.toLowerCase();
-  let txns = database.data.local_party_accounts.filter(t => (t.party_name || '').toLowerCase() === pn);
+  let txns = database.data.local_party_accounts.filter(t => isLocalOnly(t) && (t.party_name || '').toLowerCase() === pn);
   if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
   if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
   if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
