@@ -326,7 +326,7 @@ module.exports = function(database) {
       const ws = wb.addWorksheet('Total Sales');
       const headers = ['Date', 'Voucher', 'Bill No', 'RST', 'Vehicle', 'Bill From', 'Party', 'Destination',
                        'N/W (Qtl)', 'Bags', 'Rate/Q', 'Amount', 'Tax', 'Total',
-                       'Received', 'Balance', 'Pending'];
+                       'Received(T)', 'Balance(T)'];
       const lastCol = String.fromCharCode(64 + headers.length);
       ws.mergeCells(`A1:${lastCol}1`);
       ws.getCell('A1').value = 'TOTAL SALES REGISTER';
@@ -350,12 +350,11 @@ module.exports = function(database) {
       });
 
       rows.forEach((r, idx) => {
-        const pending = round2((r.total || 0) - (r.advance || 0));
         const voucherDisp = (r.voucher_no || '-') + (r.split_type ? ` · ${r.split_type}` : '');
         const row = ws.addRow([r.date || '', voucherDisp, r.bill_number || '', r.rst_no || '',
           r.vehicle_no || '', r.bill_from || '', r.party_name || '', r.destination || '',
           r.net_weight_qtl, r.bags, r.rate_per_qtl,
-          r.amount, r.tax, r.total, r.advance, r.balance, pending]);
+          r.amount, r.tax, r.total, r.advance, r.balance]);
         row.height = 18;
         const fillColor = r.split_type === 'PKA' ? 'FFD1FAE5' : r.split_type === 'KCA' ? 'FFFEF3C7' : (idx % 2 ? 'FFF8FAFC' : 'FFFFFFFF');
         row.eachCell((c, cn) => {
@@ -370,9 +369,8 @@ module.exports = function(database) {
         });
       });
 
-      const pendingTotal = round2(totals.total - totals.received);
       const trow = ws.addRow(['TOTALS', '', '', '', '', '', '', '', totals.net_weight_qtl, totals.bags, '',
-        totals.amount, totals.tax, totals.total, totals.received, totals.balance, pendingTotal]);
+        totals.amount, totals.tax, totals.total, totals.received, totals.balance]);
       trow.height = 22;
       trow.eachCell((c, cn) => {
         c.font = { bold: true, size: 11, color: { argb: 'FF1E3A8A' } };
@@ -385,7 +383,7 @@ module.exports = function(database) {
         } else c.alignment = { horizontal: 'left', vertical: 'middle' };
       });
 
-      const widths = [11, 14, 11, 7, 13, 13, 22, 14, 11, 7, 10, 13, 10, 13, 13, 13, 13];
+      const widths = [11, 14, 11, 7, 13, 13, 22, 14, 11, 7, 10, 13, 10, 13, 14, 14];
       widths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
       ws.views = [{ state: 'frozen', ySplit: 4 }];
 
@@ -400,7 +398,6 @@ module.exports = function(database) {
   router.get('/api/total-sales-register/export/pdf', async (req, res) => {
     try {
       const { rows, totals } = await computeTotalSales(req.query || {});
-      const pendingTotal = round2(totals.total - totals.received);
       const doc = new PDFDocument({ size: 'A3', layout: 'landscape', margin: 30 });
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="total_sales_${req.query.kms_year || 'all'}.pdf"`);
@@ -416,13 +413,13 @@ module.exports = function(database) {
 
       // Stats strip
       doc.fontSize(9).fillColor('#1E3A8A').font('Helvetica-Bold')
-        .text(`Entries: ${totals.rows_count}  |  N/W: ${totals.net_weight_qtl.toFixed(2)} Qtl  |  Bags: ${totals.bags}  |  Total: ₹${totals.total.toLocaleString('en-IN')}  |  Received: ₹${totals.received.toLocaleString('en-IN')}  |  Pending: ₹${pendingTotal.toLocaleString('en-IN')}`,
+        .text(`Entries: ${totals.rows_count}  |  N/W: ${totals.net_weight_qtl.toFixed(2)} Qtl  |  Bags: ${totals.bags}  |  Total: ₹${totals.total.toLocaleString('en-IN')}  |  Received(T): ₹${totals.received.toLocaleString('en-IN')}  |  Balance(T): ₹${totals.balance.toLocaleString('en-IN')}`,
           { align: 'center' });
       doc.moveDown(0.5);
 
       // Table layout (manual grid)
-      const headers = ['Date', 'Voucher', 'Bill No', 'RST', 'Vehicle', 'BillFrom', 'Party', 'Dest', 'N/W', 'Bags', 'Rate', 'Amount', 'Tax', 'Total', 'Recv', 'Bal', 'Pend'];
-      const widths = [42, 60, 50, 28, 55, 55, 110, 50, 48, 28, 42, 65, 42, 65, 60, 60, 60];
+      const headers = ['Date', 'Voucher', 'Bill No', 'RST', 'Vehicle', 'BillFrom', 'Party', 'Dest', 'N/W', 'Bags', 'Rate', 'Amount', 'Tax', 'Total', 'Recv(T)', 'Bal(T)'];
+      const widths = [42, 60, 50, 28, 55, 55, 110, 50, 48, 28, 42, 65, 42, 65, 65, 65];
       const totalW = widths.reduce((a, b) => a + b, 0);
       const startX = (doc.page.width - totalW) / 2;
       let y = doc.y;
@@ -445,7 +442,6 @@ module.exports = function(database) {
           doc.addPage();
           y = 40;
         }
-        const pending = round2((r.total || 0) - (r.advance || 0));
         const voucherDisp = (r.voucher_no || '-') + (r.split_type ? ` ${r.split_type}` : '');
         const fillColor = r.split_type === 'PKA' ? '#D1FAE5' : r.split_type === 'KCA' ? '#FEF3C7' : '#FFFFFF';
         doc.rect(startX, y, totalW, rowHeight).fill(fillColor);
@@ -455,7 +451,7 @@ module.exports = function(database) {
           (r.party_name || '').slice(0, 18),
           (r.destination || '').slice(0, 12), r.net_weight_qtl.toFixed(2), String(r.bags),
           String(Math.round(r.rate_per_qtl)), r.amount.toFixed(2), r.tax.toFixed(2),
-          r.total.toFixed(2), r.advance.toFixed(2), r.balance.toFixed(2), pending.toFixed(2)];
+          r.total.toFixed(2), r.advance.toFixed(2), r.balance.toFixed(2)];
         doc.fillColor('#0F172A').font('Helvetica').fontSize(7);
         x = startX;
         vals.forEach((v, i) => {
@@ -474,7 +470,7 @@ module.exports = function(database) {
       doc.fillColor('#1E3A8A').font('Helvetica-Bold').fontSize(9);
       const tvals = ['TOTALS', '', '', '', '', '', '', '', totals.net_weight_qtl.toFixed(2), String(totals.bags), '',
         totals.amount.toFixed(2), totals.tax.toFixed(2), totals.total.toFixed(2),
-        totals.received.toFixed(2), totals.balance.toFixed(2), pendingTotal.toFixed(2)];
+        totals.received.toFixed(2), totals.balance.toFixed(2)];
       x = startX;
       tvals.forEach((v, i) => {
         const align = i >= 8 ? 'right' : 'left';

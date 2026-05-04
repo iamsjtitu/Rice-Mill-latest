@@ -2,7 +2,7 @@
  * v104.44.85 — Total Sales Register
  * Unified view across BP Sale Register + Pvt Rice Sales, party-aggregated.
  */
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
@@ -134,8 +134,6 @@ export default function TotalSalesRegister({ filters, user }) {
     } catch (e) { toast.error("WhatsApp error"); }
   };
 
-  const totalPending = useMemo(() => totals ? Math.round(((totals.total || 0) - (totals.received || 0)) * 100) / 100 : 0, [totals]);
-
   // v104.44.91 — Build summary text for current filters (used by group share)
   const buildSummaryText = useCallback(() => {
     if (!totals) return "";
@@ -149,11 +147,11 @@ export default function TotalSalesRegister({ filters, user }) {
       `Entries: ${totals.rows_count}`,
       `Net Weight: ${fmtNum(totals.net_weight_qtl)} Qtl · ${fmtInt(totals.bags)} bags`,
       `Total Bill: ₹${fmtNum(totals.total)}`,
-      `Received: ₹${fmtNum(totals.received)}`,
-      `*Pending: ₹${fmtNum(totalPending)}*`,
+      `Received(T): ₹${fmtNum(totals.received)}`,
+      `*Balance(T): ₹${fmtNum(totals.balance)}*`,
     ].filter(Boolean);
     return lines.join("\n");
-  }, [totals, totalPending, filters, local]);
+  }, [totals, filters, local]);
 
   // v104.44.91 — WhatsApp PDF share (Web Share API on mobile, fallback otherwise)
   const handleHeaderWhatsApp = async () => {
@@ -267,12 +265,12 @@ export default function TotalSalesRegister({ filters, user }) {
             <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">₹{fmtNum(totals.total)}</p>
           </div>
           <div className="p-2 rounded bg-cyan-50 dark:bg-cyan-900/30 border border-cyan-200 dark:border-cyan-700">
-            <p className="text-[9px] text-cyan-600 dark:text-cyan-400 uppercase">Received</p>
+            <p className="text-[9px] text-cyan-600 dark:text-cyan-400 uppercase">Received(T)</p>
             <p className="text-sm font-bold text-cyan-700 dark:text-cyan-300">₹{fmtNum(totals.received)}</p>
           </div>
-          <div className={`p-2 rounded border ${totalPending > 0 ? "bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700" : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"}`}>
-            <p className="text-[9px] text-amber-600 dark:text-amber-400 uppercase">Pending</p>
-            <p className={`text-sm font-bold ${totalPending > 0 ? "text-amber-700 dark:text-amber-300" : "text-emerald-700 dark:text-emerald-400"}`}>₹{fmtNum(totalPending)}</p>
+          <div className={`p-2 rounded border ${(totals.balance || 0) > 0 ? "bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700" : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"}`}>
+            <p className="text-[9px] text-amber-600 dark:text-amber-400 uppercase">Balance(T)</p>
+            <p className={`text-sm font-bold ${(totals.balance || 0) > 0 ? "text-amber-700 dark:text-amber-300" : "text-emerald-700 dark:text-emerald-400"}`}>₹{fmtNum(totals.balance)}</p>
           </div>
         </div>
       )}
@@ -334,16 +332,14 @@ export default function TotalSalesRegister({ filters, user }) {
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[85px] text-right whitespace-nowrap">Amount</TableHead>
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[65px] text-right whitespace-nowrap">Tax</TableHead>
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[90px] text-right whitespace-nowrap">Total</TableHead>
-                <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[85px] text-right whitespace-nowrap">Received</TableHead>
-                <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[85px] text-right whitespace-nowrap">Balance</TableHead>
-                <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[85px] text-right whitespace-nowrap">Pending</TableHead>
+                <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[95px] text-right whitespace-nowrap">Received(T)</TableHead>
+                <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[95px] text-right whitespace-nowrap">Balance(T)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.length === 0 ? (
-                <TableRow><TableCell colSpan={17} className="text-center py-10 text-slate-400">No sales found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={16} className="text-center py-10 text-slate-400">No sales found</TableCell></TableRow>
               ) : rows.map((r, idx) => {
-                const pending = Math.round(((r.total || 0) - (r.advance || 0)) * 100) / 100;
                 const rowClass = r.split_type === "PKA"
                   ? "bg-emerald-50/60 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
                   : r.split_type === "KCA"
@@ -373,8 +369,7 @@ export default function TotalSalesRegister({ filters, user }) {
                     <TableCell className="text-[11px] px-2 py-1.5 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmtNum(r.tax)}</TableCell>
                     <TableCell className="text-[11px] px-2 py-1.5 text-right tabular-nums font-bold text-slate-900 dark:text-white">₹{fmtNum(r.total)}</TableCell>
                     <TableCell className="text-[11px] px-2 py-1.5 text-right tabular-nums text-cyan-700 dark:text-cyan-400 font-semibold">₹{fmtNum(r.advance)}</TableCell>
-                    <TableCell className="text-[11px] px-2 py-1.5 text-right tabular-nums text-slate-800 dark:text-slate-200">₹{fmtNum(r.balance)}</TableCell>
-                    <TableCell className={`text-[11px] px-2 py-1.5 text-right tabular-nums font-bold ${pending > 0 ? "text-amber-700 dark:text-amber-400" : "text-emerald-700 dark:text-emerald-400"}`}>₹{fmtNum(pending)}</TableCell>
+                    <TableCell className={`text-[11px] px-2 py-1.5 text-right tabular-nums font-bold ${(r.balance || 0) > 0 ? "text-amber-700 dark:text-amber-400" : "text-emerald-700 dark:text-emerald-400"}`}>₹{fmtNum(r.balance)}</TableCell>
                   </TableRow>
                 );
               })}
@@ -388,8 +383,7 @@ export default function TotalSalesRegister({ filters, user }) {
                   <TableCell className="text-[11px] px-2 py-2.5 text-right font-bold tabular-nums text-slate-700 dark:text-slate-300">{fmtNum(totals.tax)}</TableCell>
                   <TableCell className="text-[11px] px-2 py-2.5 text-right font-bold tabular-nums text-emerald-800 dark:text-emerald-300">₹{fmtNum(totals.total)}</TableCell>
                   <TableCell className="text-[11px] px-2 py-2.5 text-right font-bold tabular-nums text-cyan-800 dark:text-cyan-300">₹{fmtNum(totals.received)}</TableCell>
-                  <TableCell className="text-[11px] px-2 py-2.5 text-right font-bold tabular-nums text-slate-800 dark:text-slate-200">₹{fmtNum(totals.balance)}</TableCell>
-                  <TableCell className={`text-[11px] px-2 py-2.5 text-right font-bold tabular-nums ${totalPending > 0 ? "text-amber-800 dark:text-amber-300" : "text-emerald-800 dark:text-emerald-300"}`}>₹{fmtNum(totalPending)}</TableCell>
+                  <TableCell className={`text-[11px] px-2 py-2.5 text-right font-bold tabular-nums ${(totals.balance || 0) > 0 ? "text-amber-800 dark:text-amber-300" : "text-emerald-800 dark:text-emerald-300"}`}>₹{fmtNum(totals.balance)}</TableCell>
                 </TableRow>
               )}
             </TableBody>

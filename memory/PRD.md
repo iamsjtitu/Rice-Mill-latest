@@ -1,6 +1,25 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.90
+## Current Version: v104.44.92
+
+## 🔧 v104.44.92 — Total Sales Register: Header Cleanup
+**Build date:** 2026-02-20
+
+### Changes
+- **Removed redundant "Pending" column** — Balance and Pending were mathematically identical (`total - received`), so Pending is dropped
+- **Renamed labels with (T) suffix** — `Received` → `Received(T)`, `Balance` → `Balance(T)` (T = "Total" cumulative across split rows)
+- Frontend table now has 16 cols (was 17)
+- Excel export — 16 cols
+- PDF export — 16 cols + stats strip updated (`Pending` tile replaced with `Balance(T)`)
+
+### Triple Parity
+- ✅ Python (`/app/backend/routes/total_sales_register.py`)
+- ✅ Desktop (`/app/desktop-app/routes/total_sales_register.js`)
+- ✅ Local-server (synced from desktop)
+
+---
+
+## 🔧 v104.44.91 — Total Sales Register UX Overhaul
 
 ## 🔧 v104.44.90 — Total Sales Register: Premium Auto-Update Fix
 **Build date:** 2026-02-20

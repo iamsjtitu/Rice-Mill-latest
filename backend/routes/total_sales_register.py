@@ -437,7 +437,7 @@ async def export_total_sales_excel(
 
     headers = ["Date", "Voucher", "Bill No", "RST", "Vehicle", "Bill From", "Party", "Destination",
                "N/W (Qtl)", "Bags", "Rate/Q", "Amount", "Tax", "Total",
-               "Received", "Balance", "Pending"]
+               "Received(T)", "Balance(T)"]
 
     # Title area (rows 1-3)
     last_col = get_column_letter(len(headers))
@@ -471,7 +471,6 @@ async def export_total_sales_excel(
 
     # Data rows
     for i, r in enumerate(rows, start=5):
-        pending = round((r.get("total") or 0) - (r.get("advance") or 0), 2)
         voucher_display = r.get("voucher_no", "") or "-"
         if r.get("split_type"):
             voucher_display = f"{voucher_display} · {r['split_type']}"
@@ -481,7 +480,7 @@ async def export_total_sales_excel(
             r.get("party_name", ""), r.get("destination", ""),
             r.get("net_weight_qtl", 0), r.get("bags", 0), r.get("rate_per_qtl", 0),
             r.get("amount", 0), r.get("tax", 0), r.get("total", 0),
-            r.get("advance", 0), r.get("balance", 0), pending,
+            r.get("advance", 0), r.get("balance", 0),
         ]
         # Row color based on split_type
         row_fill = None
@@ -510,13 +509,12 @@ async def export_total_sales_excel(
         ws.row_dimensions[i].height = 18
 
     # Grand totals row
-    # Grand totals row — match new header order: Date, Voucher, BillNo, RST, Vehicle, BillFrom, Party, Destination, NW, Bags, Rate, Amount, Tax, Total, Received, Balance, Pending
+    # Grand totals row — Date, Voucher, BillNo, RST, Vehicle, BillFrom, Party, Destination, NW, Bags, Rate, Amount, Tax, Total, Received(T), Balance(T)
     tr = len(rows) + 5
-    pending_total = round((totals["total"] - totals["received"]), 2)
     total_vals = ["TOTALS", "", "", "", "", "", "", "",
                   totals["net_weight_qtl"], totals["bags"], "",
                   totals["amount"], totals["tax"], totals["total"],
-                  totals["received"], totals["balance"], pending_total]
+                  totals["received"], totals["balance"]]
     for c, v in enumerate(total_vals, 1):
         cell = ws.cell(row=tr, column=c, value=v)
         cell.font = Font(bold=True, size=11, color=navy)
@@ -536,8 +534,8 @@ async def export_total_sales_excel(
     ws.cell(row=tr + 2, column=1, value=f"Generated: {datetime.now(timezone.utc).strftime('%d-%m-%Y %H:%M')} UTC  •  Rows: {len(rows)}").font = Font(size=8, italic=True, color="64748B")
     ws.merge_cells(f"A{tr + 2}:{last_col}{tr + 2}")
 
-    # Column widths — Date, Voucher, BillNo, RST, Vehicle, BillFrom, Party, Destination, NW, Bags, Rate, Amount, Tax, Total, Received, Balance, Pending
-    widths = [11, 14, 11, 7, 13, 13, 22, 14, 11, 7, 10, 13, 10, 13, 13, 13, 13]
+    # Column widths — Date, Voucher, BillNo, RST, Vehicle, BillFrom, Party, Destination, NW, Bags, Rate, Amount, Tax, Total, Received(T), Balance(T)
+    widths = [11, 14, 11, 7, 13, 13, 22, 14, 11, 7, 10, 13, 10, 13, 14, 14]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
@@ -608,15 +606,14 @@ async def export_total_sales_pdf(
         meta += f"  •  Product: {product}"
     elems.append(Paragraph(meta, subtitle_style))
 
-    # Quick stats strip
-    pending_total = round((totals["total"] - totals["received"]), 2)
+    # Quick stats strip — Pending == Balance, use Balance only
     stats_data = [[
         Paragraph(f"<b>Entries</b><br/><font size=13 color='#1E3A8A'>{totals['rows_count']}</font>", meta_style),
         Paragraph(f"<b>N/W (Qtl)</b><br/><font size=13 color='#1E3A8A'>{totals['net_weight_qtl']:,.2f}</font>", meta_style),
         Paragraph(f"<b>Bags</b><br/><font size=13 color='#1E3A8A'>{totals['bags']:,}</font>", meta_style),
         Paragraph(f"<b>Total Bill</b><br/><font size=13 color='#059669'>₹ {totals['total']:,.2f}</font>", meta_style),
-        Paragraph(f"<b>Received</b><br/><font size=13 color='#0891B2'>₹ {totals['received']:,.2f}</font>", meta_style),
-        Paragraph(f"<b>Pending</b><br/><font size=13 color='{'#D97706' if pending_total > 0 else '#059669'}'>₹ {pending_total:,.2f}</font>", meta_style),
+        Paragraph(f"<b>Received(T)</b><br/><font size=13 color='#0891B2'>₹ {totals['received']:,.2f}</font>", meta_style),
+        Paragraph(f"<b>Balance(T)</b><br/><font size=13 color='{'#D97706' if (totals['balance'] or 0) > 0 else '#059669'}'>₹ {totals['balance']:,.2f}</font>", meta_style),
     ]]
     stats_table = Table(stats_data, colWidths=[6.3 * cm] * 6)
     stats_table.setStyle(TableStyle([
@@ -633,11 +630,10 @@ async def export_total_sales_pdf(
     # Data table
     headers = ["Date", "Voucher", "Bill No", "RST", "Vehicle", "Bill From", "Party", "Destination",
                "N/W (Qtl)", "Bags", "Rate/Q", "Amount", "Tax", "Total",
-               "Received", "Balance", "Pending"]
+               "Received(T)", "Balance(T)"]
     table_data = [headers]
     split_bg_rows = []  # (row_index, is_pka)
     for r in rows:
-        pending = round((r.get("total") or 0) - (r.get("advance") or 0), 2)
         voucher_disp = r.get("voucher_no", "") or "-"
         if r.get("split_type"):
             voucher_disp = f"{voucher_disp} · {r['split_type']}"
@@ -658,7 +654,6 @@ async def export_total_sales_pdf(
             f"{r.get('total', 0):,.2f}",
             f"{r.get('advance', 0):,.2f}",
             f"{r.get('balance', 0):,.2f}",
-            f"{pending:,.2f}",
         ])
         if r.get("split_type") == "PKA":
             split_bg_rows.append((len(table_data) - 1, True))
@@ -670,11 +665,11 @@ async def export_total_sales_pdf(
         "TOTALS", "", "", "", "", "", "", "",
         f"{totals['net_weight_qtl']:,.2f}", f"{totals['bags']:,}", "",
         f"{totals['amount']:,.2f}", f"{totals['tax']:,.2f}", f"{totals['total']:,.2f}",
-        f"{totals['received']:,.2f}", f"{totals['balance']:,.2f}", f"{pending_total:,.2f}",
+        f"{totals['received']:,.2f}", f"{totals['balance']:,.2f}",
     ])
 
-    # Column widths (cm) — Date,Voucher,BillNo,RST,Vehicle,BillFrom,Party,Destination,NW,Bags,Rate,Amount,Tax,Total,Recv,Balance,Pending
-    col_widths_cm = [1.5, 1.9, 1.7, 1.0, 1.8, 1.8, 4.0, 2.0, 1.7, 1.0, 1.4, 2.1, 1.4, 2.1, 2.0, 2.0, 2.0]
+    # Column widths (cm) — Date,Voucher,BillNo,RST,Vehicle,BillFrom,Party,Destination,NW,Bags,Rate,Amount,Tax,Total,Recv(T),Bal(T)
+    col_widths_cm = [1.5, 1.9, 1.7, 1.0, 1.8, 1.8, 4.0, 2.0, 1.7, 1.0, 1.4, 2.1, 1.4, 2.1, 2.2, 2.2]
     col_widths = [w * cm for w in col_widths_cm]
 
     style_cmds = [
