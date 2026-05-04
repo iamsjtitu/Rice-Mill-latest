@@ -23,16 +23,17 @@ def _safe_num(v):
 
 
 async def _fetch_party_received(party: str, kms_year: str = "", season: str = "") -> float:
-    """Total payments + ledger adjustments for a party from cash_transactions (txn_type='jama').
-    v104.44.89 — Includes Lab Test Premium / Oil Premium discounts (negative premiums create JAMA
-    entries that effectively reduce party's outstanding balance). Bhada/sale-debit keywords still
-    skipped as those don't apply to party ledger queries (Bhada = truck owner ledger).
+    """Total cash payments received for a party from cash_transactions (txn_type='jama').
+    Premium adjustments are NOT counted here — they're folded into row 'total' instead
+    (matching BP Sale Register logic where Balance = Amount + Premium).
     """
     if not party: return 0.0
     q = {"category": party, "txn_type": "jama"}
     if kms_year: q["kms_year"] = kms_year
     if season: q["season"] = season
     raws = await db.cash_transactions.find(q, {"_id": 0}).to_list(10000)
+    skip_keywords = ('lab test premium', 'lab test bonus', 'oil premium', 'sale bhada')
+    raws = [r for r in raws if not any(k in (r.get('description', '') or '').lower() for k in skip_keywords)]
     # Dedupe by (date, description) — prefer auto_ledger mirror
     grouped = {}
     for r in raws:
@@ -46,8 +47,56 @@ async def _fetch_party_received(party: str, kms_year: str = "", season: str = ""
     return round(sum(_safe_num(r.get('amount', 0)) for r in grouped.values()), 2)
 
 
-def _bp_to_rows(s: dict) -> list:
+async def _build_premium_map(bp_items: list) -> dict:
+    """v104.44.90 — Fetch oil_premium for all vouchers/RSTs in given BP sales.
+    Returns map: voucher_no_or_rst -> premium_amount (signed).
+    Premium is applied only to Rice Bran sales' KCA portion (or non-split total).
+    """
+    if not bp_items:
+        return {}
+    voucher_set = set()
+    rst_set = set()
+    for s in bp_items:
+        if (s.get('product') or '').strip() != 'Rice Bran':
+            continue
+        v = (s.get('voucher_no') or '').strip()
+        r = str(s.get('rst_no') or '').strip()
+        if v: voucher_set.add(v)
+        if r: rst_set.add(r)
+    if not voucher_set and not rst_set:
+        return {}
+    q = {"$or": [
+        {"voucher_no": {"$in": list(voucher_set)}},
+        {"rst_no": {"$in": list(rst_set)}},
+    ]}
+    items = await db.oil_premium.find(q, {"_id": 0}).to_list(10000)
+    pmap = {}
+    for op in items:
+        v = (op.get('voucher_no') or '').strip()
+        r = str(op.get('rst_no') or '').strip()
+        amt = _safe_num(op.get('premium_amount'))
+        if v: pmap[f"v:{v}"] = pmap.get(f"v:{v}", 0) + amt
+        if r: pmap[f"r:{r}"] = pmap.get(f"r:{r}", 0) + amt
+    return pmap
+
+
+def _premium_for_sale(s: dict, pmap: dict) -> float:
+    """Lookup oil premium for a BP sale, preferring voucher_no over rst_no."""
+    if (s.get('product') or '').strip() != 'Rice Bran':
+        return 0.0
+    v = (s.get('voucher_no') or '').strip()
+    r = str(s.get('rst_no') or '').strip()
+    if v and f"v:{v}" in pmap:
+        return pmap[f"v:{v}"]
+    if r and f"r:{r}" in pmap:
+        return pmap[f"r:{r}"]
+    return 0.0
+
+
+def _bp_to_rows(s: dict, premium: float = 0.0) -> list:
     """Normalize a bp_sale_register document into unified row(s).
+    v104.44.90 — `premium` (oil/lab test) is folded into KCA total (split) or row total (non-split),
+    matching BP Sale Register's Balance = Amount + Premium logic.
     If split_billing: returns 2 rows (PKA + KCA). Else 1 row."""
     common = {
         "source": "bp_sale",
@@ -82,7 +131,8 @@ def _bp_to_rows(s: dict) -> list:
         kaccha_rate = float(s.get("kaccha_rate_per_qtl", 0) or pakka_rate)
         kaccha_amt = round(kaccha_qtl * kaccha_rate, 2)
         kaccha_tax = 0.0
-        kaccha_total = kaccha_amt
+        # v104.44.90 — Premium folds into KCA total (matches BP Sale Register: Balance = Amount + Premium)
+        kaccha_total = round(kaccha_amt + premium, 2)
         # Advance split proportionally by total
         combined = pakka_total + kaccha_total
         pakka_adv = round(advance_total * (pakka_total / combined), 2) if combined > 0 else 0
@@ -106,8 +156,10 @@ def _bp_to_rows(s: dict) -> list:
     # Non-split
     amt = float(s.get("amount", 0) or 0)
     tax = float(s.get("tax_amount", 0) or 0)
-    total = float(s.get("total", 0) or 0) or (amt + tax)
-    balance = float(s.get("balance", 0) or 0) or round(total - advance_total, 2)
+    base_total = float(s.get("total", 0) or 0) or (amt + tax)
+    # v104.44.90 — Premium folds into total for non-split BP rows too
+    total = round(base_total + premium, 2)
+    balance = round(total - advance_total, 2)
     return [{**common, "split_type": "", "bags": common["bags"],
              "net_weight_qtl": round(float(s.get("net_weight_kg", 0) or 0) / 100, 2),
              "rate_per_qtl": float(s.get("rate_per_qtl", 0) or 0),
@@ -245,8 +297,11 @@ async def get_total_sales(
         if party_name:
             q_bp["party_name"] = {"$regex": party_name, "$options": "i"}
         bp_items = await db.bp_sale_register.find(q_bp, {"_id": 0}).to_list(20000)
+        # v104.44.90 — Build oil_premium map keyed by voucher_no/rst_no, fold into row total
+        premium_map = await _build_premium_map(bp_items)
         for s in bp_items:
-            rows.extend(_bp_to_rows(s))
+            prem = _premium_for_sale(s, premium_map)
+            rows.extend(_bp_to_rows(s, prem))
 
     # Pvt Rice
     if source in (None, "rice_sale") and (not product or "rice" in product.lower()):

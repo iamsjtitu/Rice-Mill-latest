@@ -18,14 +18,16 @@ module.exports = function(database) {
   }
 
   function fetchPartyReceived(partyKey, kmsYear, season) {
-    // v104.44.89 — Includes Lab Test Premium / Oil Premium discounts (negative premiums create JAMA
-    // entries that effectively reduce party's outstanding balance).
+    // v104.44.90 — Cash payments only. Premium adjustments folded into row total instead.
     if (!partyKey) return 0;
+    const skipKw = ['lab test premium', 'lab test bonus', 'oil premium', 'sale bhada'];
     const txns = (database.data.cash_transactions || []).filter(t => {
       if (t.category !== partyKey) return false;
       if (t.txn_type !== 'jama') return false;
       if (kmsYear && t.kms_year !== kmsYear) return false;
       if (season && t.season !== season) return false;
+      const d = (t.description || '').toLowerCase();
+      if (skipKw.some(k => d.includes(k))) return false;
       return true;
     });
     // Dedupe by (date, description), prefer auto_ledger reference
@@ -42,7 +44,40 @@ module.exports = function(database) {
     return round2(sum);
   }
 
-  function bpToRows(s) {
+  function buildPremiumMap(bpItems) {
+    // v104.44.90 — Map voucher_no/rst_no -> signed premium_amount for Rice Bran sales.
+    const pmap = {};
+    if (!bpItems || bpItems.length === 0) return pmap;
+    const voucherSet = new Set(), rstSet = new Set();
+    for (const s of bpItems) {
+      if ((s.product || '').trim() !== 'Rice Bran') continue;
+      const v = (s.voucher_no || '').trim();
+      const r = String(s.rst_no || '').trim();
+      if (v) voucherSet.add(v);
+      if (r) rstSet.add(r);
+    }
+    if (voucherSet.size === 0 && rstSet.size === 0) return pmap;
+    for (const op of (database.data.oil_premium || [])) {
+      const v = (op.voucher_no || '').trim();
+      const r = String(op.rst_no || '').trim();
+      const amt = safeNum(op.premium_amount);
+      if (v && voucherSet.has(v)) pmap[`v:${v}`] = (pmap[`v:${v}`] || 0) + amt;
+      if (r && rstSet.has(r)) pmap[`r:${r}`] = (pmap[`r:${r}`] || 0) + amt;
+    }
+    return pmap;
+  }
+
+  function premiumForSale(s, pmap) {
+    if ((s.product || '').trim() !== 'Rice Bran') return 0;
+    const v = (s.voucher_no || '').trim();
+    const r = String(s.rst_no || '').trim();
+    if (v && pmap[`v:${v}`] !== undefined) return pmap[`v:${v}`];
+    if (r && pmap[`r:${r}`] !== undefined) return pmap[`r:${r}`];
+    return 0;
+  }
+
+  function bpToRows(s, premium = 0) {
+    // v104.44.90 — Premium folds into KCA total (split) or row total (non-split).
     const common = {
       source: 'bp_sale', id: s.id, date: s.date || '',
       voucher_no: s.voucher_no || '', bill_number: s.bill_number || '',
@@ -65,7 +100,7 @@ module.exports = function(database) {
       const kacchaQtl = round2(kacchaKg / 100);
       const kacchaRate = safeNum(s.kaccha_rate_per_qtl) || pakkaRate;
       const kacchaAmt = round2(kacchaQtl * kacchaRate);
-      const kacchaTotal = kacchaAmt;
+      const kacchaTotal = round2(kacchaAmt + premium);  // v104.44.90 — premium folded in
       const combined = pakkaTotal + kacchaTotal;
       const pakkaAdv = combined > 0 ? round2(advanceTotal * (pakkaTotal / combined)) : 0;
       const kacchaAdv = round2(advanceTotal - pakkaAdv);
@@ -83,8 +118,9 @@ module.exports = function(database) {
     }
     const amt = safeNum(s.amount);
     const tax = safeNum(s.tax_amount);
-    const total = safeNum(s.total) || (amt + tax);
-    const balance = safeNum(s.balance) || round2(total - advanceTotal);
+    const baseTotal = safeNum(s.total) || (amt + tax);
+    const total = round2(baseTotal + premium);  // v104.44.90 — premium folded in
+    const balance = round2(total - advanceTotal);
     return [{ ...common, split_type: '', net_weight_qtl: round2(safeNum(s.net_weight_kg) / 100),
       rate_per_qtl: safeNum(s.rate_per_qtl), amount: round2(amt), tax: round2(tax),
       total: round2(total), balance: round2(balance), advance: round2(advanceTotal), split_billing: false }];
@@ -162,11 +198,17 @@ module.exports = function(database) {
     let rows = [];
 
     if (!source || source === 'bp_sale') {
-      for (const s of database.data.bp_sale_register || []) {
-        if (!inCommon(s)) continue;
-        if (product && !String(s.product || '').toLowerCase().includes(product.toLowerCase())) continue;
-        if (party_name && !String(s.party_name || '').toLowerCase().includes(party_name.toLowerCase())) continue;
-        rows.push(...bpToRows(s));
+      // v104.44.90 — Build premium map (voucher_no/rst_no -> premium_amount), fold into row total
+      const filteredBp = (database.data.bp_sale_register || []).filter(s => {
+        if (!inCommon(s)) return false;
+        if (product && !String(s.product || '').toLowerCase().includes(product.toLowerCase())) return false;
+        if (party_name && !String(s.party_name || '').toLowerCase().includes(party_name.toLowerCase())) return false;
+        return true;
+      });
+      const pmap = buildPremiumMap(filteredBp);
+      for (const s of filteredBp) {
+        const prem = premiumForSale(s, pmap);
+        rows.push(...bpToRows(s, prem));
       }
     }
 

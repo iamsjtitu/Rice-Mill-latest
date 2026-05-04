@@ -1,6 +1,52 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.85
+## Current Version: v104.44.90
+
+## 🔧 v104.44.90 — Total Sales Register: Premium Auto-Update Fix
+**Build date:** 2026-02-20
+
+### Issue
+User added Lab Test Premium (positive Bonus +1% / negative Penalty -5%) to a BP sale. The premium correctly reflected in Cash Book / Party Ledger, but **Total Sales Register's Balance column did not auto-update** — it kept showing raw sale amount without the premium adjustment.
+
+### Root Cause
+- `_bp_to_rows` in `total_sales_register.py` computed KCA total purely from raw sale data (`kaccha_qtl × kaccha_rate`)
+- Premium adjustments (stored in `oil_premium` collection + mirrored in `cash_transactions`) were not folded into the row's total
+- Earlier attempt (v104.44.89) tried to add premium as "Received" but missed POSITIVE premiums (which create `nikasi` entries, not `jama`)
+
+### Fix
+- Added `_build_premium_map(bp_items)` — fetches `oil_premium` records for given BP sales (matched by `voucher_no` or `rst_no`), builds a map keyed `v:{voucher}` / `r:{rst}` → signed premium amount
+- `_bp_to_rows(s, premium=0)` now folds premium into:
+  - **Split sales** → KCA total only (matches BP Sale Register's "Balance = Amount + Premium" logic)
+  - **Non-split BP sales** → row total
+- Reverted v104.44.89: re-added `'lab test premium'`, `'lab test bonus'`, `'oil premium'`, `'sale bhada'` to skip filter in `_fetch_party_received` (premium goes into total, not received)
+- Pvt Rice / Govt Rice — no premium concept, unaffected
+
+### Triple Parity
+- ✅ Python (`/app/backend/routes/total_sales_register.py`)
+- ✅ Desktop (`/app/desktop-app/routes/total_sales_register.js`)
+- ✅ Local-server (`/app/local-server/routes/total_sales_register.js`) — synced from desktop
+
+### Verified Test Cases
+| Case | KCA Amount | Premium | KCA Total | Balance |
+|---|---|---|---|---|
+| Bonus +1% (₹+8,358.64) | ₹1,83,890 | +₹8,358.64 | **₹1,92,248.64** | ✅ |
+| Penalty -5% (₹-13,181.82) + Cash ₹20K | ₹58,000 | -₹13,181.82 | ₹44,818.18 | ✅ ₹24,818.18 |
+| User's actual S-002 GAYATRI AGRO | ₹1,83,890 | +₹25,517.05 | **₹2,09,407.05** | ✅ matches BP Register |
+
+---
+
+## 🔧 v104.44.88 — Party Name Normalization (BP Sale + Pvt Rice)
+**Build date:** 2026-02-19
+
+### Feature
+Auto-normalize `party_name` to `strip().upper()` on POST + PUT for BP Sale Register and Pvt Rice Sales. Prevents duplicate party ledgers from case/space differences (e.g., `"Mbopl"` vs `"  mbopl  "` vs `"MBOPL"` → all stored as `"MBOPL"`).
+
+### Triple Parity
+- BP Sale (`bp_sale_register`) — Python + Desktop + Local-server
+- Pvt Rice (`rice_sales`) — Python + Desktop + Local-server
+- Govt Rice — N/A (no party-sale system per user)
+
+---
 
 ## 📊 v104.44.85 — Total Sales Register (unified view across BP + Pvt Rice)
 **Build date:** 2026-02-17
@@ -27,6 +73,7 @@ Split entries expand into **2 separate rows**: PKA (emerald bg, Pakka weight × 
 
 ### Party Ledger Clarification (user Q)
 MBOPL ko Bran + Bhusa + Kunda beche → **ek hi party statement** me sab aa jata hai. Party Ledger as a physical entity does NOT exist — system on-the-fly aggregates `cash_transactions` + BP + payments for given `party_name`. No duplicate ledger ever created.
+
 
 ### Files
 - NEW `/app/backend/routes/total_sales_register.py` (~360 lines) — GET list + Excel + PDF endpoints
