@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Trash2, CreditCard, History, Printer, IndianRupee, Calendar, Truck, Edit, Send, Users } from "lucide-react";
+import { Plus, Trash2, CreditCard, History, Printer, IndianRupee, Calendar, Truck, Edit, Send, Users, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { printHtml } from "@/components/PrintButton";
 import { buildSlipReceipt } from "../utils/slipReceipt";
 import { useConfirm } from "./ConfirmProvider";
@@ -49,6 +49,27 @@ export default function LeasedTruck({ filters }) {
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [groupText, setGroupText] = useState("");
   const [groupPdfUrl, setGroupPdfUrl] = useState("");
+  // v104.44.101 — Trip details (expand toggle per lease)
+  const [expandedTrips, setExpandedTrips] = useState({}); // { lease_id: tripData }
+  const [loadingTrips, setLoadingTrips] = useState({});
+
+  const toggleTrips = useCallback(async (lease) => {
+    const id = lease.id;
+    if (expandedTrips[id]) {
+      setExpandedTrips(p => { const n = { ...p }; delete n[id]; return n; });
+      return;
+    }
+    setLoadingTrips(p => ({ ...p, [id]: true }));
+    try {
+      const res = await axios.get(`${API}/truck-leases/${id}/trips`);
+      setExpandedTrips(p => ({ ...p, [id]: res.data }));
+    } catch (e) {
+      logger.error(e);
+      toast.error("Trips load nahi hue");
+    } finally {
+      setLoadingTrips(p => { const n = { ...p }; delete n[id]; return n; });
+    }
+  }, [expandedTrips]);
 
   const filteredLeases = leases.filter(l => {
     if (!searchText) return true;
@@ -243,9 +264,17 @@ export default function LeasedTruck({ filters }) {
               <tbody>
                 {filteredLeases.length === 0 && <tr><td colSpan={8} className="text-center text-slate-500 py-8">Koi lease nahi mila</td></tr>}
                 {filteredLeases.map(l => (
-                  <tr key={l.id} className={`border-b border-slate-700/50 hover:bg-slate-700/30 cursor-pointer ${selectedLease?.id === l.id ? "bg-amber-500/10" : ""}`}
+                  <Fragment key={l.id}>
+                  <tr className={`border-b border-slate-700/50 hover:bg-slate-700/30 cursor-pointer ${selectedLease?.id === l.id ? "bg-amber-500/10" : ""}`}
                     onClick={() => handleSelectLease(l)} data-testid={`lease-row-${l.truck_no}`}>
-                    <td className="p-3 font-mono text-white font-medium">{l.truck_no}</td>
+                    <td className="p-3 font-mono text-white font-medium">
+                      <div className="flex items-center gap-2">
+                        <button onClick={e => { e.stopPropagation(); toggleTrips(l); }} className="text-amber-400 hover:text-amber-300" data-testid={`lease-toggle-trips-${l.truck_no}`}>
+                          {loadingTrips[l.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : (expandedTrips[l.id] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                        </button>
+                        <span>{l.truck_no}</span>
+                      </div>
+                    </td>
                     <td className="p-3 text-slate-300">{l.owner_name || "-"}</td>
                     <td className="p-3 text-right text-amber-400 font-medium">Rs. {fmtAmt(l.monthly_rent)}</td>
                     <td className="p-3 text-slate-300">{l.start_date || "-"}</td>
@@ -273,6 +302,75 @@ export default function LeasedTruck({ filters }) {
                       </div>
                     </td>
                   </tr>
+                  {expandedTrips[l.id] && (
+                    <tr className="bg-slate-900/50 border-b border-slate-700/50">
+                      <td colSpan={8} className="p-4">
+                        <div className="grid grid-cols-4 gap-4 mb-3 text-xs">
+                          <div className="bg-slate-800 rounded p-2 border border-slate-700">
+                            <div className="text-slate-400 uppercase">Total Trips</div>
+                            <div className="text-amber-400 text-lg font-bold">{expandedTrips[l.id].trip_count}</div>
+                          </div>
+                          <div className="bg-slate-800 rounded p-2 border border-slate-700">
+                            <div className="text-slate-400 uppercase">Total Qntl</div>
+                            <div className="text-emerald-400 text-lg font-bold">{expandedTrips[l.id].total_qntl?.toFixed(2)} Q</div>
+                          </div>
+                          <div className="bg-slate-800 rounded p-2 border border-slate-700">
+                            <div className="text-slate-400 uppercase">First Trip</div>
+                            <div className="text-cyan-400 text-sm font-medium">{fmtDate(expandedTrips[l.id].first_date) || "-"}</div>
+                          </div>
+                          <div className="bg-slate-800 rounded p-2 border border-slate-700">
+                            <div className="text-slate-400 uppercase">Last Trip</div>
+                            <div className="text-cyan-400 text-sm font-medium">{fmtDate(expandedTrips[l.id].last_date) || "-"}</div>
+                          </div>
+                        </div>
+
+                        {expandedTrips[l.id].mandi_breakdown?.length > 0 && (
+                          <div className="mb-3">
+                            <div className="text-[11px] uppercase text-slate-400 mb-2">Sources / Mandis</div>
+                            <div className="flex flex-wrap gap-2">
+                              {expandedTrips[l.id].mandi_breakdown.map((m, i) => (
+                                <Badge key={i} className="bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                                  {m.source}: <span className="ml-1 font-bold">{m.trips} trip · {m.qntl.toFixed(2)} Q</span>
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {expandedTrips[l.id].trips?.length > 0 ? (
+                          <div className="overflow-x-auto rounded border border-slate-700">
+                            <table className="w-full text-xs">
+                              <thead className="bg-slate-800">
+                                <tr className="text-slate-400">
+                                  <th className="text-left p-2">Date</th>
+                                  <th className="text-left p-2">RST/Voucher</th>
+                                  <th className="text-left p-2">Source/Dest</th>
+                                  <th className="text-left p-2">Type</th>
+                                  <th className="text-right p-2">Qntl</th>
+                                  <th className="text-right p-2">Bag</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {expandedTrips[l.id].trips.map((t, i) => (
+                                  <tr key={i} className="border-t border-slate-700/50 hover:bg-slate-800/50">
+                                    <td className="p-2 text-slate-300">{fmtDate(t.date)}</td>
+                                    <td className="p-2 text-slate-300 font-mono">{t.rst_no}</td>
+                                    <td className="p-2 text-slate-200">{t.source}</td>
+                                    <td className="p-2"><Badge className="bg-slate-700 text-slate-300 text-[10px]">{t.source_type}</Badge></td>
+                                    <td className="p-2 text-right text-emerald-400 font-medium">{t.qntl?.toFixed(2)}</td>
+                                    <td className="p-2 text-right text-slate-300">{t.bag || '-'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <div className="text-center text-slate-500 py-4 text-xs italic">Lease window mein koi trip nahi mili</div>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

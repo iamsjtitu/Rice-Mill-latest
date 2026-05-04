@@ -84,7 +84,27 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
         query["season"] = season
     
     entries = await db.mill_entries.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(1000)
-    
+
+    # v104.44.101 — Exclude entries that fall within an active leased truck's
+    # lease window. Lease ended → entries after end_date come back here.
+    leases = await db.truck_leases.find({}, {"_id": 0, "truck_no": 1, "start_date": 1, "end_date": 1}).to_list(1000)
+    lease_windows = {}
+    for L in leases:
+        tn = (L.get("truck_no") or "").upper()
+        if not tn: continue
+        lease_windows.setdefault(tn, []).append((
+            (L.get("start_date") or "")[:10],
+            (L.get("end_date") or "9999-12-31")[:10],
+        ))
+    def _is_leased_period(entry):
+        tn = (entry.get("truck_no") or "").upper()
+        if tn not in lease_windows: return False
+        d = (entry.get("date") or "")[:10]
+        if not d: return False
+        return any(s <= d <= e for s, e in lease_windows[tn])
+    if lease_windows:
+        entries = [e for e in entries if not _is_leased_period(e)]
+
     # Bulk fetch all ledger nikasi entries for all trucks (for paid calculation)
     all_truck_nos = list(set(e.get("truck_no", "") for e in entries if e.get("truck_no")))
     ledger_nikasi = []

@@ -31,6 +31,122 @@ def get_months_between(start_date_str, end_date_str=None):
     return months
 
 
+# v104.44.101 — Compute trips done by a leased truck across ALL collections
+# (mill_entries, private_paddy, dc_entries, dc_deliveries, bp_sale_register).
+# Only entries whose date falls within the lease's start_date..end_date window
+# are counted as "leased period trips".
+async def _compute_lease_trips(lease):
+    """Return aggregated trips for a lease.
+
+    Returns dict with: trips (list), total_qntl, trip_count, mandi_breakdown,
+    first_date, last_date.
+    """
+    truck_no = (lease.get("truck_no") or "").strip().upper()
+    if not truck_no:
+        return {"trips": [], "trip_count": 0, "total_qntl": 0,
+                "mandi_breakdown": [], "first_date": "", "last_date": ""}
+
+    start = lease.get("start_date", "") or ""
+    end = lease.get("end_date", "") or "9999-12-31"
+
+    def in_window(date_str):
+        if not date_str: return False
+        d = date_str[:10]
+        return start <= d <= end
+
+    trips = []
+
+    # 1. mill_entries (paddy from mandis)
+    async for e in db.mill_entries.find({"truck_no": truck_no}, {"_id": 0}):
+        if not in_window(e.get("date", "")): continue
+        qntl = float(e.get("qntl", 0) or 0)
+        bag = float(e.get("bag", 0) or 0)
+        net_qntl = round(qntl - bag/100, 2)
+        trips.append({
+            "date": e.get("date", ""), "rst_no": e.get("rst_no", ""),
+            "source": e.get("mandi_name", "") or e.get("mandi", ""),
+            "source_type": "Mill (Mandi)",
+            "party": "", "qntl": net_qntl, "bag": int(bag),
+        })
+
+    # 2. private_paddy
+    async for e in db.private_paddy.find({"truck_no": truck_no}, {"_id": 0}):
+        if not in_window(e.get("date", "")): continue
+        qntl = float(e.get("qntl", 0) or 0)
+        bag = float(e.get("bag", 0) or 0)
+        net_qntl = round(qntl - bag/100, 2)
+        trips.append({
+            "date": e.get("date", ""), "rst_no": e.get("rst_no", ""),
+            "source": e.get("party_name", ""),
+            "source_type": "Private Paddy",
+            "party": e.get("party_name", ""),
+            "qntl": net_qntl, "bag": int(bag),
+        })
+
+    # 3. dc_entries (incoming DC stock)
+    async for e in db.dc_entries.find({"$or": [
+        {"truck_no": truck_no}, {"vehicle_no": truck_no}
+    ]}, {"_id": 0}):
+        if not in_window(e.get("date", "")): continue
+        qntl = float(e.get("quantity_qntl", 0) or e.get("qntl", 0) or 0)
+        trips.append({
+            "date": e.get("date", ""), "rst_no": e.get("dc_no", "") or e.get("rst_no", ""),
+            "source": e.get("party_name", "") or e.get("from_party", ""),
+            "source_type": "DC In",
+            "party": e.get("party_name", ""), "qntl": qntl, "bag": 0,
+        })
+
+    # 4. dc_deliveries (outgoing DC dispatches)
+    async for e in db.dc_deliveries.find({"$or": [
+        {"truck_no": truck_no}, {"vehicle_no": truck_no}
+    ]}, {"_id": 0}):
+        if not in_window(e.get("date", "")): continue
+        qntl = float(e.get("quantity_qntl", 0) or e.get("qntl", 0) or 0)
+        trips.append({
+            "date": e.get("date", ""), "rst_no": e.get("dc_no", "") or e.get("rst_no", ""),
+            "source": e.get("destination", "") or e.get("to_party", ""),
+            "source_type": "DC Out",
+            "party": e.get("party_name", ""), "qntl": qntl, "bag": 0,
+        })
+
+    # 5. bp_sale_register (BP sale dispatch — vehicle_no field)
+    async for e in db.bp_sale_register.find({"vehicle_no": truck_no}, {"_id": 0}):
+        if not in_window(e.get("date", "")): continue
+        qntl = float(e.get("net_weight_qtl", 0) or 0)
+        if not qntl:
+            qntl = round(float(e.get("net_weight_kg", 0) or 0) / 100, 2)
+        trips.append({
+            "date": e.get("date", ""), "rst_no": e.get("voucher_no", "") or e.get("rst_no", ""),
+            "source": e.get("destination", "") or e.get("party_name", ""),
+            "source_type": f"BP Sale - {e.get('product', 'Bran')}",
+            "party": e.get("party_name", ""), "qntl": qntl, "bag": int(e.get("bags", 0) or 0),
+        })
+
+    # Sort by date ASC
+    trips.sort(key=lambda t: t.get("date", ""))
+
+    # Mandi/source breakdown
+    breakdown = {}
+    for t in trips:
+        key = t["source"] or "(unknown)"
+        breakdown.setdefault(key, {"source": key, "trips": 0, "qntl": 0})
+        breakdown[key]["trips"] += 1
+        breakdown[key]["qntl"] += t["qntl"]
+    mandi_breakdown = sorted(
+        [{"source": v["source"], "trips": v["trips"], "qntl": round(v["qntl"], 2)}
+         for v in breakdown.values()],
+        key=lambda x: x["qntl"], reverse=True,
+    )
+
+    total_qntl = round(sum(t["qntl"] for t in trips), 2)
+    return {
+        "trips": trips, "trip_count": len(trips), "total_qntl": total_qntl,
+        "mandi_breakdown": mandi_breakdown,
+        "first_date": trips[0]["date"] if trips else "",
+        "last_date": trips[-1]["date"] if trips else "",
+    }
+
+
 # ========== TRUCK LEASES CRUD ==========
 
 @router.get("/truck-leases")
@@ -231,6 +347,17 @@ async def get_lease_payment_history(lease_id: str):
     return sorted(payments, key=lambda x: x.get("created_at", ""), reverse=True)
 
 
+# v104.44.101 — Trips done by leased truck during lease window
+@router.get("/truck-leases/{lease_id}/trips")
+async def get_lease_trips(lease_id: str):
+    """Returns aggregated trips (mill, private paddy, dc in/out, bp sales)
+    where this leased truck was used DURING the lease period."""
+    lease = await db.truck_leases.find_one({"id": lease_id}, {"_id": 0})
+    if not lease:
+        raise HTTPException(status_code=404, detail="Lease not found")
+    return await _compute_lease_trips(lease)
+
+
 # ========== CHECK IF TRUCK IS LEASED ==========
 
 @router.get("/truck-leases/check/{truck_no}")
@@ -375,13 +502,15 @@ async def export_leases_excel(kms_year: Optional[str] = None, season: Optional[s
     ws.title = "Truck Leases"
 
     from utils.export_helpers import style_excel_title, style_excel_header_row, style_excel_data_rows
-    ncols = 11
+    ncols = 12
     style_excel_title(ws, "Truck Lease Report", ncols)
 
     # Header at row 4
-    headers = ['Truck No.', 'Owner', 'Monthly Rent', 'Start Date', 'End Date', 'Advance Deposit', 'Status', 'Total Months', 'Total Due', 'Total Paid', 'Balance']
+    headers = ['Truck No.', 'Owner', 'Monthly Rent', 'Start Date', 'End Date', 'Status',
+               'Trips', 'Total Qntl', 'Total Months', 'Total Due', 'Total Paid', 'Balance']
     for c, h in enumerate(headers, 1):
         ws.cell(row=4, column=c, value=h)
+    ncols = len(headers)
     style_excel_header_row(ws, 4, ncols)
 
     row = 5
@@ -391,21 +520,23 @@ async def export_leases_excel(kms_year: Optional[str] = None, season: Optional[s
         payments = await db.truck_lease_payments.find({"lease_id": lease["id"]}, {"_id": 0, "amount": 1}).to_list(5000)
         paid = sum(p.get("amount", 0) for p in payments)
         balance = round(total_rent - paid, 2)
+        trip_data = await _compute_lease_trips(lease)
         ws.cell(row=row, column=1, value=lease.get("truck_no", ""))
         ws.cell(row=row, column=2, value=lease.get("owner_name", ""))
         ws.cell(row=row, column=3, value=lease.get("monthly_rent", 0))
         ws.cell(row=row, column=4, value=fmt_date(lease.get("start_date", "")))
         ws.cell(row=row, column=5, value=fmt_date(lease.get("end_date", "")) or "Ongoing")
-        ws.cell(row=row, column=6, value=lease.get("advance_deposit", 0))
-        ws.cell(row=row, column=7, value=lease.get("status", "").upper())
-        ws.cell(row=row, column=8, value=len(months))
-        ws.cell(row=row, column=9, value=total_rent)
-        ws.cell(row=row, column=10, value=paid)
-        ws.cell(row=row, column=11, value=max(0, balance))
+        ws.cell(row=row, column=6, value=lease.get("status", "").upper())
+        ws.cell(row=row, column=7, value=trip_data["trip_count"])
+        ws.cell(row=row, column=8, value=trip_data["total_qntl"])
+        ws.cell(row=row, column=9, value=len(months))
+        ws.cell(row=row, column=10, value=total_rent)
+        ws.cell(row=row, column=11, value=paid)
+        ws.cell(row=row, column=12, value=max(0, balance))
         row += 1
 
-    for c in range(1, 12):
-        ws.column_dimensions[chr(64 + c)].width = 15
+    for c in range(1, ncols + 1):
+        ws.column_dimensions[chr(64 + c)].width = 14
 
     style_excel_data_rows(ws, 5, row - 1, ncols)
 

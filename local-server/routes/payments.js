@@ -10,7 +10,33 @@ module.exports = function(database) {
   // ===== TRUCK PAYMENTS =====
   router.get('/api/truck-payments', safeSync(async (req, res) => {
     // Exclude "Move to Paddy Purchase" entries (agent_extra settled)
-    const entries = database.getEntries(req.query).filter(e => !e.moved_to_pvt_paddy);
+    let entries = database.getEntries(req.query).filter(e => !e.moved_to_pvt_paddy);
+
+    // v104.44.101 — Exclude entries that fall within an active leased truck's
+    // lease window. Lease ended → entries after end_date come back here.
+    const leases = database.data.truck_leases || [];
+    if (leases.length) {
+      const leaseWindows = {};
+      leases.forEach(L => {
+        const tn = (L.truck_no || '').toUpperCase();
+        if (!tn) return;
+        leaseWindows[tn] = leaseWindows[tn] || [];
+        leaseWindows[tn].push({
+          start: (L.start_date || '').slice(0, 10),
+          end: (L.end_date || '9999-12-31').slice(0, 10),
+        });
+      });
+      const isLeasedPeriod = (e) => {
+        const tn = (e.truck_no || '').toUpperCase();
+        const w = leaseWindows[tn];
+        if (!w) return false;
+        const d = (e.date || '').slice(0, 10);
+        if (!d) return false;
+        return w.some(({ start, end }) => d >= start && d <= end);
+      };
+      entries = entries.filter(e => !isLeasedPeriod(e));
+    }
+
     const allTxns = database.data.cash_transactions || [];
     
     // Get all truck_nos

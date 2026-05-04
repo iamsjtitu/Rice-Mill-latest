@@ -15,6 +15,104 @@ function getMonthsBetween(startStr, endStr) {
   return months;
 }
 
+// v104.44.101 — Compute trips done by leased truck across mill_entries,
+// private_paddy, dc_entries, dc_deliveries, bp_sale_register during lease window
+function computeLeaseTrips(database, lease) {
+  const truckNo = (lease.truck_no || '').trim().toUpperCase();
+  if (!truckNo) {
+    return { trips: [], trip_count: 0, total_qntl: 0, mandi_breakdown: [], first_date: '', last_date: '' };
+  }
+  const start = (lease.start_date || '').slice(0, 10);
+  const end = (lease.end_date || '9999-12-31').slice(0, 10);
+  const inWindow = (d) => {
+    const dd = (d || '').slice(0, 10);
+    return dd && dd >= start && dd <= end;
+  };
+
+  const trips = [];
+
+  (database.data.mill_entries || [])
+    .filter(e => (e.truck_no || '').toUpperCase() === truckNo && inWindow(e.date))
+    .forEach(e => {
+      const qntl = +(e.qntl || 0); const bag = +(e.bag || 0);
+      trips.push({
+        date: e.date || '', rst_no: e.rst_no || '',
+        source: e.mandi_name || e.mandi || '',
+        source_type: 'Mill (Mandi)', party: '',
+        qntl: +((qntl - bag/100).toFixed(2)), bag: parseInt(bag) || 0,
+      });
+    });
+
+  (database.data.private_paddy || [])
+    .filter(e => (e.truck_no || '').toUpperCase() === truckNo && inWindow(e.date))
+    .forEach(e => {
+      const qntl = +(e.qntl || 0); const bag = +(e.bag || 0);
+      trips.push({
+        date: e.date || '', rst_no: e.rst_no || '',
+        source: e.party_name || '', source_type: 'Private Paddy',
+        party: e.party_name || '',
+        qntl: +((qntl - bag/100).toFixed(2)), bag: parseInt(bag) || 0,
+      });
+    });
+
+  (database.data.dc_entries || [])
+    .filter(e => ((e.truck_no || '').toUpperCase() === truckNo || (e.vehicle_no || '').toUpperCase() === truckNo) && inWindow(e.date))
+    .forEach(e => {
+      trips.push({
+        date: e.date || '', rst_no: e.dc_no || e.rst_no || '',
+        source: e.party_name || e.from_party || '',
+        source_type: 'DC In', party: e.party_name || '',
+        qntl: +(e.quantity_qntl || e.qntl || 0), bag: 0,
+      });
+    });
+
+  (database.data.dc_deliveries || [])
+    .filter(e => ((e.truck_no || '').toUpperCase() === truckNo || (e.vehicle_no || '').toUpperCase() === truckNo) && inWindow(e.date))
+    .forEach(e => {
+      trips.push({
+        date: e.date || '', rst_no: e.dc_no || e.rst_no || '',
+        source: e.destination || e.to_party || '',
+        source_type: 'DC Out', party: e.party_name || '',
+        qntl: +(e.quantity_qntl || e.qntl || 0), bag: 0,
+      });
+    });
+
+  (database.data.bp_sale_register || [])
+    .filter(e => (e.vehicle_no || '').toUpperCase() === truckNo && inWindow(e.date))
+    .forEach(e => {
+      let qntl = +(e.net_weight_qtl || 0);
+      if (!qntl) qntl = +((+(e.net_weight_kg || 0) / 100).toFixed(2));
+      trips.push({
+        date: e.date || '', rst_no: e.voucher_no || e.rst_no || '',
+        source: e.destination || e.party_name || '',
+        source_type: `BP Sale - ${e.product || 'Bran'}`,
+        party: e.party_name || '',
+        qntl, bag: parseInt(e.bags || 0) || 0,
+      });
+    });
+
+  trips.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+  const breakdown = {};
+  trips.forEach(t => {
+    const k = t.source || '(unknown)';
+    breakdown[k] = breakdown[k] || { source: k, trips: 0, qntl: 0 };
+    breakdown[k].trips += 1;
+    breakdown[k].qntl += t.qntl;
+  });
+  const mandi_breakdown = Object.values(breakdown)
+    .map(b => ({ ...b, qntl: +b.qntl.toFixed(2) }))
+    .sort((a, b) => b.qntl - a.qntl);
+
+  return {
+    trips, trip_count: trips.length,
+    total_qntl: +trips.reduce((s, t) => s + t.qntl, 0).toFixed(2),
+    mandi_breakdown,
+    first_date: trips.length ? trips[0].date : '',
+    last_date: trips.length ? trips[trips.length - 1].date : '',
+  };
+}
+
 module.exports = function(database) {
   const router = express.Router();
 
@@ -145,6 +243,13 @@ module.exports = function(database) {
   router.get('/api/truck-leases/:id/history', safeSync(async (req, res) => {
     const payments = (database.data.truck_lease_payments || []).filter(p => p.lease_id === req.params.id);
     res.json([...payments].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')));
+  }));
+
+  // v104.44.101 — Trips done by leased truck within lease window
+  router.get('/api/truck-leases/:id/trips', safeSync(async (req, res) => {
+    const lease = (database.data.truck_leases || []).find(l => l.id === req.params.id);
+    if (!lease) return res.status(404).json({ detail: 'Lease not found' });
+    res.json(computeLeaseTrips(database, lease));
   }));
 
   // ========== CHECK LEASED ==========
