@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FileText, Wheat, Users, ShoppingBag, Package, ClipboardList, Shield, Truck, ArrowRightLeft } from "lucide-react";
+import { FileText, Wheat, ShoppingBag, Package, ClipboardList, Shield, Truck, ArrowRightLeft } from "lucide-react";
 import SaleBook from "./SaleBook";
 import PurchaseVouchers from "./PurchaseVouchers";
 import StockSummary from "./StockSummary";
-import { PaddyPurchase, PartySummary } from "./PaddyPurchase";
+import { PaddyPurchase } from "./PaddyPurchase";
 import ByProductSaleRegister from "./ByProductSaleRegister";
 import OilPremiumRegister from "./OilPremiumRegister";
 import PartyWeightRegister from "./PartyWeightRegister";
@@ -19,7 +19,6 @@ const tabs = [
   { id: "custody", label: "Paddy Custody Maintenance", icon: Shield, activeClass: "bg-cyan-500 hover:bg-cyan-600 text-white" },
   { id: "transit", label: "T.P Register", icon: Truck, activeClass: "bg-indigo-500 hover:bg-indigo-600 text-white" },
   { id: "milling", label: "Milling Register", icon: ArrowRightLeft, activeClass: "bg-teal-500 hover:bg-teal-600 text-white" },
-  { id: "summary", label: "Party Summary", icon: Users, activeClass: "bg-purple-500 hover:bg-purple-600 text-white" },
 ];
 
 const SALE_CATEGORIES = [
@@ -166,10 +165,8 @@ export default function Vouchers({ filters, user, onNavigate }) {
         <PaddyCustodyRegister filters={filters} />
       ) : activeTab === "transit" ? (
         <TransitPassRegister filters={filters} />
-      ) : activeTab === "milling" ? (
-        <MillingRegister filters={filters} user={user} />
       ) : (
-        <PartySummary filters={filters} onNavigate={onNavigate} />
+        <MillingRegister filters={filters} user={user} />
       )}
     </div>
   );
