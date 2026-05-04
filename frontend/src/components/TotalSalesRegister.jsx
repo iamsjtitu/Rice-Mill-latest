@@ -10,7 +10,14 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Download, FileSpreadsheet, FileText, MessageCircle, Search, Users, TrendingUp } from "lucide-react";
+import { Download, FileSpreadsheet, FileText, MessageCircle, Search, Users, TrendingUp, Send, UsersRound } from "lucide-react";
+import { SendToGroupDialog } from "./SendToGroupDialog";
+
+const WhatsAppIcon = ({ className = "w-3.5 h-3.5" }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+    <path d="M20.52 3.48A11.77 11.77 0 0 0 12.02 0C5.46 0 .12 5.33.12 11.9a11.8 11.8 0 0 0 1.6 5.95L0 24l6.3-1.65a11.88 11.88 0 0 0 5.72 1.46h.01c6.56 0 11.9-5.33 11.9-11.9a11.76 11.76 0 0 0-3.41-8.43zM12.03 21.8h-.01a9.88 9.88 0 0 1-5.04-1.38l-.36-.21-3.74.98 1-3.64-.23-.37a9.85 9.85 0 0 1-1.52-5.28c0-5.47 4.45-9.9 9.9-9.9 2.65 0 5.14 1.03 7.01 2.9a9.87 9.87 0 0 1 2.9 7.02c0 5.46-4.45 9.9-9.91 9.9zm5.43-7.41c-.3-.15-1.76-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.76.97-.93 1.17-.17.2-.34.22-.64.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.64-2.05-.17-.3-.02-.47.13-.62.13-.13.3-.34.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51-.17-.01-.37-.01-.57-.01-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.48 0 1.47 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.3 1.26.48 1.69.62.71.22 1.35.19 1.86.12.57-.08 1.76-.72 2-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35z"/>
+  </svg>
+);
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const fmtDate = (d) => d ? (d.length >= 10 ? d.slice(8, 10) + '-' + d.slice(5, 7) + '-' + d.slice(0, 4) : d) : "-";
@@ -47,6 +54,10 @@ export default function TotalSalesRegister({ filters, user }) {
   const [viewMode, setViewMode] = useState("rows");  // rows | parties
   const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
   const [selectedParties, setSelectedParties] = useState([]);
+  // v104.44.91 — Send-to-Group dialog (PDF + summary text)
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [groupText, setGroupText] = useState("");
+  const [groupPdfUrl, setGroupPdfUrl] = useState("");
 
   const [local, setLocal] = useState({
     date_from: "",
@@ -124,6 +135,57 @@ export default function TotalSalesRegister({ filters, user }) {
   };
 
   const totalPending = useMemo(() => totals ? Math.round(((totals.total || 0) - (totals.received || 0)) * 100) / 100 : 0, [totals]);
+
+  // v104.44.91 — Build summary text for current filters (used by group share)
+  const buildSummaryText = useCallback(() => {
+    if (!totals) return "";
+    const lines = [
+      `📊 *Total Sales Register*`,
+      `KMS: ${filters.kms_year || "ALL"} · ${filters.season || ""}`.trim(),
+      local.date_from || local.date_to ? `Date: ${local.date_from || 'start'} → ${local.date_to || 'today'}` : null,
+      local.party_name ? `Party: ${local.party_name}` : null,
+      local.product ? `Product: ${local.product}` : null,
+      ``,
+      `Entries: ${totals.rows_count}`,
+      `Net Weight: ${fmtNum(totals.net_weight_qtl)} Qtl · ${fmtInt(totals.bags)} bags`,
+      `Total Bill: ₹${fmtNum(totals.total)}`,
+      `Received: ₹${fmtNum(totals.received)}`,
+      `*Pending: ₹${fmtNum(totalPending)}*`,
+    ].filter(Boolean);
+    return lines.join("\n");
+  }, [totals, totalPending, filters, local]);
+
+  // v104.44.91 — WhatsApp PDF share (Web Share API on mobile, fallback otherwise)
+  const handleHeaderWhatsApp = async () => {
+    try {
+      const url = `${API}/total-sales-register/export/pdf?${buildParams()}`;
+      const fname = `total_sales_${filters.kms_year || 'all'}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      const summary = buildSummaryText();
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error("PDF fetch failed");
+      const blob = await resp.blob();
+      const file = new File([blob], fname, { type: "application/pdf" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ title: "Total Sales Register", text: summary, files: [file] });
+        toast.success("Share dialog open — WhatsApp select karein");
+      } else {
+        const dlUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = dlUrl; a.download = fname; a.click();
+        setTimeout(() => URL.revokeObjectURL(dlUrl), 1000);
+        const waUrl = `https://wa.me/?text=${encodeURIComponent(summary)}`;
+        window.open(waUrl, "_blank");
+        toast.success("PDF downloaded + WhatsApp open — manually attach karein", { duration: 5000 });
+      }
+    } catch (e) { toast.error("WhatsApp share fail: " + (e.message || e)); }
+  };
+
+  // v104.44.91 — Send-to-Group dialog open
+  const handleHeaderGroup = () => {
+    setGroupText(buildSummaryText());
+    setGroupPdfUrl(`${API}/total-sales-register/export/pdf?${buildParams()}`);
+    setGroupDialogOpen(true);
+  };
 
   return (
     <div className="space-y-3" data-testid="total-sales-register">
@@ -232,10 +294,21 @@ export default function TotalSalesRegister({ filters, user }) {
           onClick={() => doExport("pdf")} data-testid="ts-export-pdf">
           <FileText className="w-3 h-3 mr-1" /> PDF
         </Button>
-        <Button size="sm" className="bg-[#25D366] hover:bg-[#1ebe57] text-white h-8 text-xs"
-          onClick={() => { setShowWhatsAppDialog(true); setSelectedParties([]); }}
-          data-testid="ts-export-whatsapp">
-          <MessageCircle className="w-3 h-3 mr-1" /> WhatsApp
+        <Button onClick={handleHeaderWhatsApp} variant="ghost" size="sm"
+          className="h-8 w-8 p-0 text-[#25D366] hover:bg-green-100 dark:hover:bg-green-900/30 border border-green-600"
+          title="WhatsApp pe PDF share karein" data-testid="ts-whatsapp-btn">
+          <WhatsAppIcon className="w-4 h-4" />
+        </Button>
+        <Button onClick={handleHeaderGroup} variant="ghost" size="sm"
+          className="h-8 w-8 p-0 text-cyan-600 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 border border-cyan-600"
+          title="Send to Group (summary + PDF)" data-testid="ts-group-btn">
+          <Users className="w-4 h-4" />
+        </Button>
+        <Button onClick={() => { setShowWhatsAppDialog(true); setSelectedParties([]); }} variant="ghost" size="sm"
+          className="h-8 px-2 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600"
+          title="Party-wise WhatsApp summary"
+          data-testid="ts-party-wa-btn">
+          <MessageCircle className="w-3 h-3 mr-1" /> Party
         </Button>
       </div>
 
@@ -249,8 +322,10 @@ export default function TotalSalesRegister({ filters, user }) {
               <TableRow className="border-slate-700">
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[75px] whitespace-nowrap">Date</TableHead>
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[90px] whitespace-nowrap">Voucher</TableHead>
+                <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[80px] whitespace-nowrap">Bill No</TableHead>
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[50px] whitespace-nowrap">RST</TableHead>
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[95px] whitespace-nowrap">Vehicle</TableHead>
+                <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[85px] whitespace-nowrap">Bill From</TableHead>
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[150px] whitespace-nowrap">Party</TableHead>
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[90px] whitespace-nowrap">Destination</TableHead>
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[80px] text-right whitespace-nowrap">N/W (Qtl)</TableHead>
@@ -259,14 +334,14 @@ export default function TotalSalesRegister({ filters, user }) {
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[85px] text-right whitespace-nowrap">Amount</TableHead>
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[65px] text-right whitespace-nowrap">Tax</TableHead>
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[90px] text-right whitespace-nowrap">Total</TableHead>
-                <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[85px] text-right whitespace-nowrap">Balance</TableHead>
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[85px] text-right whitespace-nowrap">Received</TableHead>
+                <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[85px] text-right whitespace-nowrap">Balance</TableHead>
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[85px] text-right whitespace-nowrap">Pending</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.length === 0 ? (
-                <TableRow><TableCell colSpan={15} className="text-center py-10 text-slate-400">No sales found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={17} className="text-center py-10 text-slate-400">No sales found</TableCell></TableRow>
               ) : rows.map((r, idx) => {
                 const pending = Math.round(((r.total || 0) - (r.advance || 0)) * 100) / 100;
                 const rowClass = r.split_type === "PKA"
@@ -285,8 +360,10 @@ export default function TotalSalesRegister({ filters, user }) {
                         </span>
                       )}
                     </TableCell>
+                    <TableCell className="text-[11px] px-2 py-1.5 whitespace-nowrap text-slate-800 dark:text-slate-200">{r.bill_number || "-"}</TableCell>
                     <TableCell className="text-[11px] px-2 py-1.5 whitespace-nowrap text-slate-800 dark:text-slate-200">{r.rst_no || "-"}</TableCell>
                     <TableCell className="text-[11px] px-2 py-1.5 whitespace-nowrap text-slate-800 dark:text-slate-200">{r.vehicle_no || "-"}</TableCell>
+                    <TableCell className="text-[11px] px-2 py-1.5 whitespace-nowrap text-slate-700 dark:text-slate-300 truncate max-w-[100px]" title={r.bill_from}>{r.bill_from || "-"}</TableCell>
                     <TableCell className="text-[11px] px-2 py-1.5 font-semibold whitespace-nowrap truncate max-w-[160px] text-slate-900 dark:text-white" title={r.party_name}>{r.party_name || "-"}</TableCell>
                     <TableCell className="text-[11px] px-2 py-1.5 whitespace-nowrap truncate max-w-[100px] text-slate-700 dark:text-slate-300" title={r.destination}>{r.destination || "-"}</TableCell>
                     <TableCell className="text-[11px] px-2 py-1.5 text-right tabular-nums text-slate-900 dark:text-white">{fmtNum(r.net_weight_qtl)}</TableCell>
@@ -295,23 +372,23 @@ export default function TotalSalesRegister({ filters, user }) {
                     <TableCell className="text-[11px] px-2 py-1.5 text-right tabular-nums text-slate-900 dark:text-white">₹{fmtNum(r.amount)}</TableCell>
                     <TableCell className="text-[11px] px-2 py-1.5 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmtNum(r.tax)}</TableCell>
                     <TableCell className="text-[11px] px-2 py-1.5 text-right tabular-nums font-bold text-slate-900 dark:text-white">₹{fmtNum(r.total)}</TableCell>
-                    <TableCell className="text-[11px] px-2 py-1.5 text-right tabular-nums text-slate-800 dark:text-slate-200">₹{fmtNum(r.balance)}</TableCell>
                     <TableCell className="text-[11px] px-2 py-1.5 text-right tabular-nums text-cyan-700 dark:text-cyan-400 font-semibold">₹{fmtNum(r.advance)}</TableCell>
+                    <TableCell className="text-[11px] px-2 py-1.5 text-right tabular-nums text-slate-800 dark:text-slate-200">₹{fmtNum(r.balance)}</TableCell>
                     <TableCell className={`text-[11px] px-2 py-1.5 text-right tabular-nums font-bold ${pending > 0 ? "text-amber-700 dark:text-amber-400" : "text-emerald-700 dark:text-emerald-400"}`}>₹{fmtNum(pending)}</TableCell>
                   </TableRow>
                 );
               })}
               {rows.length > 0 && totals && (
                 <TableRow className="border-t-2 border-slate-900 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30">
-                  <TableCell colSpan={6} className="text-[11px] px-2 py-2.5 font-bold text-slate-900 dark:text-white uppercase tracking-wide">⬤ Grand Total</TableCell>
+                  <TableCell colSpan={8} className="text-[11px] px-2 py-2.5 font-bold text-slate-900 dark:text-white uppercase tracking-wide">⬤ Grand Total</TableCell>
                   <TableCell className="text-[11px] px-2 py-2.5 text-right font-bold tabular-nums text-slate-900 dark:text-white">{fmtNum(totals.net_weight_qtl)}</TableCell>
                   <TableCell className="text-[11px] px-2 py-2.5 text-right font-bold tabular-nums text-slate-900 dark:text-white">{fmtInt(totals.bags)}</TableCell>
                   <TableCell className="text-[11px] px-2 py-2.5 text-right font-bold tabular-nums text-slate-600 dark:text-slate-400">—</TableCell>
                   <TableCell className="text-[11px] px-2 py-2.5 text-right font-bold tabular-nums text-slate-900 dark:text-white">₹{fmtNum(totals.amount)}</TableCell>
                   <TableCell className="text-[11px] px-2 py-2.5 text-right font-bold tabular-nums text-slate-700 dark:text-slate-300">{fmtNum(totals.tax)}</TableCell>
                   <TableCell className="text-[11px] px-2 py-2.5 text-right font-bold tabular-nums text-emerald-800 dark:text-emerald-300">₹{fmtNum(totals.total)}</TableCell>
-                  <TableCell className="text-[11px] px-2 py-2.5 text-right font-bold tabular-nums text-slate-800 dark:text-slate-200">₹{fmtNum(totals.balance)}</TableCell>
                   <TableCell className="text-[11px] px-2 py-2.5 text-right font-bold tabular-nums text-cyan-800 dark:text-cyan-300">₹{fmtNum(totals.received)}</TableCell>
+                  <TableCell className="text-[11px] px-2 py-2.5 text-right font-bold tabular-nums text-slate-800 dark:text-slate-200">₹{fmtNum(totals.balance)}</TableCell>
                   <TableCell className={`text-[11px] px-2 py-2.5 text-right font-bold tabular-nums ${totalPending > 0 ? "text-amber-800 dark:text-amber-300" : "text-emerald-800 dark:text-emerald-300"}`}>₹{fmtNum(totalPending)}</TableCell>
                 </TableRow>
               )}
@@ -393,6 +470,9 @@ export default function TotalSalesRegister({ filters, user }) {
           </div>
         </div>
       )}
+
+      {/* v104.44.91 — Send-to-WhatsApp-Group dialog (PDF + summary) */}
+      <SendToGroupDialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen} text={groupText} pdfUrl={groupPdfUrl} />
     </div>
   );
 }

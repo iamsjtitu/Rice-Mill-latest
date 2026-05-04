@@ -137,10 +137,10 @@ def _bp_to_rows(s: dict, premium: float = 0.0) -> list:
         combined = pakka_total + kaccha_total
         pakka_adv = round(advance_total * (pakka_total / combined), 2) if combined > 0 else 0
         kaccha_adv = round(advance_total - pakka_adv, 2)
-        # Bags split proportionally
-        total_kg = pakka_kg + kaccha_kg
-        pakka_bags = int(round(common["bags"] * (pakka_kg / total_kg))) if total_kg > 0 else common["bags"]
-        kaccha_bags = max(0, common["bags"] - pakka_bags)
+        # v104.44.91 — All bags go to KCA row when split (PKA shows 0).
+        # User rule: PKA + KCA both present → bags only in KCA. Solo PKA → PKA. Solo KCA → KCA.
+        pakka_bags = 0
+        kaccha_bags = common["bags"]
         return [
             {**common, "split_type": "PKA", "bags": pakka_bags,
              "net_weight_qtl": pakka_qtl, "rate_per_qtl": pakka_rate,
@@ -435,9 +435,9 @@ async def export_total_sales_excel(
     thick = Side(border_style="medium", color=navy)
     border_thin = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    headers = ["Date", "Voucher", "RST", "Vehicle", "Party", "Destination",
+    headers = ["Date", "Voucher", "Bill No", "RST", "Vehicle", "Bill From", "Party", "Destination",
                "N/W (Qtl)", "Bags", "Rate/Q", "Amount", "Tax", "Total",
-               "Balance", "Received", "Pending"]
+               "Received", "Balance", "Pending"]
 
     # Title area (rows 1-3)
     last_col = get_column_letter(len(headers))
@@ -476,11 +476,12 @@ async def export_total_sales_excel(
         if r.get("split_type"):
             voucher_display = f"{voucher_display} · {r['split_type']}"
         vals = [
-            r.get("date", ""), voucher_display, r.get("rst_no", ""),
-            r.get("vehicle_no", ""), r.get("party_name", ""), r.get("destination", ""),
+            r.get("date", ""), voucher_display, r.get("bill_number", ""),
+            r.get("rst_no", ""), r.get("vehicle_no", ""), r.get("bill_from", ""),
+            r.get("party_name", ""), r.get("destination", ""),
             r.get("net_weight_qtl", 0), r.get("bags", 0), r.get("rate_per_qtl", 0),
             r.get("amount", 0), r.get("tax", 0), r.get("total", 0),
-            r.get("balance", 0), r.get("advance", 0), pending,
+            r.get("advance", 0), r.get("balance", 0), pending,
         ]
         # Row color based on split_type
         row_fill = None
@@ -497,37 +498,36 @@ async def export_total_sales_excel(
             cell.font = Font(size=9)
             if row_fill:
                 cell.fill = row_fill
-            # right-align numeric columns (7..15)
-            if c >= 7:
+            # right-align numeric columns (9..17)
+            if c >= 9:
                 cell.alignment = Alignment(horizontal="right", vertical="center")
-                if c in (9, 10, 11, 12, 13, 14, 15):
-                    cell.number_format = '#,##0.00'
-                elif c in (7,):
-                    cell.number_format = '#,##0.00'
-                elif c == 8:
+                if c == 10:
                     cell.number_format = '#,##0'
+                else:
+                    cell.number_format = '#,##0.00'
             else:
                 cell.alignment = Alignment(horizontal="left", vertical="center")
         ws.row_dimensions[i].height = 18
 
     # Grand totals row
+    # Grand totals row — match new header order: Date, Voucher, BillNo, RST, Vehicle, BillFrom, Party, Destination, NW, Bags, Rate, Amount, Tax, Total, Received, Balance, Pending
     tr = len(rows) + 5
     pending_total = round((totals["total"] - totals["received"]), 2)
-    total_vals = ["TOTALS", "", "", "", "", "",
+    total_vals = ["TOTALS", "", "", "", "", "", "", "",
                   totals["net_weight_qtl"], totals["bags"], "",
                   totals["amount"], totals["tax"], totals["total"],
-                  totals["balance"], totals["received"], pending_total]
+                  totals["received"], totals["balance"], pending_total]
     for c, v in enumerate(total_vals, 1):
         cell = ws.cell(row=tr, column=c, value=v)
         cell.font = Font(bold=True, size=11, color=navy)
         cell.fill = PatternFill(start_color=total_bg, end_color=total_bg, fill_type="solid")
         cell.border = Border(left=thin, right=thin, top=thick, bottom=thick)
-        if c >= 7:
+        if c >= 9:
             cell.alignment = Alignment(horizontal="right", vertical="center")
-            if c in (9, 10, 11, 12, 13, 14, 15, 7):
-                cell.number_format = '#,##0.00'
-            elif c == 8:
+            if c == 10:
                 cell.number_format = '#,##0'
+            else:
+                cell.number_format = '#,##0.00'
         else:
             cell.alignment = Alignment(horizontal="left", vertical="center")
     ws.row_dimensions[tr].height = 22
@@ -536,8 +536,8 @@ async def export_total_sales_excel(
     ws.cell(row=tr + 2, column=1, value=f"Generated: {datetime.now(timezone.utc).strftime('%d-%m-%Y %H:%M')} UTC  •  Rows: {len(rows)}").font = Font(size=8, italic=True, color="64748B")
     ws.merge_cells(f"A{tr + 2}:{last_col}{tr + 2}")
 
-    # Column widths
-    widths = [11, 14, 7, 13, 22, 14, 11, 7, 10, 13, 10, 13, 13, 13, 13]
+    # Column widths — Date, Voucher, BillNo, RST, Vehicle, BillFrom, Party, Destination, NW, Bags, Rate, Amount, Tax, Total, Received, Balance, Pending
+    widths = [11, 14, 11, 7, 13, 13, 22, 14, 11, 7, 10, 13, 10, 13, 13, 13, 13]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
@@ -631,9 +631,9 @@ async def export_total_sales_pdf(
     elems.append(Spacer(1, 0.35 * cm))
 
     # Data table
-    headers = ["Date", "Voucher", "RST", "Vehicle", "Party", "Destination",
+    headers = ["Date", "Voucher", "Bill No", "RST", "Vehicle", "Bill From", "Party", "Destination",
                "N/W (Qtl)", "Bags", "Rate/Q", "Amount", "Tax", "Total",
-               "Balance", "Received", "Pending"]
+               "Received", "Balance", "Pending"]
     table_data = [headers]
     split_bg_rows = []  # (row_index, is_pka)
     for r in rows:
@@ -644,8 +644,10 @@ async def export_total_sales_pdf(
         table_data.append([
             (r.get("date", "") or "")[-5:].replace("-", "/") if r.get("date") else "",
             voucher_disp,
+            (r.get("bill_number", "") or "")[:12],
             r.get("rst_no", "") or "",
             r.get("vehicle_no", "") or "",
+            (r.get("bill_from", "") or "")[:12],
             (r.get("party_name", "") or "")[:22],
             (r.get("destination", "") or "")[:13],
             f"{r.get('net_weight_qtl', 0):,.2f}",
@@ -654,8 +656,8 @@ async def export_total_sales_pdf(
             f"{r.get('amount', 0):,.2f}",
             f"{r.get('tax', 0):,.2f}",
             f"{r.get('total', 0):,.2f}",
-            f"{r.get('balance', 0):,.2f}",
             f"{r.get('advance', 0):,.2f}",
+            f"{r.get('balance', 0):,.2f}",
             f"{pending:,.2f}",
         ])
         if r.get("split_type") == "PKA":
@@ -665,13 +667,14 @@ async def export_total_sales_pdf(
 
     # Totals row
     table_data.append([
-        "TOTALS", "", "", "", "", "",
+        "TOTALS", "", "", "", "", "", "", "",
         f"{totals['net_weight_qtl']:,.2f}", f"{totals['bags']:,}", "",
         f"{totals['amount']:,.2f}", f"{totals['tax']:,.2f}", f"{totals['total']:,.2f}",
-        f"{totals['balance']:,.2f}", f"{totals['received']:,.2f}", f"{pending_total:,.2f}",
+        f"{totals['received']:,.2f}", f"{totals['balance']:,.2f}", f"{pending_total:,.2f}",
     ])
 
-    col_widths_cm = [1.6, 2.3, 1.0, 2.0, 4.6, 2.1, 2.0, 1.2, 1.6, 2.4, 1.6, 2.4, 2.3, 2.3, 2.3]
+    # Column widths (cm) — Date,Voucher,BillNo,RST,Vehicle,BillFrom,Party,Destination,NW,Bags,Rate,Amount,Tax,Total,Recv,Balance,Pending
+    col_widths_cm = [1.5, 1.9, 1.7, 1.0, 1.8, 1.8, 4.0, 2.0, 1.7, 1.0, 1.4, 2.1, 1.4, 2.1, 2.0, 2.0, 2.0]
     col_widths = [w * cm for w in col_widths_cm]
 
     style_cmds = [
@@ -688,8 +691,8 @@ async def export_total_sales_pdf(
         ("FONTNAME", (0, 1), (-1, -2), "Helvetica"),
         ("FONTSIZE", (0, 1), (-1, -2), 8),
         ("VALIGN", (0, 1), (-1, -1), "MIDDLE"),
-        ("ALIGN", (6, 1), (-1, -1), "RIGHT"),
-        ("ALIGN", (0, 1), (5, -1), "LEFT"),
+        ("ALIGN", (8, 1), (-1, -1), "RIGHT"),
+        ("ALIGN", (0, 1), (7, -1), "LEFT"),
         ("TOPPADDING", (0, 1), (-1, -1), 4),
         ("BOTTOMPADDING", (0, 1), (-1, -1), 4),
         ("LEFTPADDING", (0, 0), (-1, -1), 4),
