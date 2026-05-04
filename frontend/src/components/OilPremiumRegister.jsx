@@ -90,7 +90,7 @@ export default function OilPremiumRegister({ filters, user }) {
   };
 
   // Calculations
-  const branType = form.bran_type || "Boiled";
+  const branType = form.bran_type || "Raw";
   const standard = branType === "Raw" ? 22 : 25;
   const actual = parseFloat(form.actual_oil_pct) || 0;
   const rate = parseFloat(form.rate) || 0;
@@ -108,7 +108,7 @@ export default function OilPremiumRegister({ filters, user }) {
     setEditingId(item.id);
     setForm({
       date: item.date || "", voucher_no: item.voucher_no || "", rst_no: item.rst_no || "",
-      bran_type: item.bran_type || "Boiled", party_name: item.party_name || "",
+      bran_type: item.bran_type || "Raw", party_name: item.party_name || "",
       rate: item.rate ? String(item.rate) : "", qty_qtl: item.qty_qtl ? String(item.qty_qtl) : "",
       party_w_qtl: item.party_w_qtl ? String(item.party_w_qtl) : "",
       actual_oil_pct: item.actual_oil_pct ? String(item.actual_oil_pct) : "",
