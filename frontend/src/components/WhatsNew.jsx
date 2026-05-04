@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.98",
+    date: "Feb 04, 2026",
+    title: "v104.44.98 — Triple Backend Parity Complete + Round-Off Suite",
+    items: [
+      { type: "feature", text: "🔄 **Global Auto Round-Off** — Backend mein DB-level wrapper add kiya. Saare amount fields (cash_transactions, local_party_accounts, all payment collections) automatically commercial round (49.50→50, 49.49→49) hote hain. Paise (.XX) kabhi nahi reh jayenge ledger mein." },
+      { type: "feature", text: "🗑️ **Cascade Delete on Sale** — BP Sale delete karne par linked Lab Test (oil_premium) + Party Weights + dono ke ledger entries automatically cascade delete ho jate hain. Triple parity: Python + Desktop Node + Local-Server Node." },
+      { type: "fix", text: "🐛 **Double Amount Bug Fix** — Cash receive save par jama mein 2 entries dikhte the briefly (refresh par hatte the). Root cause: auto_ledger entry ka description mismatch hota tha. Fix: POST handler ab default description PRE-INSERT generate karta hai → both entries have same desc → dedup works first render onward." },
+      { type: "feature", text: "⚖️ **Triple Parity Audit & Fix** — Lab Test Premium → cash_transactions auto-sync ab Desktop Node + Local-Server Node mein bhi available. Yarn build:win karne par desktop app mein bhi yeh sab features kaam karenge." },
+    ],
+  },
+  {
     version: "104.44.97",
     date: "Feb 04, 2026",
     title: "v104.44.97 — Oil Premium + Sales Register Upgrade",
