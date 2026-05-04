@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.97",
+    date: "Feb 04, 2026",
+    title: "v104.44.97 — Oil Premium + Sales Register Upgrade",
+    items: [
+      { type: "feature", text: "🛢️ **New Oil Premium form**: RST No pehle, Voucher No baad mein. Naya **Party W (Qtl)** field add — Party Weight Register se auto-fetch hota hai aur Qty (Qtl) ko auto-sync karta hai. Premium ab Party scale par base hota hai (agar PW entry hai) warna Mill Weight fallback." },
+      { type: "improvement", text: "🌾 **Bran Type default: Raw (22%)** — Boiled ki jagah Raw default select hota hai. Backend Python + Desktop Node + Local-Server Node teeno mein fallback fix (save hone par bhi `bran_type: Raw` persist)." },
+      { type: "feature", text: "📊 **Sales Register (Rice Bran / BP)**: `N/W (Qtl)` → **M/W (Qtl)** rename. Naya **P/W (Qtl)** column add jo Party Weight Register se values auto-fetch karta hai. P/W column sirf **ALL mode** mein dikhta hai (PKA/KCA filters mein hidden). Excel + PDF exports mein bhi ye logic mirror — pura triple backend parity." },
+      { type: "fix", text: "🧹 **Data Clear utility** — Master/user data safe rakhte huye saare transactional data (sales, payments, ledgers, lab tests, party weights) ek click mein clear karne ka backend script." },
+    ],
+  },
+  {
     version: "104.44.86",
     date: "Feb 17, 2026",
     title: "v104.44.86 — Total Sales: Govt Rice / SaleBook included",
