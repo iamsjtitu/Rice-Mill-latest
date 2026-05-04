@@ -95,7 +95,8 @@ async def create_oil_premium(data: dict, username: str = "", role: str = ""):
     data["updated_at"] = data["created_at"]
     data["created_by"] = username
 
-    bran_type = data.get("bran_type", "Boiled")
+    bran_type = data.get("bran_type") or "Raw"
+    data["bran_type"] = bran_type
     standard = STANDARD_OIL.get(bran_type, 25)
     actual = float(data.get("actual_oil_pct", 0) or 0)
     rate = float(data.get("rate", 0) or 0)
@@ -120,7 +121,8 @@ async def update_oil_premium(item_id: str, data: dict, username: str = "", role:
     data["updated_at"] = datetime.now(timezone.utc).isoformat()
     data["updated_by"] = username
 
-    bran_type = data.get("bran_type", "Boiled")
+    bran_type = data.get("bran_type") or "Raw"
+    data["bran_type"] = bran_type
     standard = STANDARD_OIL.get(bran_type, 25)
     actual = float(data.get("actual_oil_pct", 0) or 0)
     rate = float(data.get("rate", 0) or 0)

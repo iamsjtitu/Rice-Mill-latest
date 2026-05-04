@@ -27,7 +27,8 @@ module.exports = function(database) {
     data.updated_at = data.created_at;
     data.created_by = req.query.username || '';
 
-    const branType = data.bran_type || 'Boiled';
+    const branType = data.bran_type || 'Raw';
+    data.bran_type = branType;
     const standard = STANDARD_OIL[branType] || 25;
     const actual = parseFloat(data.actual_oil_pct || 0);
     const rate = parseFloat(data.rate || 0);
@@ -51,7 +52,8 @@ module.exports = function(database) {
     data.updated_at = new Date().toISOString();
     data.updated_by = req.query.username || '';
 
-    const branType = data.bran_type || 'Boiled';
+    const branType = data.bran_type || 'Raw';
+    data.bran_type = branType;
     const standard = STANDARD_OIL[branType] || 25;
     const actual = parseFloat(data.actual_oil_pct || 0);
     const rate = parseFloat(data.rate || 0);
