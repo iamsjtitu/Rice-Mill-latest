@@ -118,6 +118,8 @@ module.exports = function(database) {
   router.post('/api/rice-sales', safeSync(async (req, res) => {
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const d = { id: require('crypto').randomUUID(), ...req.body, _v: 1, created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    // v104.44.88 — Normalize party_name to prevent duplicate ledgers from case/space differences
+    d.party_name = (d.party_name || '').trim().toUpperCase();
     d.quantity_qntl = parseFloat(d.quantity_qntl) || 0; d.rate_per_qntl = parseFloat(d.rate_per_qntl) || 0;
     d.bags = parseInt(d.bags) || 0; d.paid_amount = parseFloat(d.paid_amount) || 0;
     d.total_amount = Math.round(d.quantity_qntl * d.rate_per_qntl * 100) / 100;
@@ -154,6 +156,8 @@ module.exports = function(database) {
       }
     }
     const merged = { ...current, ...body, _v: (current._v || 0) + 1, updated_at: new Date().toISOString() };
+    // v104.44.88 — Normalize party_name to prevent duplicate ledgers from case/space differences
+    merged.party_name = (merged.party_name || '').trim().toUpperCase();
     merged.quantity_qntl = parseFloat(merged.quantity_qntl) || 0; merged.rate_per_qntl = parseFloat(merged.rate_per_qntl) || 0;
     merged.bags = parseInt(merged.bags) || 0; merged.paid_amount = parseFloat(merged.paid_amount) || 0;
     merged.total_amount = Math.round(merged.quantity_qntl * merged.rate_per_qntl * 100) / 100;

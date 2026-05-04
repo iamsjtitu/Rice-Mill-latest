@@ -336,10 +336,12 @@ async def create_rice_sale(data: dict, username: str = "", role: str = ""):
     rate = float(data.get("rate_per_qntl", 0) or 0)
     total = round(qty * rate, 2)
     paid = float(data.get("paid_amount", 0) or 0)
+    # v104.44.88 — Normalize party_name to prevent duplicate ledgers from case/space differences
+    party_norm = (data.get("party_name") or "").strip().upper()
     doc = {
         "id": str(uuid.uuid4()), "date": data.get("date", ""),
         "kms_year": data.get("kms_year", ""), "season": data.get("season", ""),
-        "party_name": data.get("party_name", ""), "rice_type": data.get("rice_type", ""),
+        "party_name": party_norm, "rice_type": data.get("rice_type", ""),
         "rst_no": data.get("rst_no", ""),
         "quantity_qntl": qty, "rate_per_qntl": rate, "total_amount": total,
         "bags": int(data.get("bags", 0) or 0), "truck_no": data.get("truck_no", ""),
@@ -482,6 +484,9 @@ async def update_rice_sale(item_id: str, request: Request):
     for f in ["quantity_qntl", "rate_per_qntl", "paid_amount", "cash_paid", "diesel_paid"]:
         if f in update_data: update_data[f] = float(update_data[f]) if update_data[f] != "" else 0
     if "bags" in update_data: update_data["bags"] = int(update_data["bags"]) if update_data["bags"] != "" else 0
+    # v104.44.88 — Normalize party_name to prevent duplicate ledgers from case/space differences
+    if "party_name" in update_data:
+        update_data["party_name"] = (update_data["party_name"] or "").strip().upper()
     merged = {**existing, **update_data}
     merged["total_amount"] = round(merged["quantity_qntl"] * merged["rate_per_qntl"], 2)
     merged["balance"] = round(merged["total_amount"] - merged.get("paid_amount", 0), 2)
