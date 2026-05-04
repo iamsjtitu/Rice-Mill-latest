@@ -47,6 +47,35 @@ async def _fetch_party_received(party: str, kms_year: str = "", season: str = ""
     return round(sum(_safe_num(r.get('amount', 0)) for r in grouped.values()), 2)
 
 
+async def _build_party_weight_map(bp_items: list, rs_items: list = None, sv_items: list = None) -> dict:
+    """v104.44.93 — Fetch party_weights for all vouchers in given sales.
+    Returns map: voucher_no -> {shortage_kg, excess_kg}.
+    Uses voucher_no as primary key (same voucher across products gets bucketed)."""
+    voucher_set = set()
+    for s in bp_items or []:
+        v = (s.get('voucher_no') or '').strip()
+        if v: voucher_set.add(v)
+    for s in (rs_items or []):
+        v = (s.get('voucher_no') or '').strip()
+        if v: voucher_set.add(v)
+    for s in (sv_items or []):
+        v = (s.get('voucher_no') or '').strip()
+        if v: voucher_set.add(v)
+    if not voucher_set:
+        return {}
+    items = await db.party_weights.find({"voucher_no": {"$in": list(voucher_set)}},
+                                          {"_id": 0, "voucher_no": 1, "shortage_kg": 1, "excess_kg": 1}).to_list(20000)
+    pmap = {}
+    for it in items:
+        v = (it.get('voucher_no') or '').strip()
+        s = float(it.get('shortage_kg', 0) or 0)
+        e = float(it.get('excess_kg', 0) or 0)
+        rec = pmap.setdefault(v, {"shortage_kg": 0.0, "excess_kg": 0.0})
+        rec["shortage_kg"] += s
+        rec["excess_kg"] += e
+    return pmap
+
+
 async def _build_premium_map(bp_items: list) -> dict:
     """v104.44.90 — Fetch oil_premium for all vouchers/RSTs in given BP sales.
     Returns map: voucher_no_or_rst -> premium_amount (signed).
@@ -289,6 +318,9 @@ async def get_total_sales(
             q_common["date"]["$lte"] = date_to
 
     rows = []
+    bp_items = []
+    rs_items = []
+    sv_items = []
     # BP Sale Register
     if source in (None, "bp_sale"):
         q_bp = dict(q_common)
@@ -325,6 +357,19 @@ async def get_total_sales(
                 if product.lower() not in (row.get("product") or "").lower():
                     continue
             rows.append(row)
+
+    # v104.44.93 — Enrich rows with party_weight shortage/excess (matched by voucher_no)
+    pw_map = await _build_party_weight_map(bp_items, rs_items, sv_items)
+    for r in rows:
+        v = (r.get("voucher_no") or "").strip()
+        pw = pw_map.get(v) if v else None
+        # For split rows: only KCA carries the shortage/excess (mirrors auto-adjust target)
+        if r.get("split_type") == "PKA":
+            r["shortage_kg"] = 0.0
+            r["excess_kg"] = 0.0
+        else:
+            r["shortage_kg"] = round(pw.get("shortage_kg", 0.0), 2) if pw else 0.0
+            r["excess_kg"] = round(pw.get("excess_kg", 0.0), 2) if pw else 0.0
 
     # v104.44.87 — Allocate payments from cash_transactions per party (FIFO by date).
     # BP split rows use suffixed party_name: "PartyName (PKA)" / "PartyName (KCA)".
@@ -379,6 +424,8 @@ async def get_total_sales(
         "total": round(sum(r["total"] for r in rows), 2),
         "balance": round(sum(r["balance"] for r in rows), 2),
         "received": round(sum(r["advance"] for r in rows), 2),
+        "shortage_kg": round(sum(r.get("shortage_kg", 0) or 0 for r in rows), 2),
+        "excess_kg": round(sum(r.get("excess_kg", 0) or 0 for r in rows), 2),
     }
 
     # Party grouping
@@ -437,7 +484,7 @@ async def export_total_sales_excel(
 
     headers = ["Date", "Voucher", "Bill No", "RST", "Vehicle", "Bill From", "Party", "Destination",
                "N/W (Qtl)", "Bags", "Rate/Q", "Amount", "Tax", "Total",
-               "Received(T)", "Balance(T)"]
+               "Received(T)", "Balance(T)", "Shortage(Kg)"]
 
     # Title area (rows 1-3)
     last_col = get_column_letter(len(headers))
@@ -481,6 +528,7 @@ async def export_total_sales_excel(
             r.get("net_weight_qtl", 0), r.get("bags", 0), r.get("rate_per_qtl", 0),
             r.get("amount", 0), r.get("tax", 0), r.get("total", 0),
             r.get("advance", 0), r.get("balance", 0),
+            round(float(r.get("shortage_kg", 0) or 0), 2),
         ]
         # Row color based on split_type
         row_fill = None
@@ -514,7 +562,8 @@ async def export_total_sales_excel(
     total_vals = ["TOTALS", "", "", "", "", "", "", "",
                   totals["net_weight_qtl"], totals["bags"], "",
                   totals["amount"], totals["tax"], totals["total"],
-                  totals["received"], totals["balance"]]
+                  totals["received"], totals["balance"],
+                  totals.get("shortage_kg", 0)]
     for c, v in enumerate(total_vals, 1):
         cell = ws.cell(row=tr, column=c, value=v)
         cell.font = Font(bold=True, size=11, color=navy)
@@ -534,8 +583,8 @@ async def export_total_sales_excel(
     ws.cell(row=tr + 2, column=1, value=f"Generated: {datetime.now(timezone.utc).strftime('%d-%m-%Y %H:%M')} UTC  •  Rows: {len(rows)}").font = Font(size=8, italic=True, color="64748B")
     ws.merge_cells(f"A{tr + 2}:{last_col}{tr + 2}")
 
-    # Column widths — Date, Voucher, BillNo, RST, Vehicle, BillFrom, Party, Destination, NW, Bags, Rate, Amount, Tax, Total, Received(T), Balance(T)
-    widths = [11, 14, 11, 7, 13, 13, 22, 14, 11, 7, 10, 13, 10, 13, 14, 14]
+    # Column widths — Date, Voucher, BillNo, RST, Vehicle, BillFrom, Party, Destination, NW, Bags, Rate, Amount, Tax, Total, Received(T), Balance(T), Shortage
+    widths = [11, 14, 11, 7, 13, 13, 22, 14, 11, 7, 10, 13, 10, 13, 14, 14, 12]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
@@ -630,7 +679,7 @@ async def export_total_sales_pdf(
     # Data table
     headers = ["Date", "Voucher", "Bill No", "RST", "Vehicle", "Bill From", "Party", "Destination",
                "N/W (Qtl)", "Bags", "Rate/Q", "Amount", "Tax", "Total",
-               "Received(T)", "Balance(T)"]
+               "Received(T)", "Balance(T)", "Shortage(Kg)"]
     table_data = [headers]
     split_bg_rows = []  # (row_index, is_pka)
     for r in rows:
@@ -654,6 +703,7 @@ async def export_total_sales_pdf(
             f"{r.get('total', 0):,.2f}",
             f"{r.get('advance', 0):,.2f}",
             f"{r.get('balance', 0):,.2f}",
+            f"{float(r.get('shortage_kg', 0) or 0):,.2f}" if (r.get('shortage_kg') or 0) > 0 else "—",
         ])
         if r.get("split_type") == "PKA":
             split_bg_rows.append((len(table_data) - 1, True))
@@ -666,10 +716,11 @@ async def export_total_sales_pdf(
         f"{totals['net_weight_qtl']:,.2f}", f"{totals['bags']:,}", "",
         f"{totals['amount']:,.2f}", f"{totals['tax']:,.2f}", f"{totals['total']:,.2f}",
         f"{totals['received']:,.2f}", f"{totals['balance']:,.2f}",
+        f"{totals.get('shortage_kg', 0):,.2f}",
     ])
 
-    # Column widths (cm) — Date,Voucher,BillNo,RST,Vehicle,BillFrom,Party,Destination,NW,Bags,Rate,Amount,Tax,Total,Recv(T),Bal(T)
-    col_widths_cm = [1.5, 1.9, 1.7, 1.0, 1.8, 1.8, 4.0, 2.0, 1.7, 1.0, 1.4, 2.1, 1.4, 2.1, 2.2, 2.2]
+    # Column widths (cm) — Date,Voucher,BillNo,RST,Vehicle,BillFrom,Party,Destination,NW,Bags,Rate,Amount,Tax,Total,Recv(T),Bal(T),Shortage
+    col_widths_cm = [1.5, 1.9, 1.5, 0.9, 1.7, 1.6, 3.6, 1.8, 1.6, 0.9, 1.3, 1.9, 1.3, 1.9, 1.9, 1.9, 1.6]
     col_widths = [w * cm for w in col_widths_cm]
 
     style_cmds = [

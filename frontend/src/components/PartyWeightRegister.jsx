@@ -1,4 +1,5 @@
 // v104.44.70 — Party Weight Register (tracks party dharam-kaata weight per voucher)
+// v104.44.93 — Filter bar, summary strip, Excel/PDF/WhatsApp/Group exports
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { fmtDate } from "@/utils/date";
@@ -8,17 +9,29 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, Scale, Search } from "lucide-react";
+import { Plus, Edit, Trash2, Scale, Search, FileSpreadsheet, FileText, Users, X } from "lucide-react";
 import { commercialRound } from "../utils/roundOff";
+import { SendToGroupDialog } from "./SendToGroupDialog";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
+
+const WhatsAppIcon = ({ className = "w-3.5 h-3.5" }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+    <path d="M20.52 3.48A11.77 11.77 0 0 0 12.02 0C5.46 0 .12 5.33.12 11.9a11.8 11.8 0 0 0 1.6 5.95L0 24l6.3-1.65a11.88 11.88 0 0 0 5.72 1.46h.01c6.56 0 11.9-5.33 11.9-11.9a11.76 11.76 0 0 0-3.41-8.43zM12.03 21.8h-.01a9.88 9.88 0 0 1-5.04-1.38l-.36-.21-3.74.98 1-3.64-.23-.37a9.85 9.85 0 0 1-1.52-5.28c0-5.47 4.45-9.9 9.9-9.9 2.65 0 5.14 1.03 7.01 2.9a9.87 9.87 0 0 1 2.9 7.02c0 5.46-4.45 9.9-9.91 9.9zm5.43-7.41c-.3-.15-1.76-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.76.97-.93 1.17-.17.2-.34.22-.64.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.64-2.05-.17-.3-.02-.47.13-.62.13-.13.3-.34.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51-.17-.01-.37-.01-.57-.01-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.48 0 1.47 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.3 1.26.48 1.69.62.71.22 1.35.19 1.86.12.57-.08 1.76-.72 2-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35z"/>
+  </svg>
+);
 
 export default function PartyWeightRegister({ filters, user, product }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState(null);
+  // v104.44.93 — Local search filters
+  const [search, setSearch] = useState({ party_name: "", voucher_no: "", vehicle_no: "", date_from: "", date_to: "" });
+  const [groupOpen, setGroupOpen] = useState(false);
+  const [groupText, setGroupText] = useState("");
+  const [groupPdfUrl, setGroupPdfUrl] = useState("");
   const [form, setForm] = useState({
     voucher_no: "",
     date: "",
@@ -31,25 +44,91 @@ export default function PartyWeightRegister({ filters, user, product }) {
     party_net_weight_qtl: "",
     remark: "",
     locked: true,  // our fields locked by default
+    auto_adjust: true,  // v104.44.93 — auto-adjust BP sale on save (default ON)
   });
   const [lookupBusy, setLookupBusy] = useState(false);
   const [voucherLocked, setVoucherLocked] = useState(false);  // true after successful fetch
 
+  const buildParams = useCallback(() => {
+    const p = new URLSearchParams();
+    if (product) p.append("product", product);
+    if (filters.kms_year) p.append("kms_year", filters.kms_year);
+    if (filters.season) p.append("season", filters.season);
+    if (search.party_name) p.append("party_name", search.party_name);
+    if (search.voucher_no) p.append("voucher_no", search.voucher_no);
+    if (search.vehicle_no) p.append("vehicle_no", search.vehicle_no);
+    if (search.date_from) p.append("date_from", search.date_from);
+    if (search.date_to) p.append("date_to", search.date_to);
+    return p.toString();
+  }, [product, filters, search]);
+
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (product) params.append("product", product);
-      if (filters.kms_year) params.append("kms_year", filters.kms_year);
-      if (filters.season) params.append("season", filters.season);
-      const res = await axios.get(`${API}/party-weight?${params}`);
+      const res = await axios.get(`${API}/party-weight?${buildParams()}`);
       setItems(res.data || []);
     } catch (e) {
       toast.error("Load fail: " + (e.response?.data?.detail || e.message));
     } finally { setLoading(false); }
-  }, [product, filters]);
+  }, [buildParams]);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
+
+  // v104.44.93 — Excel / PDF / WhatsApp / Group exports
+  const doExport = (kind) => {
+    const url = `${API}/party-weight/export/${kind}?${buildParams()}`;
+    window.open(url, "_blank");
+  };
+
+  const buildSummaryText = useCallback(() => {
+    const ts = items.reduce((s, i) => s + (i.shortage_kg || 0), 0);
+    const te = items.reduce((s, i) => s + (i.excess_kg || 0), 0);
+    const sc = items.filter(i => (i.shortage_kg || 0) > 0).length;
+    const ec = items.filter(i => (i.excess_kg || 0) > 0).length;
+    const lines = [
+      `*Party Weight Register* — ${product}`,
+      `KMS: ${filters.kms_year || "ALL"} · ${filters.season || ""}`.trim(),
+      search.date_from || search.date_to ? `Date: ${search.date_from || 'start'} → ${search.date_to || 'today'}` : null,
+      search.party_name ? `Party: ${search.party_name}` : null,
+      ``,
+      `Records: ${items.length}`,
+      `Shortage Cases: ${sc}  ·  Total: ${ts.toFixed(2)} Kg`,
+      `Excess Cases: ${ec}  ·  Total: ${te.toFixed(2)} Kg`,
+    ].filter(Boolean);
+    return lines.join("\n");
+  }, [items, product, filters, search]);
+
+  const handleWhatsApp = async () => {
+    try {
+      const url = `${API}/party-weight/export/pdf?${buildParams()}`;
+      const fname = `party_weight_${product}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      const summary = buildSummaryText();
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error("PDF fetch failed");
+      const blob = await resp.blob();
+      const file = new File([blob], fname, { type: "application/pdf" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ title: "Party Weight Register", text: summary, files: [file] });
+        toast.success("Share dialog open");
+      } else {
+        const dlUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = dlUrl; a.download = fname; a.click();
+        setTimeout(() => URL.revokeObjectURL(dlUrl), 1000);
+        window.open(`https://wa.me/?text=${encodeURIComponent(summary)}`, "_blank");
+        toast.success("PDF downloaded + WhatsApp opened — manually attach", { duration: 5000 });
+      }
+    } catch (e) { toast.error("WhatsApp share fail: " + (e.message || e)); }
+  };
+
+  const handleGroup = () => {
+    setGroupText(buildSummaryText());
+    setGroupPdfUrl(`${API}/party-weight/export/pdf?${buildParams()}`);
+    setGroupOpen(true);
+  };
+
+  const clearSearch = () => setSearch({ party_name: "", voucher_no: "", vehicle_no: "", date_from: "", date_to: "" });
+  const hasActiveSearch = !!(search.party_name || search.voucher_no || search.vehicle_no || search.date_from || search.date_to);
 
   const openNew = () => {
     setEditId(null);
@@ -58,7 +137,7 @@ export default function PartyWeightRegister({ filters, user, product }) {
       voucher_no: "", date: "", party_name: "", vehicle_no: "", rst_no: "",
       our_net_weight_kg: "", our_net_weight_qtl: "",
       party_net_weight_kg: "", party_net_weight_qtl: "",
-      remark: "", locked: true
+      remark: "", locked: true, auto_adjust: true,
     });
     setDialogOpen(true);
   };
@@ -77,7 +156,8 @@ export default function PartyWeightRegister({ filters, user, product }) {
       party_net_weight_kg: String(s.party_net_weight_kg || ""),
       party_net_weight_qtl: ((s.party_net_weight_kg || 0) / 100).toFixed(2),
       remark: s.remark || "",
-      locked: true
+      locked: true,
+      auto_adjust: !!s.auto_adjusted,
     });
     setDialogOpen(true);
   };
@@ -167,6 +247,7 @@ export default function PartyWeightRegister({ filters, user, product }) {
       remark: form.remark,
       kms_year: filters.kms_year || "",
       season: filters.season || "",
+      auto_adjust: !!form.auto_adjust,  // v104.44.93
     };
     try {
       if (editId) {
@@ -199,6 +280,7 @@ export default function PartyWeightRegister({ filters, user, product }) {
 
   return (
     <div className="space-y-3" data-testid="party-weight-register">
+      {/* Header */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
@@ -207,15 +289,80 @@ export default function PartyWeightRegister({ filters, user, product }) {
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400">Party ke dharam kaata ka weight — shortage/excess tracking</p>
         </div>
-        <div className="flex gap-2 items-center">
-          <span className="text-xs text-slate-600 dark:text-slate-400">
-            {items.length} entries | Our: <span className="text-blue-600 dark:text-blue-400 font-bold">{(totOur / 100).toFixed(2)} qtl</span>
-            {" | "}Party: <span className="text-indigo-600 dark:text-indigo-400 font-bold">{(totParty / 100).toFixed(2)} qtl</span>
-            {totShortage > 0 && <> {" | "}Shortage: <span className="text-red-600 dark:text-red-400 font-bold">{(totShortage / 100).toFixed(2)} qtl</span></>}
-            {totExcess > 0 && <> {" | "}Excess: <span className="text-green-600 dark:text-green-400 font-bold">{(totExcess / 100).toFixed(2)} qtl</span></>}
-          </span>
-          <Button onClick={openNew} size="sm" className="bg-cyan-500 hover:bg-cyan-600 text-white" data-testid="pw-add">
-            <Plus className="w-4 h-4 mr-1" /> New
+        <Button onClick={openNew} size="sm" className="bg-cyan-500 hover:bg-cyan-600 text-white" data-testid="pw-add">
+          <Plus className="w-4 h-4 mr-1" /> New Entry
+        </Button>
+      </div>
+
+      {/* Summary strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        <div className="p-2 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" data-testid="pw-stat-records">
+          <p className="text-[9px] text-slate-500 uppercase">Records</p>
+          <p className="text-sm font-bold text-slate-900 dark:text-white">{items.length}</p>
+        </div>
+        <div className="p-2 rounded bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700">
+          <p className="text-[9px] text-blue-600 dark:text-blue-400 uppercase">Our N/W (Qtl)</p>
+          <p className="text-sm font-bold text-blue-700 dark:text-blue-300">{(totOur / 100).toFixed(2)}</p>
+        </div>
+        <div className="p-2 rounded bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700">
+          <p className="text-[9px] text-indigo-600 dark:text-indigo-400 uppercase">Party N/W (Qtl)</p>
+          <p className="text-sm font-bold text-indigo-700 dark:text-indigo-300">{(totParty / 100).toFixed(2)}</p>
+        </div>
+        <div className={`p-2 rounded border ${totShortage > 0 ? "bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700" : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"}`} data-testid="pw-stat-shortage">
+          <p className="text-[9px] text-red-600 dark:text-red-400 uppercase">Shortage (Kg)</p>
+          <p className={`text-sm font-bold tabular-nums ${totShortage > 0 ? "text-red-700 dark:text-red-300" : "text-slate-700 dark:text-slate-200"}`}>{totShortage.toFixed(2)}</p>
+        </div>
+        <div className={`p-2 rounded border ${totExcess > 0 ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-700" : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"}`} data-testid="pw-stat-excess">
+          <p className="text-[9px] text-emerald-600 dark:text-emerald-400 uppercase">Excess (Kg)</p>
+          <p className={`text-sm font-bold tabular-nums ${totExcess > 0 ? "text-emerald-700 dark:text-emerald-300" : "text-slate-700 dark:text-slate-200"}`}>{totExcess.toFixed(2)}</p>
+        </div>
+      </div>
+
+      {/* Filter + Export bar */}
+      <div className="flex flex-wrap items-end gap-2 p-2 rounded bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
+        <div className="flex flex-col gap-0.5">
+          <Label className="text-[10px] text-slate-600 dark:text-slate-400">Party</Label>
+          <Input value={search.party_name} onChange={e => setSearch(s => ({ ...s, party_name: e.target.value }))}
+            placeholder="Party name..." className="h-8 text-xs w-32" data-testid="pw-filter-party" />
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <Label className="text-[10px] text-slate-600 dark:text-slate-400">Voucher</Label>
+          <Input value={search.voucher_no} onChange={e => setSearch(s => ({ ...s, voucher_no: e.target.value }))}
+            placeholder="S-001" className="h-8 text-xs w-24" data-testid="pw-filter-voucher" />
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <Label className="text-[10px] text-slate-600 dark:text-slate-400">Vehicle</Label>
+          <Input value={search.vehicle_no} onChange={e => setSearch(s => ({ ...s, vehicle_no: e.target.value }))}
+            placeholder="OD19..." className="h-8 text-xs w-28" data-testid="pw-filter-vehicle" />
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <Label className="text-[10px] text-slate-600 dark:text-slate-400">From</Label>
+          <Input type="date" value={search.date_from} onChange={e => setSearch(s => ({ ...s, date_from: e.target.value }))}
+            className="h-8 text-xs w-32" data-testid="pw-filter-from" />
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <Label className="text-[10px] text-slate-600 dark:text-slate-400">To</Label>
+          <Input type="date" value={search.date_to} onChange={e => setSearch(s => ({ ...s, date_to: e.target.value }))}
+            className="h-8 text-xs w-32" data-testid="pw-filter-to" />
+        </div>
+        {hasActiveSearch && (
+          <Button onClick={clearSearch} variant="ghost" size="sm" className="h-8 text-xs text-slate-600" data-testid="pw-filter-clear">
+            <X className="w-3 h-3 mr-1" /> Clear
+          </Button>
+        )}
+        <div className="flex-1" />
+        <div className="flex gap-1.5">
+          <Button onClick={() => doExport("excel")} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-xs" data-testid="pw-export-excel">
+            <FileSpreadsheet className="w-3.5 h-3.5 mr-1" /> Excel
+          </Button>
+          <Button onClick={() => doExport("pdf")} size="sm" className="bg-red-600 hover:bg-red-700 text-white h-8 text-xs" data-testid="pw-export-pdf">
+            <FileText className="w-3.5 h-3.5 mr-1" /> PDF
+          </Button>
+          <Button onClick={handleWhatsApp} variant="ghost" size="sm" className="h-8 w-8 p-0 text-[#25D366] hover:bg-green-100 dark:hover:bg-green-900/30 border border-green-600" title="WhatsApp" data-testid="pw-whatsapp">
+            <WhatsAppIcon className="w-4 h-4" />
+          </Button>
+          <Button onClick={handleGroup} variant="ghost" size="sm" className="h-8 w-8 p-0 text-cyan-600 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 border border-cyan-600" title="Send to Group" data-testid="pw-group">
+            <Users className="w-4 h-4" />
           </Button>
         </div>
       </div>
@@ -389,6 +536,27 @@ export default function PartyWeightRegister({ filters, user, product }) {
               />
             </div>
 
+            {/* v104.44.93 — Auto-Adjust checkbox */}
+            <label className="flex items-start gap-2 p-2.5 rounded-lg border-2 border-dashed border-cyan-300 dark:border-cyan-700/50 bg-cyan-50/60 dark:bg-cyan-950/20 cursor-pointer hover:bg-cyan-50 dark:hover:bg-cyan-950/40">
+              <input
+                type="checkbox"
+                checked={!!form.auto_adjust}
+                onChange={e => setForm(p => ({ ...p, auto_adjust: e.target.checked }))}
+                className="mt-0.5 w-4 h-4 accent-cyan-600"
+                data-testid="pw-auto-adjust"
+              />
+              <div className="flex-1 text-xs">
+                <div className="font-bold text-cyan-700 dark:text-cyan-300">Auto-Adjust to Sale Bill</div>
+                <div className="text-cyan-600/80 dark:text-cyan-400/80 mt-0.5">
+                  {diffKg > 0
+                    ? `Shortage ${diffKg} Kg → KCA weight/amount auto-reduce hoga (split bill mein), warna virtual KCA ledger mein party ko credit entry banegi.`
+                    : diffKg < 0
+                      ? `Excess ${Math.abs(diffKg)} Kg → KCA weight/amount auto-add hoga (split bill mein), warna virtual KCA ledger mein party debit entry banegi.`
+                      : "Saving ke time BP sale bill update ho jayega — split mein KCA portion ko adjust karega; solo PKA mein virtual KCA ledger entry banayega."}
+                </div>
+              </div>
+            </label>
+
             <div className="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
               <Button variant="outline" onClick={() => setDialogOpen(false)} className="flex-1">Cancel</Button>
               <Button onClick={handleSave} className="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white" data-testid="pw-save">
@@ -398,6 +566,9 @@ export default function PartyWeightRegister({ filters, user, product }) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* v104.44.93 — Send-to-Group dialog */}
+      <SendToGroupDialog open={groupOpen} onOpenChange={setGroupOpen} text={groupText} pdfUrl={groupPdfUrl} />
     </div>
   );
 }

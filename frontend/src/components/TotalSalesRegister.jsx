@@ -334,11 +334,12 @@ export default function TotalSalesRegister({ filters, user }) {
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[90px] text-right whitespace-nowrap">Total</TableHead>
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[95px] text-right whitespace-nowrap">Received(T)</TableHead>
                 <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[95px] text-right whitespace-nowrap">Balance(T)</TableHead>
+                <TableHead className="text-white text-[11px] font-bold py-2.5 px-2 w-[80px] text-right whitespace-nowrap">Shortage(Kg)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.length === 0 ? (
-                <TableRow><TableCell colSpan={16} className="text-center py-10 text-slate-400">No sales found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={17} className="text-center py-10 text-slate-400">No sales found</TableCell></TableRow>
               ) : rows.map((r, idx) => {
                 const rowClass = r.split_type === "PKA"
                   ? "bg-emerald-50/60 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
@@ -370,6 +371,9 @@ export default function TotalSalesRegister({ filters, user }) {
                     <TableCell className="text-[11px] px-2 py-1.5 text-right tabular-nums font-bold text-slate-900 dark:text-white">₹{fmtNum(r.total)}</TableCell>
                     <TableCell className="text-[11px] px-2 py-1.5 text-right tabular-nums text-cyan-700 dark:text-cyan-400 font-semibold">₹{fmtNum(r.advance)}</TableCell>
                     <TableCell className={`text-[11px] px-2 py-1.5 text-right tabular-nums font-bold ${(r.balance || 0) > 0 ? "text-amber-700 dark:text-amber-400" : "text-emerald-700 dark:text-emerald-400"}`}>₹{fmtNum(r.balance)}</TableCell>
+                    <TableCell className={`text-[11px] px-2 py-1.5 text-right tabular-nums ${(r.shortage_kg || 0) > 0 ? "text-red-600 dark:text-red-400 font-bold" : "text-slate-400"}`} title={r.excess_kg > 0 ? `Excess: ${r.excess_kg} Kg` : ""}>
+                      {(r.shortage_kg || 0) > 0 ? fmtNum(r.shortage_kg) : ((r.excess_kg || 0) > 0 ? `+${fmtNum(r.excess_kg)}` : "—")}
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -384,6 +388,7 @@ export default function TotalSalesRegister({ filters, user }) {
                   <TableCell className="text-[11px] px-2 py-2.5 text-right font-bold tabular-nums text-emerald-800 dark:text-emerald-300">₹{fmtNum(totals.total)}</TableCell>
                   <TableCell className="text-[11px] px-2 py-2.5 text-right font-bold tabular-nums text-cyan-800 dark:text-cyan-300">₹{fmtNum(totals.received)}</TableCell>
                   <TableCell className={`text-[11px] px-2 py-2.5 text-right font-bold tabular-nums ${(totals.balance || 0) > 0 ? "text-amber-800 dark:text-amber-300" : "text-emerald-800 dark:text-emerald-300"}`}>₹{fmtNum(totals.balance)}</TableCell>
+                  <TableCell className={`text-[11px] px-2 py-2.5 text-right font-bold tabular-nums ${(totals.shortage_kg || 0) > 0 ? "text-red-700 dark:text-red-400" : "text-slate-500"}`}>{(totals.shortage_kg || 0) > 0 ? fmtNum(totals.shortage_kg) : "—"}</TableCell>
                 </TableRow>
               )}
             </TableBody>

@@ -1,6 +1,52 @@
 # Rice Mill Management System - PRD
 
-## Current Version: v104.44.92
+## Current Version: v104.44.93
+
+## 🔧 v104.44.93 — Party Weight Register: Major Upgrade
+**Build date:** 2026-02-22
+
+### Features Implemented
+
+#### 1. Excel + PDF Export
+- Professional design (navy header, alternating row bg, shortage→red, excess→green)
+- Stats strip: Records, Shortage Cases, Excess Cases, Total Shortage, Total Excess
+- WhatsApp share button (Web Share API for mobile native share or download+wa.me)
+- Send-to-Group dialog (PDF + summary text) — same `SendToGroupDialog` component as TSR
+
+#### 2. Auto-Adjust to BP Sale Bill
+- New checkbox in Party Weight dialog: "Auto-Adjust to Sale Bill" (default ON)
+- **SPLIT BP sale (PKA + KCA):** reduces `kaccha_weight_kg` by shortage_kg → recomputes `kaccha_amount`, `total`, `balance`. PKA portion untouched.
+- **SOLO PKA BP sale:** creates virtual KCA ledger entry in `cash_transactions` (`category="{party} (KCA)"`, `txn_type=jama` for shortage / `nikasi` for excess) so party gets credit/debit
+- Idempotent: tagged with `reference="party_weight:{id}"`. On update/delete: auto-reverses.
+- New fields on `party_weights`: `auto_adjusted`, `adjust_mode`, `adjust_amount`
+- New field on `bp_sale_register`: `auto_adjust_party_weight_id` (back-reference)
+
+#### 3. Search & Filter Bar
+- Live filters: Party, Voucher#, Vehicle#, Date From, Date To
+- "Clear" button when active
+- Filter params propagated to GET + Excel + PDF endpoints
+
+#### 4. Total Sales Register — Shortage(Kg) Column
+- New 17th column `Shortage(Kg)` after Balance(T)
+- Shows shortage on KCA row only (mirrors auto-adjust target). PKA row always 0.
+- Excess rendered as `+X Kg` in green; shortage in red
+- Excel + PDF + UI all updated
+
+### Triple Parity
+- ✅ Python (`/app/backend/routes/party_weight.py`, `/app/backend/routes/total_sales_register.py`)
+- ✅ Desktop (`/app/desktop-app/routes/party_weight.js`, `/app/desktop-app/routes/total_sales_register.js`)
+- ✅ Local-server (synced from desktop)
+
+### Verified E2E
+| Test | Result |
+|---|---|
+| Split shortage 50Kg → KCA: 3000→2950Kg, ₹90K→₹88.5K | ✅ |
+| Solo PKA shortage 30Kg → cash_transactions JAMA ₹900 | ✅ |
+| Delete PW → reverse adjust (BP restored, txns deleted) | ✅ |
+| TSR shortage column: 50Kg on KCA row, 0 on PKA | ✅ |
+| Excel/PDF: 17 cols with `Shortage(Kg)` | ✅ |
+
+---
 
 ## 🔧 v104.44.92 — Total Sales Register: Header Cleanup
 **Build date:** 2026-02-20

@@ -274,6 +274,26 @@ module.exports = function(database) {
         (r.bill_number || '').toLowerCase().includes(q));
     }
 
+    // v104.44.93 — Enrich rows with party_weight shortage/excess (matched by voucher_no)
+    const pwMap = {};
+    for (const pw of (database.data.party_weights || [])) {
+      const v = String(pw.voucher_no || '').trim();
+      if (!v) continue;
+      const e = pwMap[v] || (pwMap[v] = { shortage_kg: 0, excess_kg: 0 });
+      e.shortage_kg += parseFloat(pw.shortage_kg || 0) || 0;
+      e.excess_kg += parseFloat(pw.excess_kg || 0) || 0;
+    }
+    for (const r of rows) {
+      const v = String(r.voucher_no || '').trim();
+      const pw = v ? pwMap[v] : null;
+      if (r.split_type === 'PKA') {
+        r.shortage_kg = 0; r.excess_kg = 0;
+      } else {
+        r.shortage_kg = pw ? Math.round(pw.shortage_kg * 100) / 100 : 0;
+        r.excess_kg = pw ? Math.round(pw.excess_kg * 100) / 100 : 0;
+      }
+    }
+
     rows.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.id || '').localeCompare(a.id || ''));
 
     const totals = {
@@ -285,6 +305,8 @@ module.exports = function(database) {
       total: round2(rows.reduce((s, r) => s + r.total, 0)),
       balance: round2(rows.reduce((s, r) => s + r.balance, 0)),
       received: round2(rows.reduce((s, r) => s + r.advance, 0)),
+      shortage_kg: round2(rows.reduce((s, r) => s + (r.shortage_kg || 0), 0)),
+      excess_kg: round2(rows.reduce((s, r) => s + (r.excess_kg || 0), 0)),
     };
 
     const parties = {};
@@ -326,7 +348,7 @@ module.exports = function(database) {
       const ws = wb.addWorksheet('Total Sales');
       const headers = ['Date', 'Voucher', 'Bill No', 'RST', 'Vehicle', 'Bill From', 'Party', 'Destination',
                        'N/W (Qtl)', 'Bags', 'Rate/Q', 'Amount', 'Tax', 'Total',
-                       'Received(T)', 'Balance(T)'];
+                       'Received(T)', 'Balance(T)', 'Shortage(Kg)'];
       const lastCol = String.fromCharCode(64 + headers.length);
       ws.mergeCells(`A1:${lastCol}1`);
       ws.getCell('A1').value = 'TOTAL SALES REGISTER';
@@ -354,7 +376,8 @@ module.exports = function(database) {
         const row = ws.addRow([r.date || '', voucherDisp, r.bill_number || '', r.rst_no || '',
           r.vehicle_no || '', r.bill_from || '', r.party_name || '', r.destination || '',
           r.net_weight_qtl, r.bags, r.rate_per_qtl,
-          r.amount, r.tax, r.total, r.advance, r.balance]);
+          r.amount, r.tax, r.total, r.advance, r.balance,
+          Math.round((r.shortage_kg || 0) * 100) / 100]);
         row.height = 18;
         const fillColor = r.split_type === 'PKA' ? 'FFD1FAE5' : r.split_type === 'KCA' ? 'FFFEF3C7' : (idx % 2 ? 'FFF8FAFC' : 'FFFFFFFF');
         row.eachCell((c, cn) => {
@@ -370,7 +393,8 @@ module.exports = function(database) {
       });
 
       const trow = ws.addRow(['TOTALS', '', '', '', '', '', '', '', totals.net_weight_qtl, totals.bags, '',
-        totals.amount, totals.tax, totals.total, totals.received, totals.balance]);
+        totals.amount, totals.tax, totals.total, totals.received, totals.balance,
+        totals.shortage_kg || 0]);
       trow.height = 22;
       trow.eachCell((c, cn) => {
         c.font = { bold: true, size: 11, color: { argb: 'FF1E3A8A' } };
@@ -383,7 +407,7 @@ module.exports = function(database) {
         } else c.alignment = { horizontal: 'left', vertical: 'middle' };
       });
 
-      const widths = [11, 14, 11, 7, 13, 13, 22, 14, 11, 7, 10, 13, 10, 13, 14, 14];
+      const widths = [11, 14, 11, 7, 13, 13, 22, 14, 11, 7, 10, 13, 10, 13, 14, 14, 12];
       widths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
       ws.views = [{ state: 'frozen', ySplit: 4 }];
 
@@ -418,8 +442,8 @@ module.exports = function(database) {
       doc.moveDown(0.5);
 
       // Table layout (manual grid)
-      const headers = ['Date', 'Voucher', 'Bill No', 'RST', 'Vehicle', 'BillFrom', 'Party', 'Dest', 'N/W', 'Bags', 'Rate', 'Amount', 'Tax', 'Total', 'Recv(T)', 'Bal(T)'];
-      const widths = [42, 60, 50, 28, 55, 55, 110, 50, 48, 28, 42, 65, 42, 65, 65, 65];
+      const headers = ['Date', 'Voucher', 'Bill No', 'RST', 'Vehicle', 'BillFrom', 'Party', 'Dest', 'N/W', 'Bags', 'Rate', 'Amount', 'Tax', 'Total', 'Recv(T)', 'Bal(T)', 'Short(Kg)'];
+      const widths = [42, 60, 50, 28, 55, 55, 100, 48, 45, 25, 40, 60, 38, 60, 60, 60, 50];
       const totalW = widths.reduce((a, b) => a + b, 0);
       const startX = (doc.page.width - totalW) / 2;
       let y = doc.y;
@@ -451,7 +475,8 @@ module.exports = function(database) {
           (r.party_name || '').slice(0, 18),
           (r.destination || '').slice(0, 12), r.net_weight_qtl.toFixed(2), String(r.bags),
           String(Math.round(r.rate_per_qtl)), r.amount.toFixed(2), r.tax.toFixed(2),
-          r.total.toFixed(2), r.advance.toFixed(2), r.balance.toFixed(2)];
+          r.total.toFixed(2), r.advance.toFixed(2), r.balance.toFixed(2),
+          (r.shortage_kg || 0) > 0 ? r.shortage_kg.toFixed(2) : '—'];
         doc.fillColor('#0F172A').font('Helvetica').fontSize(7);
         x = startX;
         vals.forEach((v, i) => {
@@ -470,7 +495,8 @@ module.exports = function(database) {
       doc.fillColor('#1E3A8A').font('Helvetica-Bold').fontSize(9);
       const tvals = ['TOTALS', '', '', '', '', '', '', '', totals.net_weight_qtl.toFixed(2), String(totals.bags), '',
         totals.amount.toFixed(2), totals.tax.toFixed(2), totals.total.toFixed(2),
-        totals.received.toFixed(2), totals.balance.toFixed(2)];
+        totals.received.toFixed(2), totals.balance.toFixed(2),
+        (totals.shortage_kg || 0).toFixed(2)];
       x = startX;
       tvals.forEach((v, i) => {
         const align = i >= 8 ? 'right' : 'left';
