@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.101",
+    date: "Feb 04, 2026",
+    title: "v104.44.101 — Leased Truck Auto-Detection + Trip Tracking",
+    items: [
+      { type: "feature", text: "🚛 **Leased Truck Auto-Exclusion** — Jab koi truck (e.g., OD04K2455) Leased Truck mein register hota hai, toh us truck ki entries Truck Payments tab se automatically hat jati hain. Sirf Leased Truck under hi count hoti hain. Lease end hone ke baad ki entries wapas Truck Payments mein dikhne lagti hain." },
+      { type: "feature", text: "🔍 **Trip Tracking Toggle** — Leased Truck row par chevron icon click karke expand kar sakte ho. Dikhta hai: Total Trips, Total Qntl, First/Last trip date, Source/Mandi breakdown (kahan se kitne trip kitna qntl), aur full trip-by-trip table. Aggregates from Mill Entries + Private Paddy + DC In/Out + BP Sale (jaha bhi truck_no/vehicle_no use hua hai)." },
+      { type: "improvement", text: "📊 **Excel + PDF Updated** — Leased Truck reports mein naye columns: Trips, Total Qntl. Grand totals row updated. Removed redundant Advance column from listing." },
+      { type: "improvement", text: "⚖️ **Triple Backend Parity** — Python + Desktop Node + Local-Server Node teeno mein same logic. Parity check & pre-push hook automatically validate karte hain." },
+    ],
+  },
+  {
     version: "104.44.100",
     date: "Feb 04, 2026",
     title: "v104.44.100 — Auto Parity Guarantee 🛡️",
