@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.102",
+    date: "Feb 04, 2026",
+    title: "v104.44.102 — Desktop Close-to-Tray Behavior",
+    items: [
+      { type: "feature", text: "🪟 **Close-to-Tray** — Desktop app ki close (X) button ab software ko **tray mein minimize** karta hai instead of quit. Ek notification dikhata hai: 'Software running in background'. Software pura band karne ke liye **Logout** karein ya **system tray icon par right-click → Quit**." },
+      { type: "feature", text: "🔔 **System Tray Icon** — Bottom-right system tray mein Rice Mill icon dikhega. Double-click se software wapas open hota hai. Right-click pe menu: 'Show Software' aur 'Quit'." },
+      { type: "improvement", text: "🚪 **Logout Quit** — Logout button click karne par ab software fully band ho jata hai (tray ke through nahi minimize). Auto-backup save hoke clean exit." },
+    ],
+  },
+  {
     version: "104.44.101",
     date: "Feb 04, 2026",
     title: "v104.44.101 — Leased Truck Auto-Detection + Trip Tracking",

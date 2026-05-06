@@ -1198,8 +1198,10 @@ function App() {
     sessionStorage.removeItem('mill_user');
     localStorage.removeItem('mill_user');
     toast.success("Logged out - Backup saved!");
-    // Electron: close app instead of showing login page
-    if (window.electronAPI?.closeApp) {
+    // v104.44.102 — Electron: full app quit on Logout (close-to-tray bypass)
+    if (window.electronAPI?.quitAfterLogout) {
+      setTimeout(() => window.electronAPI.quitAfterLogout(), 500);
+    } else if (window.electronAPI?.closeApp) {
       setTimeout(() => window.electronAPI.closeApp(), 500);
     }
   };

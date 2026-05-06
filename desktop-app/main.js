@@ -3,7 +3,7 @@
  * Tally-style Data Folder Selection + Local JSON Database
  */
 
-const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu, Tray, Notification, nativeImage } = require('electron');
 const licenseManager = require('./license-manager');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
@@ -1667,6 +1667,7 @@ function createApiServer(database) {
   process.on('exit', cleanupSession);
   process.on('SIGINT', () => { cleanupSession(); process.exit(); });
   app.on('before-quit', () => {
+    isQuitting = true;
     cleanupSession();
     // Flush any pending saves to disk before quitting
     if (database && database.saveImmediate && database._pendingSave) {
@@ -2280,6 +2281,49 @@ function openFileWithFallback(targetPath) {
   });
 }
 
+// ============ SYSTEM TRAY (v104.44.102) ============
+function initTray() {
+  try {
+    const iconPath = path.join(__dirname, 'icon.png');
+    const trayIcon = nativeImage.createFromPath(iconPath);
+    // Resize to 16x16 on Windows for crisp tray icon
+    const resized = trayIcon.isEmpty() ? trayIcon : trayIcon.resize({ width: 16, height: 16 });
+    tray = new Tray(resized.isEmpty() ? trayIcon : resized);
+    tray.setToolTip('Rice Mill Software - Background mein chal raha hai');
+
+    const contextMenu = Menu.buildFromTemplate([
+      {
+        label: 'Show Software',
+        click: () => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.show();
+            mainWindow.focus();
+          }
+        },
+      },
+      { type: 'separator' },
+      {
+        label: 'Quit (Logout required to safely exit)',
+        click: () => {
+          isQuitting = true;
+          app.quit();
+        },
+      },
+    ]);
+    tray.setContextMenu(contextMenu);
+
+    // Double-click on tray icon → restore window
+    tray.on('double-click', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    });
+  } catch (e) {
+    console.error('[Tray] Init error:', e.message);
+  }
+}
+
 // ============ MAIN APPLICATION WINDOW ============
 async function createMainWindow(port) {
   mainWindow = new BrowserWindow({
@@ -2317,6 +2361,39 @@ async function createMainWindow(port) {
   }, 4000);
 
   mainWindow.once('show', () => clearTimeout(showTimeout));
+
+  // v104.44.102 — Close-to-tray: X button minimizes to system tray instead of quit
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+      // Show one-time notification on first close
+      if (!trayNotificationShown && Notification.isSupported()) {
+        try {
+          const notif = new Notification({
+            title: 'Rice Mill Software running in background',
+            body: 'Software band karne ke liye Logout karein, ya tray icon par right-click karke Quit chunein.',
+            icon: path.join(__dirname, 'icon.png'),
+            silent: false,
+          });
+          notif.show();
+          notif.on('click', () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.show();
+              mainWindow.focus();
+            }
+          });
+          trayNotificationShown = true;
+        } catch (e) {
+          console.error('[Tray] Notification error:', e.message);
+        }
+      }
+      return false;
+    }
+  });
+
+  // Initialize system tray once main window is up
+  if (!tray) initTray();
 
   // Load frontend from Express server
   mainWindow.loadURL(`http://127.0.0.1:${port}`);
@@ -2490,6 +2567,13 @@ async function createMainWindow(port) {
         mainWindow.webContents.focus();
       }
     }
+  });
+
+  // v104.44.102 — Frontend triggers full app quit on Logout
+  ipcMain.on('app-quit-after-logout', () => {
+    isQuitting = true;
+    if (tray) { try { tray.destroy(); } catch (_) {} tray = null; }
+    app.quit();
   });
 
   // IPC: Open Govt Link in new window with auto-fill credentials
@@ -2800,6 +2884,9 @@ ipcMain.on('remove-recent', (event, folderPath) => {
 
 
 ipcMain.on('close-app', () => {
+  // v104.44.102 — Force real quit (used by older Logout flow)
+  isQuitting = true;
+  if (tray) { try { tray.destroy(); } catch (_) {} tray = null; }
   app.quit();
 });
 
@@ -3400,10 +3487,18 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+  // v104.44.102 — Don't auto-quit unless explicit Quit/Logout (close-to-tray active)
+  if (!isQuitting && tray) return;
   cleanupSerial();
   if (server) server.close();
   if (process.platform !== 'darwin') {
     app.quit();
+  }
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createSplashWindow();
   }
 });
 

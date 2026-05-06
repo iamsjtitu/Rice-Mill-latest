@@ -46,6 +46,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   downloadAndSave: (url, filename) => ipcRenderer.invoke('download-and-save', url, filename),
   // Close/Quit app
   closeApp: () => ipcRenderer.send('close-app'),
+  // v104.44.102 — Trigger full app quit on Logout (skips close-to-tray)
+  quitAfterLogout: () => ipcRenderer.send('app-quit-after-logout'),
   // Govt Link - open in new window with auto-fill
   openGovtLink: (data) => ipcRenderer.send('open-govt-link', data),
 
