@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.104",
+    date: "Feb 04, 2026",
+    title: "v104.44.104 — Critical Boot Fix (tray variable)",
+    items: [
+      { type: "fix", text: "🚨 **Critical Boot Crash Fix** — v104.44.102 / v104.44.103 mein 'tray is not defined' ReferenceError aa raha tha aur app open nahi ho raha tha. Root cause: pichle edit mein global variable declarations (`let tray, isQuitting, trayNotificationShown`) accidentally remove ho gaye the. Ab properly declared at top. Software ab smoothly boot karega." },
+      { type: "improvement", text: "✅ **Lint passes** — Sare lint checks clean. Pre-push hook automatically check kar raha hai. Aage iss tarah ka issue regression nahi hoga." },
+    ],
+  },
+  {
     version: "104.44.103",
     date: "Feb 04, 2026",
     title: "v104.44.103 — Desktop Boot Crash Fix (Tray)",

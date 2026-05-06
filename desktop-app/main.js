@@ -70,6 +70,10 @@ let db = null;
 let server = null;
 let manualCheckInProgress = false;
 let dbEngine = 'sqlite';
+// v104.44.102 — Tray icon + close-to-tray behavior
+let tray = null;
+let isQuitting = false;
+let trayNotificationShown = false;
 const DESKTOP_API_PORT = 9876;
 global.DESKTOP_API_PORT = DESKTOP_API_PORT;
 const MAX_BACKUPS = 7;
