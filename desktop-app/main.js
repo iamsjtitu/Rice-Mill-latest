@@ -2283,11 +2283,27 @@ function openFileWithFallback(targetPath) {
 
 // ============ SYSTEM TRAY (v104.44.102) ============
 function initTray() {
+  if (tray) return;
   try {
-    const iconPath = path.join(__dirname, 'icon.png');
-    const trayIcon = nativeImage.createFromPath(iconPath);
-    // Resize to 16x16 on Windows for crisp tray icon
-    const resized = trayIcon.isEmpty() ? trayIcon : trayIcon.resize({ width: 16, height: 16 });
+    // Prefer icon.png; fallback to icon.ico on Windows
+    const candidates = [
+      path.join(__dirname, 'icon.png'),
+      path.join(__dirname, 'icon.ico'),
+    ];
+    let trayIcon = null;
+    for (const p of candidates) {
+      try {
+        if (require('fs').existsSync(p)) {
+          const img = nativeImage.createFromPath(p);
+          if (img && !img.isEmpty()) { trayIcon = img; break; }
+        }
+      } catch (_) {}
+    }
+    if (!trayIcon) {
+      console.warn('[Tray] No icon found — skipping tray creation (close-to-tray disabled).');
+      return;
+    }
+    const resized = trayIcon.resize({ width: 16, height: 16 });
     tray = new Tray(resized.isEmpty() ? trayIcon : resized);
     tray.setToolTip('Rice Mill Software - Background mein chal raha hai');
 
@@ -2296,8 +2312,7 @@ function initTray() {
         label: 'Show Software',
         click: () => {
           if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.show();
-            mainWindow.focus();
+            try { mainWindow.show(); mainWindow.focus(); } catch (_) {}
           }
         },
       },
@@ -2312,15 +2327,14 @@ function initTray() {
     ]);
     tray.setContextMenu(contextMenu);
 
-    // Double-click on tray icon → restore window
     tray.on('double-click', () => {
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.show();
-        mainWindow.focus();
+        try { mainWindow.show(); mainWindow.focus(); } catch (_) {}
       }
     });
   } catch (e) {
-    console.error('[Tray] Init error:', e.message);
+    console.error('[Tray] Init error (non-fatal):', e.message);
+    tray = null; // Fall back: app will quit normally on close
   }
 }
 
@@ -2362,25 +2376,25 @@ async function createMainWindow(port) {
 
   mainWindow.once('show', () => clearTimeout(showTimeout));
 
-  // v104.44.102 — Close-to-tray: X button minimizes to system tray instead of quit
+  // v104.44.102 — Close-to-tray: X button minimizes to system tray instead of quit.
+  // Defensive: only intercept close if tray was created successfully.
   mainWindow.on('close', (event) => {
-    if (!isQuitting) {
+    if (isQuitting || !tray) return; // Allow normal quit
+    try {
       event.preventDefault();
-      mainWindow.hide();
+      if (!mainWindow.isDestroyed()) mainWindow.hide();
       // Show one-time notification on first close
       if (!trayNotificationShown && Notification.isSupported()) {
         try {
           const notif = new Notification({
             title: 'Rice Mill Software running in background',
             body: 'Software band karne ke liye Logout karein, ya tray icon par right-click karke Quit chunein.',
-            icon: path.join(__dirname, 'icon.png'),
             silent: false,
           });
           notif.show();
           notif.on('click', () => {
             if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.show();
-              mainWindow.focus();
+              try { mainWindow.show(); mainWindow.focus(); } catch (_) {}
             }
           });
           trayNotificationShown = true;
@@ -2388,12 +2402,15 @@ async function createMainWindow(port) {
           console.error('[Tray] Notification error:', e.message);
         }
       }
-      return false;
+    } catch (e) {
+      console.error('[Tray] Close-to-tray error:', e.message);
     }
   });
 
-  // Initialize system tray once main window is up
-  if (!tray) initTray();
+  // Initialize system tray AFTER window is fully ready (deferred to avoid boot crash)
+  mainWindow.once('ready-to-show', () => {
+    if (!tray) initTray();
+  });
 
   // Load frontend from Express server
   mainWindow.loadURL(`http://127.0.0.1:${port}`);

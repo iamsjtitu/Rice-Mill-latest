@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.103",
+    date: "Feb 04, 2026",
+    title: "v104.44.103 — Desktop Boot Crash Fix (Tray)",
+    items: [
+      { type: "fix", text: "🐛 **Boot crash fix** — v104.44.102 install ke baad blank screen + 'Object has been destroyed' error aa rahe the. Root cause: tray icon (icon.png) build mein bundled nahi tha + close handler timing issue. Fix: icon.png/icon.ico build files mein add, tray init ab `ready-to-show` ke baad lazy-init hota hai (boot block nahi karta), defensive guards har jagah, agar tray fail toh app normal quit karega (close-to-tray gracefully disable). Software ab smoothly start hoga." },
+      { type: "improvement", text: "🛡️ **Graceful Degradation** — Agar tray creation fail ho jata hai (icon missing/permission), software functional rahega, sirf close-to-tray feature off hoga. Pehle saari boot rok deti thi." },
+    ],
+  },
+  {
     version: "104.44.102",
     date: "Feb 04, 2026",
     title: "v104.44.102 — Desktop Close-to-Tray Behavior",
