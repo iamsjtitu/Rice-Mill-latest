@@ -7,6 +7,15 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.107",
+    date: "Feb 04, 2026",
+    title: "v104.44.107 — Payment History UI Redesign + Driver Advance Filter Fix",
+    items: [
+      { type: "improvement", text: "🎨 **Payment History dialog ko full redesign** — Width 4xl (wider), white/light theme matching app, gradient header, 3 summary stat cards (Total Payments, Total Paid, Via Cash Book count), professional table layout with rounded source badges (blue 'via Cash Book' / green 'Pay Lease'), proper spacing — saara content spacious aur readable hai." },
+      { type: "fix", text: "🐛 **Driver Advance entries filter improved** — `Truck Cash Advance` aur `Truck Diesel Advance` entries kabhi-kabhi history mein dikh rahe the. Ab dual-layer protection: reference (`^truck_(cash|diesel)`) AND description (`Truck (Cash|Diesel) Advance`) dono check karta hai. Saath hi old `truck_cash_ded:`/`truck_diesel_ded:` patterns bhi correctly skip honge." },
+    ],
+  },
+  {
     version: "104.44.106",
     date: "Feb 04, 2026",
     title: "v104.44.106 — Lease Trip Detection + Driver Advance Cleanup",

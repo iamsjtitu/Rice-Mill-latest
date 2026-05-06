@@ -347,9 +347,11 @@ async def _fetch_cashbook_payments_for_lease(lease):
             {"reference": {"$not": {"$regex": "^auto_ledger:"}}},
             # Skip already-linked lease_pay entries (those are in truck_lease_payments)
             {"linked_payment_id": {"$not": {"$regex": f"^truck_lease:{lease['id']}:"}}},
-            # v104.44.106 — Skip driver advance entries (cash/diesel given on trip)
-            # — these are NOT lease rent payments and shouldn't count.
-            {"reference": {"$not": {"$regex": "^truck_(cash|diesel)_de"}}},
+            # v104.44.106 — Skip driver advance entries (cash/diesel given on trip).
+            # Reference patterns: `truck_cash_ded:*`, `truck_diesel_ded:*` (and variants).
+            # Description patterns: "Truck Cash Advance:", "Truck Diesel Advance:".
+            {"reference": {"$not": {"$regex": "^truck_(cash|diesel)"}}},
+            {"description": {"$not": {"$regex": "Truck (Cash|Diesel) Advance"}}},
         ]
     }
     return await db.cash_transactions.find(query, {"_id": 0}).to_list(5000)

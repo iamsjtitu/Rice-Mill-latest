@@ -252,7 +252,8 @@ module.exports = function(database) {
       if ((t.reference || '').startsWith('auto_ledger:')) return false;
       if ((t.linked_payment_id || '').startsWith(`truck_lease:${lease.id}:`)) return false;
       // v104.44.106 — Skip driver advance entries (cash/diesel given on trip)
-      if (/^truck_(cash|diesel)_de/.test(t.reference || '')) return false;
+      if (/^truck_(cash|diesel)/.test(t.reference || '')) return false;
+      if (/Truck (Cash|Diesel) Advance/.test(t.description || '')) return false;
       const cat = t.category || '';
       const desc = t.description || '';
       if (cat === `Truck Lease - ${truckNo}`) return true;

@@ -635,35 +635,96 @@ export default function LeasedTruck({ filters }) {
         </DialogContent>
       </Dialog>
 
-      {/* Payment History Dialog */}
+      {/* Payment History Dialog — v104.44.107: redesigned wide light theme */}
       <Dialog open={showHistory} onOpenChange={setShowHistory}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg">
-          <DialogHeader><DialogTitle>Payment History</DialogTitle>
-            <DialogDescription className="text-slate-400">All payments for this lease</DialogDescription></DialogHeader>
-          <div className="max-h-[400px] overflow-y-auto">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b border-slate-700 text-slate-400 text-xs">
-                <th className="text-left p-2">Date</th><th className="text-left p-2">Month</th>
-                <th className="text-right p-2">Amount</th><th className="text-left p-2">Account</th>
-                <th className="text-left p-2">Notes</th>
-              </tr></thead>
+        <DialogContent className="bg-white border-slate-200 text-slate-900 max-w-4xl max-h-[85vh] overflow-hidden p-0">
+          <DialogHeader className="px-6 pt-5 pb-3 border-b border-slate-200 bg-gradient-to-r from-amber-50 to-white">
+            <DialogTitle className="text-slate-900 text-xl flex items-center gap-2">
+              <History className="w-5 h-5 text-amber-600" />
+              Payment History
+              {selectedLease && <span className="ml-2 text-base text-slate-500 font-mono">{selectedLease.truck_no}</span>}
+            </DialogTitle>
+            <DialogDescription className="text-slate-500 text-xs">
+              {selectedLease?.owner_name && <span>Owner: <span className="font-medium text-slate-700">{selectedLease.owner_name}</span> · </span>}
+              All payments including direct Cash Book entries
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Summary strip */}
+          {history.length > 0 && (
+            <div className="grid grid-cols-3 gap-3 px-6 py-3 border-b border-slate-100 bg-slate-50">
+              <div className="bg-white rounded-lg p-3 border border-slate-200 shadow-sm">
+                <div className="text-[10px] uppercase text-slate-500 tracking-wide">Total Payments</div>
+                <div className="text-2xl font-bold text-amber-600 mt-0.5">{history.length}</div>
+              </div>
+              <div className="bg-white rounded-lg p-3 border border-slate-200 shadow-sm">
+                <div className="text-[10px] uppercase text-slate-500 tracking-wide">Total Paid</div>
+                <div className="text-2xl font-bold text-emerald-600 mt-0.5">Rs. {fmtAmt(history.reduce((s, p) => s + (p.amount || 0), 0))}</div>
+              </div>
+              <div className="bg-white rounded-lg p-3 border border-slate-200 shadow-sm">
+                <div className="text-[10px] uppercase text-slate-500 tracking-wide">Via Cash Book</div>
+                <div className="text-2xl font-bold text-blue-600 mt-0.5">{history.filter(p => p.source === "cashbook").length}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Table */}
+          <div className="overflow-y-auto max-h-[55vh] px-6 py-3">
+            <table className="w-full text-sm" data-testid="payment-history-table">
+              <thead className="sticky top-0 bg-white shadow-[0_1px_0_0_#e2e8f0]">
+                <tr className="text-slate-500 text-[11px] uppercase tracking-wide">
+                  <th className="text-left py-2.5 pr-4 font-semibold w-[110px]">Date</th>
+                  <th className="text-left py-2.5 pr-4 font-semibold w-[120px]">Month</th>
+                  <th className="text-right py-2.5 pr-4 font-semibold w-[120px]">Amount</th>
+                  <th className="text-left py-2.5 pr-4 font-semibold w-[160px]">Source</th>
+                  <th className="text-left py-2.5 font-semibold">Notes</th>
+                </tr>
+              </thead>
               <tbody>
-                {history.length === 0 && <tr><td colSpan={5} className="text-center text-slate-500 py-4">Koi payment nahi mila</td></tr>}
+                {history.length === 0 && (
+                  <tr><td colSpan={5} className="text-center text-slate-400 py-12">
+                    <History className="w-12 h-12 mx-auto text-slate-300 mb-2" />
+                    <div className="text-sm">Koi payment nahi mila</div>
+                    <div className="text-xs text-slate-400 mt-1">Pay button se ya Cash Book se payment karein</div>
+                  </td></tr>
+                )}
                 {history.map(p => (
-                  <tr key={p.id} className="border-b border-slate-700/50">
-                    <td className="p-2 text-slate-300">{p.payment_date}</td>
-                    <td className="p-2 text-white">{fmtMonth(p.month)}</td>
-                    <td className="p-2 text-right text-emerald-400 font-medium">Rs. {fmtAmt(p.amount)}</td>
-                    <td className="p-2 text-slate-300">
-                      {p.account}{p.bank_name ? ` (${p.bank_name})` : ""}
-                      {p.source === "cashbook" && <Badge className="ml-2 bg-blue-500/20 text-blue-300 text-[9px]" data-testid="badge-cashbook">via Cash Book</Badge>}
+                  <tr key={p.id} className="border-b border-slate-100 hover:bg-amber-50/40 transition-colors group">
+                    <td className="py-3 pr-4 text-slate-700 font-medium whitespace-nowrap">{p.payment_date}</td>
+                    <td className="py-3 pr-4">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-xs font-medium">
+                        <Calendar className="w-3 h-3 mr-1 text-slate-400" />{fmtMonth(p.month)}
+                      </span>
                     </td>
-                    <td className="p-2 text-slate-400">{p.notes || "-"}</td>
+                    <td className="py-3 pr-4 text-right">
+                      <span className="text-emerald-600 font-bold text-base whitespace-nowrap">Rs. {fmtAmt(p.amount)}</span>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {p.source === "cashbook" ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-semibold border border-blue-200 whitespace-nowrap" data-testid="badge-cashbook">
+                            via Cash Book
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-semibold border border-emerald-200 whitespace-nowrap">
+                            Pay Lease
+                          </span>
+                        )}
+                        <span className="text-slate-600 text-xs whitespace-nowrap">
+                          {p.account}{p.bank_name ? ` · ${p.bank_name}` : ""}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3 text-slate-500 text-xs">{p.notes || <span className="text-slate-300">—</span>}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          <DialogFooter className="px-6 py-3 border-t border-slate-200 bg-slate-50">
+            <Button variant="ghost" onClick={() => setShowHistory(false)} className="text-slate-700 hover:bg-slate-200">Close</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       <SendToGroupDialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen} text={groupText} pdfUrl={groupPdfUrl} />
