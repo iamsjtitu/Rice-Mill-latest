@@ -46,6 +46,10 @@ async def _compute_lease_trips(lease):
         return {"trips": [], "trip_count": 0, "total_qntl": 0,
                 "mandi_breakdown": [], "first_date": "", "last_date": ""}
 
+    # v104.44.106 — Case-INSENSITIVE truck_no match (legacy entries may be lowercase)
+    import re as _re
+    truck_re = {"$regex": f"^{_re.escape(truck_no)}$", "$options": "i"}
+
     start = lease.get("start_date", "") or ""
     end = lease.get("end_date", "") or "9999-12-31"
 
@@ -57,7 +61,7 @@ async def _compute_lease_trips(lease):
     trips = []
 
     # 1. mill_entries (paddy from mandis)
-    async for e in db.mill_entries.find({"truck_no": truck_no}, {"_id": 0}):
+    async for e in db.mill_entries.find({"truck_no": truck_re}, {"_id": 0}):
         if not in_window(e.get("date", "")): continue
         qntl = float(e.get("qntl", 0) or 0)
         bag = float(e.get("bag", 0) or 0)
@@ -70,7 +74,7 @@ async def _compute_lease_trips(lease):
         })
 
     # 2. private_paddy
-    async for e in db.private_paddy.find({"truck_no": truck_no}, {"_id": 0}):
+    async for e in db.private_paddy.find({"truck_no": truck_re}, {"_id": 0}):
         if not in_window(e.get("date", "")): continue
         qntl = float(e.get("qntl", 0) or 0)
         bag = float(e.get("bag", 0) or 0)
@@ -85,7 +89,7 @@ async def _compute_lease_trips(lease):
 
     # 3. dc_entries (incoming DC stock)
     async for e in db.dc_entries.find({"$or": [
-        {"truck_no": truck_no}, {"vehicle_no": truck_no}
+        {"truck_no": truck_re}, {"vehicle_no": truck_re}
     ]}, {"_id": 0}):
         if not in_window(e.get("date", "")): continue
         qntl = float(e.get("quantity_qntl", 0) or e.get("qntl", 0) or 0)
@@ -98,7 +102,7 @@ async def _compute_lease_trips(lease):
 
     # 4. dc_deliveries (outgoing DC dispatches)
     async for e in db.dc_deliveries.find({"$or": [
-        {"truck_no": truck_no}, {"vehicle_no": truck_no}
+        {"truck_no": truck_re}, {"vehicle_no": truck_re}
     ]}, {"_id": 0}):
         if not in_window(e.get("date", "")): continue
         qntl = float(e.get("quantity_qntl", 0) or e.get("qntl", 0) or 0)
@@ -110,7 +114,7 @@ async def _compute_lease_trips(lease):
         })
 
     # 5. bp_sale_register (BP sale dispatch — vehicle_no field)
-    async for e in db.bp_sale_register.find({"vehicle_no": truck_no}, {"_id": 0}):
+    async for e in db.bp_sale_register.find({"vehicle_no": truck_re}, {"_id": 0}):
         if not in_window(e.get("date", "")): continue
         qntl = float(e.get("net_weight_qtl", 0) or 0)
         if not qntl:
@@ -233,6 +237,55 @@ async def end_lease_now(lease_id: str):
     return {**existing, "end_date": today, "status": "ended"}
 
 
+# v104.44.106 — Count + cleanup driver advance entries (cash/diesel given on
+# individual trips) for a leased truck. These are NOT rent payments and
+# should not appear in the truck's party ledger when truck is leased.
+@router.get("/truck-leases/{lease_id}/driver-advances")
+async def get_driver_advances(lease_id: str):
+    """Returns count + total of OLD truck_cash_de + truck_diesel_de entries
+    in cash_transactions for this lease's truck."""
+    lease = await db.truck_leases.find_one({"id": lease_id}, {"_id": 0})
+    if not lease:
+        raise HTTPException(status_code=404, detail="Lease not found")
+    truck_no = (lease.get("truck_no") or "").upper()
+    if not truck_no:
+        return {"count": 0, "total": 0, "entries": []}
+    import re as _re
+    query = {
+        "category": {"$regex": _re.escape(truck_no), "$options": "i"},
+        "reference": {"$regex": "^truck_(cash|diesel)_de"},
+    }
+    entries = await db.cash_transactions.find(query, {"_id": 0}).to_list(5000)
+    total = round(sum(e.get("amount", 0) or 0 for e in entries), 2)
+    return {"count": len(entries), "total": total, "entries": entries}
+
+
+@router.post("/truck-leases/{lease_id}/driver-advances/cleanup")
+async def cleanup_driver_advances(lease_id: str):
+    """Delete OLD truck_cash_de + truck_diesel_de cash_transactions for this
+    leased truck. These get auto-created as a 'Truck OD0...' party ledger from
+    mill_entries cash_paid/diesel_paid — for leased trucks they're driver
+    expenses (separate from owner rent) and should not clutter the truck's
+    ledger view."""
+    lease = await db.truck_leases.find_one({"id": lease_id}, {"_id": 0})
+    if not lease:
+        raise HTTPException(status_code=404, detail="Lease not found")
+    truck_no = (lease.get("truck_no") or "").upper()
+    if not truck_no:
+        return {"deleted": 0}
+    import re as _re
+    result = await db.cash_transactions.delete_many({
+        "category": {"$regex": _re.escape(truck_no), "$options": "i"},
+        "reference": {"$regex": "^truck_(cash|diesel)_de"},
+    })
+    # Also clean local_party_accounts mirrors if any
+    lp_result = await db.local_party_accounts.delete_many({
+        "party_name": {"$regex": _re.escape(truck_no), "$options": "i"},
+        "reference": {"$regex": "^truck_(cash|diesel)_de"},
+    })
+    return {"deleted": result.deleted_count, "lp_deleted": lp_result.deleted_count}
+
+
 # v104.44.105 — Get trips for a specific month (for monthly drilldown)
 @router.get("/truck-leases/{lease_id}/trips/by-month/{month}")
 async def get_lease_trips_by_month(lease_id: str, month: str):
@@ -275,11 +328,17 @@ async def _fetch_cashbook_payments_for_lease(lease):
     owner = (lease.get("owner_name") or "").strip()
     if not truck_no:
         return []
-    # Match category: "Truck Lease - {truck_no}" OR exact owner name OR contains truck_no
-    cat_patterns = [f"Truck Lease - {truck_no}", owner]
-    cat_patterns = [c for c in cat_patterns if c]
-    or_clauses = [{"category": c} for c in cat_patterns]
-    or_clauses.append({"category": {"$regex": truck_no, "$options": "i"}})
+    import re as _re
+    or_clauses = []
+    # Exact category match
+    if owner: or_clauses.append({"category": owner})
+    or_clauses.append({"category": f"Truck Lease - {truck_no}"})
+    # Case-insensitive truck_no in category
+    or_clauses.append({"category": {"$regex": _re.escape(truck_no), "$options": "i"}})
+    # Case-insensitive owner in category
+    if owner: or_clauses.append({"category": {"$regex": _re.escape(owner), "$options": "i"}})
+    # Truck_no mentioned in description (e.g., "Lease payment for OD04K2455")
+    or_clauses.append({"description": {"$regex": _re.escape(truck_no), "$options": "i"}})
     query = {
         "$and": [
             {"$or": or_clauses},
@@ -288,6 +347,9 @@ async def _fetch_cashbook_payments_for_lease(lease):
             {"reference": {"$not": {"$regex": "^auto_ledger:"}}},
             # Skip already-linked lease_pay entries (those are in truck_lease_payments)
             {"linked_payment_id": {"$not": {"$regex": f"^truck_lease:{lease['id']}:"}}},
+            # v104.44.106 — Skip driver advance entries (cash/diesel given on trip)
+            # — these are NOT lease rent payments and shouldn't count.
+            {"reference": {"$not": {"$regex": "^truck_(cash|diesel)_de"}}},
         ]
     }
     return await db.cash_transactions.find(query, {"_id": 0}).to_list(5000)

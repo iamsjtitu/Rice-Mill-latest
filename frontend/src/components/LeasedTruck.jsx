@@ -85,6 +85,23 @@ export default function LeasedTruck({ filters }) {
     } catch (e) { toast.error(e.response?.data?.detail || "End nahi kar paya"); }
   }, []);
 
+  // v104.44.106 — Cleanup old driver advance entries (truck_cash_de + truck_diesel_de)
+  // that exist in this truck's party ledger from BEFORE the lease started.
+  const handleCleanupAdvances = useCallback(async (lease) => {
+    try {
+      const res = await axios.get(`${API}/truck-leases/${lease.id}/driver-advances`);
+      const { count, total } = res.data;
+      if (count === 0) {
+        toast.info("Koi driver advance entries nahi mili (cash/diesel)");
+        return;
+      }
+      if (!window.confirm(`${count} entries milin (Cash + Diesel total Rs.${total}) iss truck ke party ledger mein. Yeh entries delete karna chahte ho? (Lease se separate, owner relationship par koi asar nahi)`)) return;
+      const r = await axios.post(`${API}/truck-leases/${lease.id}/driver-advances/cleanup`);
+      toast.success(`Deleted ${r.data.deleted} cashbook + ${r.data.lp_deleted} ledger entries`);
+      fetchLeases();
+    } catch (e) { toast.error(e.response?.data?.detail || "Cleanup fail"); }
+  }, []);
+
   const toggleTrips = useCallback(async (lease) => {
     const id = lease.id;
     if (expandedTrips[id]) {
@@ -321,6 +338,8 @@ export default function LeasedTruck({ filters }) {
                           className="text-cyan-400 hover:text-cyan-300 h-7 w-7 p-0"><History className="w-3.5 h-3.5" /></Button>
                         {l.status === "active" && <Button variant="ghost" size="sm" onClick={() => handleEndNow(l)} title="End Lease Now"
                           className="text-orange-400 hover:text-orange-300 h-7 w-7 p-0" data-testid={`lease-end-now-${l.truck_no}`}><StopCircle className="w-3.5 h-3.5" /></Button>}
+                        <Button variant="ghost" size="sm" onClick={() => handleCleanupAdvances(l)} title="Cleanup Driver Advances (Cash + Diesel)"
+                          className="text-yellow-400 hover:text-yellow-300 h-7 w-7 p-0" data-testid={`lease-cleanup-advances-${l.truck_no}`}><Trash2 className="w-3.5 h-3.5" /></Button>
                         {wa && <Button variant="ghost" size="sm" onClick={() => handleWhatsAppLease(l)}
                           className="text-green-400 hover:text-green-300 h-7 w-7 p-0" title="WhatsApp" data-testid={`lease-wa-${l.truck_no}`}><Send className="w-3.5 h-3.5" /></Button>}
                         {wa && <Button variant="ghost" size="sm" title="Send to Group" data-testid={`lease-group-${l.truck_no}`}

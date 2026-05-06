@@ -15,8 +15,7 @@ function getMonthsBetween(startStr, endStr) {
   return months;
 }
 
-// v104.44.101 — Compute trips done by leased truck across mill_entries,
-// private_paddy, dc_entries, dc_deliveries, bp_sale_register during lease window
+// v104.44.106 — Compute trips done by leased truck — case-INSENSITIVE truck_no match
 function computeLeaseTrips(database, lease) {
   const truckNo = (lease.truck_no || '').trim().toUpperCase();
   if (!truckNo) {
@@ -28,6 +27,7 @@ function computeLeaseTrips(database, lease) {
     const dd = (d || '').slice(0, 10);
     return dd && dd >= start && dd <= end;
   };
+  const matchTruck = (val) => (val || '').toUpperCase() === truckNo;
 
   const trips = [];
 
@@ -44,7 +44,7 @@ function computeLeaseTrips(database, lease) {
     });
 
   (database.data.private_paddy || [])
-    .filter(e => (e.truck_no || '').toUpperCase() === truckNo && inWindow(e.date))
+    .filter(e => matchTruck(e.truck_no) && inWindow(e.date))
     .forEach(e => {
       const qntl = +(e.qntl || 0); const bag = +(e.bag || 0);
       trips.push({
@@ -56,7 +56,7 @@ function computeLeaseTrips(database, lease) {
     });
 
   (database.data.dc_entries || [])
-    .filter(e => ((e.truck_no || '').toUpperCase() === truckNo || (e.vehicle_no || '').toUpperCase() === truckNo) && inWindow(e.date))
+    .filter(e => (matchTruck(e.truck_no) || matchTruck(e.vehicle_no)) && inWindow(e.date))
     .forEach(e => {
       trips.push({
         date: e.date || '', rst_no: e.dc_no || e.rst_no || '',
@@ -67,7 +67,7 @@ function computeLeaseTrips(database, lease) {
     });
 
   (database.data.dc_deliveries || [])
-    .filter(e => ((e.truck_no || '').toUpperCase() === truckNo || (e.vehicle_no || '').toUpperCase() === truckNo) && inWindow(e.date))
+    .filter(e => (matchTruck(e.truck_no) || matchTruck(e.vehicle_no)) && inWindow(e.date))
     .forEach(e => {
       trips.push({
         date: e.date || '', rst_no: e.dc_no || e.rst_no || '',
@@ -78,7 +78,7 @@ function computeLeaseTrips(database, lease) {
     });
 
   (database.data.bp_sale_register || [])
-    .filter(e => (e.vehicle_no || '').toUpperCase() === truckNo && inWindow(e.date))
+    .filter(e => matchTruck(e.vehicle_no) && inWindow(e.date))
     .forEach(e => {
       let qntl = +(e.net_weight_qtl || 0);
       if (!qntl) qntl = +((+(e.net_weight_kg || 0) / 100).toFixed(2));
@@ -240,22 +240,64 @@ module.exports = function(database) {
 
   // ========== HISTORY ==========
 
-  // v104.44.105 — Helper: find cash_transactions matching this lease's truck/owner
+  // v104.44.106 — Helper: find cash_transactions matching this lease's truck/owner
+  // Excludes auto_ledger duplicates, already-linked lease payments, AND driver
+  // advance entries (truck_cash_de / truck_diesel_de — those are not rent payments).
   function fetchCashbookPaymentsForLease(lease) {
     const truckNo = (lease.truck_no || '').toUpperCase();
     const owner = (lease.owner_name || '').trim();
     if (!truckNo) return [];
-    const cats = [`Truck Lease - ${truckNo}`, owner].filter(Boolean);
     return (database.data.cash_transactions || []).filter(t => {
       if (t.txn_type !== 'nikasi') return false;
       if ((t.reference || '').startsWith('auto_ledger:')) return false;
       if ((t.linked_payment_id || '').startsWith(`truck_lease:${lease.id}:`)) return false;
-      const cat = (t.category || '');
-      const exact = cats.includes(cat);
-      const fuzzy = truckNo && cat.toUpperCase().includes(truckNo);
-      return exact || fuzzy;
+      // v104.44.106 — Skip driver advance entries (cash/diesel given on trip)
+      if (/^truck_(cash|diesel)_de/.test(t.reference || '')) return false;
+      const cat = t.category || '';
+      const desc = t.description || '';
+      if (cat === `Truck Lease - ${truckNo}`) return true;
+      if (owner && cat === owner) return true;
+      if (cat.toUpperCase().includes(truckNo)) return true;
+      if (owner && cat.toLowerCase().includes(owner.toLowerCase())) return true;
+      if (desc.toUpperCase().includes(truckNo)) return true;
+      return false;
     });
   }
+
+  // v104.44.106 — Get count + total of driver advance entries for cleanup UI
+  router.get('/api/truck-leases/:id/driver-advances', safeSync(async (req, res) => {
+    const lease = (database.data.truck_leases || []).find(l => l.id === req.params.id);
+    if (!lease) return res.status(404).json({ detail: 'Lease not found' });
+    const truckNo = (lease.truck_no || '').toUpperCase();
+    if (!truckNo) return res.json({ count: 0, total: 0, entries: [] });
+    const entries = (database.data.cash_transactions || []).filter(t =>
+      (t.category || '').toUpperCase().includes(truckNo) &&
+      /^truck_(cash|diesel)_de/.test(t.reference || '')
+    );
+    const total = +entries.reduce((s, e) => s + (e.amount || 0), 0).toFixed(2);
+    res.json({ count: entries.length, total, entries });
+  }));
+
+  router.post('/api/truck-leases/:id/driver-advances/cleanup', safeSync(async (req, res) => {
+    const lease = (database.data.truck_leases || []).find(l => l.id === req.params.id);
+    if (!lease) return res.status(404).json({ detail: 'Lease not found' });
+    const truckNo = (lease.truck_no || '').toUpperCase();
+    if (!truckNo) return res.json({ deleted: 0, lp_deleted: 0 });
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
+    const before = database.data.cash_transactions.length;
+    database.data.cash_transactions = database.data.cash_transactions.filter(t =>
+      !((t.category || '').toUpperCase().includes(truckNo) && /^truck_(cash|diesel)_de/.test(t.reference || ''))
+    );
+    const deleted = before - database.data.cash_transactions.length;
+    const lpBefore = database.data.local_party_accounts.length;
+    database.data.local_party_accounts = database.data.local_party_accounts.filter(t =>
+      !((t.party_name || '').toUpperCase().includes(truckNo) && /^truck_(cash|diesel)_de/.test(t.reference || ''))
+    );
+    const lp_deleted = lpBefore - database.data.local_party_accounts.length;
+    database.save();
+    res.json({ deleted, lp_deleted });
+  }));
 
   router.get('/api/truck-leases/:id/history', safeSync(async (req, res) => {
     const lease = (database.data.truck_leases || []).find(l => l.id === req.params.id);

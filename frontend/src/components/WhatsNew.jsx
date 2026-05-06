@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.106",
+    date: "Feb 04, 2026",
+    title: "v104.44.106 — Lease Trip Detection + Driver Advance Cleanup",
+    items: [
+      { type: "fix", text: "🔧 **Trip detection ab case-insensitive** — Truck no agar `od04k2455` lowercase mein store hai aur lease `OD04K2455` uppercase, dono match honge. Ab Mill Entry, Private Paddy, DC In/Out, BP Sale sab jagah trips properly dikhe." },
+      { type: "fix", text: "🐛 **Cashbook → Lease Sync improved** — Pehle 100rs advance via Cashbook nahi dikhta tha. Ab matching expanded: category mein truck_no/owner_name (case-insensitive) + description mein truck_no bhi check hota hai. Saath hi `truck_cash_de` / `truck_diesel_de` driver-advance entries ko explicitly skip karta hai (woh rent payment nahi hain)." },
+      { type: "feature", text: "🧹 **Cleanup Driver Advances Button** — Lease row par yellow Trash icon. Click karne pe Cash+Diesel advances (jo lease se PEHLE truck ke party ledger mein ban gaye the) count + total dikhega, confirm pe delete kar do. Lease/owner ledger par koi asar nahi padega." },
+    ],
+  },
+  {
     version: "104.44.105",
     date: "Feb 04, 2026",
     title: "v104.44.105 — Lease End Now + Month Drilldown + Cashbook Sync",
