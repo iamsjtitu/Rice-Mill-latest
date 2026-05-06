@@ -775,10 +775,15 @@ class SqliteDatabase {
 
     const cashPaid = parseFloat(newEntry.cash_paid) || 0;
     if (cashPaid > 0) {
+      // v104.44.109 — Leased truck cash → "Daily Driver Fooding" category
+      const cbCategory = isLeased ? 'Daily Driver Fooding' : (truckNo || 'Cash Paid (Entry)');
+      const cbDesc = isLeased
+        ? `Daily Driver Fooding: Truck ${truckNo} - Mandi ${newEntry.mandi_name||''} - Rs.${cashPaid}`
+        : `Cash Paid: Truck ${truckNo} - Mandi ${newEntry.mandi_name||''} - Rs.${cashPaid}`;
       const cashNikasi = {
-        id: uuidv4(), date: entryDate, account: 'cash', txn_type: 'nikasi', category: truckNo || 'Cash Paid (Entry)',
+        id: uuidv4(), date: entryDate, account: 'cash', txn_type: 'nikasi', category: cbCategory,
         party_type: 'Truck',
-        description: `Cash Paid: Truck ${truckNo} - Mandi ${newEntry.mandi_name||''} - Rs.${cashPaid}`,
+        description: cbDesc,
         amount: Math.round(cashPaid * 100) / 100, reference: `entry_cash:${newEntry.id.slice(0,8)}`,
         kms_year: newEntry.kms_year||'', season: newEntry.season||'',
         created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
@@ -933,10 +938,15 @@ class SqliteDatabase {
 
       const cashPaid = parseFloat(updated.cash_paid) || 0;
       if (cashPaid > 0) {
+        // v104.44.109 — Leased truck cash → "Daily Driver Fooding" category
+        const cbCategory = isLeased ? 'Daily Driver Fooding' : (truckNo || 'Cash Paid (Entry)');
+        const cbDesc = isLeased
+          ? `Daily Driver Fooding: Truck ${truckNo} - Mandi ${updated.mandi_name||''} - Rs.${cashPaid}`
+          : `Cash Paid: Truck ${truckNo} - Mandi ${updated.mandi_name||''} - Rs.${cashPaid}`;
         this.data.cash_transactions.push({
-          id: uuidv4(), date: entryDate, account: 'cash', txn_type: 'nikasi', category: truckNo || 'Cash Paid (Entry)',
+          id: uuidv4(), date: entryDate, account: 'cash', txn_type: 'nikasi', category: cbCategory,
           party_type: 'Truck',
-          description: `Cash Paid: Truck ${truckNo} - Mandi ${updated.mandi_name||''} - Rs.${cashPaid}`,
+          description: cbDesc,
           amount: Math.round(cashPaid * 100) / 100, reference: `entry_cash:${id.slice(0,8)}`,
           kms_year: updated.kms_year||'', season: updated.season||'',
           created_by: updated.created_by||'system', linked_entry_id: id,

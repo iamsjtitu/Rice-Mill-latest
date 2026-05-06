@@ -241,11 +241,19 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
     # Auto Cash Book entry for cash_paid
     cash_paid = float(doc.get("cash_paid", 0) or 0)
     if cash_paid > 0:
+        # v104.44.109 — Leased truck cash → "Daily Driver Fooding" category
+        # (so all leased-truck driver food expenses summarize together)
+        if is_leased:
+            cb_category = "Daily Driver Fooding"
+            cb_desc = f"Daily Driver Fooding: Truck {truck_no} - Mandi {doc.get('mandi_name','')} - Rs.{cash_paid}"
+        else:
+            cb_category = doc.get("truck_no", "Cash Paid (Entry)")
+            cb_desc = f"Cash Paid: Truck {doc.get('truck_no','')} - Mandi {doc.get('mandi_name','')} - Rs.{cash_paid}"
         cb = {
             "id": str(uuid.uuid4()), "date": doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
-            "account": "cash", "txn_type": "nikasi", "category": doc.get("truck_no", "Cash Paid (Entry)"),
+            "account": "cash", "txn_type": "nikasi", "category": cb_category,
             "party_type": "Truck",
-            "description": f"Cash Paid: Truck {doc.get('truck_no','')} - Mandi {doc.get('mandi_name','')} - Rs.{cash_paid}",
+            "description": cb_desc,
             "amount": round_amount(cash_paid), "reference": f"entry_cash:{doc['id'][:8]}",
             "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
             "created_by": username or "system", "linked_entry_id": doc["id"],

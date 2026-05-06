@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.109",
+    date: "Feb 04, 2026",
+    title: "v104.44.109 — Daily Driver Fooding Category",
+    items: [
+      { type: "feature", text: "🍱 **Daily Driver Fooding category** — Leased truck par paddy entry mein cash diya jaye toh Cash Book mein automatically `Daily Driver Fooding` category mein nikasi banegi (truck_no nahi). Description mein truck no aata hai (e.g., 'Daily Driver Fooding: Truck OD04K2455 - Mandi X - Rs.200')." },
+      { type: "feature", text: "📋 **Manual entry compatible** — Jis din truck khada raha (no paddy entry), aap khud Cash Book se manually `Daily Driver Fooding` category select karke entry bana sakte ho. Sab leased-truck driver expenses ek category mein summarize ho jate hain." },
+      { type: "improvement", text: "🚛 **Non-leased trucks unchanged** — Regular trucks par cash entry pehle jaisi hi rahegi (category=truck_no). Ye change sirf active lease wali trucks ke liye apply hota hai." },
+    ],
+  },
+  {
     version: "104.44.108",
     date: "Feb 04, 2026",
     title: "v104.44.108 — Leased Truck Operational Expense Separation",
