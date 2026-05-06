@@ -778,7 +778,7 @@ class SqliteDatabase {
       // v104.44.109 — Leased truck cash → "Daily Driver Fooding" category
       const cbCategory = isLeased ? 'Daily Driver Fooding' : (truckNo || 'Cash Paid (Entry)');
       const cbDesc = isLeased
-        ? `Daily Driver Fooding: Truck ${truckNo} - Mandi ${newEntry.mandi_name||''} - Rs.${cashPaid}`
+        ? `Daily Driver Fooding: Truck ${truckNo} - Rs.${cashPaid}`
         : `Cash Paid: Truck ${truckNo} - Mandi ${newEntry.mandi_name||''} - Rs.${cashPaid}`;
       const cashNikasi = {
         id: uuidv4(), date: entryDate, account: 'cash', txn_type: 'nikasi', category: cbCategory,
@@ -941,7 +941,7 @@ class SqliteDatabase {
         // v104.44.109 — Leased truck cash → "Daily Driver Fooding" category
         const cbCategory = isLeased ? 'Daily Driver Fooding' : (truckNo || 'Cash Paid (Entry)');
         const cbDesc = isLeased
-          ? `Daily Driver Fooding: Truck ${truckNo} - Mandi ${updated.mandi_name||''} - Rs.${cashPaid}`
+          ? `Daily Driver Fooding: Truck ${truckNo} - Rs.${cashPaid}`
           : `Cash Paid: Truck ${truckNo} - Mandi ${updated.mandi_name||''} - Rs.${cashPaid}`;
         this.data.cash_transactions.push({
           id: uuidv4(), date: entryDate, account: 'cash', txn_type: 'nikasi', category: cbCategory,

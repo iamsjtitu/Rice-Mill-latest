@@ -245,7 +245,7 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
         # (so all leased-truck driver food expenses summarize together)
         if is_leased:
             cb_category = "Daily Driver Fooding"
-            cb_desc = f"Daily Driver Fooding: Truck {truck_no} - Mandi {doc.get('mandi_name','')} - Rs.{cash_paid}"
+            cb_desc = f"Daily Driver Fooding: Truck {truck_no} - Rs.{cash_paid}"
         else:
             cb_category = doc.get("truck_no", "Cash Paid (Entry)")
             cb_desc = f"Cash Paid: Truck {doc.get('truck_no','')} - Mandi {doc.get('mandi_name','')} - Rs.{cash_paid}"

@@ -7,6 +7,14 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.110",
+    date: "Feb 04, 2026",
+    title: "v104.44.110 — Daily Driver Fooding Description Cleanup",
+    items: [
+      { type: "improvement", text: "✏️ **Daily Driver Fooding description simplified** — Mandi name hata diya. Ab description mein sirf truck number aata hai: 'Daily Driver Fooding: Truck OD04K2455 - Rs.200'. Regular trucks ka description (Cash Paid) jaisa tha waisa hi hai." },
+    ],
+  },
+  {
     version: "104.44.109",
     date: "Feb 04, 2026",
     title: "v104.44.109 — Daily Driver Fooding Category",
