@@ -718,8 +718,20 @@ class SqliteDatabase {
     const entryDate = newEntry.date || new Date().toISOString().split('T')[0];
     const now = new Date().toISOString();
 
+    // v104.44.108 — Skip "Truck" party-ledger side-effects if truck is on lease
+    const isLeased = (() => {
+      if (!truckNo) return false;
+      const leases = (this.data.truck_leases || []).filter(L => (L.truck_no || '').toUpperCase() === truckNo.toUpperCase());
+      const d = entryDate.slice(0, 10);
+      return leases.some(L => {
+        const s = (L.start_date || '').slice(0, 10);
+        const e = (L.end_date || '9999-12-31').slice(0, 10);
+        return s <= d && d <= e;
+      });
+    })();
+
     const finalQntl = Math.round(((newEntry.qntl || 0) - (newEntry.bag || 0) / 100) * 100) / 100;
-    if (finalQntl > 0 && truckNo) {
+    if (finalQntl > 0 && truckNo && !isLeased) {
       const existingRateDoc = this.data.truck_payments.find(p => {
         const e = this.data.entries.find(en => en.id === p.entry_id && en.truck_no === truckNo && en.mandi_name === (newEntry.mandi_name || ''));
         return !!e;
@@ -774,7 +786,8 @@ class SqliteDatabase {
       };
       this.data.cash_transactions.push(cashNikasi);
       this.logAudit('cash_transactions', cashNikasi.id, 'create', newEntry.created_by || '', null, cashNikasi);
-      if (truckNo) {
+      // v104.44.108 — Skip Ledger Nikasi for leased trucks
+      if (truckNo && !isLeased) {
         const cashDed = {
           id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'nikasi', category: truckNo,
           party_type: 'Truck',
@@ -929,7 +942,8 @@ class SqliteDatabase {
           created_by: updated.created_by||'system', linked_entry_id: id,
           created_at: now, updated_at: now
         });
-        if (truckNo) {
+        // v104.44.108 — Skip Ledger Nikasi for leased trucks
+        if (truckNo && !isLeased) {
           this.data.cash_transactions.push({
             id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'nikasi', category: truckNo,
             party_type: 'Truck',
@@ -1377,6 +1391,20 @@ class SqliteDatabase {
       this.data[key] = value;
     }
     this.save();
+  }
+
+  // Close database connection
+  close() {
+    if (this._saveTimer) {
+      clearTimeout(this._saveTimer);
+      this._doSave();
+    }
+    try {
+      // Force WAL checkpoint before close (merges WAL into main DB file)
+      // This ensures Google Drive syncs a complete, self-contained .db file
+      this.sqlite.pragma('wal_checkpoint(TRUNCATE)');
+      this.sqlite.close();
+    } catch {}
   }
 
   // Close database connection

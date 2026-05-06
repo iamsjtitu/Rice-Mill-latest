@@ -162,10 +162,30 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
     await log_audit("mill_entries", doc["id"], "create", entry_dict.get("created_by", ""), new_data=doc)
     
     truck_no = doc.get("truck_no", "")
-    
+
+    # v104.44.108 — Skip "Truck" party-ledger side-effects if this truck is on
+    # an active lease for this entry's date. Lease has its own owner ledger
+    # (truck_lease_payments). Driver food/diesel are operational expenses —
+    # they go to Cash Book + Diesel Pump as usual, but NOT to truck's own ledger.
+    is_leased = False
+    if truck_no:
+        entry_date = (doc.get("date") or "")[:10]
+        import re as _re
+        truck_re = {"$regex": f"^{_re.escape(truck_no.upper())}$", "$options": "i"}
+        active_lease = await db.truck_leases.find_one({
+            "truck_no": truck_re,
+            "start_date": {"$lte": entry_date or "9999-12-31"},
+            "$or": [
+                {"end_date": ""},
+                {"end_date": None},
+                {"end_date": {"$gte": entry_date or "0000-00-00"}},
+            ],
+        }, {"_id": 0, "id": 1})
+        is_leased = bool(active_lease)
+
     # Auto Jama (Ledger) entry for truck purchase - what we owe the truck
     final_qntl = round(doc.get("qntl", 0) - doc.get("bag", 0) / 100, 2)
-    if final_qntl > 0 and truck_no:
+    if final_qntl > 0 and truck_no and not is_leased:
         # Look up rate from existing truck_payments for same truck_no + mandi
         existing_rate_doc = await db.truck_payments.find_one(
             {"entry_id": {"$in": [e["id"] async for e in db.mill_entries.find({"truck_no": truck_no, "mandi_name": doc.get("mandi_name", "")}, {"_id": 0, "id": 1})]}},
@@ -235,7 +255,8 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
         cb.pop("_id", None)
         await log_audit("cash_transactions", cb["id"], "create", username, new_data=cb)
         # Also create Ledger Nikasi entry for cash deduction (counted against truck balance)
-        if truck_no:
+        # v104.44.108 — Skip for leased trucks (operational expense, not owner debit)
+        if truck_no and not is_leased:
             cash_ded = {
                 "id": str(uuid.uuid4()), "date": doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
                 "account": "ledger", "txn_type": "nikasi", "category": truck_no,

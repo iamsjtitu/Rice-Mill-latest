@@ -7,6 +7,16 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.108",
+    date: "Feb 04, 2026",
+    title: "v104.44.108 — Leased Truck Operational Expense Separation",
+    items: [
+      { type: "feature", text: "🚛 **Leased Truck par diesel/cash entry alag rakhta hai** — Ab agar koi truck active lease pe hai aur uss truck ki nayi paddy entry mein cash/diesel diya jata hai: Diesel pump account mein normal entry banegi (operational expense) ✅, Cash Book mein nikasi entry banegi ✅, par truck ke party ledger (Truck OD04K2455) mein NAHI banegi. Iska matlab driver food + diesel lease se totally alag rahenge." },
+      { type: "improvement", text: "⚖️ **Triple backend parity** — Logic Python (entries.py) + Desktop main.js + Desktop sqlite-database.js (CREATE & UPDATE both) + Local-Server Node sab mein implemented. Triple parity check ALL CLEAR." },
+      { type: "fix", text: "🧹 **SQLite db file** — Earlier accidental duplicate `close()` method had broken syntax → fixed." },
+    ],
+  },
+  {
     version: "104.44.107",
     date: "Feb 04, 2026",
     title: "v104.44.107 — Payment History UI Redesign + Driver Advance Filter Fix",

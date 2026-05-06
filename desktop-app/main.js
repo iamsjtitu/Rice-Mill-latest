@@ -596,9 +596,23 @@ class JsonDatabase {
     const entryDate = newEntry.date || new Date().toISOString().split('T')[0];
     const now = new Date().toISOString();
 
+    // v104.44.108 — Check if truck is on active lease for this entry's date.
+    // If yes, skip "Truck" party-ledger side-effects (driver food/diesel are
+    // operational expenses, separate from owner rent in truck_lease_payments).
+    const isLeased = (() => {
+      if (!truckNo) return false;
+      const leases = (this.data.truck_leases || []).filter(L => (L.truck_no || '').toUpperCase() === truckNo.toUpperCase());
+      const d = entryDate.slice(0, 10);
+      return leases.some(L => {
+        const s = (L.start_date || '').slice(0, 10);
+        const e = (L.end_date || '9999-12-31').slice(0, 10);
+        return s <= d && d <= e;
+      });
+    })();
+
     // Auto Jama (Ledger) entry for truck purchase - what we owe the truck
     const finalQntl = Math.round(((newEntry.qntl || 0) - (newEntry.bag || 0) / 100) * 100) / 100;
-    if (finalQntl > 0 && truckNo) {
+    if (finalQntl > 0 && truckNo && !isLeased) {
       const existingRateDoc = this.data.truck_payments.find(p => {
         const e = this.data.entries.find(en => en.id === p.entry_id && en.truck_no === truckNo && en.mandi_name === (newEntry.mandi_name || ''));
         return !!e;
@@ -746,6 +760,18 @@ class JsonDatabase {
       const truckNo = updated.truck_no || '';
       const entryDate = updated.date || new Date().toISOString().split('T')[0];
 
+      // v104.44.108 — Skip "Truck" party-ledger side-effects if truck is on lease
+      const isLeased = (() => {
+        if (!truckNo) return false;
+        const leases = (this.data.truck_leases || []).filter(L => (L.truck_no || '').toUpperCase() === truckNo.toUpperCase());
+        const d = entryDate.slice(0, 10);
+        return leases.some(L => {
+          const s = (L.start_date || '').slice(0, 10);
+          const e = (L.end_date || '9999-12-31').slice(0, 10);
+          return s <= d && d <= e;
+        });
+      })();
+
       // Delete all linked cash/diesel entries and recreate
       if (this.data.cash_transactions) this.data.cash_transactions = this.data.cash_transactions.filter(t => t.linked_entry_id !== id);
       if (this.data.diesel_accounts) this.data.diesel_accounts = this.data.diesel_accounts.filter(t => t.linked_entry_id !== id);
@@ -753,7 +779,7 @@ class JsonDatabase {
 
       // Recreate Jama (Ledger) entry for truck purchase
       const finalQntl = Math.round(((updated.qntl || 0) - (updated.bag || 0) / 100) * 100) / 100;
-      if (finalQntl > 0 && truckNo) {
+      if (finalQntl > 0 && truckNo && !isLeased) {
         const paymentDoc = this.data.truck_payments.find(p => p.entry_id === id);
         const rate = paymentDoc ? (paymentDoc.rate_per_qntl ?? 0) : 0;
         const grossAmount = roundAmount(finalQntl * rate);
@@ -810,7 +836,8 @@ class JsonDatabase {
           created_at: now, updated_at: now
         });
         // Also create Ledger Nikasi entry for cash deduction (counted against truck balance)
-        if (truckNo) {
+        // v104.44.108 — Skip for leased trucks
+        if (truckNo && !isLeased) {
           this.data.cash_transactions.push({
             id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'nikasi', category: truckNo,
             party_type: 'Truck',
