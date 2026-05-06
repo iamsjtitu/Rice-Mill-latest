@@ -219,7 +219,79 @@ async def delete_truck_lease(lease_id: str):
     return {"message": "Lease deleted", "id": lease_id}
 
 
+# v104.44.105 — End an active lease NOW (set end_date = today, status = ended)
+@router.post("/truck-leases/{lease_id}/end-now")
+async def end_lease_now(lease_id: str):
+    existing = await db.truck_leases.find_one({"id": lease_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Lease not found")
+    today = datetime.now().strftime("%Y-%m-%d")
+    await db.truck_leases.update_one(
+        {"id": lease_id},
+        {"$set": {"end_date": today, "status": "ended", "updated_at": now_iso()}},
+    )
+    return {**existing, "end_date": today, "status": "ended"}
+
+
+# v104.44.105 — Get trips for a specific month (for monthly drilldown)
+@router.get("/truck-leases/{lease_id}/trips/by-month/{month}")
+async def get_lease_trips_by_month(lease_id: str, month: str):
+    """month format: YYYY-MM. Returns trips done in that calendar month
+    that fall within the lease window."""
+    lease = await db.truck_leases.find_one({"id": lease_id}, {"_id": 0})
+    if not lease:
+        raise HTTPException(status_code=404, detail="Lease not found")
+    full = await _compute_lease_trips(lease)
+    month_trips = [t for t in full["trips"] if (t.get("date") or "").startswith(month)]
+    breakdown = {}
+    for t in month_trips:
+        key = t["source"] or "(unknown)"
+        breakdown.setdefault(key, {"source": key, "trips": 0, "qntl": 0})
+        breakdown[key]["trips"] += 1
+        breakdown[key]["qntl"] += t["qntl"]
+    return {
+        "month": month,
+        "trips": month_trips,
+        "trip_count": len(month_trips),
+        "total_qntl": round(sum(t["qntl"] for t in month_trips), 2),
+        "total_bags": sum(t.get("bag", 0) or 0 for t in month_trips),
+        "mandi_breakdown": sorted(
+            [{"source": v["source"], "trips": v["trips"], "qntl": round(v["qntl"], 2)}
+             for v in breakdown.values()],
+            key=lambda x: x["qntl"], reverse=True,
+        ),
+    }
+
+
 # ========== LEASE PAYMENT SUMMARY (monthly breakdown) ==========
+
+# v104.44.105 — Find cash_transactions that are payments to this lease's owner/truck
+# (when user pays from Cash Book directly without using "Pay Lease" button).
+async def _fetch_cashbook_payments_for_lease(lease):
+    """Returns cash_transactions matching the lease's truck/owner that should
+    count as lease payments. Excludes auto_ledger duplicates and entries already
+    linked via lease_pay reference (those are in truck_lease_payments)."""
+    truck_no = (lease.get("truck_no") or "").upper()
+    owner = (lease.get("owner_name") or "").strip()
+    if not truck_no:
+        return []
+    # Match category: "Truck Lease - {truck_no}" OR exact owner name OR contains truck_no
+    cat_patterns = [f"Truck Lease - {truck_no}", owner]
+    cat_patterns = [c for c in cat_patterns if c]
+    or_clauses = [{"category": c} for c in cat_patterns]
+    or_clauses.append({"category": {"$regex": truck_no, "$options": "i"}})
+    query = {
+        "$and": [
+            {"$or": or_clauses},
+            {"txn_type": "nikasi"},
+            # Skip auto_ledger mirrors (avoids double-counting)
+            {"reference": {"$not": {"$regex": "^auto_ledger:"}}},
+            # Skip already-linked lease_pay entries (those are in truck_lease_payments)
+            {"linked_payment_id": {"$not": {"$regex": f"^truck_lease:{lease['id']}:"}}},
+        ]
+    }
+    return await db.cash_transactions.find(query, {"_id": 0}).to_list(5000)
+
 
 @router.get("/truck-leases/{lease_id}/payments")
 async def get_lease_payments(lease_id: str):
@@ -229,13 +301,19 @@ async def get_lease_payments(lease_id: str):
     
     months = get_months_between(lease.get("start_date", ""), lease.get("end_date", ""))
     payments = await db.truck_lease_payments.find({"lease_id": lease_id}, {"_id": 0}).to_list(5000)
-    
+
+    # v104.44.105 — Also pull matching Cash Book payments (manual payments from cashbook)
+    cb_payments = await _fetch_cashbook_payments_for_lease(lease)
+
     # Group payments by month
     month_paid = {}
     for p in payments:
         m = p.get("month", "")
-        if m not in month_paid: month_paid[m] = 0
-        month_paid[m] += p.get("amount", 0)
+        month_paid[m] = month_paid.get(m, 0) + p.get("amount", 0)
+    # Cash book payments → infer month from date
+    for cb in cb_payments:
+        m = (cb.get("date") or "")[:7]
+        if m: month_paid[m] = month_paid.get(m, 0) + (cb.get("amount", 0) or 0)
     
     monthly_records = []
     total_rent = 0
@@ -344,7 +422,30 @@ async def make_lease_payment(lease_id: str, data: dict):
 @router.get("/truck-leases/{lease_id}/history")
 async def get_lease_payment_history(lease_id: str):
     payments = await db.truck_lease_payments.find({"lease_id": lease_id}, {"_id": 0}).to_list(5000)
-    return sorted(payments, key=lambda x: x.get("created_at", ""), reverse=True)
+
+    # v104.44.105 — Merge in matching Cash Book payments (so user sees ALL payments,
+    # including ones made directly from Cash Book without "Pay Lease" button).
+    lease = await db.truck_leases.find_one({"id": lease_id}, {"_id": 0})
+    cb_extras = []
+    if lease:
+        cb_payments = await _fetch_cashbook_payments_for_lease(lease)
+        for cb in cb_payments:
+            cb_extras.append({
+                "id": cb.get("id"),
+                "lease_id": lease_id,
+                "truck_no": lease["truck_no"],
+                "owner_name": lease.get("owner_name", ""),
+                "month": (cb.get("date") or "")[:7],
+                "amount": cb.get("amount", 0),
+                "account": cb.get("account", ""),
+                "bank_name": cb.get("bank_name", ""),
+                "payment_date": cb.get("date", ""),
+                "notes": cb.get("description", ""),
+                "source": "cashbook",  # marker so frontend can show badge
+                "created_at": cb.get("created_at") or cb.get("date", ""),
+            })
+    all_payments = list(payments) + cb_extras
+    return sorted(all_payments, key=lambda x: x.get("created_at", ""), reverse=True)
 
 
 # v104.44.101 — Trips done by leased truck during lease window

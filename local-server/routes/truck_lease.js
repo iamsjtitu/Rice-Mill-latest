@@ -240,9 +240,78 @@ module.exports = function(database) {
 
   // ========== HISTORY ==========
 
+  // v104.44.105 — Helper: find cash_transactions matching this lease's truck/owner
+  function fetchCashbookPaymentsForLease(lease) {
+    const truckNo = (lease.truck_no || '').toUpperCase();
+    const owner = (lease.owner_name || '').trim();
+    if (!truckNo) return [];
+    const cats = [`Truck Lease - ${truckNo}`, owner].filter(Boolean);
+    return (database.data.cash_transactions || []).filter(t => {
+      if (t.txn_type !== 'nikasi') return false;
+      if ((t.reference || '').startsWith('auto_ledger:')) return false;
+      if ((t.linked_payment_id || '').startsWith(`truck_lease:${lease.id}:`)) return false;
+      const cat = (t.category || '');
+      const exact = cats.includes(cat);
+      const fuzzy = truckNo && cat.toUpperCase().includes(truckNo);
+      return exact || fuzzy;
+    });
+  }
+
   router.get('/api/truck-leases/:id/history', safeSync(async (req, res) => {
+    const lease = (database.data.truck_leases || []).find(l => l.id === req.params.id);
     const payments = (database.data.truck_lease_payments || []).filter(p => p.lease_id === req.params.id);
-    res.json([...payments].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')));
+    const all = [...payments];
+    if (lease) {
+      const cb = fetchCashbookPaymentsForLease(lease);
+      cb.forEach(t => all.push({
+        id: t.id, lease_id: req.params.id, truck_no: lease.truck_no,
+        owner_name: lease.owner_name || '',
+        month: (t.date || '').slice(0, 7), amount: t.amount || 0,
+        account: t.account || '', bank_name: t.bank_name || '',
+        payment_date: t.date || '', notes: t.description || '',
+        source: 'cashbook',
+        created_at: t.created_at || t.date || ''
+      }));
+    }
+    res.json(all.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')));
+  }));
+
+  // v104.44.105 — End an active lease NOW
+  router.post('/api/truck-leases/:id/end-now', safeSync(async (req, res) => {
+    const idx = (database.data.truck_leases || []).findIndex(l => l.id === req.params.id);
+    if (idx < 0) return res.status(404).json({ detail: 'Lease not found' });
+    const today = new Date().toISOString().slice(0, 10);
+    database.data.truck_leases[idx].end_date = today;
+    database.data.truck_leases[idx].status = 'ended';
+    database.data.truck_leases[idx].updated_at = new Date().toISOString();
+    database.save();
+    res.json(database.data.truck_leases[idx]);
+  }));
+
+  // v104.44.105 — Trips for a specific month (drilldown)
+  router.get('/api/truck-leases/:id/trips/by-month/:month', safeSync(async (req, res) => {
+    const lease = (database.data.truck_leases || []).find(l => l.id === req.params.id);
+    if (!lease) return res.status(404).json({ detail: 'Lease not found' });
+    const month = req.params.month;
+    const full = computeLeaseTrips(database, lease);
+    const monthTrips = full.trips.filter(t => (t.date || '').startsWith(month));
+    const breakdown = {};
+    monthTrips.forEach(t => {
+      const k = t.source || '(unknown)';
+      breakdown[k] = breakdown[k] || { source: k, trips: 0, qntl: 0 };
+      breakdown[k].trips += 1;
+      breakdown[k].qntl += t.qntl;
+    });
+    res.json({
+      month,
+      trips: monthTrips,
+      trip_count: monthTrips.length,
+      total_qntl: +monthTrips.reduce((s, t) => s + t.qntl, 0).toFixed(2),
+      total_bags: monthTrips.reduce((s, t) => s + (t.bag || 0), 0),
+      mandi_breakdown: Object.values(breakdown)
+        .map(b => ({ ...b, qntl: +b.qntl.toFixed(2) }))
+        .sort((a, b) => b.qntl - a.qntl),
+    });
   }));
 
   // v104.44.101 — Trips done by leased truck within lease window

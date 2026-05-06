@@ -7,6 +7,17 @@ import { APP_VERSION } from "@/utils/constants-version";
 
 const CHANGELOG = [
   {
+    version: "104.44.105",
+    date: "Feb 04, 2026",
+    title: "v104.44.105 — Lease End Now + Month Drilldown + Cashbook Sync",
+    items: [
+      { type: "feature", text: "🛑 **End Now Button** — Active lease ko manually end kar sakte ho. Orange icon click karein → confirm → end_date today aur status='ended'. Iske baad us truck ki entries Truck Payments mein wapas dikhne lagengi." },
+      { type: "feature", text: "📅 **Month-wise Trip Drilldown** — Payment history mein har month (Jan 2026, Feb 2026, etc.) ke aage chevron icon. Click karne pe us mahine ke saare trips dikhte hain: Date, RST/Voucher, Mandi/Source, Type, Net Qntl, Bags. Stats: Total Trips, Total Qntl, Total Bags, Source breakdown." },
+      { type: "feature", text: "💰 **Cash Book ↔ Leased Truck Sync** — Ab agar aap Cash Book / Party Ledger se direct truck owner ko payment karte ho (without using 'Pay Lease' button), woh automatically Leased Truck mein bhi dikhega: Payment History mein 'via Cash Book' badge ke saath, aur monthly Paid amount mein bhi count hoga (mark as paid auto-update). Category match: 'Truck Lease - {truck_no}' ya owner_name." },
+      { type: "improvement", text: "✅ **Driver Khana + Diesel = Lease Se Separate** — Confirmed: mill_entries.cash_paid (driver food) aur diesel_paid lease se totally alag rahein. Sirf truck owner ke saath rent/advance ka relationship hai." },
+    ],
+  },
+  {
     version: "104.44.104",
     date: "Feb 04, 2026",
     title: "v104.44.104 — Critical Boot Fix (tray variable)",

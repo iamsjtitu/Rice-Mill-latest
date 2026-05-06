@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Trash2, CreditCard, History, Printer, IndianRupee, Calendar, Truck, Edit, Send, Users, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Plus, Trash2, CreditCard, History, Printer, IndianRupee, Calendar, Truck, Edit, Send, Users, ChevronDown, ChevronUp, Loader2, StopCircle } from "lucide-react";
 import { printHtml } from "@/components/PrintButton";
 import { buildSlipReceipt } from "../utils/slipReceipt";
 import { useConfirm } from "./ConfirmProvider";
@@ -52,6 +52,38 @@ export default function LeasedTruck({ filters }) {
   // v104.44.101 — Trip details (expand toggle per lease)
   const [expandedTrips, setExpandedTrips] = useState({}); // { lease_id: tripData }
   const [loadingTrips, setLoadingTrips] = useState({});
+  // v104.44.105 — Month-wise trip drilldown (inside payments dialog)
+  const [expandedMonth, setExpandedMonth] = useState(null); // "2026-01"
+  const [monthTrips, setMonthTrips] = useState(null);
+  const [loadingMonthTrips, setLoadingMonthTrips] = useState(false);
+
+  const fetchMonthTrips = useCallback(async (leaseId, month) => {
+    if (expandedMonth === month) {
+      setExpandedMonth(null);
+      setMonthTrips(null);
+      return;
+    }
+    setLoadingMonthTrips(true);
+    setExpandedMonth(month);
+    try {
+      const res = await axios.get(`${API}/truck-leases/${leaseId}/trips/by-month/${month}`);
+      setMonthTrips(res.data);
+    } catch (e) {
+      logger.error(e);
+      toast.error("Trips load nahi hue");
+      setMonthTrips(null);
+    } finally { setLoadingMonthTrips(false); }
+  }, [expandedMonth]);
+
+  const handleEndNow = useCallback(async (lease) => {
+    const today = new Date().toISOString().split("T")[0];
+    if (!window.confirm(`Lease ko aaj (${today}) end kar dein? Iske baad iss truck ki entries Truck Payments mein wapas dikhne lagengi.`)) return;
+    try {
+      await axios.post(`${API}/truck-leases/${lease.id}/end-now`);
+      toast.success(`Lease ended on ${today}`);
+      fetchLeases();
+    } catch (e) { toast.error(e.response?.data?.detail || "End nahi kar paya"); }
+  }, []);
 
   const toggleTrips = useCallback(async (lease) => {
     const id = lease.id;
@@ -287,6 +319,8 @@ export default function LeasedTruck({ filters }) {
                           className="text-blue-400 hover:text-blue-300 h-7 w-7 p-0"><Edit className="w-3.5 h-3.5" /></Button>
                         <Button variant="ghost" size="sm" onClick={() => handleShowHistory(l)}
                           className="text-cyan-400 hover:text-cyan-300 h-7 w-7 p-0"><History className="w-3.5 h-3.5" /></Button>
+                        {l.status === "active" && <Button variant="ghost" size="sm" onClick={() => handleEndNow(l)} title="End Lease Now"
+                          className="text-orange-400 hover:text-orange-300 h-7 w-7 p-0" data-testid={`lease-end-now-${l.truck_no}`}><StopCircle className="w-3.5 h-3.5" /></Button>}
                         {wa && <Button variant="ghost" size="sm" onClick={() => handleWhatsAppLease(l)}
                           className="text-green-400 hover:text-green-300 h-7 w-7 p-0" title="WhatsApp" data-testid={`lease-wa-${l.truck_no}`}><Send className="w-3.5 h-3.5" /></Button>}
                         {wa && <Button variant="ghost" size="sm" title="Send to Group" data-testid={`lease-group-${l.truck_no}`}
@@ -403,8 +437,14 @@ export default function LeasedTruck({ filters }) {
                 </tr></thead>
                 <tbody>
                   {paymentData.monthly_records.map(r => (
-                    <tr key={r.month} className="border-b border-slate-700/50 hover:bg-slate-700/30" data-testid={`month-row-${r.month}`}>
-                      <td className="p-3 text-white font-medium"><Calendar className="w-3.5 h-3.5 inline mr-1 text-slate-500" />{fmtMonth(r.month)}</td>
+                    <Fragment key={r.month}>
+                    <tr className="border-b border-slate-700/50 hover:bg-slate-700/30" data-testid={`month-row-${r.month}`}>
+                      <td className="p-3 text-white font-medium">
+                        <button onClick={() => fetchMonthTrips(selectedLease.id, r.month)} className="inline-flex items-center mr-2 text-amber-400 hover:text-amber-300" data-testid={`month-toggle-${r.month}`}>
+                          {expandedMonth === r.month ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        </button>
+                        <Calendar className="w-3.5 h-3.5 inline mr-1 text-slate-500" />{fmtMonth(r.month)}
+                      </td>
                       <td className="p-3 text-right text-slate-300">Rs. {fmtAmt(r.rent)}</td>
                       <td className="p-3 text-right text-emerald-400 font-medium">Rs. {fmtAmt(r.paid)}</td>
                       <td className="p-3 text-right text-red-400">Rs. {fmtAmt(r.balance)}</td>
@@ -424,6 +464,72 @@ export default function LeasedTruck({ filters }) {
                         </div>
                       </td>
                     </tr>
+                    {expandedMonth === r.month && (
+                      <tr className="bg-slate-900/60 border-b border-slate-700/50">
+                        <td colSpan={6} className="p-4">
+                          {loadingMonthTrips ? (
+                            <div className="text-center text-slate-400 py-2"><Loader2 className="w-4 h-4 animate-spin inline mr-2" />Loading trips for {fmtMonth(r.month)}...</div>
+                          ) : monthTrips ? (
+                            <>
+                              <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
+                                <div className="bg-slate-800 rounded p-2 border border-slate-700">
+                                  <div className="text-slate-400 uppercase">Trips</div>
+                                  <div className="text-amber-400 text-lg font-bold">{monthTrips.trip_count}</div>
+                                </div>
+                                <div className="bg-slate-800 rounded p-2 border border-slate-700">
+                                  <div className="text-slate-400 uppercase">Total Qntl</div>
+                                  <div className="text-emerald-400 text-lg font-bold">{monthTrips.total_qntl?.toFixed(2)} Q</div>
+                                </div>
+                                <div className="bg-slate-800 rounded p-2 border border-slate-700">
+                                  <div className="text-slate-400 uppercase">Total Bags</div>
+                                  <div className="text-cyan-400 text-lg font-bold">{monthTrips.total_bags || 0}</div>
+                                </div>
+                              </div>
+                              {monthTrips.mandi_breakdown?.length > 0 && (
+                                <div className="mb-3 flex flex-wrap gap-2">
+                                  {monthTrips.mandi_breakdown.map((m, i) => (
+                                    <Badge key={i} className="bg-blue-500/15 text-blue-300 border border-blue-500/30 text-[10px]">
+                                      {m.source}: <span className="ml-1 font-bold">{m.trips}T · {m.qntl.toFixed(2)}Q</span>
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                              {monthTrips.trips?.length > 0 ? (
+                                <div className="overflow-x-auto rounded border border-slate-700 max-h-72 overflow-y-auto">
+                                  <table className="w-full text-xs">
+                                    <thead className="bg-slate-800 sticky top-0">
+                                      <tr className="text-slate-400">
+                                        <th className="text-left p-2">Date</th>
+                                        <th className="text-left p-2">RST/Voucher</th>
+                                        <th className="text-left p-2">Source/Dest</th>
+                                        <th className="text-left p-2">Type</th>
+                                        <th className="text-right p-2">Qntl</th>
+                                        <th className="text-right p-2">Bag</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {monthTrips.trips.map((t, i) => (
+                                        <tr key={i} className="border-t border-slate-700/50 hover:bg-slate-800/50">
+                                          <td className="p-2 text-slate-300">{(t.date || "").split("-").reverse().join("/")}</td>
+                                          <td className="p-2 text-slate-300 font-mono">{t.rst_no}</td>
+                                          <td className="p-2 text-slate-200">{t.source}</td>
+                                          <td className="p-2"><Badge className="bg-slate-700 text-slate-300 text-[9px]">{t.source_type}</Badge></td>
+                                          <td className="p-2 text-right text-emerald-400 font-medium">{t.qntl?.toFixed(2)}</td>
+                                          <td className="p-2 text-right text-slate-300">{t.bag || '-'}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              ) : (
+                                <div className="text-center text-slate-500 py-3 text-xs italic">{fmtMonth(r.month)} mein koi trip nahi mili</div>
+                              )}
+                            </>
+                          ) : null}
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
@@ -529,7 +635,10 @@ export default function LeasedTruck({ filters }) {
                     <td className="p-2 text-slate-300">{p.payment_date}</td>
                     <td className="p-2 text-white">{fmtMonth(p.month)}</td>
                     <td className="p-2 text-right text-emerald-400 font-medium">Rs. {fmtAmt(p.amount)}</td>
-                    <td className="p-2 text-slate-300">{p.account}{p.bank_name ? ` (${p.bank_name})` : ""}</td>
+                    <td className="p-2 text-slate-300">
+                      {p.account}{p.bank_name ? ` (${p.bank_name})` : ""}
+                      {p.source === "cashbook" && <Badge className="ml-2 bg-blue-500/20 text-blue-300 text-[9px]" data-testid="badge-cashbook">via Cash Book</Badge>}
+                    </td>
                     <td className="p-2 text-slate-400">{p.notes || "-"}</td>
                   </tr>
                 ))}
